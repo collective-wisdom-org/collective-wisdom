@@ -7,7 +7,7 @@ All agents working on this repo must follow these rules.
 **<Project>** is <one line>.
 
 - Stack: <stack>. Update this section and `docs/agents/project.md` as it changes.
-- Repo-specific facts (Linear team and prefix, commands, repo invariants): `docs/agents/project.md`.
+- Repo-specific facts (tracker, its scope and prefix, commands, repo invariants): `docs/agents/project.md`.
 
 ## Required reading
 
@@ -24,13 +24,13 @@ All agents working on this repo must follow these rules.
 
 ## Workflow
 
-- Write or edit Linear tickets with the `write-ticket` skill.
-- **One Linear issue = one branch = one PR**
-- Branch naming and Linear identifiers: see `docs/agents/project.md`
-- Link the Linear issue in the PR description
-- Move Linear issue to **In Review** when PR is open, **Done** when merged
+- Write or edit tickets with the `write-ticket` skill.
+- **One ticket = one branch = one PR**
+- Branch naming and ticket identifiers: see `docs/agents/project.md`
+- Link the ticket in the PR description
+- Move the ticket to **In Review** when PR is open, **Done** when merged
 - Run the test command from `docs/agents/project.md` before opening a PR
-- Do not expand scope beyond the assigned Linear issue
+- Do not expand scope beyond the assigned ticket
 
 ## Testing
 

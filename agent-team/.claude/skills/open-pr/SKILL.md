@@ -37,9 +37,9 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 **Overlays on creating-pr:**
 
 - Use `./scripts/gh.sh` instead of bare `gh` (creating-pr already shows `./scripts/gh.sh pr create`).
-- PR body: link **<PREFIX>-N**, spec path, and as-built path (after closeout commit below).
+- PR body: link **<PREFIX>-N** (`ticket-url`), spec path, and as-built path (after closeout commit below). When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
 - When `scripts/gh-bot.sh` exists, use bot push per agent-pr-identities plan; until then, human remote push is OK.
-- **Linear MCP:** move linked issue to **In Review** (`save_issue`) when available.
+- **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available. Tracker operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
 - **CI:** `./scripts/gh.sh pr checks --watch`, or a PR/CI subscription when the agent has one.
 
 ### Closeout docs
@@ -48,7 +48,7 @@ Right after the PR exists (PR number known), before the first code review pass:
 
 Read **superpowers-project-memory** for as-built template. **Overrides:**
 
-- As-built header: `**Shipped:** in PR #N` (no date). Also `**Linear:** <PREFIX>-N`.
+- As-built header: `**Shipped:** in PR #N` (no date). Also `**Ticket:** <PREFIX>-N`.
 - Set linked spec `**Status:** Shipped`.
 - Add your as-built row to `docs/superpowers/index/<prefix>-N.md`.
 
