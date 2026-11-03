@@ -1,6 +1,6 @@
 # Tracker choice: Linear, GitHub Issues or Jira
 
-**Status:** Draft, awaiting approval
+**Status:** Shipped
 **Branch:** `feat/tracker-choice` (no ticket; this repo has no Linear project)
 **Plan:** [2026-11-03-tracker-choice.md](../plans/2026-11-03-tracker-choice.md)
 
