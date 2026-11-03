@@ -22,6 +22,7 @@ flowchart TB
     Child["Ship-loop child<br/>one per ticket, up to 5 active, one per lane slot<br/>T3 thread in its own worktree"]
 
     Impl["Implementer subagent"]
+    Docs["Documenter subagent<br/>read only"]
     CR["Code review"]
     SR["Security review"]
 
@@ -33,6 +34,7 @@ flowchart TB
     Chief -- "delegate_task to start · CHIEF OF STAFF: relays" --> Child
     Child -- "SPEC READY · MERGE READY · BLOCKED: · MERGED #35;N" --> Chief
     Child -- "Agent tool" --> Impl
+    Child --> Docs
     Child --> CR
     Child --> SR
 
@@ -56,7 +58,7 @@ flowchart TB
 flowchart LR
     Todo["Todo"] --> Spec["spec<br/>child writes the spec"]
     Spec -- "SPEC READY" --> AS["awaiting-spec<br/>the user approves the spec"]
-    AS -- "approved" --> Build["build<br/>plan, build, PR,<br/>code review, security review"]
+    AS -- "approved" --> Build["build<br/>plan, build, PR, docs check,<br/>code review, security review"]
     Build -- "MERGE READY" --> AM["awaiting-merge<br/>the user approves the merge"]
     AM -- "approved" --> Merge["merge<br/>child squash-merges"]
     AS -. "approved while the build lane is full" .-> BQ["build-queued"] --> Build
@@ -88,10 +90,11 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 | Ticket helper | Sonnet 5.5 at effort high, in a one-shot `delegate_task` thread at the root checkout on `main`, one per ticket request, no lane slot and not in state | No. Read only outside Linear | New tickets, edits, epics, links and labels. Never moves a ticket to Todo, In Progress or Done | Never | No | [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) § Ticket helper, [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md), [role doc](ticket-writer.md) |
 | Ship-loop child | Opus 5.5 for the spec, Sonnet 5.5 for build and merge, in a T3 thread in its own worktree, one per ticket, up to 5 active at once, one per lane slot | Yes, on its own `feat/<prefix>-N-*` branch. Never pushes to `main` | Its own ticket only (In Review, Done) | Yes, after a relayed approval it confirms in the Chief of Staff thread | Native subagents through the Agent tool. Never `delegate_task` | [`ship-loop`](../../.claude/skills/ship-loop/SKILL.md) § Team mode and the skills it calls |
 | Implementer | Claude Code subagent (Sonnet) | Yes, the task it's given | Not in its brief | No | No | `~/.claude/agents/implementer.md` (user-level, outside the repo) |
+| Documenter | Claude Code subagent (Sonnet), started by the child after the closeout commit and before a code review pass when commits since the last check changed what ships | No. Read only; reports stale docs and the child fixes them | No | No | No | [`.claude/agents/documenter.md`](../../.claude/agents/documenter.md), [role doc](documenter.md) |
 | Code review | `reviewing-code` skill, run by the child or a review subagent (Opus 5.5; always the subagent in team mode) | No. Posts a `## Code review (pass N)` PR comment | No | No. Never approves or requests changes on GitHub | No | [`open-pr`](../../.claude/skills/open-pr/SKILL.md) § agent review comment loop |
 | Security review | `/security-review` plus the OWASP list, or a subagent (Opus 5.5; always the subagent in team mode) | No. Posts a `## Security review (pass N)` PR comment | No | No | No | [`security-review`](../../.claude/skills/security-review/SKILL.md), [security-review.md](security-review.md) |
 
-The child fixes what the reviews find; the reviews only report.
+The child fixes what the documenter and the reviews find; they only report.
 
 ## How approval travels
 
@@ -106,4 +109,5 @@ The child fixes what the reviews find; the reviews only report.
 - [`project.md`](project.md): the one place for repo-specific facts (Linear team and prefix, branch pattern, commands, repo invariants). The skills read it instead of hardcoding them.
 - [`README.md`](README.md): index of the docs here. Area role docs get added once the stack is scaffolded.
 - [`ticket-writer.md`](ticket-writer.md): the ticket helper's role file. Points at the [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md) skill.
+- [`documenter.md`](documenter.md): the documenter subagent's role file and the checklist of docs that must stay current. `.claude/agents/documenter.md` points at it.
 - [`github-auth.md`](github-auth.md), [`security-review.md`](security-review.md): reference docs.
