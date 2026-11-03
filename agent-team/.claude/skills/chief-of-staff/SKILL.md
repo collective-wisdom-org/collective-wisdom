@@ -25,7 +25,7 @@ You act only when something wakes this thread: start-up (`start the team`, `take
 Tools:
 
 - T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`. `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
-- Tracker: the operations in the adapter doc. Tracker operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
+- Tracker: the operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
 - Bash, for `python3 scripts/cos_state.py` (`show`, `get`, `apply`; every state read and write), `python3 scripts/cos_brief.py` (`spec`, `pr`; approval inputs), `python3 scripts/cos_user_check.py` (`latest`, `item`; the user's-message check), the rotation check (`python3 scripts/cos_rotation_check.py`, § Thread rotation), the idle check (`python3 scripts/cos_idle_check.py`, § Lean turns), the merged check (`python3 scripts/cos_merged_check.py --apply`, § Merged check), the parent check (`python3 scripts/cos_parent_check.py --thread <this thread's id>`) and the take-over `sleep`. Exit codes: 0 ok, 1 a check failed or an edit was rejected, 2 could not read its input.
 - GitHub, read only, for the project manager pass, § Approval requests and the restart message in step 3: `./scripts/gh.sh pr list`, `pr view` and `api` GET requests. The merged check calls `./scripts/gh.sh pr list` itself.
 
@@ -316,7 +316,7 @@ This thread stays open all day and every turn re-reads all of it, so keep each t
 
 Reads:
 
-- Tracker operations: Tracker operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`. The efficiency rules in the README apply on every tracker, and the adapter lists the tracker-only ones.
+- Tracker operations: in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`. The efficiency rules in the README apply on every tracker, and the adapter lists the tracker-only ones.
 - `list-tickets` always asks for only the fields the step uses.
 - `get-ticket` names its fields. Ask for `description` only in the readiness check, in the project manager's duplicate check, and in the Todo fill's step 2.
 - `t3_thread_read` on a child: `afterPosition` from state, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`. If a marker block is cut off, read just that item with `itemId` and `textOffset`.

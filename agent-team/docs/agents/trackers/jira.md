@@ -61,7 +61,7 @@ The status map holds the exact status names of your workflow. `project_config.va
 
 - state: `status = "<mapped name>"`; Backlog is the Backlog status name
 - label: `labels = "<name>"`
-- title text: `summary ~ "<words>"`, with each `"` and `\` in the words escaped by a backslash
+- title text: `summary ~ "<words>"`, with each `"` and `\` in the words escaped by a backslash. Text search also reads some characters and words as operators (`AND`, `OR`, `NOT`, `+`, `-`, a leading `(`). Keep the words inside the quotes so they stay a phrase. Atlassian's text-search page does not list every reserved character or give a full escape rule (checked 2026-11-03), so the rest is unverified; a stray operator only changes which tickets match, not the safety of the query.
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`

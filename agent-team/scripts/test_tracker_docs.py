@@ -78,7 +78,9 @@ def test_skills_and_docs_name_no_tracker_tool():
     assert not hits, "tracker tool names outside trackers/:\n" + "\n".join(hits)
 
 
-UNSAFE_FLAG = re.compile(r"--(?:body|title|search|description)\s+\"")
+UNSAFE_FLAG = re.compile(
+    r"(?:--(?:body|title|search|description)(?:\s+|=)|\s-[btS]\s+)\""
+)
 
 
 def command_lines(text):
@@ -108,7 +110,42 @@ def test_adapter_puts_no_free_text_in_double_quotes(adapter):
     assert not hits, f"{adapter}: free text in double quotes:\n" + "\n".join(hits)
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        'gh issue create --body "x"',
+        'gh issue create --body="x"',
+        'gh issue create --title="x"',
+        'gh issue create --title "x"',
+        'gh issue create -b "x"',
+        'gh issue create -t "x"',
+        'gh issue list -S "x"',
+        'gh issue list --search "x"',
+        'gh issue list --search="x"',
+    ],
+)
+def test_unsafe_flag_catches_double_quoted_forms(line):
+    assert UNSAFE_FLAG.search(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "gh issue create --title 'x' --body-file -",
+        "gh issue list -S 'x'",
+        "gh issue list --label \"x\"",
+    ],
+)
+def test_unsafe_flag_allows_safe_forms(line):
+    assert not UNSAFE_FLAG.search(line)
+
+
 def test_readme_states_the_shell_safety_rule():
     text = (TRACKERS / "README.md").read_text()
     assert "## Shell safety" in text
-    assert "untrusted" in text.lower()
+    section = text.split("## Shell safety", 1)[1].split("\n## ", 1)[0]
+    assert "untrusted" in section.lower()
+    assert "--body-file -" in section
+    assert "heredoc" in section
+    assert "single quotes" in section
+    assert "double-quoted" in section
