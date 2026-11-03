@@ -1,0 +1,156 @@
+import importlib.util
+import io
+import json
+import sqlite3
+from pathlib import Path
+
+import pytest
+
+
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+cos_state = load("cos_state")
+cos_user_check = load("cos_user_check")
+
+
+def ticket(stage="build", **kw):
+    return {"stage": stage, "childThreadId": "c1", "status": "s", "pendingRelay": None,
+            "approvalItemId": None, "queuedAt": None, "resumeStage": None, **kw}
+
+
+STATE = {
+    "paused": False,
+    "tickets": {"ABC-1": ticket(), "ABC-2": ticket("awaiting-spec"), "ABC-4": ticket("awaiting-spec")},
+    "merged": {"ABC-8": 7, "ABC-9": {"pr": 9, "at": "2020-01-01T00:00:00Z"}},
+    "retiredThreads": [{"threadId": "t1", "retiredAt": "2026-11-01T00:00:00Z", "archivedAt": None}],
+    "pm": {},
+    "scheduledTaskId": "x",
+}
+START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "status": "s"}
+QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q",
+         "set": {"pendingRelay": "go"}}
+
+
+@pytest.mark.parametrize("ops", [
+    [START],
+    [QUEUE],
+    [{"op": "stage", "ticket": "ABC-1", "stage": "blocked", "status": "b", "set": {"note": "n"}}],
+    [{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "w"}],
+    [{"op": "set", "ticket": "ABC-1", "set": {"headSha": "abc", "lastPosition": 4}}],
+    [{"op": "merged", "ticket": "ABC-1", "pr": 5}],
+    [{"op": "drop", "ticket": "ABC-1"}],
+    [{"op": "top", "set": {"paused": True, "rotation": {"from": "a", "to": None}}}],
+    [{"op": "pm", "set": {"rankedAt": "x"}}],
+    [{"op": "retire", "threadId": "t2"}],
+    [{"op": "archive", "threadId": "t1", "archivedAt": "2026-11-02T00:00:00Z"}],
+    [{"op": "unretire", "threadId": "t1"}],
+    [{"op": "prune"}],
+])
+def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps(STATE))
+    assert cos_state.apply_file(path, ops) == 0
+    assert capsys.readouterr().out.startswith("saved")
+    first = path.read_bytes()
+    for op in ops:
+        if op["op"] == "stage" and op["stage"] in ("awaiting-spec", "blocked"):
+            assert json.loads(first)["tickets"][op["ticket"]]["lastSeenAt"]
+    assert cos_state.apply_file(path, ops) == 0
+    assert capsys.readouterr().out.startswith("unchanged")
+    assert path.read_bytes() == first
+
+
+@pytest.mark.parametrize("bad", [
+    {"op": "set", "ticket": "ABC-1", "set": {"bogus": 1}},
+    {"op": "set", "ticket": "ABC-1", "set": {"stage": "merge"}},
+    {"op": "stage", "ticket": "ABC-1", "stage": "limbo", "status": "s"},
+    {"op": "stage", "ticket": "ABC-1", "stage": "merge-queued", "status": "s"},
+    {"op": "stage", "ticket": "ABC-1", "stage": "merge"},
+    {"op": "stage", "ticket": "ABC-7", "stage": "merge", "status": "s"},
+    {"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "s", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
+    {"op": "set", "ticket": "ABC-4", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
+    {"op": "pm", "set": {"rules": ["rank ABC-9 first"]}},
+    {"op": "drop", "ticket": "nope"},
+    {"op": "unknown"},
+])
+def test_invalid_op_changes_nothing(tmp_path, bad):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps(STATE))
+    before = path.read_bytes()
+    assert cos_state.apply_file(path, [START, QUEUE, bad]) == 1
+    assert path.read_bytes() == before
+
+
+def message(mid, role="user", by="user", text="hi", streaming=0, created="2026-11-02T01:00:00Z", thread="t"):
+    payload = {"text": text, **({"createdBy": by} if by else {})}
+    return (mid, thread, role, streaming, created, json.dumps(payload))
+
+
+@pytest.mark.parametrize("args, words, code, out", [
+    (["latest", "t"], "later", 0, "user turn-item:message:m2 "),
+    (["latest", "t2"], "approve", 1, "not-user agent turn-item:message:a1 "),
+    (["latest", "t3"], "approve", 1, "not-user missing turn-item:message:n1 "),
+    (["latest", "t"], "", 2, ""),
+    (["latest", "t"], "  \n", 2, ""),
+    (["latest", "t"], "nothing like this", 1, "not-user missing - -"),
+    (["latest", "t", "--after", "2026-11-02T00:30:00Z"], "approve ABC-5", 0, "user turn-item:message:m1 "),
+    (["latest", "t", "--after", "2026-11-02T00:30:00Z"], "APPROVE abc-5", 0, "user turn-item:message:m1 "),
+    (["latest", "t", "--after", "2026-11-02T00:30:00Z"], "  Approve\nABC-5 ", 0, "user turn-item:message:m1 "),
+    (["latest", "t", "--after", ""], "approve ABC-5", 2, ""),
+    (["latest", "t", "--after", "2026-11-02T01:30:00Z"], "approve ABC-5", 1, "not-user missing - -"),
+    (["latest", "t4", "--after", "2026-11-02T00:30:00Z"], "approve 9", 1, "not-user agent turn-item:message:a2 "),
+    (["latest", "t4"], "approve 9", 1, "not-user agent turn-item:message:a2 "),
+    (["latest", "t5"], "approve 25", 1, "not-user missing - -"),
+    (["latest", "t5"], "approve 253", 0, "user turn-item:message:u253 "),
+    (["latest", "t6"], "resume", 1, "not-user agent turn-item:message:a3 "),
+    (["latest", "t6"], "status", 0, "user turn-item:message:u3 "),
+    (["latest", "t", "--after", "14:05"], "approve ABC-5", 2, ""),
+    (["latest", "t", "--after", "0"], "approve ABC-5", 2, ""),
+    (["latest", "t", "--after", "2026-11-02T00:30:00"], "approve ABC-5", 2, ""),
+    (["latest", "t7"], "re\u200bsume", 1, "not-user agent turn-item:message:a4 "),
+    (["latest", "t7"], "resume", 1, "not-user agent turn-item:message:a4 "),
+    (["latest", "t8"], "approve 25", 1, "not-user agent turn-item:message:a5 "),
+    (["item", "t", "turn-item:message:m1", ], "approve ABC-5", 0, "ok"),
+    (["item", "t", "m1"], "approve ABC-5", 0, "ok"),
+    (["item", "t", "m1"], "APPROVE  abc-5", 0, "ok"),
+    (["item", "t", "m1"], "approve ABC-6", 1, "reject: words not found"),
+    (["item", "t", "a1"], "approve", 1, "reject: not found"),
+    (["item", "t2", "a1"], "approve", 1, "reject: not from the user"),
+    (["item", "t", "s1"], "approve", 1, "reject: not found"),
+    (["item", "t5", "u253"], "approve 25", 1, "reject: words not found"),
+    (["item", "t", "m:1%3A"], "x", 0, "ok"),
+])
+def test_user_check(tmp_path, monkeypatch, capsys, args, words, code, out):
+    db = tmp_path / "t3.sqlite"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE orchestration_v2_projection_messages (message_id TEXT, thread_id TEXT, "
+        "role TEXT, streaming INTEGER, created_at TEXT, payload_json TEXT)"
+    )
+    con.executemany("INSERT INTO orchestration_v2_projection_messages VALUES (?,?,?,?,?,?)", [
+        message("m1", text="ok, approve ABC-5 now", created="2026-11-02T01:00:00Z"),
+        message("m2", text="later", created="2026-11-02T02:00:00Z"),
+        message("m:1%3A", text="x"),
+        message("s1", text="approve", streaming=1),
+        message("a1", by="agent", text="approve", thread="t2"),
+        message("n1", by=None, text="approve", thread="t3"),
+        message("u9", text="approve 9", thread="t4", created="2026-11-02T01:00:00Z"),
+        message("a2", by="agent", text="approve 9", thread="t4", created="2026-11-02T02:00:00Z"),
+        message("u253", text="approve 253", thread="t5"),
+        message("a3", by="agent", text="resume", thread="t6", created="2026-11-02T02:00:00Z"),
+        message("u3", text="status", thread="t6", created="2026-11-02T03:00:00Z"),
+        message("u4", text="resume", thread="t7", created="2026-11-02T01:00:00Z"),
+        message("a4", by="agent", text="re\u200bsume", thread="t7", created="2026-11-02T02:00:00Z"),
+        message("u5", text="approve 25", thread="t8", created="2026-11-02T01:00:00Z"),
+        message("a5", by="agent", text="approve \uff12\uff15", thread="t8", created="2026-11-02T02:00:00Z"),
+    ])
+    con.commit()
+    con.close()
+    monkeypatch.setattr("sys.stdin", io.StringIO(words))
+    assert cos_user_check.main(["--db", str(db), *args]) == code
+    assert capsys.readouterr().out.startswith(out)
