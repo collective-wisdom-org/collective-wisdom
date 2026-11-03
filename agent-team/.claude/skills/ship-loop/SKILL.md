@@ -19,7 +19,7 @@ Before any phase work, apply **Repo invariants** below. Other agent-team skills 
 |------------|----------------------------|
 | Build → done | Plan implemented; verification green in the feature worktree. |
 | Build → Merge | **Forbidden.** Must open a PR and finish phases 3 and 4 first. |
-| PR opened → Security-ready | Phase 3 **complete**: PR exists, closeout docs committed on the branch (see `open-pr` § Closeout docs), CI green, **open-pr** feedback loop finished, and the **latest code review** agent PR comment has **Verdict: PASS** (see `open-pr` § Agent review comment loop). |
+| PR opened → Security-ready | Phase 3 **complete**: PR exists, closeout docs committed on the branch (see `open-pr` § Closeout docs), docs check current (see `open-pr` § Docs check), CI green, **open-pr** feedback loop finished, and the **latest code review** agent PR comment has **Verdict: PASS** (see `open-pr` § Agent review comment loop). |
 | Security-ready → Merge-ready | Phase 4 **complete**: **security-review** finished, and the **latest security review** PR comment has **Verdict: PASS** (see `security-review` § PR comment loop). |
 | Merge-ready → Merge | User explicitly asks to merge (**phase 5** only). |
 
@@ -45,7 +45,7 @@ Respect **planner-delegates** when it applies: parent plans; implementer edits f
 
 **Invoke:** `open-pr` (read and follow in full).
 
-Opening the PR is only the start of this phase. Right after PR creation, commit closeout docs on the branch per **open-pr** § Closeout docs, then in the **same session** run the full feedback loop (autopilot + agent review comment loop) until **Done when** in `open-pr` — including a **Verdict: PASS** code review comment on the PR. Repeat until security-ready or blocked. Do **not** merge in this phase.
+Opening the PR is only the start of this phase. Right after PR creation, commit closeout docs on the branch per **open-pr** § Closeout docs, run the docs check per **open-pr** § Docs check, then in the **same session** run the full feedback loop (autopilot + agent review comment loop) until **Done when** in `open-pr` — including a **Verdict: PASS** code review comment on the PR. Repeat until security-ready or blocked. Do **not** merge in this phase.
 
 End-of-phase handoff: report **code review complete** / proceed to phase 4 — not merge-ready.
 
@@ -107,11 +107,14 @@ Applies only when the task text or a relayed message says `TEAM MODE`. A Chief o
   Differs from spec: <bullets, or "nothing">
   Reviews found and fixed:
   - <finding> → <fix>
+  Docs checked: <files changed, or "nothing stale">
   Left open or deferred: <bullets with ticket IDs, or "nothing">
   Migrations: <file names and revision numbers, or "none">
   After deploy: <what users see change, or "nothing visible">
   Checks that didn't really run: <bullets, or "none">
   ```
+
+  "Docs checked" comes from the `Docs checked:` line of the latest code review comment.
 
   "Checks that didn't really run" means CI jobs that were skipped, tests marked skip, and manual checks the plan listed that you couldn't do (for example, a visual check without a browser).
 - **Run endings.** A run ends only with a marker: `SPEC READY`, `MERGE READY`, `BLOCKED:` or `MERGED #N`. Anything else ("waiting on CI", "I'll post the review once CI finishes") is a progress note. Write it if useful, then keep going. After `t3_background_wait`, ending your turn is fine and is not a run ending: the thread stays Working and you are woken when the command exits. Don't write a closing message then.
@@ -155,4 +158,4 @@ When the user names a phase explicitly, start there but warn if prerequisites ar
 
 ## Agent session checklist (full ship loop)
 
-1. Kickoff → 2. Build → 3. Open PR, closeout docs on branch, code review loop to **PASS** → 4. Security review to **PASS** → stop and report merge-ready → 5. Merge only on user ask (**`git pull --ff-only`** on root `main` after merge) → 6. Close (usually cleanup only).
+1. Kickoff → 2. Build → 3. Open PR, closeout docs on branch, docs check, code review loop to **PASS** → 4. Security review to **PASS** → stop and report merge-ready → 5. Merge only on user ask (**`git pull --ff-only`** on root `main` after merge) → 6. Close (usually cleanup only).

@@ -69,6 +69,13 @@ Extra checks for the security review, on top of OWASP and "no secrets in repo".
 | Specs / plans / as-built | `docs/superpowers/specs/`, `docs/superpowers/plans/`, `docs/superpowers/as-built/` |
 | Index | One file per ticket in `docs/superpowers/index/<prefix>-N.md` (docs with no ticket: `index/<YYYY-MM-DD>-<slug>.md`); layout in [`docs/superpowers/README.md`](../superpowers/README.md) |
 
+## Docs check
+
+Read by the documenter subagent ([documenter.md](documenter.md)).
+
+- Living docs to search: `README.md`, `AGENTS.md`, `docs/agents/`, `.claude/skills/`, <add the architecture doc, infra README, env example file and so on, or remove what the repo lacks>.
+- Extra checks: <e.g. "brand docs in `docs/brand/` when the diff touches theme tokens, logo, fonts or colours", or none>.
+
 ## Environments and deploy
 
 - <Environments, deploy target, who deploys.>

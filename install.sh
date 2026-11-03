@@ -66,6 +66,7 @@ seed_file() {
 }
 
 sync_dir "$SRC/.claude/skills" "$TARGET/.claude/skills"
+sync_dir "$SRC/.claude/agents" "$TARGET/.claude/agents"
 
 # settings.json holds the consumer's own settings too, so never overwrite a differing one.
 SET="$TARGET/.claude/settings.json"

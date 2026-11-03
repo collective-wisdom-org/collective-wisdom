@@ -69,6 +69,7 @@ How:
 This file holds the shared instructions for every agent: Cursor, Claude Code, and T3 Code threads on either. `CLAUDE.md` imports it (`@AGENTS.md`).
 
 - Project skills live in `.claude/skills/`. Cursor and Claude Code both load them. Codex discovers the same files through `.agents/skills`, a relative symlink to `../.claude/skills`; keep `.claude/skills/` as the source of truth.
+- Project subagents live in `.claude/agents/`. Each is a short pointer to a role file in `docs/agents/`, which holds the real brief. On hosts that don't load that format, start a general subagent with the role file as its prompt.
 - The agent team (skills, scripts, shared docs) is installed from the collective-wisdom repo with its `install.sh`. Change shared files there, not here.
 - Always-on project rules go in this file, not in `.cursor/rules/`.
 - Who's on the agent team and what each role may do: `docs/agents/org-chart.md`.
