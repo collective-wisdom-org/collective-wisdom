@@ -76,3 +76,39 @@ def test_skills_and_docs_name_no_tracker_tool():
                 if name in line:
                     hits.append(f"{f.relative_to(ROOT)}:{n}: {name}")
     assert not hits, "tracker tool names outside trackers/:\n" + "\n".join(hits)
+
+
+UNSAFE_FLAG = re.compile(r"--(?:body|title|search|description)\s+\"")
+
+
+def command_lines(text):
+    """Lines inside fenced blocks, plus inline-code spans that hold a command."""
+    lines = []
+    in_fence = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif in_fence:
+            lines.append(line)
+        else:
+            lines += [s for s in re.findall(r"`([^`]+)`", line) if "gh.sh" in s]
+    return lines
+
+
+@pytest.mark.parametrize("adapter", ADAPTERS)
+def test_adapter_puts_no_free_text_in_double_quotes(adapter):
+    text = (TRACKERS / adapter).read_text()
+    hits = []
+    for line in command_lines(text):
+        if UNSAFE_FLAG.search(line):
+            hits.append(line.strip())
+        for quoted in re.findall(r'"[^"]*"', line):
+            if "$(" in quoted or "`" in quoted:
+                hits.append(line.strip())
+    assert not hits, f"{adapter}: free text in double quotes:\n" + "\n".join(hits)
+
+
+def test_readme_states_the_shell_safety_rule():
+    text = (TRACKERS / "README.md").read_text()
+    assert "## Shell safety" in text
+    assert "untrusted" in text.lower()

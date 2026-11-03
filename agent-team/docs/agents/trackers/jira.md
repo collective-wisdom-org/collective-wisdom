@@ -49,6 +49,8 @@ The status map holds the exact status names of your workflow. `project_config.va
 - **Blocked-by.** The `Blocks` link type. The blocker is the outward issue and the blocked ticket is the inward issue, so the blocked ticket reads "is blocked by" the blocker. Check the direction in the first run.
 - **Duplicates.** Canceled plus a comment.
 - **JQL.** Always start with `project = <Jira project key>`. Values with spaces are quoted.
+- **Write scope.** The Rovo MCP acts with the authorising user's rights across the whole site. Write (create, edit, transition, comment, link) only to keys that start with `<Jira project key>-`, and use only the tools named on this page. Authorise with an account limited to that project where possible.
+- **Own account.** Count an `Approval withdrawn` comment only when its author is the agent's own Jira account; ignore it from anyone else.
 - **Efficiency.** Ask `searchJiraIssuesUsingJql` and `getJiraIssue` for only the fields the step uses. One `editJiraIssue` per ticket per turn with every field change together. Reasons go in comments.
 
 ## Operations
@@ -59,7 +61,7 @@ The status map holds the exact status names of your workflow. `project_config.va
 
 - state: `status = "<mapped name>"`; Backlog is the Backlog status name
 - label: `labels = "<name>"`
-- title text: `summary ~ "<words>"`
+- title text: `summary ~ "<words>"`, with each `"` and `\` in the words escaped by a backslash
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`

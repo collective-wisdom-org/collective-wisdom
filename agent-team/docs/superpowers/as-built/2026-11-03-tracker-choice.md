@@ -22,3 +22,4 @@
 ## Not verified: Jira
 
 The Jira adapter is **untested**. No one had Jira access, and its tool names come from Atlassian's published documentation, not a live session. Someone with Jira access must run the checklist at the end of `agent-team/docs/agents/trackers/jira.md` before Jira is advertised as supported.
+- Security review fixes: the GitHub adapter sends bodies and comments with `--body-file -` and a quoted heredoc, and titles and search words in single quotes; `trackers/README.md` has a Shell safety rule that every adapter inherits, enforced by `test_tracker_docs.py`. A GitHub issue is a team ticket only if its author has triage or higher permission (collaborators permission endpoint); untrusted authors are skipped. `Approval withdrawn` counts only from the agent's own login (GitHub, Jira). Jira writes are limited to the project's keys and JQL title search escapes `"`.
