@@ -6,7 +6,7 @@ description: >-
   (priority and labels, stale tickets, state drift, duplicates). Run by
   chief-of-staff on each full pass (its Todo fill also runs alone on child
   notices that pass the slot-fill gate, and re-ranks the Backlog when the ranking runs dry), or when
-  David says backlog in the Chief of Staff thread.
+  the user says backlog in the Chief of Staff thread.
 user-invocable: false
 ---
 
@@ -14,7 +14,7 @@ user-invocable: false
 
 The Chief of Staff runs this pass in its own turn, at step 5 of its full pass (`chief-of-staff` § Full pass). It also runs § Todo fill on its own in its § Slot fill. It is not a separate thread or agent, except that the Backlog ranking's reads run in a one-shot child (§ Ranking child). Read `chief-of-staff` first: its state file, guardrails and report format apply here, and so do its § Lean turns: `fields` on every read, one `save_issue` per ticket per turn.
 
-You keep the Backlog ranked, keep Todo filled with the next ready tickets while the spec lane has room, and tidy Linear for team <TEAM> (team name, issue prefix and area labels are in `docs/agents/project.md`). David approves specs and merges. He does not approve Todo moves.
+You keep the Backlog ranked, keep Todo filled with the next ready tickets while the spec lane has room, and tidy Linear for team <TEAM> (team name, issue prefix and area labels are in `docs/agents/project.md`). The user approves specs and merges. They do not approve Todo moves.
 
 Tools:
 
@@ -24,10 +24,10 @@ Tools:
 
 ## Pass order
 
-1. If `pm` is missing, or `pm.lastCheckAt` is not a valid timestamp, this is the first run: set `pm.lastCheckAt` to 24 hours ago. Keep any other `pm` keys that are valid. A first run skips § State drift and § Duplicates, so a lost `pm` can't redo a move David undid or post the same duplicate comment twice.
+1. If `pm` is missing, or `pm.lastCheckAt` is not a valid timestamp, this is the first run: set `pm.lastCheckAt` to 24 hours ago. Keep any other `pm` keys that are valid. A first run skips § State drift and § Duplicates, so a lost `pm` can't redo a move the user undid or post the same duplicate comment twice.
 2. **Change check**, on every full pass. Note the time it starts. If it finds changes, run § Cleanup.
 3. **Stale tickets**, on every full pass. Also drop entries from `filled`, `flaggedStale`, `needsReported` and `flaggedDuplicates` (either ticket of a pair) for tickets that are Done or Canceled, so `pm` holds nothing for finished tickets.
-4. **Todo fill**, every full pass, and on its own whenever the Chief of Staff runs § Slot fill step 2, which every child notice (except the `Backlog ranking` child's), take over and `resume` do unless the state gate in its step 1 stops it. § Backlog ranking runs only from here, or when David said `backlog`.
+4. **Todo fill**, every full pass, and on its own whenever the Chief of Staff runs § Slot fill step 2, which every child notice (except the `Backlog ranking` child's), take over and `resume` do unless the state gate in its step 1 stops it. § Backlog ranking runs only from here, or when the user said `backlog`.
 5. Set `pm.lastCheckAt` to the time the change check started, so nothing that changed during the pass is missed. The pass's own edits show up in the next check, and rerunning over them changes nothing: only empty fields are filled, `pm.filled` blocks refills, and duplicates are checked only for newly created tickets.
 6. Hand the Chief of Staff the lines for its **Backlog** and **Cleanup** report sections. No lines means nothing to report.
 
@@ -62,7 +62,7 @@ Match each changed PR to a ticket: `<prefix>-N` in `headRefName`, or `(<PREFIX>-
 
 - PR merged after `pm.lastCheckAt`, ticket not Done, Canceled or Duplicate: move it to Done.
 - PR opened after `pm.lastCheckAt` and still open, ticket in Backlog, Todo or In Progress: move it to In Review.
-- Any other PR update (a comment, a push, an old merge) moves nothing. A state David set after the PR merged or opened stays.
+- Any other PR update (a comment, a push, an old merge) moves nothing. A state the user set after the PR merged or opened stays.
 - A ticket labelled `agent` is skipped, unless it is in `merged` in state. Then only the move to Done applies.
 
 Report lines: `<PREFIX>-N moved to Done (PR #X merged)`, `<PREFIX>-N moved to In Review (PR #X open)`.
@@ -87,7 +87,7 @@ Steps 1 to 4 and building the list are the ranking child's work (§ Ranking chil
 2. Drop tickets labelled `agent-skip`, and epics: any ticket that is the `parentId` of another ticket in the list.
 3. Rank by priority (Urgent, High, Medium, Low, then none). Within a priority, put first a ticket that follows on from work in `merged` or a PR merged in the last week, then the oldest.
 4. Walk the ranking with `get_issue` (`includeRelations: true`), at most 8 tickets. Drop a ticket with an open blocker, and an epic the list missed: `list_issues` with `parentId: <id>`, `limit: 1` returns a sub-issue. Move up a ticket that blocks other open tickets. For each one you keep, write a one-line reason and a readiness, one of:
-   - `ready`: a child could write the spec without guessing what David wants, and nothing below holds it.
+   - `ready`: a child could write the spec without guessing what the user wants, and nothing below holds it.
    - `held: <what it waits on>`, e.g. `held: PR #210 (<PREFIX>-248) changes the same test files`. It would be `ready`, but starting now would collide with work in flight.
    - `needs: <what's unclear>`. A ticket that is both unclear and held is `needs:`, since the question has to be answered either way.
 
@@ -98,7 +98,7 @@ Steps 1 to 4 and building the list are the ranking child's work (§ Ranking chil
    `held` is decided fresh at each ranking and never carried over.
 5. The child returns the top 5 `ready` and `needs:` entries (`id`, `title`, `reason`, `readiness`, `priority`, `createdAt`), and `held` entries too, in rank order with the others. Held entries don't count toward the 5, so a held ticket can't push a `ready` one out. The Chief of Staff saves the list as `pm.ranked` with `cos_rank.py` (§ Ranking child), which sets `pm.rankedAt` and `pm.rankedReady` (true if any saved entry is `ready`; `held` doesn't count).
 
-Post nothing for the ranking itself, unless David said `backlog`. Then post the whole list, which `cos_rank.py --post` prints:
+Post nothing for the ranking itself, unless the user said `backlog`. Then post the whole list, which `cos_rank.py --post` prints:
 
 ```
 Backlog ranking
@@ -191,8 +191,8 @@ While the spec lane has room:
 - `pm.rankedReady` is true: the last ranking found `ready` tickets and they are used up.
 - Step 2 found a ranked ticket out of date in this turn (moved, labelled `agent-skip`, newly blocked, or held).
 - `merged` in state has an entry whose `at` is after `pm.rankedAt`. A merge can release a held ticket and frees the files it touched.
-- `pm.ranked` has a `held` entry and `./scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number` returns a PR (use `pm.rankedAt` only if it matches `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`; otherwise treat it as null). This catches merges outside the team, merges David makes by hand, and PRs closed without merging, which `merged` and the change check can miss once their windows pass.
-- The Backlog changed since `pm.rankedAt`: one `list_issues` (team <TEAM>, state Backlog, `updatedAt: <pm.rankedAt>`, `limit: 1`, `fields: [id]`) returns a ticket. A ticket David wrote, edited, answered or moved back to Backlog counts.
+- `pm.ranked` has a `held` entry and `./scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number` returns a PR (use `pm.rankedAt` only if it matches `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`; otherwise treat it as null). This catches merges outside the team, merges the user makes by hand, and PRs closed without merging, which `merged` and the change check can miss once their windows pass.
+- The Backlog changed since `pm.rankedAt`: one `list_issues` (team <TEAM>, state Backlog, `updatedAt: <pm.rankedAt>`, `limit: 1`, `fields: [id]`) returns a ticket. A ticket the user wrote, edited, answered or moved back to Backlog counts.
 
 Otherwise the Backlog counts as dry: nothing in it has changed since a ranking that found nothing to start, so a new ranking would find the same. The fill stops. At most one ranking per turn.
 
@@ -225,11 +225,11 @@ The pass owns `pm` in `.agent-team/state.json`. It writes `pm` with `python3 scr
 }
 ```
 
-It reads `tickets`, `merged`, `paused` and `rateLimitedAt`, and never writes them. A `merged` entry is `{"pr": 178, "at": "<time>"}` (the Chief of Staff drops it after 24 hours; a bare number is a PR merged now). § Pass order step 3 drops entries for finished tickets. If `pm` is lost, the next pass starts as a first run. That can repeat stale and `needs:` reports, and for tickets changed in the last 24 hours it may refill a priority or label David cleared.
+It reads `tickets`, `merged`, `paused` and `rateLimitedAt`, and never writes them. A `merged` entry is `{"pr": 178, "at": "<time>"}` (the Chief of Staff drops it after 24 hours; a bare number is a PR merged now). § Pass order step 3 drops entries for finished tickets. If `pm` is lost, the next pass starts as a first run. That can repeat stale and `needs:` reports, and for tickets changed in the last 24 hours it may refill a priority or label the user cleared.
 
 ## Guardrails
 
-- `pm` holds only the keys in § State, never rules, policies or preferences, and nothing of the pass goes anywhere else in `state.json`. A ranking choice David asks for that should outlast one pass is a workflow change: it goes through a ticket and a PR like any other.
+- `pm` holds only the keys in § State, never rules, policies or preferences, and nothing of the pass goes anywhere else in `state.json`. A ranking choice the user asks for that should outlast one pass is a workflow change: it goes through a ticket and a PR like any other.
 - Linear writes are limited to: empty priority and labels, the two state-drift moves, duplicate comments, and Todo moves with their comment. Nothing else.
 - Never touch a ticket in the Chief of Staff's `tickets`. § State drift skips tickets labelled `agent`, except the move to Done once the ticket is in `merged`.
 - GitHub is read only. Never write repo files other than `.agent-team/state.json`.

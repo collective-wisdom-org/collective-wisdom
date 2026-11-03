@@ -1,6 +1,6 @@
 # collective-wisdom
 
-Shared agent workflows, skills and scripts for David's apps.
+Shared agent workflows, skills and scripts for a set of apps.
 
 ## What this is
 

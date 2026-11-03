@@ -67,9 +67,9 @@ When the request is terse, fill only the gaps needed to make the ticket actionab
 
 - One type: `Feature`, `Improvement` or `Bug`.
 - One or two areas from the list in `docs/agents/project.md` § Labels.
-- Never add `agent` or `agent-skip`. Those belong to the Chief of Staff and David.
+- Never add `agent` or `agent-skip`. Those belong to the Chief of Staff and the user.
 - Priority: set it only when the user gives one or the request makes it plain (a bug that breaks sign-in). Otherwise leave it empty; the project manager pass fills it.
-- Status: Backlog for new tickets. Never move a ticket to Todo; that is the project manager pass's or David's call.
+- Status: Backlog for new tickets. Never move a ticket to Todo; that is the project manager pass's or the user's call.
 
 ## Editing
 

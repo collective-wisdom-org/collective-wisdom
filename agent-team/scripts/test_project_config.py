@@ -5,7 +5,7 @@ TABLE = """| Key | Value |
 | Issue identifier prefix (`<PREFIX>`) | `ABC` |
 | Repo (`<owner>/<repo>`) | `me/thing` (<https://github.com/me/thing>) |
 | Branch pattern | `work/<prefix>-N-short-title` |
-| Migrations directory | none (TODO(david): set a path) |
+| Migrations directory | none (TODO(owner): set a path) |
 """
 
 

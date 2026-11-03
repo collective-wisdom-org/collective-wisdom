@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Did David write it? Reads T3's local message store, read-only, and prints one line.
+"""Did the user write it? Reads T3's local message store, read-only, and prints one line.
 
 Usage:
     scripts/cos_user_check.py [--db PATH] latest <threadId> [--after ISO] < words
@@ -15,14 +15,14 @@ latest checks the newest user-role message in the thread whose text contains the
 otherwise exit 1 and "not-user <createdBy or missing> <itemId> <first 80 characters>"
 (not-user missing - - when nothing matches). Tying the check to the words means an agent
 message with other words can't stand in for the command, an older approval with the same
-words is ignored with --after, and an agent copy of his words that is newer than his own fails
+words is ignored with --after, and an agent copy of their words that is newer than their own fails
 closed. Empty or missing words, or a --after that is not a full ISO date-time with a timezone
 (2026-11-02T14:05:00Z), is an error (exit 2). Matching also applies NFKC and drops invisible
-format characters (zero-width spaces), so look-alike copies of his words match the same way.
+format characters (zero-width spaces), so look-alike copies of their words match the same way.
 item checks the queued-approval message <itemId> (turn-item:message:<message id>, or the
 bare message id) against the words on stdin. Exit 0 and "ok" only if the message is in that
 thread, was created by "user" and its text contains the words (same matching), otherwise exit 1
-and "reject: <not found | not from David | words not found>". A message still being written
+and "reject: <not found | not from the user | words not found>". A message still being written
 counts as not found.
 
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro. Exit 2 and
@@ -110,7 +110,7 @@ def item(db, thread, item_id, words):
     if not rows:
         reason = "not found"
     elif rows[0][2] != "user":
-        reason = "not from David"
+        reason = "not from the user"
     elif not norm(words) or not has_words(words, rows[0][3]):
         reason = "words not found"
     else:

@@ -120,7 +120,7 @@ def message(mid, role="user", by="user", text="hi", streaming=0, created="2026-1
     (["item", "t", "m1"], "APPROVE  abc-5", 0, "ok"),
     (["item", "t", "m1"], "approve ABC-6", 1, "reject: words not found"),
     (["item", "t", "a1"], "approve", 1, "reject: not found"),
-    (["item", "t2", "a1"], "approve", 1, "reject: not from David"),
+    (["item", "t2", "a1"], "approve", 1, "reject: not from the user"),
     (["item", "t", "s1"], "approve", 1, "reject: not found"),
     (["item", "t5", "u253"], "approve 25", 1, "reject: words not found"),
     (["item", "t", "m:1%3A"], "x", 0, "ok"),
