@@ -66,3 +66,19 @@ def migrations_dir():
     """Migrations directory without a trailing slash, or None when the repo has none."""
     d = value("Migrations directory")
     return d.strip("/") if d else None
+
+
+TRACKERS = ("linear", "github", "jira")
+
+
+def tracker():
+    """Ticket tracker named in the `Tracker` row: linear, github or jira. Unset reads as linear."""
+    t = "linear"
+    for key, val in _rows():
+        if key == "Tracker" or key.startswith("Tracker ("):  # not the `Tracker scope` row
+            m = re.search(r"`([^`]+)`", val)
+            t = m.group(1).lower() if m else "linear"
+            break
+    if t not in TRACKERS:
+        raise SystemExit(f"project.md: 'Tracker' row must be one of {', '.join(TRACKERS)}, got `{t}`")
+    return t

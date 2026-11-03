@@ -9,10 +9,30 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 | Key | Value |
 |---|---|
 | Product name | <product name and one-line description> |
-| Linear team name (`<TEAM>`) | <team name> (key `<PREFIX>`, <https://linear.app/<workspace>/team/<PREFIX>/overview>) |
+| Tracker (`linear`, `github` or `jira`) | `linear` |
+| Tracker scope (`<TEAM>`) | <Linear team name, the GitHub repo, or the Jira project key> |
+| Linear team name (Linear only) | <team name> (key `<PREFIX>`, <https://linear.app/<workspace>/team/<PREFIX>/overview>) |
 | Issue identifier prefix (`<PREFIX>`) | `<PREFIX>` |
-| Linear project | <project name, or none (the team is the scope)> |
+| Linear project (Linear only) | <project name, or none (the team is the scope)> |
 | Approver | <name>. Approves specs and merges only |
+
+### Choosing a tracker
+
+Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(...)` value means `linear`. Operations and adapters: [trackers/README.md](trackers/README.md).
+
+- `github`: no extra rows. Tickets are GitHub issues in the `Repo` below, and `Issue identifier prefix` is any short prefix (for example `GH`). The `./scripts/gh.sh` wrapper does every call.
+- `jira`: untested. Add these rows to the table above and fill them in:
+
+```
+| Jira site | `https://example.atlassian.net` |
+| Jira project key | `ABC` |
+| Jira status: Backlog | `Backlog` |
+| Jira status: Todo | `To Do` |
+| Jira status: In Progress | `In Progress` |
+| Jira status: In Review | `In Review` |
+| Jira status: Done | `Done` |
+| Jira status: Canceled | `Canceled` |
+```
 
 ## Git and GitHub
 

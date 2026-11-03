@@ -15,7 +15,7 @@ Before acting, read **ship-loop** § Repo invariants.
 
 1. Confirm **cwd** is the feature worktree (`.worktrees/<short-name>/` or T3 Code's under `~/.t3/worktrees/`), not root on `main`.
 2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user).
-3. One Linear issue = one branch; stay within AGENTS.md scope.
+3. One ticket = one branch; stay within AGENTS.md scope.
 
 ## Execution
 
