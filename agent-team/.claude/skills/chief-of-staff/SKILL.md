@@ -92,7 +92,7 @@ Work moves in three lanes, each with its own limit, under one cap on active chil
 | Lane | Active stage | Queue | Limit | Why this number |
 |---|---|---|---|---|
 | Spec | `spec` | `spec-queued`, then Todo tickets | 2 | Specs are short runs. Two at once keeps a spec ready for the user while they review another. |
-| Build | `build` | `build-queued` | 2 | Builds are the longest and costliest runs (plan, build, code review, security review). Two keeps approved specs moving without doubling Opus time. |
+| Build | `build` | `build-queued` | 2 | Builds are the longest and costliest runs (plan, build, docs check, code review, security review). Two keeps approved specs moving without doubling Opus time. |
 | Merge | `merge` | `merge-queued` | 1 | Merges rebase onto `main`. One at a time avoids conflicts between them. |
 | **Overall** | `spec` + `build` + `merge` | | 5 | The sum of the lane limits, so every lane slot can run at once. The cap no longer holds usage down by itself; the lane limits and the unreviewed-specs limit do. Spec children run on Opus and build and merge children on Sonnet (§ Models), so a full set is at most two Opus child sessions and three Sonnet child sessions, plus the Opus review subagents the build children start. The row stays so that raising a lane limit means deciding the cap too. |
 | Unreviewed specs | `awaiting-spec` | | 4 | Specs written far ahead of the user's review go stale as `main` moves, and each one is Opus time. Four waiting still lets specs run in parallel while they are around. |
@@ -575,6 +575,7 @@ Merge block:
 <PREFIX>-197 merge ready: <PR title>
 PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
+Docs: <the child's Docs checked line>
 Changes:
 - …
 Differs from spec: …
