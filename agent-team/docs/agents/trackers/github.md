@@ -1,0 +1,175 @@
+# GitHub Issues adapter
+
+**DRAFT.** No command below has run against a live repo yet. Every command is marked `draft` until it has. Do not rely on the output notes.
+
+How each operation in [README.md](README.md) runs on GitHub Issues. Every call goes through `./scripts/gh.sh`, never bare `gh` (see [../github-auth.md](../github-auth.md)). `<owner>/<repo>` is the `Repo` row in `project.md` § Git and GitHub. The scope `<TEAM>` is that repo.
+
+## Conventions
+
+- **Ticket ID.** `<PREFIX>-N`, where N is the issue number and the prefix is the `Issue identifier prefix` row (for example `GH`). Issue and PR numbers share one counter in a repo, so `GH-N` never matches a PR number. In the commands below, `N` is the number.
+- **States.** Labels `status:backlog`, `status:todo`, `status:in-progress`, `status:in-review`. An open issue with no `status:` label counts as Backlog. Closed as completed is Done. Closed as not planned is Canceled.
+- **Two `status:` labels on one issue.** Readers treat the furthest-along label as the state. `set-state` removes every other `status:` label in the same edit.
+- **Priority.** Labels `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`. No `priority:` label means no priority.
+- **Type and area.** Type labels are `type:feature`, `type:improvement`, `type:bug`. Area labels are used as written in `project.md`.
+- **PR bodies** say `Closes #N`, so a merge closes the issue as completed. The `set-state` Done that `merge-pr` runs is then a no-op apart from stripping the `status:` label.
+- **Efficiency.** Lists use `--json <fields> --limit N`. One `issue edit` per ticket per turn with every `--add-label`, `--remove-label` and `--body` change together.
+- **Field names.** `gh` JSON uses `number`, `title`, `state`, `labels`, `createdAt`, `updatedAt`, `body`, `url`. The README's `state` is the `status:` label plus `state` (open or closed); `priority` is the `priority:` label; `description` is `body`.
+
+## Parent and blocked-by
+
+Preferred: the GitHub sub-issue and issue-dependency REST endpoints through `./scripts/gh.sh api`. Fallback: a first line in the body, `Parent: #N` or `Blocked by: #N`, which readers parse.
+
+Probe once per session, with any existing issue number `N`:
+
+```
+./scripts/gh.sh api repos/<owner>/<repo>/issues/N/sub_issues -i   # draft
+```
+
+Status 200 means the feature is on: use the endpoints. 404 means it is off for this repo: use the text fallback. Record nothing in `project.md`.
+
+The sub-issue and dependency endpoints take the issue's database `id`, not its number: `./scripts/gh.sh api repos/<owner>/<repo>/issues/N --jq .id`.
+
+## Operations
+
+### `list-tickets`
+
+```
+./scripts/gh.sh issue list --state open --json number,title,labels,updatedAt --limit 100   # draft
+```
+
+Add `--label status:todo` for a state, `--search "<words> in:title"` for text, `--search "updated:>=<ISO time>"` for changed since, `--label priority:high` for a priority. Backlog is an open issue with no `status:` label: list open issues and drop those whose `labels` include a `status:` name. Add `--state closed` for Done or Canceled.
+
+### `get-ticket`
+
+```
+./scripts/gh.sh issue view N --json number,title,state,stateReason,labels,updatedAt   # draft
+```
+
+Add `body` only where the README allows `description`. Relations: `./scripts/gh.sh api repos/<owner>/<repo>/issues/N/dependencies/blocked_by` and `.../sub_issues` when the probe passed, otherwise the `Parent:` and `Blocked by:` lines in `body`.
+
+### `read-comments`
+
+```
+./scripts/gh.sh issue view N --json comments   # draft
+```
+
+### `create-ticket`
+
+```
+./scripts/gh.sh issue create --title "<title>" --body "<body>" --label type:feature --label priority:high   # draft
+```
+
+No `status:` label: a new issue is Backlog. Then run `set-parent` if there is a parent.
+
+### `edit-description`
+
+Read `body`, change one part, write the whole body back in the same `issue edit` as any other change.
+
+```
+./scripts/gh.sh issue edit N --body "<patched body>"   # draft
+```
+
+### `set-state`
+
+One edit swaps the label and closes or reopens. Remove every `status:` label the issue has that is not the new one.
+
+| To | Command |
+|---|---|
+| Backlog | `./scripts/gh.sh issue edit N --remove-label status:todo --remove-label status:in-progress --remove-label status:in-review` (reopen first with `issue reopen N` if closed) |
+| Todo | `./scripts/gh.sh issue edit N --add-label status:todo --remove-label status:in-progress --remove-label status:in-review` |
+| In Progress | `./scripts/gh.sh issue edit N --add-label status:in-progress --remove-label status:todo --remove-label status:in-review` |
+| In Review | `./scripts/gh.sh issue edit N --add-label status:in-review --remove-label status:todo --remove-label status:in-progress` |
+| Done | `./scripts/gh.sh issue edit N --remove-label status:todo --remove-label status:in-progress --remove-label status:in-review`, then `./scripts/gh.sh issue close N --reason completed` |
+| Canceled | the same edit, then `./scripts/gh.sh issue close N --reason "not planned"` |
+
+All draft. Removing a label the issue does not have is expected to be harmless; confirm in the live run.
+
+### `add-label`
+
+```
+./scripts/gh.sh issue edit N --add-label <name>   # draft
+```
+
+### `remove-label`
+
+```
+./scripts/gh.sh issue edit N --remove-label <name>   # draft
+```
+
+### `set-priority`
+
+Remove the other `priority:` labels and add the new one in one edit. For none, only remove.
+
+```
+./scripts/gh.sh issue edit N --add-label priority:high --remove-label priority:urgent --remove-label priority:medium --remove-label priority:low   # draft
+```
+
+### `comment`
+
+```
+./scripts/gh.sh issue comment N --body "<text>"   # draft
+```
+
+### `set-parent`
+
+With the endpoints (probe passed), where `ID` is the child's database id:
+
+```
+./scripts/gh.sh api -X POST repos/<owner>/<repo>/issues/PARENT_N/sub_issues -F sub_issue_id=ID   # draft
+```
+
+Fallback: make the first line of the child's body `Parent: #PARENT_N` (an `edit-description`).
+
+### `list-children`
+
+```
+./scripts/gh.sh api repos/<owner>/<repo>/issues/PARENT_N/sub_issues --jq '.[].number'   # draft
+```
+
+Fallback: `./scripts/gh.sh issue list --state all --search "\"Parent: #PARENT_N\" in:body" --json number,title`.
+
+### `set-blocked-by`
+
+With the endpoints, where `ID` is the blocker's database id:
+
+```
+./scripts/gh.sh api -X POST repos/<owner>/<repo>/issues/N/dependencies/blocked_by -F issue_id=ID   # draft
+```
+
+Fallback: add a first-line `Blocked by: #M` to the body. Check the blocker is not Canceled first.
+
+### `set-related`
+
+Add a line `Related: #M` to the body (an `edit-description`) on both tickets. GitHub has no native related link.
+
+### `ticket-url`
+
+```
+./scripts/gh.sh issue view N --json url --jq .url   # draft
+```
+
+It is also `https://github.com/<owner>/<repo>/issues/N`.
+
+### `ensure-labels`
+
+List first, create only what is missing. Safe to re-run.
+
+```
+./scripts/gh.sh label list --limit 200 --json name --jq '.[].name'   # draft
+./scripts/gh.sh label create <name> --color <hex> --description "<text>"   # draft
+```
+
+Names: `status:backlog`, `status:todo`, `status:in-progress`, `status:in-review`, `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`, `type:feature`, `type:improvement`, `type:bug`, `agent`, `agent-skip`, plus the area labels in `project.md`.
+
+## Setup
+
+1. `./scripts/gh.sh auth status` shows a keyring login with `repo` scope.
+2. `project.md` § Identity has `Tracker` set to `github` and an `Issue identifier prefix`; § Git and GitHub has `Repo`.
+3. Run `ensure-labels` once.
+4. Run the sub-issue probe once per session.
+
+## Unverified
+
+- Whether adding only a label moves an issue's `updatedAt`. The project manager's change check depends on it.
+- The sub-issue and dependency endpoints and their parameters.
+- Whether removing an absent label errors.
