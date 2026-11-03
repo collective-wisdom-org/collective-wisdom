@@ -22,7 +22,7 @@ These are the Linear-only rules behind the shared efficiency rules in the README
 
 ### `list-tickets`
 
-`list_issues` with `team: <TEAM>`, and any of `state`, `label`, `query` (words in the title), `parentId`, `updatedAt` (changed since), `limit` (up to 250), `fields` (for example `[id, title, status, labels, priority, createdAt, updatedAt]`) and `cursor`. Linear's status field is named `status`; it holds the State.
+`list_issues` with `team: <TEAM>`, and any of `state`, `label`, `query` (words in the title), `parentId`, `updatedAt` (changed since), `limit` (up to 250), `fields` (for example `[id, title, status, labels, priority, createdAt, updatedAt]`) and `cursor`. Linear's field names differ from the README's: its `state` is the field `status` (the filter argument is still `state`), and its `parent` is `parentId` (ask for it in `fields`, for example `[id, title, priority, labels, createdAt, parentId]`, to find epics). `relations` and `description` keep their names.
 
 ### `get-ticket`
 

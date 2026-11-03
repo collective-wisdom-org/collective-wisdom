@@ -7,7 +7,7 @@ How each operation in [README.md](README.md) runs on GitHub Issues. Every call g
 ## Conventions
 
 - **Ticket ID.** `<PREFIX>-N`, where N is the issue number and the prefix is the `Issue identifier prefix` row (for example `GH`). Issue and PR numbers share one counter in a repo, so `GH-N` never matches a PR number. In the commands below, `N` is the number.
-- **States.** Labels `status:backlog`, `status:todo`, `status:in-progress`, `status:in-review`. An open issue with no `status:` label counts as Backlog. Closed as completed is Done. Closed as not planned is Canceled.
+- **States.** Labels `status:todo`, `status:in-progress`, `status:in-review`. An open issue with no `status:` label counts as Backlog. There is no `status:backlog` label: Backlog is the absence of the others, so nothing creates or applies one. Closed as completed is Done. Closed as not planned is Canceled.
 - **Two `status:` labels on one issue.** Readers treat the furthest-along label as the state. `set-state` removes every other `status:` label in the same edit.
 - **Priority.** Labels `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`. No `priority:` label means no priority.
 - **Type and area.** Type labels are `type:feature`, `type:improvement`, `type:bug`. Area labels are used as written in `project.md`.
@@ -38,7 +38,7 @@ The sub-issue and dependency endpoints take the issue's database `id`, not its n
 ./scripts/gh.sh issue list --state open --json number,title,labels,updatedAt --limit 100
 ```
 
-Add `--label status:todo` for a state, `--search "<words> in:title"` for text, `--search "updated:>=<ISO time>"` for changed since, `--label priority:high` for a priority. Backlog is an open issue with no `status:` label: list open issues and drop those whose `labels` include a `status:` name. Add `--state closed` for Done or Canceled. Verified: `--label`, `--search "<words> in:title"` and `--search "updated:>=2026-11-03T22:00:00Z"` all work. Search is indexed with a delay of several seconds after an edit, so a fresh body or title change may not show for a few seconds. The Backlog filter is a `--jq` over `labels`: `--jq '[.[]|select(([.labels[].name]|map(startswith("status:"))|any)|not)|.number]'`.
+Add `--label status:todo` for a state, `--search "<words> in:title"` for text, `--search "updated:>=<ISO time>"` for changed since, `--label priority:high` for a priority. `list-tickets` has no parent field. To drop epics from a Backlog list, call `list-children` for each ticket (`.../issues/N/sub_issues`) or read each one's `parent` from `get-ticket`; the project-manager's step 4 does this for the tickets it walks. Backlog is an open issue with no `status:` label: list open issues and drop those whose `labels` include a `status:` name. Add `--state closed` for Done or Canceled. One call lists all open issues (up to `--limit`), so the duplicate check against open tickets is one call. Verified: `--label`, `--search "<words> in:title"` and `--search "updated:>=2026-11-03T22:00:00Z"` all work. Search is indexed with a delay of several seconds after an edit, so a fresh body or title change may not show for a few seconds. The Backlog filter is a `--jq` over `labels`: `--jq '[.[]|select(([.labels[].name]|map(startswith("status:"))|any)|not)|.number]'`.
 
 ### `get-ticket`
 
@@ -46,7 +46,7 @@ Add `--label status:todo` for a state, `--search "<words> in:title"` for text, `
 ./scripts/gh.sh issue view N --json number,title,state,stateReason,labels,updatedAt
 ```
 
-`stateReason` is empty on an open issue, then `COMPLETED`, `NOT_PLANNED` or `REOPENED`. Add `body` only where the README allows `description`. Relations: `./scripts/gh.sh api repos/<owner>/<repo>/issues/N/dependencies/blocked_by` and `.../sub_issues` when the probe passed, otherwise the `Parent:` and `Blocked by:` lines in `body`.
+`stateReason` is empty on an open issue, then `COMPLETED`, `NOT_PLANNED` or `REOPENED`. Add `body` only where the README allows `description`. Relations, when the probe passed (all verified 2026-11-03): `./scripts/gh.sh api repos/<owner>/<repo>/issues/N/parent --jq .number` is the parent (404 means none); `.../issues/N/dependencies/blocked_by --jq '.[].number'` is what blocks it; `.../issues/N/dependencies/blocking --jq '.[].number'` is what it blocks (the "blocks other open tickets" check); `.../issues/N/sub_issues --jq '.[].number'` is its children. Otherwise read the `Parent:` and `Blocked by:` lines in `body`; the blocking side then has no direct read, so search `"Blocked by: #N" in:body`.
 
 ### `read-comments`
 
@@ -162,7 +162,7 @@ List first, create only what is missing. Safe to re-run. Delete a label with `./
 ./scripts/gh.sh label create <name> --color <hex> --description "<text>"
 ```
 
-Names: `status:backlog`, `status:todo`, `status:in-progress`, `status:in-review`, `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`, `type:feature`, `type:improvement`, `type:bug`, `agent`, `agent-skip`, plus the area labels in `project.md`.
+Names: `status:todo`, `status:in-progress`, `status:in-review`, `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`, `type:feature`, `type:improvement`, `type:bug`, `agent`, `agent-skip`, plus the area labels in `project.md`.
 
 ## Setup
 

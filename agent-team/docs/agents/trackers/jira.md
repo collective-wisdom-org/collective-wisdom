@@ -22,7 +22,7 @@ Source for the tool names: `https://support.atlassian.com/atlassian-rovo-mcp-ser
 | `ticket-url` | `<Jira site>/browse/KEY` |
 | `ensure-labels` | none needed; Jira labels exist when first used |
 
-Atlassian v2 shows an agent only its "Primary" tools by default and reaches the rest through `discover` and `executeRead` / `executeWrite`. `listJiraIssueTransitions`, `listJiraIssueLinkTypes` and `createJiraIssueLink` are not Primary. If they are not listed directly, call them that way.
+Atlassian v2 shows an agent only its "Primary" tools by default and reaches the rest through `discover` and `executeRead` / `executeWrite`. `listJiraIssueTransitions`, `listJiraIssueLinkTypes`, `createJiraIssueLink`, `listJiraIssueComments` and `getJiraIssueTypeMetaWithFields` are not Primary. If they are not listed directly, call them that way.
 
 ## `project.md` rows
 
@@ -63,6 +63,8 @@ The status map holds the exact status names of your workflow. `project_config.va
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`
+
+One JQL covers all open states at once: `status in ("<Backlog>", "<Todo>", ...)`, so the duplicate check against open tickets is one call.
 
 Example: `project = ABC AND status = "To Do" ORDER BY created ASC`.
 

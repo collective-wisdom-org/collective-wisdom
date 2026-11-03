@@ -43,6 +43,13 @@ def test_tracker_reads_value_lowercased(tmp_path, monkeypatch):
     assert _tracker(tmp_path, monkeypatch, row.format("jira")) == "jira"
 
 
+def test_tracker_ignores_scope_row(tmp_path, monkeypatch):
+    scope = "| Tracker scope (<TEAM>) | `engineering` |\n"
+    assert _tracker(tmp_path, monkeypatch, scope) == "linear"
+    row = "| Tracker (`linear`, `github` or `jira`) | `github` |\n"
+    assert _tracker(tmp_path, monkeypatch, scope + row) == "github"
+
+
 def test_tracker_rejects_unknown_value(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as e:
         _tracker(tmp_path, monkeypatch, "| Tracker (`linear`, `github` or `jira`) | `trello` |\n")
