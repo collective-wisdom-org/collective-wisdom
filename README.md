@@ -13,9 +13,10 @@ Nothing here is specific to one app. Each app keeps its own facts (ticket prefix
 `agent-team/` mirrors a consuming repo, so every path inside the skills, scripts and docs stays valid after install.
 
 - `agent-team/.claude/skills/`: the team skills (chief-of-staff, project-manager, ship-loop, kickoff-feature, build-from-plan, open-pr, security-review, merge-pr, write-ticket) and the supporting ones (human-writing, owasp-security, agent-security, auditing-security)
+- `agent-team/.claude/agents/`: the documenter subagent, a pointer to its role doc
 - `agent-team/.claude/settings.json`: the Stop hook for `cos_rotation_check.py`
 - `agent-team/scripts/`: the team scripts, their tests, `gh.sh` and `wait-for-ci.sh`
-- `agent-team/docs/agents/`: shared role docs
+- `agent-team/docs/agents/`: shared role docs (including the documenter)
 - `agent-team/docs/superpowers/README.md`: the docs index convention
 - `agent-team/templates/`: starting points for `docs/agents/project.md`, `AGENTS.md` and the `.gitignore` lines
 - `install.sh`: installs or updates the team in a repo

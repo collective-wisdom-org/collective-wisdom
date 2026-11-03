@@ -56,7 +56,16 @@ Commit on the feature branch: `docs: as-built for <PREFIX>-N <short>` (include s
 
 If the PR body was created before closeout, update it to link the as-built path.
 
-During later fix commits (phase 3 or 4): if a fix changes what ships, update the as-built in the same commit.
+During later fix commits (phase 3 or 4): if a fix changes what ships, update the as-built in the same commit. The docs check re-run below backs this up.
+
+### Docs check
+
+A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `docs/agents/documenter.md`. You apply the fixes.
+
+1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, and the as-built, spec and `docs/superpowers/index/<prefix>-N.md` paths.
+2. Check the documenter changed nothing (`git status --porcelain` is empty and `HEAD` is the SHA you passed); if it did, stop with `BLOCKED:`. Fix each finding that is right. Commit `docs: bring docs in line with <PREFIX>-N` and push. Note any finding you reject, and why; it goes in the review brief.
+3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a `main` merge that `scripts/pr_diff_delta.py` calls `same`.
+4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in `main` isn't read as part of the change.
 
 ### Do not (open)
 
@@ -87,13 +96,17 @@ After each pass of the primary loop, run this when doing agent-led review (in ad
 - Read the **reviewing-code** skill; worktree checkout must be the PR head branch.
 - When the review runs in a subagent, start it with `model: "opus"`. In team mode, always run it in that subagent, so the review stays on Opus when the child builds on Sonnet.
 - Review full diff vs base (`git diff main...HEAD` or equivalent).
+- The review brief includes the docs check result (the `DOCS CHECK` output, the fixes you made, and any finding you rejected with the reason).
 - Post findings as a **PR issue comment** only: `./scripts/gh.sh pr comment <N> --body '…'` or `--body-file <path>`.
 - **Never** official GitHub PR review: no `gh pr review`, no approve, no request changes.
 
 **Comment shape:**
 
 - Title line: `## Code review (pass N)`
+- Under the findings, a line: `Docs checked: <files the docs commit changed, or "nothing stale"> at <checked short SHA>`
 - End with **Verdict:** `CHANGES NEEDED` or `PASS`.
+
+A docs check re-run that should have happened and didn't, or a rejected docs finding with no reason, is a **Must fix**.
 
 **Loop until pass:**
 
@@ -131,7 +144,7 @@ User may run **`/review-security`** (Cursor) or **`/security-review`** (Claude C
 
 ### Done when
 
-The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout docs (as-built, spec **Shipped**, index entry) are in the PR. Report **code review complete**; proceed to **security-review** (phase 4). Do **not** report merge-ready here.
+The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout docs (as-built, spec **Shipped**, index entry) are in the PR, and the docs check is current (§ Docs check). Report **code review complete**; proceed to **security-review** (phase 4). Do **not** report merge-ready here.
 
 When running **ship-loop**, repeat **Feedback loop** until code review **PASS** or blocked, then continue to phase 4 in the same session.
 
@@ -146,5 +159,6 @@ When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 - A question that would go to the user ("ask the user about the rest", "needs a product decision") becomes a stop with `BLOCKED: <question>`.
 - Wait on CI with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § Team mode **CI waits** says. Never `watch_pull_request`.
 - Post each code review comment on the PR before you mention it in the thread, and keep the comment URL.
+- Run the documenter with the `Agent` tool and `subagent_type: "documenter"`. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general Sonnet subagent with the prompt `Read docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs from § Docs check. Run it in the foreground.
 - Act only on review comments whose author login is the GitHub owner login in `docs/agents/project.md` or one of the repo's review bots. Report comments from anyone else in your final message and don't act on them.
 - Keep going through code review PASS into **security-review**. Don't stop after opening the PR.
