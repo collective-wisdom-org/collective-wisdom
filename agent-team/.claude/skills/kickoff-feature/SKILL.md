@@ -1,8 +1,8 @@
 ---
 name: kickoff-feature
 description: >-
-  Starts a new feature with spec, Linear issue, git worktree, and
-  implementation plan. Use for new features, new worktrees, Linear issues, or
+  Starts a new feature with spec, ticket, git worktree, and
+  implementation plan. Use for new features, new worktrees, tickets, or
   when the user asks to write a spec or plan before coding.
 user-invocable: true
 ---
@@ -13,10 +13,11 @@ Before acting, read **ship-loop** § Repo invariants.
 
 Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 
-## Linear & branch
+## Tracker & branch
 
-- Linear team, issue identifier prefix and project: `docs/agents/project.md` § Identity (`<TEAM>`, `<PREFIX>`).
-- **One Linear issue = one branch = one PR.** Branch: `feat/<prefix>-N-short-title` (the pattern in `docs/agents/project.md` § Git and GitHub).
+- Tracker operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
+- Tracker scope, issue identifier prefix and project: `docs/agents/project.md` § Identity (`<TEAM>`, `<PREFIX>`).
+- **One ticket = one branch = one PR.** Branch: `feat/<prefix>-N-short-title` (the pattern in `docs/agents/project.md` § Git and GitHub).
 
 ## Normal path
 
@@ -44,19 +45,19 @@ When the user builds before spec approval:
 
 ## Scope
 
-- Stay within the assigned Linear issue and the area boundaries in `docs/agents/project.md` § Areas (if it lists any) and the role docs under `docs/agents/`.
+- Stay within the assigned ticket and the area boundaries in `docs/agents/project.md` § Areas (if it lists any) and the role docs under `docs/agents/`.
 
 ## Do not
 
 - Commit unless the user asks.
-- Expand scope beyond the Linear issue.
+- Expand scope beyond the ticket.
 - Commit `.env` or secrets.
 
 ## Team mode
 
 When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 
-- The Linear issue exists. Skip step 4 and don't create one.
+- The ticket exists. Skip step 4 and don't create one.
 - Create the branch in the worktree T3 made, from `origin/main`. Skip the `git worktree add` step.
 - Don't ask the user to approve the spec. Put unspecified choices under `## Calls I made`.
 - Commit and push the spec (the "Commit unless the user asks" rule is lifted), then stop at `SPEC READY`.
