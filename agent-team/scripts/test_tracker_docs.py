@@ -79,7 +79,7 @@ def test_skills_and_docs_name_no_tracker_tool():
 
 
 UNSAFE_FLAG = re.compile(
-    r"(?:--(?:body|title|search|description)(?:\s+|=)|\s-[btS]\s+)\""
+    r"(?:--(?:body|title|search|description)(?:\s+|=)|\s-[btdS]\s+)\""
 )
 
 
@@ -119,6 +119,9 @@ def test_adapter_puts_no_free_text_in_double_quotes(adapter):
         'gh issue create --title "x"',
         'gh issue create -b "x"',
         'gh issue create -t "x"',
+        'gh issue create -d "x"',
+        'gh issue create --description "x"',
+        'gh issue create --description="x"',
         'gh issue list -S "x"',
         'gh issue list --search "x"',
         'gh issue list --search="x"',

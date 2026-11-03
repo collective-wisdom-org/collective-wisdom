@@ -61,7 +61,7 @@ The status map holds the exact status names of your workflow. `project_config.va
 
 - state: `status = "<mapped name>"`; Backlog is the Backlog status name
 - label: `labels = "<name>"`
-- title text: `summary ~ "<words>"`, with each `"` and `\` in the words escaped by a backslash. Text search also reads some characters and words as operators (`AND`, `OR`, `NOT`, `+`, `-`, a leading `(`). Keep the words inside the quotes so they stay a phrase. Atlassian's text-search page does not list every reserved character or give a full escape rule (checked 2026-11-03), so the rest is unverified; a stray operator only changes which tickets match, not the safety of the query.
+- title text: `summary ~ "<words>"`, with each `"` and `\` in the words escaped by a backslash. This matches the words as separate terms, not as a phrase. For an exact phrase, wrap the words in escaped inner quotes: `summary ~ "\"<words>\""`. Text search reads some characters and words as operators (`AND`, `OR`, `NOT`, `+`, `-`, a leading `(`), and Atlassian's text-search docs list `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special. A stray operator can change which tickets match or make the query fail with an error (a leading `(` is documented to fail). Atlassian's docs do not give a full escape rule for `"` (checked 2026-11-03), so the rest is unverified. On a query error, retry once with the words stripped of operators and special characters; if it still fails, report the error and do not guess at a match.
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`

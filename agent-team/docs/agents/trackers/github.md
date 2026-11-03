@@ -152,7 +152,7 @@ With the endpoints, where `ID` is the blocker's database id:
 ./scripts/gh.sh api -X POST repos/<owner>/<repo>/issues/N/dependencies/blocked_by -F issue_id=ID
 ```
 
-Verified; it prints the blocked issue. Read back with `.../issues/N/dependencies/blocked_by --jq '.[].number'`. Undo with `./scripts/gh.sh api -X DELETE repos/<owner>/<repo>/issues/N/dependencies/blocked_by/ID`. Fallback: add a first-line `Blocked by: #M` to the body. Check the blocker is not Canceled first.
+Verified; it prints the blocked issue. Read back with `.../issues/N/dependencies/blocked_by --jq '.[].number'`. Undo with `./scripts/gh.sh api -X DELETE repos/<owner>/<repo>/issues/N/dependencies/blocked_by/ID`. Fallback: put `Blocked by: #M` on its own line near the top of the body. Check the blocker is not Canceled first.
 
 ### `set-related`
 

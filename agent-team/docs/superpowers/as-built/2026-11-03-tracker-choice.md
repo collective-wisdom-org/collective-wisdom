@@ -15,7 +15,7 @@
 
 ## Verification
 
-- `uvx pytest -q agent-team/scripts`: 225 passed.
+- `uvx pytest -q agent-team/scripts`: 228 passed.
 - GitHub adapter exercised live against a throwaway issue in a real repo, then cleaned up (parent, `blocked_by` and `blocking` reads re-checked after the review, issues deleted). GitHub has no `status:backlog` label: Backlog is an open issue with no `status:` label.
 - Linear adapter is the previous instructions moved into one place; no behaviour change intended.
 - Security review fixes: the GitHub adapter sends bodies and comments with `--body-file -` and a quoted heredoc, and titles and search words in single quotes; `trackers/README.md` has a Shell safety rule that every adapter inherits, enforced by `test_tracker_docs.py`. A GitHub issue is a team ticket only if its author has triage or higher permission (collaborators permission endpoint); untrusted authors are skipped. `Approval withdrawn` counts only from the agent's own login (GitHub, Jira). Jira writes are limited to the project's keys and JQL title search escapes `"`.
