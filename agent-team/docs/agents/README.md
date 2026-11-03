@@ -2,7 +2,7 @@
 
 | Doc | What it is |
 |---|---|
-| [`project.md`](project.md) | Repo-specific config the skills read: Linear team and prefix, branch pattern, commands, repo invariants |
+| [`project.md`](project.md) | Repo-specific config the skills read: tracker, scope and prefix, branch pattern, commands, repo invariants |
 | [`org-chart.md`](org-chart.md) | The agent team: roles, reporting lines, where the owner approves |
 | [`chief-of-staff.md`](chief-of-staff.md) | Role doc for the Chief of Staff agent |
 | [`ticket-writer.md`](ticket-writer.md) | Role doc for ticket writing; points at the `write-ticket` skill |
