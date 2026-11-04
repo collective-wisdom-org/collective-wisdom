@@ -88,38 +88,50 @@ def stamp(text, at, headed):
     return "\n\n".join(filter(None, [head, f"Merged {at:%Y-%m-%d %H:%M} UTC.", rest.strip()]))
 
 
+def render(files, prs, merged=None):
+    """The release notes text: `files` is (file name, text) pairs, `prs` the merged PR list, `merged` {file name: UTC time} from `file_merge_times()`.
+
+    Raises KeyError, TypeError or ValueError when a PR is malformed. Warns on stderr about an undated note file.
+    """
+    merged = merged or {}
+    notes = []  # (sort key, text)
+    for name, text in files:
+        text = text.strip()
+        m = DATED.match(text)
+        if not m:
+            print(f"release-notes: {name} has no dated heading", file=sys.stderr)
+        at = merged.get(name)
+        day = (at.date().isoformat() if at else m[1]) if m else ""
+        notes.append(((day, at.time().isoformat() if at else "", 0, natural(name)), stamp("#" + text if m else text, at, bool(m))))
+    for pr in prs:
+        text = section(pr["body"])
+        if text:
+            at = utc(pr["mergedAt"])
+            date = at.date().isoformat()
+            title = PREFIX.sub("", pr["title"])
+            notes.append(((date, at.time().isoformat(), 1, [pr["number"]]), stamp(f"## {date} {title} (#{pr['number']})\n\n{text}", at, True)))
+    # Dated notes first, newest merge first (notes without a merge time after the timed ones of their day); undated notes last.
+    notes.sort(key=lambda n: (bool(n[0][0]), *n[0]), reverse=True)
+    out = ["# Release notes"]
+    if not notes:
+        out.append("\nNo release notes yet.")
+    out += ["\n" + text for _, text in notes]
+    return "\n".join(out)
+
+
 def main(argv=()):
     if argv:
         print(__doc__)
         return 0
-    notes = []  # (sort key, text)
+    files = [(path.name, path.read_text()) for path in NOTES.glob("*.md")]
     merged = file_merge_times()
-    for path in NOTES.glob("*.md"):
-        text = path.read_text().strip()
-        m = DATED.match(text)
-        if not m:
-            print(f"release-notes: {path.name} has no dated heading", file=sys.stderr)
-        at = merged.get(path.name)
-        day = (at.date().isoformat() if at else m[1]) if m else ""
-        notes.append(((day, at.time().isoformat() if at else "", 0, natural(path.name)), stamp("#" + text if m else text, at, bool(m))))
     failed = None
     try:
-        for pr in merged_prs():
-            text = section(pr["body"])
-            if text:
-                at = utc(pr["mergedAt"])
-                date = at.date().isoformat()
-                title = PREFIX.sub("", pr["title"])
-                notes.append(((date, at.time().isoformat(), 1, [pr["number"]]), stamp(f"## {date} {title} (#{pr['number']})\n\n{text}", at, True)))
+        text = render(files, merged_prs(), merged)
     except (RuntimeError, KeyError, TypeError, ValueError) as e:
         failed = e
-    # Dated notes first, newest merge first (notes without a merge time after the timed ones of their day); undated notes last.
-    notes.sort(key=lambda n: (bool(n[0][0]), *n[0]), reverse=True)
-    print("# Release notes")
-    if not notes:
-        print("\nNo release notes yet.")
-    for _, text in notes:
-        print("\n" + text)
+        text = render(files, [], merged)
+    print(text)
     if failed:
         print(f"release-notes: cannot read merged PRs: {failed}", file=sys.stderr)
         return 1
