@@ -15,7 +15,7 @@ Unless this turn's full pass already read every active child, run the idle check
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-197** CSV export<br><thread link> | High (touches auth) | PR #180, reviews PASS. Reply `approve 197` or `changes 197: …`. |
+| **<PREFIX>-197** CSV export<br><thread link> | High (touches auth) | PR #180, reviews PASS. Approve the PR on GitHub, then reply `approve 197`, or `changes 197: …`. |
 
 **Building (2)**
 
@@ -58,6 +58,7 @@ Rules:
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
 - Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`spec stage`, `blocked: <reason>`, `changes requested, waiting for a spec slot`).
 - The Ticket cell is `**<PREFIX>-N** title`, then `<br>` and the link to the ticket's child thread (`childThreadId` in state). A row with no `childThreadId` (or a null one) has no `<br>` and no link. The link is never repeated in Next.
+- The detail cell ends with `$X so far`, the dollar figure from one `python3 scripts/agent_usage.py --ticket <PREFIX>-N` per row, whatever the stage. On exit 2 it adds nothing.
 - Titles come from the tracker: one `list-tickets` call with label `agent` and fields `id, title`. If that read fails, show the ID alone.
 - Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`.
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (approvals.md § Approval requests), each with its risk on the first line.

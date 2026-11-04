@@ -18,6 +18,9 @@ NOTES = root() / "docs" / "superpowers" / "release-notes"
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 DATED = re.compile(r"# (\d{4}-\d{2}-\d{2}) \S")
 PREFIX = re.compile(r"^[a-z]+(\([^)]*\))?!?:\s*")
+FOLDER = "docs/superpowers/release-notes/"
+# Full ref name: a tag called origin/main would win over the short name.
+MAIN = "refs/remotes/origin/main"
 
 
 def natural(name):
@@ -52,31 +55,67 @@ def merged_prs():
         raise RuntimeError(f"{type(e).__name__} {e}")
 
 
-def render(files, prs):
-    """The release notes text: `files` is (file name, text) pairs, `prs` the merged PR list.
+def utc(iso):
+    return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def parse_added(log):
+    """{file name: UTC time} from `git log --format=%x00%cI --name-only` output, newest commit first; the newest add of a file wins; a commit that adds several notes is skipped."""
+    added = {}
+    for commit in log.split("\0")[1:]:
+        when, *paths = commit.split("\n")
+        names = [p[len(FOLDER):] for p in paths if p.startswith(FOLDER)]
+        if len(names) == 1:  # a commit adding several notes is a backfill or a shallow boundary, not their merge
+            added.setdefault(names[0], utc(when))
+    return added
+
+
+def file_merge_times():
+    """{file name: merge time} for the notes on origin/main; empty when git cannot tell."""
+    cmd = ["git", "log", MAIN, "--diff-filter=A", "--format=%x00%cI", "--name-only", "--", FOLDER]
+    try:
+        p = subprocess.run(cmd, cwd=root(), capture_output=True, text=True, timeout=30)
+        return parse_added(p.stdout) if p.returncode == 0 else {}
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {}
+
+
+def stamp(text, at, headed):
+    """Put `Merged <time> UTC.` under the note's heading line, or above its text when it has none."""
+    if not at:
+        return text
+    head, _, rest = text.partition("\n") if headed else ("", "", text)
+    return "\n\n".join(filter(None, [head, f"Merged {at:%Y-%m-%d %H:%M} UTC.", rest.strip()]))
+
+
+def render(files, prs, merged=None):
+    """The release notes text: `files` is (file name, text) pairs, `prs` the merged PR list, `merged` {file name: UTC time} from `file_merge_times()`.
 
     Raises KeyError, TypeError or ValueError when a PR is malformed. Warns on stderr about an undated note file.
     """
-    notes = []  # (date, is_pr, order key, text)
-    for pr in prs:
-        text = section(pr["body"])
-        if text:
-            at = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
-            date = at.astimezone(timezone.utc).date().isoformat()
-            title = PREFIX.sub("", pr["title"])
-            notes.append((date, 1, [pr["number"]], f"## {date} {title} (#{pr['number']})\n\n{text}"))
+    merged = merged or {}
+    notes = []  # (sort key, text)
     for name, text in files:
         text = text.strip()
         m = DATED.match(text)
         if not m:
             print(f"release-notes: {name} has no dated heading", file=sys.stderr)
-        notes.append((m[1] if m else "", 0, natural(name), "#" + text if m else text))
-    # Dated notes first, newest first; undated notes last.
-    notes.sort(key=lambda n: (bool(n[0]), n[0], n[1], n[2]), reverse=True)
+        at = merged.get(name)
+        day = (at.date().isoformat() if at else m[1]) if m else ""
+        notes.append(((day, at.time().isoformat() if at else "", 0, natural(name)), stamp("#" + text if m else text, at, bool(m))))
+    for pr in prs:
+        text = section(pr["body"])
+        if text:
+            at = utc(pr["mergedAt"])
+            date = at.date().isoformat()
+            title = PREFIX.sub("", pr["title"])
+            notes.append(((date, at.time().isoformat(), 1, [pr["number"]]), stamp(f"## {date} {title} (#{pr['number']})\n\n{text}", at, True)))
+    # Dated notes first, newest merge first (notes without a merge time after the timed ones of their day); undated notes last.
+    notes.sort(key=lambda n: (bool(n[0][0]), *n[0]), reverse=True)
     out = ["# Release notes"]
     if not notes:
         out.append("\nNo release notes yet.")
-    out += ["\n" + text for *_, text in notes]
+    out += ["\n" + text for _, text in notes]
     return "\n".join(out)
 
 
@@ -85,12 +124,13 @@ def main(argv=()):
         print(__doc__)
         return 0
     files = [(path.name, path.read_text()) for path in NOTES.glob("*.md")]
+    merged = file_merge_times()
     failed = None
     try:
-        text = render(files, merged_prs())
+        text = render(files, merged_prs(), merged)
     except (RuntimeError, KeyError, TypeError, ValueError) as e:
         failed = e
-        text = render(files, [])
+        text = render(files, [], merged)
     print(text)
     if failed:
         print(f"release-notes: cannot read merged PRs: {failed}", file=sys.stderr)

@@ -45,7 +45,7 @@ ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
-    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body"
+    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body,reviews"
 )
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
@@ -70,6 +70,34 @@ def ts(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
+def read_protection(run):
+    """Approving reviews branch protection on main requires (0 when it requires none), or None when main has no protection."""
+    try:
+        out = run([GH, "api", "repos/{owner}/{repo}/branches/main/protection"])
+    except CmdError as e:
+        if re.search(r"HTTP 404", str(e)):
+            return None
+        raise
+    return json.loads(out).get("required_pull_request_reviews", {}).get("required_approving_review_count", 0)
+
+
+def owner_approval(f):
+    """Return None when the owner's latest verdict review is an approval on the current head, else why not."""
+    mine = [
+        r for r in f["reviews"]
+        if r["author"]["login"].lower() == f["owner"].lower() and r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
+    ]
+    short = f["headRefOid"][:7]
+    if not mine:
+        return f"no approving review by {f['owner']} on head {short}"
+    last = max(mine, key=lambda r: ts(r["submittedAt"]))
+    if last["state"] != "APPROVED":
+        return f"no approving review by {f['owner']} on head {short}; their latest review is {last['state']}"
+    if last["commit"]["oid"] != f["headRefOid"]:
+        return f"no approving review by {f['owner']} on head {short}; approved {last['commit']['oid'][:7]}, head moved"
+    return None
+
+
 def read_facts(pr, approved, run):
     """Everything the gate needs, from gh and git reads only."""
     f = json.loads(run([GH, "pr", "view", pr, "--json", FIELDS]))
@@ -78,6 +106,8 @@ def read_facts(pr, approved, run):
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     roles = {"code": "code-reviewer", "security": "security-reviewer", "builder": "builder"}
     f["authors"] = {k: project_config.role_login(r) or f["login"] for k, r in roles.items()}
+    f["owner"] = project_config.value("Owner login") or f["login"]
+    f["protection"] = read_protection(run) if f["state"] == "OPEN" else None
     f["agentLogins"] = sorted({l for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))})
     f["docs"] = {}
     if f["state"] == "OPEN":
@@ -207,6 +237,11 @@ def gate(f, delta=real_delta):
         if not ok:
             kind = "failed" if done and result else "not finished"
             return f"check {name} {kind} ({result})"
+    if not f["protection"]:
+        return "main has no branch protection requiring an approving review; set it up per docs/agents/github-auth.md § Merge gate"
+    problem = owner_approval(f)
+    if problem:
+        return problem
     for title in ("## Code review", "## Security review"):
         problem = review(f, title, delta)[1]
         if problem:
@@ -297,7 +332,7 @@ def publish_notes(pr, sha, run):
         raise Skip("cannot read merged PRs; release notes not published")
     try:
         run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"])
-        text = release_notes.render(note_files(run), prs) + "\n"
+        text = release_notes.render(note_files(run), prs, release_notes.file_merge_times()) + "\n"
     except Exception as e:
         raise Skip(f"cannot build the release notes: {type(e).__name__} {e}")
     data = text.encode()
