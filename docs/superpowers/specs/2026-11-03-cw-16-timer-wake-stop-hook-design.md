@@ -1,7 +1,7 @@
 # CW-16: Decide whether the Chief of Staff needs a timer, scheduled wake or new Stop-hook check
 
 **Ticket:** [CW-16](https://github.com/dbeallor/collective-wisdom/issues/16)
-**Status:** spec, answers recorded; awaiting spec approval
+**Status:** Shipped
 
 ## Goal
 
