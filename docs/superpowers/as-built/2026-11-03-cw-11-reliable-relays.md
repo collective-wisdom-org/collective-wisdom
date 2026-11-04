@@ -29,7 +29,7 @@ T3 sends a finish notice only to a child's parent thread, and only when that par
 
 ## Verification
 
-- `python3 -I -m pytest -q agent-team/scripts`: 318 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
+- `python3 -I -m pytest -q agent-team/scripts`: 323 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
 - `cos_handoff.py` run against PR #10 at e538c5d: checks and review lines matched `cos_brief.py pr 10`, before the author filter and fixed verdict words were added.
 
 ## Not verified
