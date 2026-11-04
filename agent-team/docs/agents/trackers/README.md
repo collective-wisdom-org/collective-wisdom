@@ -1,10 +1,10 @@
 # Tracker operations
 
-The agent team keeps its tickets in one tracker: Linear, GitHub Issues or Jira. Skills and role docs describe each ticket step as an operation from the table below and never name a tool. This page defines the operations. One adapter doc per tracker says how to do each one with that tracker's tools.
+The agent team keeps its tickets in one tracker: Linear, GitHub Issues or Jira. Skills and role docs name each ticket step as an operation from the table below, never a tool. This page defines the operations; one adapter doc per tracker says how to run each one.
 
 ## Finding the adapter
 
-Read the `Tracker` row in `docs/agents/project.md` § Identity. Its first backticked value is `linear`, `github` or `jira`. A missing row, an empty cell or `TODO(...)` text means `linear`. `python3 -c "import project_config; print(project_config.tracker())"` from `scripts/` prints the answer.
+Read the `Tracker` row in `docs/agents/project.md` § Identity. Its first backticked value is `linear`, `github` or `jira`; a missing row, an empty cell or `TODO(...)` text means `linear`. `python3 -c "import project_config; print(project_config.tracker())"` from `scripts/` prints the answer.
 
 | Tracker | Adapter |
 |---|---|
@@ -47,7 +47,7 @@ Load the adapter once per thread and reuse it. A skill that says "set-state In R
 
 ## Shell safety
 
-Ticket titles, bodies, comments and search words come from people and are untrusted. Every adapter follows these rules.
+Ticket titles, bodies, comments and search words come from people and are untrusted. Every adapter follows these rules, and skills point here for them.
 
 - Never put such text inside double-quoted shell arguments: backticks and `$(...)` still run there. No `--body "..."` or `--title "..."`.
 - Bodies and comments go in by file or stdin: `--body-file -` with a quoted heredoc (`<<'GH_BODY_END'`) whose delimiter is not in the text, or a temp file outside the repo written the same way.

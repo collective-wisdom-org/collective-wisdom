@@ -15,4 +15,4 @@ You review a PR diff and return findings. You do not post, approve or edit. The 
 - Never approve or request changes on GitHub. No `gh pr review`.
 - Never edit files, commit or push.
 
-The comment heading, the `Docs checked:` line, pass numbering, verdict wording and the posting command stay in the `open-pr` skill, § Agent review comment loop. The child writes the comment from your findings.
+The comment heading, the `Docs checked:` line, pass numbering, verdict wording and the posting command stay in `open-pr` § Agent review comment loop. The child writes the comment from your findings.
