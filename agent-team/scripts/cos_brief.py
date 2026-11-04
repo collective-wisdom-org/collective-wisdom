@@ -10,8 +10,10 @@ sections (each capped at 40 lines) and the headings of its Design sections. The
 link uses --branch, or the commit when it is not given.
 pr prints the title, url, head SHA (checked against --head), check counts, the
 latest code review and security review verdicts, a line when a `Head moved to` note
-names the head, file areas, flag lines and the migration number check. The PR body
-is not printed.
+names the head, a `cost:` line, file areas, flag lines and the migration number check.
+The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
+the ticket in the branch name (feat/<prefix>-N-...), or `cost: unknown` when the branch
+doesn't match, the script exits 2 or it takes over 30 seconds. Cost never makes pr exit 2.
 
 Read only: calls ./scripts/gh.sh with GET requests against the repo in docs/agents/project.md.
 Exits 2 with a one-line "cos_brief: ..." message when a read fails.
@@ -31,6 +33,8 @@ import project_config  # noqa: E402
 
 REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md, None without a Repo row
 GH = str(Path(__file__).absolute().parent / "gh.sh")
+USAGE = str(Path(__file__).absolute().parent / "agent_usage.py")
+BRANCH_RE = re.compile(r"^feat/([A-Za-z]+-[0-9]+)(?:-|$)")
 SECTIONS = ("Goals", "Non-goals", "Calls I made")
 SECTION_CAP = 40
 FLAG_CAP = 10
@@ -288,11 +292,25 @@ def migrations_line(n, nums):
     return line
 
 
+def cost_line(branch):
+    """`cost: <agent_usage.py --ticket line>`, or `cost: unknown` for any failure."""
+    m = BRANCH_RE.match(branch or "")
+    if m:
+        try:
+            r = subprocess.run([sys.executable, USAGE, "--ticket", m.group(1).upper()],
+                               capture_output=True, text=True, timeout=30)
+            if r.returncode == 0 and r.stdout.strip():
+                return f"cost: {r.stdout.strip()}"
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return "cost: unknown"
+
+
 def cmd_pr(args):
     n = args.number
     try:
         pr = gh_json("pr", "view", str(n), "--repo", REPO, "--json",
-                     "url,title,headRefOid,files,statusCheckRollup,comments")
+                     "url,title,headRefOid,headRefName,files,statusCheckRollup,comments")
     except ReadError:
         die(f"cannot read PR #{n}")
     oid = pr.get("headRefOid") or ""
@@ -323,6 +341,7 @@ def cmd_pr(args):
         review_line("code review", "## Code review", comments),
         review_line("security review", "## Security review", comments),
         *([moved] if moved else []),
+        cost_line(pr.get("headRefName")),
         f"files: {len(paths)} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",
         *flags_for(paths),
         migrations_line(n, migration_numbers(paths)),
