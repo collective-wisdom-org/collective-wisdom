@@ -30,7 +30,7 @@ ID = re.compile(r"[A-Za-z0-9._:-]+")
 DEFAULT_STATE = Path(__file__).absolute().parent.parent / ".agent-team" / "state.json"
 
 
-def check(state, thread):
+def check(state, thread, archive=True):
     tickets = state.get("tickets") or {}
     bad = [str(n) for n, t in tickets.items() if not ID.fullmatch(str(n))]
     bad += [str(t.get("parentThreadId")) for t in tickets.values() if t.get("parentThreadId") and not ID.fullmatch(str(t.get("parentThreadId")))]
@@ -53,7 +53,7 @@ def check(state, thread):
             lines.append(f"idle {name} old-parent {parent or 'unknown'}")
 
     unknown = sorted(n for n, t in tickets.items() if not t.get("parentThreadId"))
-    retired = [r.get("threadId") for r in state.get("retiredThreads") or []]
+    retired = [r.get("threadId") for r in state.get("retiredThreads") or []] if archive else []
     archived = {r.get("threadId") for r in state.get("retiredThreads") or [] if r.get("archivedAt")}
     for i, tid in enumerate(retired):
         if not tid:
@@ -79,24 +79,30 @@ def check(state, thread):
     return lines, older
 
 
+def run(thread, path, archive=True):
+    """(lines, older), or None after printing why the check did not run."""
+    if not thread.strip():
+        print("cos_parent_check: empty --thread")
+        return None
+    if not path.is_file():
+        print("cos_parent_check: no state file")
+        return None
+    try:
+        return check(json.loads(path.read_text()), thread, archive)
+    except (OSError, ValueError, AttributeError, TypeError):
+        print("cos_parent_check: unreadable state file")
+        return None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--thread", required=True)
     ap.add_argument("--file")
     args = ap.parse_args(argv)
-    if not args.thread.strip():
-        print("cos_parent_check: empty --thread")
+    result = run(args.thread, Path(args.file) if args.file else DEFAULT_STATE)
+    if result is None:
         return 2
-    path = Path(args.file) if args.file else DEFAULT_STATE
-    if not path.is_file():
-        print("cos_parent_check: no state file")
-        return 2
-    try:
-        state = json.loads(path.read_text())
-        lines, older = check(state, args.thread)
-    except (OSError, ValueError, AttributeError, TypeError):
-        print("cos_parent_check: unreadable state file")
-        return 2
+    lines, older = result
     print("\n".join(lines))
     return 1 if older else 0
 

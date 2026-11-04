@@ -28,9 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import project_config  # noqa: E402
 
-REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md
-if REPO is None:
-    raise SystemExit("cos_brief: docs/agents/project.md has no `<owner>/<repo>` in its Repo row")
+REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md, None without a Repo row
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 SECTIONS = ("Goals", "Non-goals", "Calls I made")
 SECTION_CAP = 40
@@ -186,19 +184,26 @@ def check_summary(rollup):
     return line
 
 
-def review_line(label, heading, comments):
-    """Latest comment whose body starts with `heading`."""
+def latest_review(heading, comments):
+    """Latest comment whose body starts with `heading`: (comment, "pass N", verdict), or None."""
     found = None
     for c in comments:
         if (c.get("body") or "").startswith(heading):
             found = c  # comments come oldest first; keep the last
     if not found:
-        return f"{label}: not posted"
+        return None
     body = found["body"]
     m = re.match(r"## \w+ review \(pass (\d+)\)", body.splitlines()[0])
     pass_n = f"pass {m.group(1)}" if m else "pass ?"
     verdicts = re.findall(r"^\W*Verdict:\W*(.+?)\W*$", body, re.MULTILINE)
-    verdict = verdicts[-1] if verdicts else "(no verdict)"
+    return found, pass_n, verdicts[-1] if verdicts else "(no verdict)"
+
+
+def review_line(label, heading, comments):
+    review = latest_review(heading, comments)
+    if not review:
+        return f"{label}: not posted"
+    found, pass_n, verdict = review
     when = (found.get("createdAt") or "")[11:16]
     return f"{label}: {pass_n} {verdict} {found.get('url', '')} ({when})"
 
@@ -315,6 +320,8 @@ def cmd_pr(args):
 
 
 def main():
+    if REPO is None:  # checked here, not at import, so other scripts can use the rest of the module
+        raise SystemExit("cos_brief: docs/agents/project.md has no `<owner>/<repo>` in its Repo row")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sp = sub.add_parser("spec")

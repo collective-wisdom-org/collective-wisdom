@@ -114,16 +114,11 @@ def same_branch(tid, info, head):
     return head.startswith(f"{project_config.branch_head()}{tid.lower()}-")
 
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="Which Chief of Staff tickets waiting on a merge have merged."
-    )
-    ap.add_argument("--file", type=Path, default=ROOT / ".agent-team" / "state.json")
-    ap.add_argument("--prs", type=Path)
-    ap.add_argument("--apply", action="store_true")
-    args = ap.parse_args()
-    state = load_state(args.file)
-    prs = load_prs(args.prs)
+def run(state_file, prs_file=None, apply=False):
+    """(lines, merged): merged is [(ticket, pr)]. Calls fail() (exit 2) when the check can't run;
+    nothing is written then."""
+    state = load_state(state_file)
+    prs = load_prs(prs_file)
 
     lines, ops = [], []
     for tid, info in candidates(state):
@@ -138,17 +133,28 @@ def main():
         else:
             lines.append(f"merged {tid} #{n} at {pr['mergedAt']}")
             ops.append({"op": "merged", "ticket": tid, "pr": n})
-    # Print only once the write has happened, so a failed write never reads as success.
+    # Lines are returned only once the write has happened, so a failed write never reads as success.
     try:
-        failed = ops and args.apply and cos_state.apply_file(args.file, ops) != 0
+        failed = ops and apply and cos_state.apply_file(state_file, ops) != 0
     except Exception:  # a crash must exit 2, not 1 ("merged")
         failed = True
     if failed:
         fail("could not write state")
-    if lines:
-        print("\n".join(lines))
-    print(f"merged-check: {len(lines)} checked, {len(ops)} merged")
-    raise SystemExit(1 if ops else 0)
+    lines.append(f"merged-check: {len(lines)} checked, {len(ops)} merged")
+    return lines, [(op["ticket"], op["pr"]) for op in ops]
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Which Chief of Staff tickets waiting on a merge have merged."
+    )
+    ap.add_argument("--file", type=Path, default=ROOT / ".agent-team" / "state.json")
+    ap.add_argument("--prs", type=Path)
+    ap.add_argument("--apply", action="store_true")
+    args = ap.parse_args()
+    lines, merged = run(args.file, args.prs, args.apply)
+    print("\n".join(lines))
+    raise SystemExit(1 if merged else 0)
 
 
 if __name__ == "__main__":
