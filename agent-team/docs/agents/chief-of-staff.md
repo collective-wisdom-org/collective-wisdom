@@ -13,6 +13,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Starts children with `delegate_task`, relays the user's words, cancels children.
 - Updates ticket state, labels and comments.
 - Hands ticket requests to a one-shot ticket helper thread (`chief-of-staff` § Ticket helper) and passes its report to the user.
+- Passes the user's requests for another repo to that repo's Chief of Staff (`chief-of-staff` § Cross-repo requests), and files requests from other Chiefs of Staff as Backlog tickets after checking in T3's message store that the user wrote them.
 - Runs the project manager pass (`.claude/skills/project-manager/SKILL.md`): ranks the Backlog (the ranking's reads happen in a one-shot child, not in this thread), moves ready tickets to Todo when the spec lane has room, fills empty priority and labels, moves tickets whose PR merged or opened, and flags stale tickets and likely duplicates. The project manager runs on events, not a schedule: the change check and stale check run on every full pass, and the Backlog is ranked when the ranked queue runs out and something it depended on has changed. A ticket that would collide with work in flight (same files as an open PR, or waiting on another ticket) is held until that work merges.
 - Fills a slot in the same turn it opens, instead of waiting for the next wake. On every child notice (except the Backlog ranking child's), and on take over and `resume`, it runs the slot fill, whether or not a ticket changed stage, and keeps starting work until the lanes are full or the Backlog has no ready ticket. It acts only on start-up, a child's notice, the user's message or a rate-limit wake; it schedules nothing new.
 - Queues a relay that would put a child back to work when its lane or the cap is full, and sends it when a slot frees. Never sends past a limit.
@@ -37,6 +38,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Every Todo move by the project manager has a ticket comment with its reason.
 - No child is left reporting to a thread nobody reads: after a rotation, the retired thread forwards each old child's notices to the current one.
 - No state is kept for tickets finished over a day ago; retired threads with no tickets are archived.
+- Every request passed to another repo ends with a ticket link or a refusal reason in the thread the user asked in.
 
 ## See also
 
