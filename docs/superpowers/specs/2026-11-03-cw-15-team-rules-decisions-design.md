@@ -19,7 +19,7 @@ Facts from `main` at `27fdaeb` (CW-11 merged).
 
 | Part | Where it lives | What it does today |
 |---|---|---|
-| Idle check | `chief-of-staff` § Lean turns, `scripts/cos_idle_check.py` | On every run-finished turn, `status`, `where's`, and before any "nothing needs you" message: one tiny `t3_thread_read` per active child (`limit: 1`, `maxCharsPerItem: 1`) for run status and `updatedAt`. The script marks a child `full` when its last run failed, was interrupted, finished without a marker, or has been running for more than 45 minutes. |
+| Idle check | `chief-of-staff` § Lean turns, `scripts/cos_idle_check.py` | On every run-finished turn, `status`, `where's`, and before any "nothing needs you" message: one tiny `t3_thread_read` per active child (`limit: 1`, `maxCharsPerItem: 1`) for run status and `updatedAt`. The script marks a child `full` when its read failed, its last run isn't `running` (any status, with or without a marker), or it is `running` with no update for more than 45 minutes. |
 | Sweep | `chief-of-staff` § Sweep, `scripts/cos_sweep.py` | Added by CW-11. Merged check, ready check and parent check in one command with no thread reads. Finds lost `MERGE READY` (both reviews PASS on the PR) and lost `SPEC READY` (branch moved past `specSha`). |
 | Rotation chain walk | `ship-loop` § Team mode "Relays", `merge-pr` | A relay naming an approval thread other than the child's own Chief of Staff must walk back through `CHIEF OF STAFF ROTATION from <P>` links, checking a `Moved to` line in each old thread, at most 30 hops. A break stops the child with `BLOCKED:`. |
 | Approval gates and head check | `ship-loop` § Phase gates and § Team mode, `merge-pr`, `scripts/merge_pr.py`, `scripts/pr_diff_delta.py` | The user approves every spec and every merge. The child checks `createdBy: "user"` on the approval. `MERGE READY` needs both reviews PASS on the current head; a head moved only by merging `main` keeps its reviews when the PR diff is unchanged. |
@@ -39,7 +39,7 @@ Each question is the user's call. My recommendation and the reason follow each o
 
 1. **Idle check: change it or leave it?**
    Options: (a) leave it; (b) stop running it on every run-finished turn and keep it only for `status`, `where's`, the slot-fill gate and before any "nothing needs you" message; (c) fold more of it into the sweep.
-   **Recommend (a), leave it.** (c) isn't possible: run status lives only in T3 and needs a read per child. (b) saves at most four one-character reads per notice turn, and in exchange a failed or stalled child whose notice was lost waits until the user next asks for `status`. GUY-327 showed the thread skipping multi-step checks, and a stall nobody sees costs more than four small reads.
+   **Recommend (a), leave it.** (c) isn't possible: run status lives only in T3 and needs a read per child. (b) saves at most four one-character reads per notice turn, and in exchange a failed or stalled child whose notice was lost waits until the user next asks for `status`. A stall nobody sees costs more than four small reads. (fathom's GUY-327 trace, second-hand, also showed the thread skipping multi-step checks, so a check that is cheap to run is more likely to run.)
 
 2. **Rotation chain walk: change it or leave it?**
    **Recommend leave it, and close the question.** No first-hand failure exists to fix, the common case no longer walks the chain, and CW-14 shrinks the rest. If a real `BLOCKED: approval thread ... does not descend` shows up, file a ticket with that thread.
