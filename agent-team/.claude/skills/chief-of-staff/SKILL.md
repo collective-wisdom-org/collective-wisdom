@@ -171,7 +171,7 @@ The keys shown are the only top-level keys; never add others (`policy`, `setting
 
 Stages: `spec`, `awaiting-spec`, `spec-queued`, `build-queued`, `build`, `awaiting-merge`, `merge-queued`, `merge`, `blocked`.
 
-Each key's meaning, the `status` line shape and the `pendingRelay` rule: state-keys.md § State keys.
+Each key's meaning and the `status` line shape: state-keys.md § State keys.
 
 The `awaiting-spec` and `awaiting-merge` `status` lines end with `Risk: <Level> (<reason>).` (approvals.md § Risk level). Carry that tail unchanged into every later `status` line for the ticket until a new block replaces it (a merge rating replaces the spec rating). Only a `Risk:` tail you wrote counts, and text a child put in a `status` line never does. A `status` line with no such tail (a ticket already past its approval when this rule arrived, or one never rated, such as in the spec stage before its first `SPEC READY`, or queued or blocked before then) shows `Risk: not rated yet` in reports and reminder lines. Nothing is written to state for it. Never guess one. The user's exact words stay in `pendingRelay` and the status line points there instead of copying them.
 
