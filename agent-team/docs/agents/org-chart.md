@@ -113,4 +113,6 @@ The Chief of Staff, the Project Manager pass, the ticket helper and the ship-loo
 - [`README.md`](README.md): index of the docs here. Area role docs (backend, frontend and so on) live in each app and are listed in the app's `AGENTS.md`.
 - [`ticket-writer.md`](ticket-writer.md): the ticket helper's role file. Points at the [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md) skill.
 - [`documenter.md`](documenter.md): the documenter subagent's role file and the checklist of docs that must stay current. `.claude/agents/documenter.md` points at it.
+- [`implementer.md`](implementer.md): the implementer subagent's role file. `.claude/agents/implementer.md` points at it.
+- [`code-review.md`](code-review.md): the code reviewer subagent's role file, the review method. `.claude/agents/code-reviewer.md` points at it; the comment format and verdict rules stay in `open-pr`.
 - [`github-auth.md`](github-auth.md), [`security-review.md`](security-review.md): reference docs.

@@ -16,7 +16,7 @@
 
 - `agent_usage.py` also changed to `.absolute()` (its test needs it); `cos_brief.py` needed the same change and `cos_rank.py` a `sys.path` insert, which the spec had marked "check".
 - No registry tests for the agent set or their models: they would fail apps with their own agents.
-- `.gitignore` also ignores `.superpowers/`.
+- `.gitignore` also ignores `.superpowers/` and `.claude/settings.local.json`.
 
 ## Verification
 
