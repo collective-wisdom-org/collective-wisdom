@@ -15,6 +15,7 @@ HEAD = "a" * 40
 ASBUILT = "docs/superpowers/as-built/x.md"
 SPECMD = "docs/superpowers/specs/x-design.md"
 INDEX = "docs/superpowers/index/x.md"
+NOTEMD = "docs/superpowers/release-notes/x.md"
 
 
 def review(title, verdict="PASS", at="2026-11-02T10:00:00Z", who="me"):
@@ -41,8 +42,13 @@ def green():
             {"path": ASBUILT, "changeType": "ADDED"},
             {"path": SPECMD, "changeType": "ADDED"},
             {"path": INDEX, "changeType": "ADDED"},
+            {"path": NOTEMD, "changeType": "ADDED"},
         ],
-        "docs": {SPECMD: "**Status:** Shipped\n", INDEX: "| [x](../as-built/x.md) |\n"},
+        "docs": {
+            SPECMD: "**Status:** Shipped\n",
+            INDEX: "| [x](../as-built/x.md) |\n",
+            NOTEMD: "\n# 2026-11-03 X-1: a title\n\nbody\n",
+        },
         "mergeCommit": None, "root": "/root", "root_branch": "main", "root_dirty": False, "root_ahead": 0,
     }
 
@@ -75,6 +81,8 @@ def reviews(**kw):
         (lambda f: f["docs"].update({SPECMD: "**Status:** Draft\n"}), "Shipped"),
         (lambda f: (f["files"].pop(2), f["docs"].pop(INDEX)), "no docs/superpowers/index"),
         (lambda f: f["docs"].update({INDEX: "no row"}), "no index entry"),
+        (lambda f: (f["files"].pop(3), f["docs"].pop(NOTEMD)), "no added docs/superpowers/release-notes"),
+        (lambda f: f["docs"].update({NOTEMD: "# A title\n"}), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
         (lambda f: f.update(root_branch="feat/y"), "root checkout is on feat/y"),
         (lambda f: f.update(state="MERGED", approved="bbbbbbb"), None),
     ],
