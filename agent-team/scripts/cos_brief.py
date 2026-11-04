@@ -186,19 +186,25 @@ def check_summary(rollup):
     return line
 
 
-def review_line(label, heading, comments):
-    """Latest comment whose body starts with `heading`."""
+def latest_review(heading, comments):
+    """(comment, verdict) for the latest comment whose body starts with `heading`."""
     found = None
     for c in comments:
         if (c.get("body") or "").startswith(heading):
             found = c  # comments come oldest first; keep the last
     if not found:
+        return None, None
+    verdicts = re.findall(r"^\W*Verdict:\W*(.+?)\W*$", found["body"], re.MULTILINE)
+    return found, verdicts[-1] if verdicts else "(no verdict)"
+
+
+def review_line(label, heading, comments):
+    """Latest comment whose body starts with `heading`."""
+    found, verdict = latest_review(heading, comments)
+    if not found:
         return f"{label}: not posted"
-    body = found["body"]
-    m = re.match(r"## \w+ review \(pass (\d+)\)", body.splitlines()[0])
+    m = re.match(r"## \w+ review \(pass (\d+)\)", found["body"].splitlines()[0])
     pass_n = f"pass {m.group(1)}" if m else "pass ?"
-    verdicts = re.findall(r"^\W*Verdict:\W*(.+?)\W*$", body, re.MULTILINE)
-    verdict = verdicts[-1] if verdicts else "(no verdict)"
     when = (found.get("createdAt") or "")[11:16]
     return f"{label}: {pass_n} {verdict} {found.get('url', '')} ({when})"
 

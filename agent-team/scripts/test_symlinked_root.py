@@ -41,6 +41,7 @@ def _env():
         ("merge_pr", "ROOT", ""),
         ("pr_diff_delta", "ROOT", ""),
         ("cos_merged_check", "ROOT", ""),
+        ("cos_ready_check", "ROOT", ""),
         ("cos_rotation_check", "ROOT", ""),
     ],
 )
