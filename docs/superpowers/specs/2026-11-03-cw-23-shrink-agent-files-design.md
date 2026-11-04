@@ -1,6 +1,8 @@
 # CW-23: Shrink the files agents load without changing behaviour
 
 Ticket: https://github.com/dbeallor/collective-wisdom/issues/23 (priority High since the 2026-11-04 note)
+**Status:** Shipped
+**Shipped:** in PR #73, with differences: [as-built](../as-built/2026-11-04-cw-23-shrink-agent-files.md)
 
 ## Intent
 
