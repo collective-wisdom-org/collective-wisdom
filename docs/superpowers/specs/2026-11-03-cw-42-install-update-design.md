@@ -1,7 +1,7 @@
 # CW-42: Pin, update and drift-check the agent team in apps
 
 **Ticket:** [CW-42](https://github.com/dbeallor/collective-wisdom/issues/42)
-**Status:** Draft
+**Status:** Shipped
 
 ## Goal
 
