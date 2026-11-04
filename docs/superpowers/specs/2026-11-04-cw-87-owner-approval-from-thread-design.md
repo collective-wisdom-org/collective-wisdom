@@ -1,7 +1,8 @@
 # CW-87: Post the owner's approving review when the user approves a merge
 
 **Ticket:** [CW-87](https://github.com/dbeallor/collective-wisdom/issues/87)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #89, as specified
 
 ## Goal
 
