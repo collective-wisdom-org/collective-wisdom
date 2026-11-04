@@ -49,7 +49,7 @@ Use only the issues and PRs from the change check.
 For each changed ticket in Backlog, Todo, In Progress or In Review that is not in the Chief of Staff's `tickets`:
 
 - No priority: set High, Medium or Low. Never Urgent.
-- No area label (the list in `docs/agents/project.md` § Labels): add the one or two that fit.
+- No area label (the list in `docs/agents/project.md` § Areas and labels): add the one or two that fit.
 - No type label (`Bug`, `Feature`, `Improvement`): add one.
 
 Read the description with `get-ticket` only when the title doesn't settle it. If the ticket still doesn't make the answer clear, leave the field empty. Fill only empty fields, and never fill a field listed for that ticket in `pm.filled` (keys `priority`, `area`, `type`). Add what you fill to `pm.filled`. Add labels with `add-label`, never by rewriting the whole label set, so no existing label is dropped.
@@ -167,14 +167,11 @@ Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
 
 Skip it when the team is `paused` or `rateLimitedAt` is set.
 
-The spec lane has room when both hold. `chief-of-staff` § Lanes has the numbers.
-
-- Tickets in `spec` and `spec-queued`, plus Todo tickets the slot fill could start (no `agent-skip`, no open blocker), are fewer than the spec lane's limit.
-- Tickets in `awaiting-spec` are fewer than the unreviewed-specs limit.
+The spec lane has room when tickets in `spec` and `spec-queued`, plus Todo tickets the slot fill could start (no `agent-skip`, no open blocker), are fewer than the spec lane's limit. `chief-of-staff` § Lanes has the numbers.
 
 It does not look at the build lane, the merge lane or the overall cap. A Todo ticket waits for a spec slot like any other spec-lane work.
 
-Check the state file first. If the state file leaves no room (`awaiting-spec` at the limit, or `spec` and `spec-queued` at the spec lane's limit), the fill costs no calls. Otherwise call `list-tickets` (scope <TEAM>, state Todo, fields `id, labels, priority, createdAt`), then `get-ticket` with relations (fields `id, state, labels, relations`) on each Todo ticket without `agent-skip`, and count the startable ones toward the spec lane's limit. If room remains and `pm.ranked` has no `ready` ticket, rank as under "Dry ranking" below. If room remains and it has one, move tickets as below. A ranking adds its own calls.
+Check the state file first. If the state file leaves no room (`spec` and `spec-queued` at the spec lane's limit), the fill costs no calls. Otherwise call `list-tickets` (scope <TEAM>, state Todo, fields `id, labels, priority, createdAt`), then `get-ticket` with relations (fields `id, state, labels, relations`) on each Todo ticket without `agent-skip`, and count the startable ones toward the spec lane's limit. If room remains and `pm.ranked` has no `ready` ticket, rank as under "Dry ranking" below. If room remains and it has one, move tickets as below. A ranking adds its own calls.
 
 Make the Todo `list-tickets` call once per turn and reuse it. Add the tickets this fill moves to Todo to that list, with the `priority` and `createdAt` kept in their `pm.ranked` entry, so the Chief of Staff's slot fill (`chief-of-staff` § Slot fill step 3) can sort them without a second call. Make the blocker `get-ticket` at most once per ticket per turn.
 
@@ -185,7 +182,7 @@ While the spec lane has room:
 3. `set-state` Todo. `comment`: `Moved to Todo by the project manager: <reason>.`
 4. Count it toward the spec lane's limit.
 
-**Dry ranking.** The spec lane has room (both checks above, after the Todo read) and `pm.ranked` has no `ready` ticket left. Run § Ranking child now, then continue the fill from the new `pm.ranked`, when any of these holds:
+**Dry ranking.** The spec lane has room (the check above, after the Todo read) and `pm.ranked` has no `ready` ticket left. Run § Ranking child now, then continue the fill from the new `pm.ranked`, when any of these holds:
 
 - `pm.rankedAt` is null (never ranked).
 - `pm.rankedReady` is true: the last ranking found `ready` tickets and they are used up.

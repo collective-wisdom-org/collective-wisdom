@@ -38,7 +38,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 
 - Use `./scripts/gh.sh` instead of bare `gh` (creating-pr already shows `./scripts/gh.sh pr create`).
 - PR body: link **<PREFIX>-N** (`ticket-url`), spec path, and as-built path (after closeout commit below). When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
-- When `scripts/gh-bot.sh` exists, use bot push per agent-pr-identities plan; until then, human remote push is OK.
+- Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available. Tracker operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
 - **CI:** `./scripts/gh.sh pr checks --watch`, or a PR/CI subscription when the agent has one.
 
@@ -50,7 +50,7 @@ Read **superpowers-project-memory** for as-built template. **Overrides:**
 
 - As-built header: `**Shipped:** in PR #N` (no date). Also `**Ticket:** <PREFIX>-N`.
 - Set linked spec `**Status:** Shipped`.
-- Add your as-built row to `docs/superpowers/index/<prefix>-N.md`.
+- Add your as-built row to the ticket's index file. Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
 
 Commit on the feature branch: `docs: as-built for <PREFIX>-N <short>` (include spec + index in the same commit). Push before step 1 of the agent review loop.
 
@@ -133,7 +133,7 @@ Reply **in thread**, not top-level. Start body with `Fixed in {short-sha}.`
 ### Forbidden (feedback loop)
 
 - `./scripts/gh.sh pr review --approve`
-- `./scripts/gh.sh pr merge` — **merge-pr** only on explicit user request
+- Merging is **merge-pr**'s job (`scripts/merge_pr.py`), only on explicit user request
 - Enable auto-merge or mark draft ready without user ask
 
 ### Optional

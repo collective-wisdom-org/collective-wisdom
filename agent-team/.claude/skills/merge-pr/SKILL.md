@@ -22,7 +22,7 @@ Before acting, read **ship-loop** § Repo invariants.
 
 `scripts/merge_pr.py` runs these checks and stops with one line naming the cause if any fails: PR open, not a draft, based on `main`, head equals the approved SHA, mergeable and `CLEAN`, not from a fork, every check green (CheckRun and StatusContext), latest code review and security review by the logged-in `gh` user each end in `Verdict: PASS` (bold or plain) and are newer than the head commit, closeout docs in the PR, and root checkout on a clean `main` with an upstream and no local commits. Do not repeat them by hand. If the PR isn't mergeable or checks are red, **invoke open-pr** (feedback loop section) first.
 
-**Closeout in PR:** the script needs the as-built file, spec `**Status:** Shipped` and the index entry (`docs/superpowers/index/<prefix>-N.md`) in the PR (see **open-pr** § Closeout docs). If any are missing, add them on the feature branch in the worktree, push, wait for CI green, then rerun the script. Never write closeout on root `main`.
+**Closeout in PR:** the script needs the as-built file, spec `**Status:** Shipped` and the index entry in the PR (see **open-pr** § Closeout docs). Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table. If any are missing, add them on the feature branch in the worktree, push, wait for CI green, then rerun the script. Never write closeout on root `main`.
 
 ## Merge (human identity)
 

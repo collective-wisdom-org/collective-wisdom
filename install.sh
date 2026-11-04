@@ -17,8 +17,20 @@ for arg in "$@"; do
 done
 [ -n "$TARGET" ] || usage
 
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agent-team"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC="$ROOT/agent-team"
 [ -d "$SRC" ] || { echo "missing $SRC" >&2; exit 1; }
+# The version pin written below names HEAD, so the installed files must be exactly HEAD.
+git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1 || { echo "Refusing: $ROOT is not a git repo, so the install cannot be pinned to a commit." >&2; exit 1; }
+if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
+  echo "Refusing: $ROOT has uncommitted changes, so the install cannot be pinned to a commit." >&2
+  echo "Commit or stash them first." >&2
+  exit 1
+fi
+# A copy vendored inside another repo would otherwise pin the parent repo's commit.
+TOP="$(cd "$(git -C "$ROOT" rev-parse --show-toplevel)" && pwd -P)"
+[ "$TOP" = "$(cd "$ROOT" && pwd -P)" ] || { echo "Refusing: $ROOT is inside the git repo at $TOP, not its own repo root, so the install cannot be pinned to its commit." >&2; exit 1; }
+SHA="$(git -C "$ROOT" rev-parse HEAD)"
 [ -d "$TARGET" ] || { echo "not a directory: $TARGET" >&2; exit 1; }
 TARGET="$(cd "$TARGET" && pwd)"
 git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1 || { echo "not a git repo: $TARGET" >&2; exit 1; }
@@ -68,6 +80,23 @@ seed_file() {
 sync_dir "$SRC/.claude/skills" "$TARGET/.claude/skills"
 sync_dir "$SRC/.claude/agents" "$TARGET/.claude/agents"
 
+# Skill folders the installer did not ship, named like a shipped skill with a prefix (for example
+# acme-ship-loop next to ship-loop), are old copies. Warn; never delete.
+for d in "$TARGET/.claude/skills"/*/; do
+  [ -d "$d" ] || continue
+  name="$(basename "$d")"
+  [ -d "$SRC/.claude/skills/$name" ] && continue
+  for s in "$SRC/.claude/skills"/*/; do
+    shipped="$(basename "$s")"
+    case "$name" in
+      *-"$shipped")
+        say "warn    .claude/skills/$name looks like an old copy of $shipped; delete it"
+        TODOS+=("Delete .claude/skills/$name: it looks like an old copy of $shipped.")
+        break ;;
+    esac
+  done
+done
+
 # settings.json holds the consumer's own settings too, so never overwrite a differing one.
 SET="$TARGET/.claude/settings.json"
 if [ ! -e "$SET" ]; then
@@ -80,6 +109,17 @@ fi
 sync_dir "$SRC/scripts" "$TARGET/scripts"
 
 sync_dir "$SRC/docs/agents" "$TARGET/docs/agents"
+
+# Version pin: which collective-wisdom commit the installed files came from.
+PIN="$TARGET/docs/agents/installed-from.txt"
+PIN_TEXT="collective-wisdom $SHA"
+if [ ! -e "$PIN" ]; then
+  say "add     docs/agents/installed-from.txt"; CHANGED=$((CHANGED + 1))
+  run mkdir -p "$TARGET/docs/agents"; [ "$DRY" -eq 1 ] || echo "$PIN_TEXT" > "$PIN"
+elif [ "$(cat "$PIN")" != "$PIN_TEXT" ]; then
+  say "update  docs/agents/installed-from.txt"; CHANGED=$((CHANGED + 1))
+  [ "$DRY" -eq 1 ] || echo "$PIN_TEXT" > "$PIN"
+fi
 
 if [ ! -e "$TARGET/docs/superpowers/README.md" ]; then
   say "add     docs/superpowers/README.md"; CHANGED=$((CHANGED + 1))

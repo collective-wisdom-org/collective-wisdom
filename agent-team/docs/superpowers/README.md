@@ -18,3 +18,5 @@ Each file is a three-column table. Links are relative to `index/`, so they start
 ```
 
 `python3 scripts/docs_index.py` prints every entry as one table sorted by date.
+
+`scripts/merge_pr.py` refuses to merge a PR unless it adds a file under `as-built/`, marks a spec `**Status:** Shipped`, and includes an `index/` file that links the as-built.

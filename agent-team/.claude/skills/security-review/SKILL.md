@@ -76,7 +76,7 @@ Be honest: if nothing exploitable remains, post **PASS**. Do not invent issues.
 ### Forbidden
 
 - `./scripts/gh.sh pr review --approve`
-- `./scripts/gh.sh pr merge` — **merge-pr** only on explicit user request
+- Merging is **merge-pr**'s job (`scripts/merge_pr.py`), only on explicit user request
 
 ## Done when
 
