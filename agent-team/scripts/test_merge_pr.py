@@ -74,7 +74,6 @@ def reviews(**kw):
         (reviews(who="other"), "no Security review"),
         (lambda f: [c.update(body=c["body"].replace("**Verdict:**", "Verdict:")) for c in f["comments"]], None),
         (lambda f: f.update(isCrossRepository=True), "from a fork"),
-        (lambda f: f.update(not_root_checkout=True), "run it from the root checkout"),
         (lambda f: f.update(login="cw-builder", agentLogins=["cw-chief", "cw-builder"]), "agent user cw-builder"),
         (lambda f: f.update(commits=[{"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}, {"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "older than head"),
         (lambda f: f.update(commits=[{"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "head commit not in"),
@@ -136,6 +135,8 @@ def writes(calls):
     "change, code, wrote",
     [
         (lambda f: f.update(approved="bbbbbbb"), 1, 0),
+        (lambda f: f.update(root="/elsewhere"), 1, 0),  # run from a worktree: read_facts flags it, gate refuses
+        (lambda f: f.update(root="/elsewhere", state="MERGED", mergeCommit={"oid": "m" * 40}), 1, 0),
         (lambda f: f["statusCheckRollup"][0].update(conclusion="FAILURE"), 1, 0),
         (lambda f: f.update(state="MERGED", mergeCommit={"oid": "m" * 40}), 0, 2),
         (lambda f: None, 0, 3),

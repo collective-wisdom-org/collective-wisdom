@@ -165,14 +165,14 @@ def review(f, title, delta=real_delta):
 
 def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
+    if f.get("not_root_checkout"):
+        return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if f["state"] == "MERGED":
         return None
     if f["state"] == "CLOSED":
         return "PR is closed, not merged"
     if f["state"] != "OPEN":
         return f"PR state is {f['state']}"
-    if f.get("not_root_checkout"):
-        return "run it from the root checkout: cd <root checkout> && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if f["login"] in f.get("agentLogins", ()):
         return f"gh is signed in as the agent user {f['login']}, not the owner; run gh auth switch -u <owner login>"
     if f["isDraft"]:

@@ -21,8 +21,8 @@
 - `cos_rotation_check.py --hook` changes into `CLAUDE_PROJECT_DIR` when set (so `project.md`, the state file and the transcript lookup all follow the app), because the Stop hook's working directory can drift away from the repo top. Other modes use the current repo.
 - `--check` exits 2 when it cannot extract the pinned commit.
 - The `origin/main` gate reads `refs/remotes/origin/main` by exact name (`git show-ref --verify`) and refuses when it is missing, so a tag or branch named `origin/main` (or `refs/remotes/origin/main`) can't stand in for the real remote branch. `--update` fetches with `--no-tags`, and `install.sh` sets `GIT_NO_REPLACE_OBJECTS=1`.
-- `merge_pr.py` refuses unless it is run from the root checkout (the current repo equals the first entry of `git worktree list`). Since CW-38 the gate reads reviewer logins from `project.md`, which now comes from the current directory, so a feature worktree must not supply its own.
+- `merge_pr.py` refuses unless it is run from the root checkout, even for an already merged PR (the current repo equals the first entry of `git worktree list`). Since CW-38 the gate reads reviewer logins from `project.md`, which now comes from the current directory, so a feature worktree must not supply its own.
 
 ## Verification
 
-`uvx pytest -q agent-team/scripts` passes (490 tests) and `shellcheck install.sh agent-team/scripts/*.sh` is clean. `--dry-run`, `--check` and `--update` were run by hand against a throwaway clone and app.
+`uvx pytest -q agent-team/scripts` passes (491 tests) and `shellcheck install.sh agent-team/scripts/*.sh` is clean. `--dry-run`, `--check` and `--update` were run by hand against a throwaway clone and app.
