@@ -91,7 +91,7 @@ One comment on #16 with each question, its answer and its reason (the table abov
 Only `chief-of-staff` SKILL.md § Send or queue, one new paragraph after the bullets. Nothing else in the skill, no script, no hook, no `settings.json`.
 
 - **CW-12** (building) edits § Commands `status` row, § Approval requests and § Report format (the `Needs you` example and a new `### Status layout`). It does not touch § Send or queue or the Moving group. Under CW-12 a `status` answer has no Moving section, so this line shows in the report of the turn that sent the relay, not in a later `status`. That is where it is useful: it tells the user to ask for `status`.
-- **CW-14** (spec) rewrites two later paragraphs of § Send or queue (the "keeps its child" paragraph and the T3 notice-rule paragraph) and the "Continuation child" subsection. It doesn't touch the first bullet or the paragraph this PR adds. Once CW-14 ships, fewer relays go to old children, so the line shows less often.
+- **CW-14** (spec) rewrites two later paragraphs of § Send or queue (the "keeps its child" paragraph and the T3 notice-rule paragraph) and the "Continuation child" subsection. It doesn't touch the paragraph this PR adds. Once CW-14 ships, fewer relays go to old children, so the line shows less often.
 - **CW-17** (PR #26) adds § Commands rows and a § Guardrails line. No overlap.
 - **CW-15** (spec) changes no § Send or queue text.
 
