@@ -138,6 +138,11 @@ if [ -n "$DIRTY" ]; then
 fi
 
 if [ "$UPDATE" -eq 1 ]; then
+  # A release tag can be older than the pin (an app updated from origin/main after the last tag), so --from never moves backwards unless forced.
+  if [ -n "$FROM" ] && [ "$FORCE" -eq 0 ] && ! git -C "$ROOT" merge-base --is-ancestor "$OLD" "$SHA" 2>/dev/null; then
+    echo "Refusing: $FROM (${SHA:0:12}) is older than the pin ${OLD:0:12}, so the update would move the app backwards. Run again with --force to do it anyway." >&2
+    exit 1
+  fi
   if [ "${#DRIFT[@]}" -gt 0 ] && [ "$FORCE" -eq 0 ]; then
     echo "Refusing: ${#DRIFT[@]} file(s) differ from collective-wisdom $OLD, and an update would overwrite them:" >&2
     printf '%s\n' "${DRIFT[@]}" >&2

@@ -16,16 +16,20 @@ while [ "$#" -gt 0 ]; do
 done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-git -C "$ROOT" fetch -q --tags origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
+git -C "$ROOT" fetch -q --no-tags origin main || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
 # Look the branch up by its exact ref name, so a tag called origin/main cannot stand in for it.
 MAIN="$(git -C "$ROOT" show-ref --verify --hash refs/remotes/origin/main 2>/dev/null)" || { echo "Refusing: $ROOT has no origin/main." >&2; exit 1; }
 
 # Release tags are v0.N only; N is compared as a number, so v0.10 follows v0.9.
+# Origin is the only source: a local tag that was never pushed, or was deleted there, must not count.
+# Each line is "<tag> <commit>"; an annotated tag lists its commit on a second "^{}" line.
 TAG_RE='^v0\.[0-9]+$'
-HERE="$(git -C "$ROOT" tag --points-at "$MAIN" | { grep -E "$TAG_RE" || true; } | head -n 1)"
+REMOTE="$(git -C "$ROOT" ls-remote --tags origin 'refs/tags/v0.*')" || { echo "cannot list tags on origin in $ROOT" >&2; exit 1; }
+TAGS="$(printf '%s\n' "$REMOTE" | awk '{ n = $2; sub("^refs/tags/", "", n); peeled = (n ~ /\^\{\}$/); sub(/\^\{\}$/, "", n); if (peeled || !(n in c)) c[n] = $1 } END { for (n in c) print n, c[n] }' | { grep -E "^v0\.[0-9]+ " || true; })"
+HERE="$(printf '%s\n' "$TAGS" | awk -v m="$MAIN" '$2 == m { print $1; exit }')"
 [ -z "$HERE" ] || { echo "Refusing: nothing new since $HERE (origin/main is $MAIN)." >&2; exit 1; }
 
-LAST="$(git -C "$ROOT" tag --list 'v0.*' | { grep -E "$TAG_RE" || true; } | sort -t. -k2,2n | tail -n 1)"
+LAST="$(printf '%s\n' "$TAGS" | awk '{ print $1 }' | { grep -E "$TAG_RE" || true; } | sort -t. -k2,2n | tail -n 1)"
 TAG="v0.1"
 [ -z "$LAST" ] || TAG="v0.$((10#${LAST#v0.} + 1))"
 

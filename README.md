@@ -109,7 +109,7 @@ From a clone of this repo you can run the installer directly:
 ./install.sh --dry-run --update /path/to/app    # preview
 ```
 
-`--update` without `--to` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them.
+`--update` without `--to` or `--from` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them.
 
 Then it copies the new commit's files, rewrites `installed-from.txt` and prints a report:
 
@@ -131,7 +131,7 @@ A side with no tag shows the short SHA alone. The commit list covers `agent-team
 ./tag-release.sh --dry-run  # print the tag it would make
 ```
 
-Run it by hand after a batch of merges you want apps to take. It fetches `origin`, takes `origin/main`, and makes an annotated tag with the next number (`v0.10` follows `v0.9`), or `v0.1` when there are none. It refuses when `origin/main` already carries a `v0.N` tag. It pushes only that tag and never touches a branch. No skill runs it.
+Run it by hand after a batch of merges you want apps to take. It reads the tags on `origin` (not local ones), takes `origin/main`, and makes an annotated tag with the next number (`v0.10` follows `v0.9`), or `v0.1` when there are none. It refuses when `origin/main` already carries a `v0.N` tag. It pushes only that tag and never touches a branch. No skill runs it.
 
 ## Propose changes
 
@@ -140,6 +140,7 @@ Open a PR here, not in the app. Run the script tests with `uvx pytest -q agent-t
 ## Known couplings
 
 - T3 Code thread tools are named directly in the Chief of Staff, project manager and ship-loop skills. Tracker tools are named only in the adapter docs under `agent-team/docs/agents/trackers/`.
+- Every app's `scripts/agent-team-update.sh` calls the tag's `install.sh --update --from <tag> [--dry-run] [--force] <app>`, so a future installer must keep accepting that call.
 - Plans, specs and as-built notes follow the superpowers docs layout under `docs/superpowers/`.
 - The security review skill refers to Cursor's review-security subagent and Claude Code's `/security-review`.
 - Role docs for app areas (backend, frontend and so on) are not shared; each app adds its own.

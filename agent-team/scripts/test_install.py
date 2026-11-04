@@ -10,7 +10,7 @@ pytestmark = pytest.mark.skipif(not (TOP / "install.sh").exists(), reason="only 
 
 PIN = "docs/agents/installed-from.txt"
 SKILL = ".claude/skills/x/SKILL.md"
-GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
+GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"]
 
 
 def git(cwd, *args):
@@ -174,6 +174,8 @@ FROM = [
     ("check names the tag", {}, ["--from", "v0.1"], ["--check"], 0, ["check: matches collective-wisdom {A} (v0.1)"], "{A} v0.1"),
     ("--to leaves the tag out", {}, None, ["--to", "{A}"], 0, [], "{A}"),
     ("same commit gains the tag", {}, ["--to", "{A}"], ["--update", "--from", "v0.1"], 0, ["update  " + PIN], "{A} v0.1"),
+    ("a tag older than the pin is refused", {}, ["--to", "{B}"], ["--update", "--from", "v0.1"], 1, ["older than the pin"], "{B}"),
+    ("--force moves back to an older tag", {}, ["--to", "{B}"], ["--update", "--from", "v0.1", "--force"], 0, [], "{A} v0.1"),
     ("a tag off origin/main is refused", {}, None, ["--from", "v0.9"], 1, ["not on origin/main"], None),
     ("a missing tag is refused", {}, None, ["--from", "v0.7"], 1, ["cannot fetch"], None),
     ("origin's tag replaces a local one", {"v0.2": "S"}, None, ["--from", "v0.2"], 0, [], "{B} v0.2"),
@@ -249,6 +251,6 @@ def test_tag_release(world, name, keep, args, code, tags):
     git(cw.parent, "clone", "-q", str(origin), str(rel))
     shutil.copy(TOP / "tag-release.sh", rel / "tag-release.sh")
     ident = {k: "t" for k in ("GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME")} | {k: "t@t" for k in ("GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL")}
-    r = subprocess.run(["bash", str(rel / "tag-release.sh"), *args], env={**os.environ, **ident}, capture_output=True, text=True)
+    r = subprocess.run(["bash", str(rel / "tag-release.sh"), *args], env={**os.environ, **ident, "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "tag.gpgsign", "GIT_CONFIG_VALUE_0": "false"}, capture_output=True, text=True)
     assert r.returncode == code, r.stdout + r.stderr
     assert {t: git(origin, "rev-parse", t + "^{commit}") for t in git(origin, "tag", "--list").split()} == {t: sha[c] for t, c in tags.items()}
