@@ -136,6 +136,7 @@ Nothing goes past a lane's limit or the overall cap. Other sections say "the spe
   ],
   "rotation": null,
   "rotationHeldUntil": null,
+  "lastRelayAt": null,
   "rateLimitedAt": null,
   "wakeTaskId": null,
   "wakeAt": null,

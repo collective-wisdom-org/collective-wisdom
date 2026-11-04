@@ -50,8 +50,8 @@ def _root():
 
 ROOT = _root()
 SIZE_CAP = 220_000
-AGE_HOURS = 4
-AGE_MIN_CONTEXT = 120_000
+QUIET_RELAY_MIN = 10
+QUIET_ROTATED_MIN = 60
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",
     ".claude/skills/project-manager",
@@ -82,8 +82,32 @@ def k(n):
     return f"{n // 1000}k"
 
 
-def decide(state, context, started, now, commit, branch, cap=SIZE_CAP):
-    """The one line. started and now are datetimes; context is a token count."""
+def minutes_since(ts, now):
+    t = parse_ts(ts)
+    return None if t is None else max(0, int((now - t).total_seconds() // 60))
+
+
+def quiet_wait(state, now):
+    """Why a skill change should wait for a quieter turn, or None when the turn is quiet."""
+    tickets = state.get("tickets") if isinstance(state.get("tickets"), dict) else {}
+    queued = sorted(
+        (i for i, t in tickets.items() if isinstance(t, dict) and str(t.get("stage")).endswith("-queued")),
+        key=lambda i: [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", i)],
+    )
+    if queued:
+        return f"queued {queued[0]}"
+    relay = minutes_since(state.get("lastRelayAt"), now)
+    if relay is not None and relay < QUIET_RELAY_MIN:
+        return f"relay {relay}m ago"
+    rotated = [m for r in state.get("retiredThreads") or [] if isinstance(r, dict)
+               for m in [minutes_since(r.get("retiredAt"), now)] if m is not None]
+    if rotated and min(rotated) < QUIET_ROTATED_MIN:
+        return f"rotated {min(rotated)}m ago"
+    return None
+
+
+def decide(state, context, now, commit, branch, cap=SIZE_CAP):
+    """The one line. now is a datetime; context is a token count."""
     if state.get("paused"):
         return "ok (held: paused)"
     if state.get("rotation") is not None:
@@ -92,8 +116,12 @@ def decide(state, context, started, now, commit, branch, cap=SIZE_CAP):
     if until and until > now:
         return "ok (held: rotationHeldUntil)"
     old = state.get("skillCommit")
+    waits = None
     if branch == "main" and old and commit != old:
-        return f"rotate: skill changed {old[:7]}..{commit[:7]}"
+        why = quiet_wait(state, now)
+        if not why:
+            return f"rotate: skill changed {old[:7]}..{commit[:7]}"
+        waits = f"ok (skill change waits: {why})"
     note = None
     if context >= cap:
         tk = state.get("takeoverContext")
@@ -108,11 +136,8 @@ def decide(state, context, started, now, commit, branch, cap=SIZE_CAP):
         if not off:
             return f"rotate: size {k(context)} >= {k(cap)}"
         note = f"ok (size trigger off: take-over ended at {k(tk['tokens'])})"
-    hours = (now - started).total_seconds() / 3600
-    if hours >= AGE_HOURS and context >= AGE_MIN_CONTEXT:
-        return f"rotate: age {int(hours)}h, size {k(context)}"
-    if note:
-        return note
+    if note or waits:
+        return note or waits
     if not old:
         return f"ok; set skillCommit {commit}"
     return f"ok context={k(context)}"
@@ -189,13 +214,14 @@ def save_top(path, **keys):
 
 def check(state, record=False, sid=None):
     """(line, takeoverContext to save or None). Raises Unreadable."""
-    context, started = read_context(sid)
+    context, _ = read_context(sid)
     tk = None
     if record and state.get("chiefThreadId"):
         tk = {"threadId": state["chiefThreadId"], "tokens": context}
         state = {**state, "takeoverContext": tk}
     now = datetime.now(timezone.utc)
-    return decide(state, context, started, now, skill_commit(), branch()), tk
+    line = decide(state, context, now, skill_commit(), branch())
+    return (f"{line}; take-over context={k(context)}" if record else line), tk
 
 
 def run_hook(path):

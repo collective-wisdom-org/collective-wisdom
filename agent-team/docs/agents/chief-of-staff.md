@@ -6,7 +6,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 
 - Runs in one T3 thread at the root checkout on `main`. Follows `.claude/skills/chief-of-staff/SKILL.md`.
 - Runs on Sonnet 5.5 and picks each child's model per `chief-of-staff` § Models.
-- Rotates its own thread on measured context size, age or a change to its own skill: starts a fresh Chief of Staff thread that restarts from the working set (`chief-of-staff` § Working set), deletes any pending rate-limit wake, and forwards old children's notices from the old thread.
+- Rotates its own thread on measured context size or a change to its own skill (the skill change waits for a quiet turn): starts a fresh Chief of Staff thread that restarts from the working set (`chief-of-staff` § Working set), deletes any pending rate-limit wake, and forwards old children's notices from the old thread.
 - Runs the rotation check (`scripts/cos_rotation_check.py`) as the last call of every working turn, backed by a Stop hook in `.claude/settings.json`.
 - Reads `scripts/` and `docs/agents/` through the repo's root, which may be links (as in collective-wisdom itself).
 - Reads the tracker and child threads.
