@@ -14,7 +14,7 @@
 
 ## Differs from the spec
 
-Nothing.
+The spec matches what shipped. The one deliberate difference is from the app's version of the change: step 3 in the `chief-of-staff` SKILL.md keeps a reworded "Text about waiting is no exception: only a `waiting` line clears a finished run without a marker", where the source change deleted that sentence. Exit 2 and a child's own "waiting on CI" text must still not clear a run.
 
 ## Verification
 
