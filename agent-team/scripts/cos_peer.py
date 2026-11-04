@@ -63,6 +63,10 @@ class Unreadable(Exception):
     pass
 
 
+class NoState(Unreadable):
+    pass
+
+
 def query(db, sql, args=()):
     try:
         con = sqlite3.connect(f"file:{quote(str(db))}?mode=ro", uri=True)
@@ -148,7 +152,7 @@ def chief_thread(db, thread):
     pid, title, root = rows[0]
     state = read_state(root)
     if state is None:
-        raise Unreadable("cannot read the sender's state file")
+        raise NoState("cannot read the sender's state file")
     retired = state.get("retiredThreads")
     if retired is not None and not isinstance(retired, list):
         raise Unreadable("retiredThreads is not a list")
@@ -208,7 +212,7 @@ def check(db, this_thread, text):
 
 def filed_line(ticket, title, url):
     head, tail = f"filed {ticket}: ", f", {url}"
-    title = clean(title)[: MAX_LEN - len(head) - len(tail)].rstrip()
+    title = clean(title)[: max(0, MAX_LEN - len(head) - len(tail))].rstrip()
     return head + title + tail if title else None
 
 
@@ -228,7 +232,10 @@ def reply(db, text):
         elif ln and not re.fullmatch(r"Item: \S+|Filed:", ln):
             dropped += 1
     out += [refused] if refused else []
-    source = chief_thread(db, header.group(1)) if out else None
+    try:
+        source = chief_thread(db, header.group(1)) if out else None
+    except NoState:  # a project without a readable state file has no Chief of Staff thread
+        source = None
     if not source:
         return 1
     print(f"source {source[1]} {header.group(1)}", *out, *([f"dropped {dropped} lines"] if dropped else []), sep="\n")

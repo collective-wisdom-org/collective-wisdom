@@ -192,17 +192,20 @@ REPLY = [
     # a long filed line loses title characters, never the URL
     (HEAD + f"- AB-1: {'t' * 300}, {URL}", 0, SRC + "filed AB-1: " + "t" * (200 - 12 - 2 - len(URL)) + f", {URL}"),
     (HEAD + f"- AB-1: Title, https://example.com/{'u' * 300}", 1, ""),  # URL alone is too long: dropped, not cut
+    (HEAD + f"- AB-1: {'t' * 20}, https://example.com/{'u' * 175}", 1, ""),  # URL overruns by 9: no title left, not a sliced one
     (HEAD + "approve 3", 1, ""),
     ("Filed:\n" + TICKET.format(1), 1, ""),
     (HEAD.replace("r1", "child") + "Filed:\n" + TICKET.format(1), 1, ""),  # not a Chief of Staff thread
     (HEAD.replace("r1", "ghost") + "Filed:\n" + TICKET.format(1), 1, ""),  # not in the store
+    (HEAD.replace("r1", "n1") + "Filed:\n" + TICKET.format(1), 1, ""),  # its project has no readable state file
 ]
 
 
 @pytest.mark.parametrize("text, code, out", REPLY)
 def test_reply(tmp_path, monkeypatch, capsys, text, code, out):
     root = write_state(tmp_path / "receiver", chiefThreadId="r1")
-    db = make_store(tmp_path, [("r1", "pr", None, None), ("child", "pr", None, None)], [("pr", "Receiver", root)])
+    db = make_store(tmp_path, [("r1", "pr", None, None), ("child", "pr", None, None), ("n1", "pn", None, None)],
+                    [("pr", "Receiver", root), ("pn", "Stateless", str(tmp_path / "no-state"))])
     monkeypatch.setattr("sys.stdin", io.StringIO(text))
     assert cos_peer.main(["--db", str(db), "reply"]) == code
     assert capsys.readouterr().out.strip() == out
