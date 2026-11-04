@@ -6,7 +6,7 @@
 
 ## Goal
 
-When the Chief of Staff's idle check runs and the turn posts a message, the message ends with a short list of the children that are still running, each with a link to its thread. Today only `status` and `where's <PREFIX>-N?` show thread links, so a routine report leaves the user with no way to open a running child.
+When the Chief of Staff's idle check runs and the turn posts a message, the message includes a short list of the children that are still running, each with a link to its thread. Today only `status` and `where's <PREFIX>-N?` show thread links, so a routine report leaves the user with no way to open a running child.
 
 ## Non-goals
 

@@ -32,7 +32,7 @@ flowchart TB
     GitHub[("GitHub")]
 
     User -- "approve N · changes N · cancel N · status · where's <PREFIX>-N · backlog · take over · stop everything · resume" --> Chief
-    Chief -- "reports: Needs you · Moving · Done · Tickets · Backlog · Cleanup" --> User
+    Chief -- "reports: Needs you · Moving · Running · Done · Tickets · Backlog · Cleanup" --> User
     Chief -- "delegate_task to start · CHIEF OF STAFF: relays" --> Child
     Child -- "SPEC READY · MERGE READY · BLOCKED: · MERGED #35;N" --> Chief
     Child -- "Agent tool" --> Impl

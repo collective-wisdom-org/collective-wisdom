@@ -879,7 +879,7 @@ Rules:
 - Titles come from the tracker: one `list-tickets` call with label `agent` and fields `id, title`. If that read fails, show the ID alone.
 - Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`.
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (§ Approval requests), each with its risk on the first line.
-- No other § Report format section (`Moving`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
+- No other § Report format section (`Moving`, `Running`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
 - `where's <PREFIX>-N?` uses the same layout, with the thread link under the ticket, and only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
 
 ## Guardrails
