@@ -109,7 +109,7 @@ From a clone of this repo you can run the installer directly:
 ./install.sh --dry-run --update /path/to/app    # preview
 ```
 
-`--update` without `--to` or `--from` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them. `--update --from <tag>` also refuses a tag older than the pin, because the update would move the app backwards; `--force` overrides that too.
+`--update` without `--to` or `--from` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them. `--update --from <tag>` also refuses a tag older than the pin, because the update would move the app backwards; `--force` overrides that too (and, as always, overwrites hand-edited files).
 
 Then it copies the new commit's files, rewrites `installed-from.txt` and prints a report:
 

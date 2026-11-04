@@ -21,7 +21,7 @@ git -C "$ROOT" fetch -q --no-tags origin main || { echo "cannot fetch origin in 
 MAIN="$(git -C "$ROOT" show-ref --verify --hash refs/remotes/origin/main 2>/dev/null)" || { echo "Refusing: $ROOT has no origin/main." >&2; exit 1; }
 
 # Release tags are v0.N only; N is compared as a number, so v0.10 follows v0.9.
-# Origin is the only source: a local tag that was never pushed, or was deleted there, must not count.
+# Origin is the only source: a local tag that was never pushed, or was deleted there, must not count (and a stale local tag with the next number is replaced).
 # Each line is "<tag> <commit>"; an annotated tag lists its commit on a second "^{}" line.
 TAG_RE='^v0\.[0-9]+$'
 REMOTE="$(git -C "$ROOT" ls-remote --tags origin 'refs/tags/v0.*')" || { echo "cannot list tags on origin in $ROOT" >&2; exit 1; }
@@ -36,6 +36,6 @@ TAG="v0.1"
 if [ "$DRY" -eq 1 ]; then
   echo "[dry-run] would tag ${MAIN:0:12} as $TAG and push it"; exit 0
 fi
-git -C "$ROOT" tag -a "$TAG" "$MAIN" -m "collective-wisdom $TAG"
+git -C "$ROOT" tag -f -a "$TAG" "$MAIN" -m "collective-wisdom $TAG"
 git -C "$ROOT" push -q origin "refs/tags/$TAG" || { git -C "$ROOT" tag -d "$TAG" >/dev/null; echo "cannot push $TAG to origin; the local tag was removed." >&2; exit 1; }
 echo "tagged ${MAIN:0:12} as $TAG and pushed it"

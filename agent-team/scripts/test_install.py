@@ -232,17 +232,18 @@ def test_update_wrapper(world, name, args, where, env, code, out, pin):
     assert pin_of(app) == pin.format(**sha)
 
 
-# name, tags to keep on origin, args, exit code, tags on origin after (tag: commit)
+# name, tags to keep on origin, local-only tags, args, exit code, tags on origin after (tag: commit)
 RELEASE = [
-    ("no tags makes v0.1", [], [], 0, {"v0.1": "B"}),
-    ("the next number is numeric", ["v0.1", "v0.9"], [], 0, {"v0.1": "A", "v0.9": "S", "v0.10": "B"}),
-    ("a tagged origin/main is refused", ["v0.2"], [], 1, {"v0.2": "B"}),
-    ("dry run pushes nothing", ["v0.1"], ["--dry-run"], 0, {"v0.1": "A"}),
+    ("no tags makes v0.1", [], [], [], 0, {"v0.1": "B"}),
+    ("the next number is numeric", ["v0.1", "v0.9"], [], [], 0, {"v0.1": "A", "v0.9": "S", "v0.10": "B"}),
+    ("a stale local tag does not count", ["v0.1"], ["v0.2"], [], 0, {"v0.1": "A", "v0.2": "B"}),
+    ("a tagged origin/main is refused", ["v0.2"], [], [], 1, {"v0.2": "B"}),
+    ("dry run pushes nothing", ["v0.1"], [], ["--dry-run"], 0, {"v0.1": "A"}),
 ]
 
 
-@pytest.mark.parametrize("name, keep, args, code, tags", RELEASE, ids=[c[0] for c in RELEASE])
-def test_tag_release(world, name, keep, args, code, tags):
+@pytest.mark.parametrize("name, keep, local, args, code, tags", RELEASE, ids=[c[0] for c in RELEASE])
+def test_tag_release(world, name, keep, local, args, code, tags):
     cw, _, sha = world
     origin, rel = cw.parent / "origin.git", cw.parent / "rel"
     for t in git(origin, "tag", "--list").split():
@@ -250,6 +251,8 @@ def test_tag_release(world, name, keep, args, code, tags):
             git(origin, "tag", "-d", t)
     git(cw.parent, "clone", "-q", str(origin), str(rel))
     shutil.copy(TOP / "tag-release.sh", rel / "tag-release.sh")
+    for t in local:
+        git(rel, "tag", t, "HEAD~1")
     ident = {k: "t" for k in ("GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME")} | {k: "t@t" for k in ("GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL")}
     r = subprocess.run(["bash", str(rel / "tag-release.sh"), *args], env={**os.environ, **ident, "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "tag.gpgsign", "GIT_CONFIG_VALUE_0": "false"}, capture_output=True, text=True)
     assert r.returncode == code, r.stdout + r.stderr

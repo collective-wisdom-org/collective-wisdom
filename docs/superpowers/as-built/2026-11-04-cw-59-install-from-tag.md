@@ -17,7 +17,7 @@
 ## Differs from the spec
 
 - `--from` accepts only `^v0\.[0-9]+$`, which also rules out a leading `-`, so there is no separate `check-ref-format` step. A bad tag exits 2.
-- The tables have a few extra rows: update at the same commit adds the tag to the pin, a `--to` install leaves the tag out, the wrapper refuses `v0.9`, and a failed clone prints the credentials hint, a tag older than the pin is refused, and `--force` overrides that.
+- The tables have a few extra rows: update at the same commit adds the tag to the pin, a `--to` install leaves the tag out, the wrapper refuses `v0.9`, a failed clone prints the credentials hint, a tag older than the pin is refused, and `--force` overrides that.
 
 ## Checks
 
