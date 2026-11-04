@@ -34,6 +34,7 @@ scripts/review_scope.py <PR number> [<head SHA>]
 - A file is a **docs file** when all of these hold:
   - its path is ASCII and ends in `.md`;
   - it is `README.md` at the repo top, or under `docs/` but not under `docs/agents/` (compared without regard to case, so `docs/Agents/` and lookalikes such as `docs/agentſ/` stay out on a case-insensitive checkout);
+  - no path part starts with `.`, and the file is not named `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md` (any case, any depth), since tools load those from subfolders;
   - it is a regular file on both sides (mode `100644`, or absent on one side). A symlink or executable never counts.
 - **Changed lines** are added plus deleted lines from `--numstat`, over the files that are not docs files. A binary file (`-` in `--numstat`) makes the PR `full`.
 - Class, checked in this order:
@@ -84,7 +85,7 @@ By class:
 
 ## Security notes
 
-- **What a docs-only skip trades.** Markdown under `docs/` (specs, plans, as-builts, release notes) and the top `README.md` are records that no script reads as instructions, so a security review of them has little to find. The cost is that a hostile line in a spec (a prompt injection aimed at a later agent) gets only the code review. The docs exclusion of `docs/agents/` keeps `project.md` (logins, overlays) and the role docs under a full review. Skills are under `.claude/`, so they never count as docs.
+- **What a docs-only skip trades.** Markdown under `docs/` (specs, plans, as-builts, release notes) and the top `README.md` are records that no script reads as instructions, so a security review of them has little to find. Plans and process docs there are read by agents later, which is the same prompt-injection trade as below. The cost is that a hostile line in a spec (a prompt injection aimed at a later agent) gets only the code review. The docs exclusion of `docs/agents/` keeps `project.md` (logins, overlays) and the role docs under a full review. Skills are under `.claude/`, and any hidden folder or `CLAUDE.md` or `AGENTS.md` file is excluded wherever it sits, so they never count as docs.
 - **Trust in the class.** The child runs the classifier and writes the skip comment; `merge_pr.py` doesn't re-check that the diff was docs-only. That is the same trust it already places in the child posting a real review comment, and the owner still approves the head on GitHub. A check in `merge_pr.py` is out of scope (see Calls).
 - **Small diffs still get a security review,** by the same Opus model against the same list, in a shared run. The risk is a reviewer giving less attention to security when it also reviews the code.
 - **Symlinks and executables never count as docs,** so a `.md` link pointing into a skill can't pass as a doc.
