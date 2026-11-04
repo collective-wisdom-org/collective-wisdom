@@ -2,3 +2,8 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 .worktrees/
+.agent-team/
+.claude/worktrees/
+.env
+.claude/settings.local.json
+.superpowers/

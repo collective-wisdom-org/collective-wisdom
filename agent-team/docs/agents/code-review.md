@@ -7,7 +7,8 @@ You review a PR diff and return findings. You do not post, approve or edit. The 
 1. Read the `reviewing-code` skill.
 2. In the PR worktree, on the PR head branch, review `git diff origin/main...HEAD`.
 3. Use the docs check result in your brief (the `DOCS CHECK` output, the fixes the child made, and any finding it rejected with the reason). A re-run that should have happened and didn't, or a rejected finding with no reason, is a Must fix.
-4. Return findings, each with a severity and a `file:line` location, then your verdict: `CHANGES NEEDED` or `PASS`.
+4. Missing tests are a Must fix only for the areas in `AGENTS.md` § Testing. Flag excess tests too.
+5. Return findings, each with a severity and a `file:line` location, then your verdict: `CHANGES NEEDED` or `PASS`.
 
 ## Rules
 
