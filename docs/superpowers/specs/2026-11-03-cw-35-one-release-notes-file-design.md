@@ -19,7 +19,7 @@ Facts from `main` at `f2a03d0`.
 - Each PR adds `docs/superpowers/release-notes/<prefix>-N.md`. Two PRs never edit the same lines, so they never conflict.
 - `scripts/release_notes.py` prints every note, newest first, to stdout. Reading them all means running it locally.
 - `scripts/merge_pr.py` refuses to merge a PR with no added `release-notes/*.md` whose first line is `# YYYY-MM-DD <title>`. It squash-merges through the REST API, then fast-forwards root `main`. Every team merge goes through it.
-- `main` has no branch protection or rulesets. The rule "never push to `main` outside a merge" is a team rule in `project.md` and the skills, not something GitHub enforces.
+- `main` has no branch protection or rulesets. The rule in `project.md` ("Never push to `main`; push only the ticket's own `feat/cw-N-*` branch") is a team rule in `project.md` and the skills, not something GitHub enforces. It governs agents' git pushes; `merge_pr.py` already writes to GitHub through the API (the merge, branch deletes).
 - `.github/workflows/ci.yml` runs tests on PRs and on push to `main`. `install.sh` does not copy `.github/` into apps, so a new workflow would not reach an installed app without a new copy rule.
 - The repo has no GitHub Releases and no tags.
 
@@ -38,7 +38,7 @@ Each option is judged on five questions from the ticket: does it avoid merge con
 
 ### A. Merge step writes the combined file to `main`
 
-After the squash merge, `merge_pr.py` runs `release_notes.py`, writes `RELEASE_NOTES.md` and commits it to `main`. It is current the moment a team merge finishes and needs nothing new in apps. But it adds a second, unreviewed commit on `main` for every merge, which breaks the "never push to `main` outside a merge" rule. It also makes root `main` and `origin/main` race: the script would have to push from the root checkout, or write through the contents API and fast-forward again.
+After the squash merge, `merge_pr.py` runs `release_notes.py`, writes `RELEASE_NOTES.md` and commits it to `main`. It is current the moment a team merge finishes and needs nothing new in apps. But it adds a second, unreviewed commit on `main` for every merge, which is the kind of push to `main` that rule forbids. It also makes root `main` and `origin/main` race: the script would have to push from the root checkout, or write through the contents API and fast-forward again.
 
 ### B. CI workflow on push to `main` commits the file back
 
@@ -84,13 +84,13 @@ A and B are the closest rivals, and both put an unreviewed commit on `main` afte
 For the separate ticket, not built here:
 
 - After a successful merge and fast-forward (and on the "already merged" path, so a rerun repairs it), `merge_pr.py` publishes `release_notes.py` output to `release-notes:RELEASE_NOTES.md`. It creates the branch as an orphan if it is missing and skips the commit if the contents haven't changed.
-- A failed publish never fails the merge. The script still exits 0 and prints a `merge-pr: warn` line, and the next merge repairs the file.
-- The README and `docs/superpowers/README.md` § Release notes link to the rendered file.
+- A failed publish never fails the merge. The script still exits 0 and prints a `merge-pr: warn` line before the final `merge-pr: merged ...` line (callers parse the last line), and the next merge repairs the file. Two merges close together can race on the branch ref; the stale one fails as a warning and the next merge repairs it.
+- The README and `docs/superpowers/README.md` § Release notes link to the rendered file. `install.sh` seeds `docs/superpowers/README.md` only when it is missing and never touches an app's own `README.md`, so existing apps need the link in a doc `install.sh` syncs, such as one under `docs/agents/`.
 - A test covers the publish step's three cases: branch missing, contents changed, contents unchanged, plus the rule that a failed publish leaves the exit code at 0.
 
 ## Calls I made
 
-- **Recommend a separate branch (F), an option the ticket didn't list.** Every listed option that gives a real file on GitHub commits to `main`, and the team rule says never push to `main` outside a merge. F is the one way I found to get a file with no `main` commit.
+- **Recommend a separate branch (F), an option the ticket didn't list.** Every listed option that gives a real file on GitHub commits to `main`, and the team rule says never push to `main`. F is the one way I found to get a file with no `main` commit. Its practical gains over A: no unreviewed commit on `main`, no race with the root fast-forward, no extra CI run on `main`. F writes to a branch that isn't the ticket's own, so the build ticket should also add a line to `project.md` and the skills saying the merge step may write `release-notes`.
 - **The merge step publishes, not CI.** `merge_pr.py` already reaches every installed app. A workflow would need `install.sh` to start copying `.github/` and each app to grant write permission. The trade is that hand merges in the GitHub UI leave the file stale until the next team merge.
 - **A publish failure never fails the merge.** The merge has already happened by then, and the next merge rebuilds the file from scratch.
 - **`merge=union` is ruled out on reports, not a test.** Several sources say GitHub's merge ignores `.gitattributes` merge drivers. Testing it would mean opening two throwaway PRs in this repo, which I didn't do at the spec stage.
