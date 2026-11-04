@@ -26,7 +26,7 @@ Each file is a three-column table. Links are relative to `index/`, so they start
 Every PR adds one release note, in its closeout commit, that says in plain words what changed for someone using the agent team.
 
 - `release-notes/<prefix>-N.md`, named like the index file. A doc with no ticket goes in `release-notes/<YYYY-MM-DD>-<slug>.md`.
-- First line: `# <YYYY-MM-DD> <PREFIX>-N: <title>`, dated the day the closeout commit is written. Then one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. File lists and implementation detail go in the as-built.
+- First line: `# <YYYY-MM-DD> <PREFIX>-N: <title>`, dated the day the closeout commit is written (a note with no ticket starts `# <YYYY-MM-DD> <title>`). Then one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. File lists and implementation detail go in the as-built.
 
 ```markdown
 # 2026-11-03 ABC-1: Release notes in the closeout docs
