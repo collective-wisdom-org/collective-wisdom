@@ -224,6 +224,8 @@ A queued approval stores both lines in `pendingRelay`, and the item id of the us
 
 A queued relay stores the relay text only; any model switch happens at send time, just before the send.
 
+Whenever a relay is sent with `t3_thread_send`, at once or later from the queue (§ Slot fill), and the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below). Report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` A continuation child (below) starts under this thread instead of being sent to, so it gets no such line.
+
 **Continuation child.** When this section is about to send a relay (at once or from the queue) to a ticket whose `parentThreadId` is known and is not `chiefThreadId`, it may start a new child under this thread instead of sending. There are two cases.
 
 *Approval or `changes N`.* The relay is the user's approval (`CHIEF OF STAFF: the user approved`) or `changes N` (`CHIEF OF STAFF: the user asked for changes`) for a ticket that was in `awaiting-spec` or `awaiting-merge` (the child has pushed everything and is idle; a queued relay of this kind is told apart by its first words), **and** the relay has no `Approval in thread:` line or that line names this thread, start a new child under this thread instead of sending. A queued approval written in an older thread (the line names another thread) is sent to the old child as before.
