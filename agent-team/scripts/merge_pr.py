@@ -71,14 +71,30 @@ def ts(s):
 
 
 def read_protection(run):
-    """Approving reviews branch protection on main requires (0 when it requires none), or None when main has no protection."""
-    try:
-        out = run([GH, "api", "repos/{owner}/{repo}/branches/main/protection"])
-    except CmdError as e:
-        if re.search(r"HTTP 404", str(e)):
+    """Return (count, unread): the most approving reviews classic branch protection or a ruleset on main requires (0 for none), and the sources that could not be read."""
+    count, unread = 0, []
+
+    def read(source, args, none=""):
+        """Run a read; return its output, or None when the source is absent or unread (an unread one is noted)."""
+        try:
+            return run([GH, "api", *args])
+        except CmdError as e:
+            text = str(e)
+            if not re.search(r"HTTP (404|403)", text):
+                raise
+            if none and none in text:
+                return None
+            detail = re.sub(r"^gh:\s*", "", text.split("(HTTP")[0]).strip() or text
+            unread.append(f"{source}: {detail}")
             return None
-        raise
-    return json.loads(out).get("required_pull_request_reviews", {}).get("required_approving_review_count", 0)
+
+    out = read("branch protection", ["repos/{owner}/{repo}/branches/main/protection"], none="Branch not protected")
+    if out is not None:
+        count = json.loads(out).get("required_pull_request_reviews", {}).get("required_approving_review_count", 0)
+    out = read("rulesets", ["repos/{owner}/{repo}/rules/branches/main?per_page=100"])
+    if out is not None:
+        count = max([count] + [r["parameters"]["required_approving_review_count"] for r in json.loads(out) if r["type"] == "pull_request"])
+    return count, unread
 
 
 def owner_approval(f):
@@ -237,8 +253,11 @@ def gate(f, delta=real_delta):
         if not ok:
             kind = "failed" if done and result else "not finished"
             return f"check {name} {kind} ({result})"
-    if not f["protection"]:
-        return "main has no branch protection requiring an approving review; set it up per docs/agents/github-auth.md § Merge gate"
+    count, unread = f["protection"]
+    if count < 1 and not unread:
+        return "main has no branch protection or ruleset requiring an approving review; set it up per docs/agents/github-auth.md § Merge gate"
+    if count < 1:
+        return f"cannot read main's protection ({'; '.join(unread)}) and found none requiring an approving review; check per docs/agents/github-auth.md § Merge gate"
     problem = owner_approval(f)
     if problem:
         return problem

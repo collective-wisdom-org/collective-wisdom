@@ -116,26 +116,37 @@ The trust checks follow the same rule. A team comment counts when its author is 
 
 ## Merge gate
 
-A merge is approved by the owner's approving review on GitHub. When the user replies `approve N` in the Chief of Staff thread, `scripts/cos_approve_pr.py` posts that review as the owner, after it has checked the user's own message in T3's message store; approving by hand on GitHub still works. `scripts/merge_pr.py` refuses to merge without an approving review by the owner login (`project.md` § Git and GitHub, `Owner login`) on the PR's current head, and without branch protection on `main` that requires an approving review. A push after the approval, or a later changes-requested review, voids it: approve again. The `approve N` reply routes the merge child; the review is the proof. The one-time setup below (CODEOWNERS, branch protection with stale approvals dismissed) is unchanged and still required.
+A merge is approved by the owner's approving review on GitHub. When the user replies `approve N` in the Chief of Staff thread, `scripts/cos_approve_pr.py` posts that review as the owner, after it has checked the user's own message in T3's message store; approving by hand on GitHub still works. `scripts/merge_pr.py` refuses to merge without an approving review by the owner login (`project.md` § Git and GitHub, `Owner login`) on the PR's current head, and without branch protection or a ruleset on `main` that requires an approving review. A push after the approval, or a later changes-requested review, voids it: approve again. The `approve N` reply routes the merge child; the review is the proof. The one-time setup below (CODEOWNERS, branch protection or a ruleset with stale approvals dismissed) is unchanged and still required.
 
 GitHub does not let a PR's author approve it, so PRs must be opened by the builder user (§ Agent users), not the owner. The gate cannot pass without that setup.
 
 The owner sets this up once, by hand. No agent changes GitHub settings.
 
 1. Add `.github/CODEOWNERS` with one line, `* @<owner login>`, and merge it.
-2. Settings → Branches → add a branch protection rule for `main`:
+2. Set up one of these for `main`. Both take the same settings:
+   - Classic: Settings → Branches → add a branch protection rule for `main`.
+   - Ruleset: Settings → Rules → Rulesets → new branch ruleset targeting `main`, enforcement `Active`.
+
+   The settings:
    - Require a pull request before merging, with 1 required approval.
    - Dismiss stale pull request approvals when new commits are pushed.
    - Require review from Code Owners. Only the owner's approval then satisfies the rule, not an agent user's (the agent users have write access).
    - Require status checks to pass, using the repo's required checks (`project.md` § Commands). Leave "require branches to be up to date" off.
-   - Do not allow bypassing the above settings (enforce for admins), since the merge runs as the owner.
+   - Do not allow bypassing the above settings (enforce for admins, or an empty bypass list on a ruleset), since the merge runs as the owner.
 3. Check it:
 
 ```bash
+# Classic branch protection: prints 1
 ./scripts/gh.sh api repos/<owner>/<repo>/branches/main/protection --jq .required_pull_request_reviews.required_approving_review_count
+
+# Ruleset: prints 1 (null when no ruleset requires a review)
+./scripts/gh.sh api repos/<owner>/<repo>/rules/branches/main --jq '[.[] | select(.type == "pull_request") | .parameters.required_approving_review_count] | max'
 ```
 
-It prints `1`. A 404 means `main` is not protected; `merge_pr.py` then stops with `main has no branch protection requiring an approving review`.
+`merge_pr.py` reads both and passes when either requires at least one approving review. If neither does, it stops with one of two messages:
+
+- `main has no branch protection or ruleset requiring an approving review`: it read both and found none. Set one up.
+- `cannot read main's protection (...) and found none requiring an approving review`: it could not read one of them (a 403 or a 404 other than "Branch not protected"), and the other showed none. The text in the brackets names the source. Run the commands above as the owner to see which setup is missing or why the read failed.
 
 ## Verify
 
