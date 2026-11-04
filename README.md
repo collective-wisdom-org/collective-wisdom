@@ -98,7 +98,7 @@ scripts/agent-team-update.sh        # move to the newest tag on origin/main
 scripts/agent-team-update.sh --dry-run [--force] [<tag>]
 ```
 
-The script clones this repo into a temp folder, checks out the tag and runs that tag's own `install.sh --update --from <tag>` on the app, so the installer and the files come from the same release. It removes the temp folder when it ends and exits with the installer's code. It only updates: without `installed-from.txt` in the app, run a plain install first. It refuses to run inside collective-wisdom itself. The repo is private, so the clone uses your git credentials for GitHub; if it fails, run `gh auth setup-git`, or set `COLLECTIVE_WISDOM_REPO` to an SSH URL (it overrides the clone URL).
+The script clones this repo into a temp folder, checks out the tag and runs that tag's own `install.sh --update --from <tag>` on the app, so the installer and the files come from the same release. It removes the temp folder when it ends and exits with the installer's code. With no tag it takes the newest `v0.N` on `origin/main`; an app already updated past that tag (for example from `origin/main` after the last release) is refused, and `--force` is the way past it. It only updates: without `installed-from.txt` in the app, run a plain install first. It refuses to run inside collective-wisdom itself. The repo is private, so the clone uses your git credentials for GitHub; if it fails, run `gh auth setup-git`, or set `COLLECTIVE_WISDOM_REPO` to an SSH URL (it overrides the clone URL).
 
 From a clone of this repo you can run the installer directly:
 
@@ -109,7 +109,7 @@ From a clone of this repo you can run the installer directly:
 ./install.sh --dry-run --update /path/to/app    # preview
 ```
 
-`--update` without `--to` or `--from` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them.
+`--update` without `--to` or `--from` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them. `--update --from <tag>` also refuses a tag older than the pin, because the update would move the app backwards; `--force` overrides that too.
 
 Then it copies the new commit's files, rewrites `installed-from.txt` and prints a report:
 
