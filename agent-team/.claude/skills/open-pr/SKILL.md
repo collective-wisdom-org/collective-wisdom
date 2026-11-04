@@ -38,7 +38,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 
 - Run its `gh` calls as `./scripts/gh.sh`.
 - PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section (see § Closeout docs), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
-- Pushes use the user's own gh auth.
+- Pushes use the user's own gh auth. In team mode, commit and push through `git.sh` (`ship-loop` § Team mode **GitHub users**).
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** `./scripts/gh.sh pr checks --watch`, or a PR/CI subscription when the agent has one.
 
