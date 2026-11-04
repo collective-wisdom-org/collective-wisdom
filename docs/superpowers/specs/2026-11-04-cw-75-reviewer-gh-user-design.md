@@ -1,7 +1,8 @@
 # CW-75: Set up the collective-wisdom-reviewer GitHub user
 
 **Ticket:** [CW-75](https://github.com/dbeallor/collective-wisdom/issues/75)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #76, as specified
 
 ## Goal
 
