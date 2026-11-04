@@ -23,6 +23,7 @@ def msg(mid="m1", by="user", text="approve 87", created="2026-11-02T02:00:00Z"):
 ROWS = [
     ("happy", {}, 0, 1, "approved #7 at " + HEAD),
     ("already approved", {"reviews": [OWNER_REVIEW]}, 0, 0, "already approved by owner"),
+    ("already approved, agent message only", {"reviews": [OWNER_REVIEW], "msgs": [msg(by="agent")]}, 1, 0, "no verified"),
     ("agent message", {"msgs": [msg(by="agent")]}, 1, 0, "no verified"),
     ("message before lastSeenAt", {"msgs": [msg(created="2026-11-02T00:30:00Z")]}, 1, 0, "no verified"),
     ("wrong number", {"msgs": [msg(text="approve 870")]}, 1, 0, "no verified"),
@@ -35,6 +36,8 @@ ROWS = [
     ("not root checkout", {"root": "/elsewhere"}, 1, 0, "root checkout"),
     ("pr read fails", {"fail": "view"}, 2, 0, "cannot read PR #7"),
     ("post fails", {"fail": "POST"}, 2, 1, "cannot post the review"),
+    ("state tickets is a list", {"tickets": []}, 2, 0, "cannot read the state file or PR facts: AttributeError"),
+    ("pr facts miss a key", {"dropkey": "isDraft"}, 2, 0, "cannot read the state file or PR facts: KeyError"),
     ("no message store", {"nodb": True}, 2, 0, "cannot read the message store"),
 ]
 
@@ -57,9 +60,12 @@ def test_cos_approve(tmp_path, monkeypatch, capsys, changes, code, posts, line):
         con.close()
     state = tmp_path / "state.json"
     ticket = {"stage": changes.get("stage", "awaiting-merge"), "pr": 7, "headSha": HEAD, "lastSeenAt": SEEN}
-    state.write_text(json.dumps({"chiefThreadId": "chief", "tickets": {"ABC-87": ticket}}))
+    state.write_text(json.dumps({"chiefThreadId": "chief", "tickets": changes.get("tickets", {"ABC-87": ticket})}))
+    monkeypatch.setattr(cap.cos_user_check, "DEFAULT_DB", db)
+    monkeypatch.setattr(cap.cos_state, "DEFAULT_FILE", state)
     pr = {"state": "OPEN", "isDraft": False, "baseRefName": "main", "isCrossRepository": False, "headRefOid": HEAD,
           "reviews": changes.get("reviews", []), **changes.get("pr", {})}
+    pr.pop(changes.get("dropkey"), None)
     calls = []
 
     def run(cmd):
@@ -70,7 +76,7 @@ def test_cos_approve(tmp_path, monkeypatch, capsys, changes, code, posts, line):
             raise cap.merge_pr.CmdError("boom")
         return changes.get("login", "owner") if "user" in cmd else json.dumps(pr)
 
-    assert cap.main(["--db", str(db), "--file", str(state), "ABC-87"], run) == code
+    assert cap.main(["ABC-87"], run) == code
     assert capsys.readouterr().out.strip().splitlines()[-1].count(line) == 1
     reviews = [c for c in calls if "POST" in c]
     assert len(reviews) == posts

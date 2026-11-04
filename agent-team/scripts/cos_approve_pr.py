@@ -2,9 +2,9 @@
 """Post the owner's approving review on a PR after the user's own "approve N" in the Chief of Staff thread.
 
 Usage:
-    scripts/cos_approve_pr.py [--db PATH] [--file STATE] <PREFIX>-N
+    scripts/cos_approve_pr.py <PREFIX>-N
 
-The only argument the caller picks is the ticket ID. The PR, its head, the thread, the cut-off time and the words
+The only argument is the ticket ID: the caller cannot pick the message store or the state file. The PR, its head, the thread, the cut-off time and the words
 (`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, with no AGENT_GH_ROLE
 (it is removed from the environment), signed in to gh as the Owner login.
 
@@ -16,7 +16,8 @@ Exit 0: posted, or already approved. Last line:
   cos-approve: approved #N at <SHA>
   cos-approve: #N already approved by <owner> at <SHA>; nothing posted
 Exit 1: a gate failed, nothing posted. Last line: cos-approve: stop <PREFIX>-N: <reason>
-Exit 2: bad arguments, or state, the message store, gh or the POST failed. Last line: cos-approve: cannot <what>
+Exit 2: bad arguments, or state, the message store, gh or the POST failed, or one of them had an unexpected shape.
+Last line: cos-approve: cannot <what>
 """
 
 import argparse
@@ -65,9 +66,9 @@ def check_root(run):
         raise Stop(f"not run from the root checkout; cd {first} first, its project.md is the one to trust")
 
 
-def read_state(path, tid):
+def read_state(tid):
     try:
-        state = cos_state.load(path)
+        state = cos_state.load(cos_state.DEFAULT_FILE)
     except SystemExit:
         raise Cannot("read the state file")
     t = state.get("tickets", {}).get(tid)
@@ -106,11 +107,11 @@ def read_gh(run, pr):
     return login, facts
 
 
-def approve(tid, args, run):
+def approve(tid, run):
     n = str(int(tid.rsplit("-", 1)[1]))
     check_root(run)
-    pr, sha, seen, thread = read_state(args.file, tid)
-    snippet = user_said(args.db, thread, n, seen)
+    pr, sha, seen, thread = read_state(tid)
+    snippet = user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
     try:
         owner = project_config.value("Owner login")
         agents = {l.lower() for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))}
@@ -149,8 +150,6 @@ def approve(tid, args, run):
 
 def main(argv, run=merge_pr.run):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--db", type=Path, default=cos_user_check.DEFAULT_DB)
-    ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("ticket")
     try:
         args = ap.parse_args(argv)
@@ -160,17 +159,20 @@ def main(argv, run=merge_pr.run):
             return 0
         tid = None
     if not tid:
-        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py [--db PATH] [--file STATE] <PREFIX>-N")
+        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N")
         return 2
     os.environ.pop("AGENT_GH_ROLE", None)  # the review is the owner's, never a role's
     try:
-        print(approve(tid, args, run))
+        print(approve(tid, run))
         return 0
     except Stop as e:
         print(f"cos-approve: stop {tid}: {e}")
         return 1
     except Cannot as e:
         print(f"cos-approve: cannot {e}")
+        return 2
+    except (KeyError, TypeError, AttributeError, ValueError) as e:  # an unexpected shape in state or gh output
+        print(f"cos-approve: cannot read the state file or PR facts: {type(e).__name__}")
         return 2
 
 
