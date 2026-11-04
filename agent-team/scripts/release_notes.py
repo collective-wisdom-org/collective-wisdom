@@ -5,7 +5,10 @@ import re
 import sys
 from pathlib import Path
 
-NOTES = Path(__file__).absolute().parent.parent / "docs" / "superpowers" / "release-notes"
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
+NOTES = root() / "docs" / "superpowers" / "release-notes"
 DATED = re.compile(r"# (\d{4}-\d{2}-\d{2}) \S")
 
 

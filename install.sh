@@ -1,39 +1,119 @@
 #!/usr/bin/env bash
-# Install or update the agent team in a consuming repo.
-# Usage: ./install.sh [--dry-run] <target-repo-path>
+# Install, update or check the agent team in a consuming repo.
+# Usage: ./install.sh [--dry-run] [--to <ref>] <target-repo-path>
+#        ./install.sh [--dry-run] --update [--to <ref>] [--force] <target-repo-path>
+#        ./install.sh --check <target-repo-path>
 set -euo pipefail
 
-usage() { echo "Usage: $0 [--dry-run] <target-repo-path>" >&2; exit 2; }
+usage() {
+  {
+    echo "Usage: $0 [--dry-run] [--to <ref>] <target-repo-path>"
+    echo "       $0 [--dry-run] --update [--to <ref>] [--force] <target-repo-path>"
+    echo "       $0 --check <target-repo-path>"
+  } >&2
+  exit 2
+}
 
-DRY=0
-TARGET=""
-for arg in "$@"; do
-  case "$arg" in
+DRY=0 UPDATE=0 FORCE=0 CHECK=0 REF="" TARGET=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --dry-run) DRY=1 ;;
+    --update) UPDATE=1 ;;
+    --force) FORCE=1 ;;
+    --check) CHECK=1 ;;
+    --to) [ "$#" -ge 2 ] || usage; REF="$2"; shift ;;
     -h|--help) usage ;;
-    -*) echo "unknown option: $arg" >&2; usage ;;
-    *) [ -z "$TARGET" ] || usage; TARGET="$arg" ;;
+    -*) echo "unknown option: $1" >&2; usage ;;
+    *) [ -z "$TARGET" ] || usage; TARGET="$1" ;;
   esac
+  shift
 done
 [ -n "$TARGET" ] || usage
+case "$REF" in -*) echo "bad ref: $REF" >&2; usage ;; esac
+if [ "$CHECK" -eq 1 ]; then [ -z "$REF" ] && [ "$UPDATE$FORCE" = "00" ] || usage; fi
+[ "$FORCE" -eq 0 ] || [ "$UPDATE" -eq 1 ] || { echo "--force only goes with --update" >&2; usage; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC="$ROOT/agent-team"
-[ -d "$SRC" ] || { echo "missing $SRC" >&2; exit 1; }
-# The version pin written below names HEAD, so the installed files must be exactly HEAD.
+# The version pin written below names a commit of this clone, so the clone must be its own repo.
 git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1 || { echo "Refusing: $ROOT is not a git repo, so the install cannot be pinned to a commit." >&2; exit 1; }
-if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
-  echo "Refusing: $ROOT has uncommitted changes, so the install cannot be pinned to a commit." >&2
-  echo "Commit or stash them first." >&2
-  exit 1
-fi
 # A copy vendored inside another repo would otherwise pin the parent repo's commit.
 TOP="$(cd "$(git -C "$ROOT" rev-parse --show-toplevel)" && pwd -P)"
 [ "$TOP" = "$(cd "$ROOT" && pwd -P)" ] || { echo "Refusing: $ROOT is inside the git repo at $TOP, not its own repo root, so the install cannot be pinned to its commit." >&2; exit 1; }
-SHA="$(git -C "$ROOT" rev-parse HEAD)"
 [ -d "$TARGET" ] || { echo "not a directory: $TARGET" >&2; exit 1; }
 TARGET="$(cd "$TARGET" && pwd)"
 git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1 || { echo "not a git repo: $TARGET" >&2; exit 1; }
+
+TMP="$(mktemp -d)"
+trap 'rm -rf -- "$TMP"' EXIT
+
+# extract <sha> <dest>: this clone's agent-team/ at that commit, so copies are exactly the pinned commit.
+extract() {
+  mkdir -p -- "$2"
+  git -C "$ROOT" archive "$1" agent-team | tar -x -C "$2" || { echo "cannot extract agent-team/ from $1" >&2; exit 1; }
+}
+
+# shipped <dir>: sorted paths of the files the installer syncs from an extracted agent-team/ (the same paths in the app).
+shipped() {
+  local p
+  for p in .claude/skills .claude/agents scripts docs/agents; do
+    [ -d "$1/$p" ] && (cd "$1" && find "$p" -type f)
+  done | awk '$0 !~ /(^|\/)__pycache__\// && $0 !~ /\.pyc$/ && $0 !~ /\.DS_Store$/' | LC_ALL=C sort
+  return 0
+}
+
+# drift <dir>: fill DRIFT with "changed"/"missing" lines for shipped files that differ in the app.
+DRIFT=()
+drift() {
+  local f
+  DRIFT=()
+  while IFS= read -r f; do
+    if [ ! -e "$TARGET/$f" ] && [ ! -L "$TARGET/$f" ]; then
+      DRIFT+=("missing  $f")
+    elif ! cmp -s -- "$1/$f" "$TARGET/$f"; then
+      DRIFT+=("changed  $f")
+    fi
+  done < <(shipped "$1")
+}
+
+# The pin of an installed app: which collective-wisdom commit its files came from.
+PIN="$TARGET/docs/agents/installed-from.txt"
+OLD=""
+if [ "$CHECK" -eq 1 ] || [ "$UPDATE" -eq 1 ]; then
+  if [ ! -e "$PIN" ]; then
+    if [ "$CHECK" -eq 1 ]; then
+      echo "check: cannot check: no docs/agents/installed-from.txt in $TARGET" >&2; exit 2
+    fi
+    echo "Refusing: no docs/agents/installed-from.txt in $TARGET, so there is nothing to update. Run a plain install (without --update) first." >&2; exit 1
+  fi
+  PIN_RE='^collective-wisdom ([0-9a-f]{40})$'
+  PIN_LINE="$(cat -- "$PIN")"
+  [[ "$PIN_LINE" =~ $PIN_RE ]] || { echo "docs/agents/installed-from.txt in $TARGET is not 'collective-wisdom <40-character SHA>'." >&2; exit 2; }
+  OLD="${BASH_REMATCH[1]}"
+  # The old files come from the pinned commit, so this clone must have it.
+  git -C "$ROOT" cat-file -e "$OLD^{commit}" 2>/dev/null || { echo "collective-wisdom $OLD is not in $ROOT; run 'git fetch origin' there and try again." >&2; exit 2; }
+  extract "$OLD" "$TMP/old"
+  drift "$TMP/old/agent-team"
+fi
+
+if [ "$CHECK" -eq 1 ]; then
+  if [ "${#DRIFT[@]}" -gt 0 ]; then
+    printf '%s\n' "${DRIFT[@]}"
+    echo "check: drift in ${#DRIFT[@]} file(s) against collective-wisdom $OLD"; exit 1
+  fi
+  echo "check: matches collective-wisdom $OLD"; exit 0
+fi
+
+# Resolve the target commit. It must be on origin/main, so an app is never pinned to an unmerged branch.
+if [ -z "$REF" ]; then
+  if [ "$UPDATE" -eq 1 ]; then
+    git -C "$ROOT" fetch -q origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
+    REF="origin/main"
+  else
+    REF="HEAD"
+  fi
+fi
+SHA="$(git -C "$ROOT" rev-parse --verify --quiet "$REF^{commit}")" || { echo "Refusing: $REF is not a commit in $ROOT." >&2; exit 1; }
+git -C "$ROOT" merge-base --is-ancestor "$SHA" origin/main 2>/dev/null || { echo "Refusing: $SHA ($REF) is not on origin/main, so the install cannot be pinned to it. Merge it, or run 'git fetch origin' in $ROOT." >&2; exit 1; }
 
 TOUCHED=(.claude scripts docs/agents docs/superpowers/README.md .agents .gitignore AGENTS.md)
 DIRTY="$(git -C "$TARGET" status --porcelain -- "${TOUCHED[@]}")"
@@ -43,6 +123,23 @@ if [ -n "$DIRTY" ]; then
   echo "Commit or stash them first." >&2
   exit 1
 fi
+
+if [ "$UPDATE" -eq 1 ]; then
+  if [ "${#DRIFT[@]}" -gt 0 ] && [ "$FORCE" -eq 0 ]; then
+    echo "Refusing: ${#DRIFT[@]} file(s) differ from collective-wisdom $OLD, and an update would overwrite them:" >&2
+    printf '%s\n' "${DRIFT[@]}" >&2
+    echo "Commit them upstream or revert them, or run again with --force to overwrite." >&2
+    exit 1
+  fi
+  if [ "$OLD" = "$SHA" ] && [ "${#DRIFT[@]}" -eq 0 ]; then
+    echo "already at $SHA, nothing to do"; exit 0
+  fi
+  N="$(git -C "$ROOT" rev-list --count "$OLD..$SHA" -- agent-team)"
+  echo "collective-wisdom ${OLD:0:12} -> ${SHA:0:12} ($N commit$([ "$N" -eq 1 ] || echo s))"
+  git -C "$ROOT" log --oneline "$OLD..$SHA" -- agent-team | sed 's/^/  /'
+fi
+extract "$SHA" "$TMP/new"
+SRC="$TMP/new/agent-team"
 
 CHANGED=0
 TODOS=()
@@ -111,7 +208,6 @@ sync_dir "$SRC/scripts" "$TARGET/scripts"
 sync_dir "$SRC/docs/agents" "$TARGET/docs/agents"
 
 # Version pin: which collective-wisdom commit the installed files came from.
-PIN="$TARGET/docs/agents/installed-from.txt"
 PIN_TEXT="collective-wisdom $SHA"
 if [ ! -e "$PIN" ]; then
   say "add     docs/agents/installed-from.txt"; CHANGED=$((CHANGED + 1))
@@ -149,6 +245,13 @@ while IFS= read -r line; do
     fi
   fi
 done < "$SRC/templates/gitignore"
+
+if [ "$UPDATE" -eq 1 ]; then
+  while IFS= read -r f; do
+    [ -e "$TARGET/$f" ] || [ -L "$TARGET/$f" ] || continue
+    TODOS+=("Delete $f: collective-wisdom no longer ships it (shipped at ${OLD:0:12}, gone at ${SHA:0:12}).")
+  done < <(comm -23 <(shipped "$TMP/old/agent-team") <(shipped "$SRC"))
+fi
 
 echo
 echo "Done$([ "$DRY" -eq 1 ] && echo ' (dry run, nothing written)'): $CHANGED change(s) in $TARGET"

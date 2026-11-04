@@ -26,10 +26,10 @@ Before acting, read **ship-loop** § Repo invariants.
 
 ## Merge (human identity)
 
-Run the root checkout's copy by absolute path, not the feature worktree's, so the PR being merged can't supply its own gate:
+Run the root checkout's copy from the root checkout, not the feature worktree's, so the PR being merged can't supply its own gate. The scripts find the repo from the current directory, so the `cd` matters:
 
 ```bash
-<root checkout>/scripts/merge_pr.py <N> <approved head SHA>
+cd <root checkout> && python3 scripts/merge_pr.py <N> <approved head SHA>
 ```
 
 The approved head is the full SHA from `MERGE READY` (at least 7 hex characters). The script squash-merges through the API with that SHA as a guard, deletes the remote branch (only if it still points at the PR head and the PR is not from a fork) and fast-forwards root `main`. It never switches a local branch. Its last line starts `merge-pr:`. If you pushed after `MERGE READY` (Team mode allows that), the approved head is the current `headRefOid` after the fresh PASS reviews or the reviews-stand note (below), not the old `MERGE READY` SHA. Exit 0 means merged (or already merged); exit 1 means a gate failed and nothing changed; exit 2 means a read or the merge call failed.

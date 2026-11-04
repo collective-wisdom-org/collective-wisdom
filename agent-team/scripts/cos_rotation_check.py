@@ -30,8 +30,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
 HERE = Path(__file__).absolute().parent
-ROOT = HERE.parent
+ROOT = root()
 SIZE_CAP = 220_000
 AGE_HOURS = 4
 AGE_MIN_CONTEXT = 120_000

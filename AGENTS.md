@@ -4,7 +4,7 @@ All agents working on this repo must follow these rules.
 
 ## Product
 
-**collective-wisdom** is the shared agent team: skills, scripts and role docs that move tickets from spec to merge, plus the `install.sh` that copies them into apps. The product is the agent team itself. There is no app stack.
+**collective-wisdom** is the shared agent team: skills, scripts and role docs that move tickets from spec to merge, plus the `install.sh` that copies, updates and checks them in apps. The product is the agent team itself. There is no app stack.
 
 - Shared files live in `agent-team/`, which mirrors a consuming repo. The root links into it so a Chief of Staff can run here against one copy. Edit under `agent-team/`, never through the root links.
 - Repo-specific facts (tracker, its scope and prefix, commands, repo invariants): `docs/agents/project.md`. That file is local to this repo and is never shipped.
