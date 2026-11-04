@@ -4,7 +4,7 @@
 import re
 from pathlib import Path
 
-INDEX = Path(__file__).resolve().parent.parent / "docs" / "superpowers" / "index"
+INDEX = Path(__file__).absolute().parent.parent / "docs" / "superpowers" / "index"
 
 
 def main():

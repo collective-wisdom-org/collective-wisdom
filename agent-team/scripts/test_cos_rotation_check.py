@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -116,3 +117,54 @@ def test_plain_saves_session_and_takeover(monkeypatch, capsys, tmp_path, context
     monkeypatch.setattr(crc, "read_context", lambda sid=None: (_ for _ in ()).throw(crc.Unreadable("context")))
     assert crc.main([]) == 2
     assert capsys.readouterr().out.strip() == "rotation-check: cannot read context"
+
+
+def _repo(tmp_path):
+    def run(*a):
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *a],
+            cwd=tmp_path, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+
+    run("init", "-q")
+    for rel in (
+        "agent-team/.claude/skills/chief-of-staff/SKILL.md",
+        "agent-team/.claude/skills/project-manager/SKILL.md",
+        "agent-team/docs/agents/chief-of-staff.md",
+    ):
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("one\n")
+    return run
+
+
+def test_skill_paths_follow_symlinks(tmp_path, monkeypatch):
+    run = _repo(tmp_path)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "skills").symlink_to("../agent-team/.claude/skills")
+    (tmp_path / "docs" / "agents").mkdir(parents=True)
+    (tmp_path / "docs" / "agents" / "chief-of-staff.md").symlink_to(
+        "../../agent-team/docs/agents/chief-of-staff.md"
+    )
+    monkeypatch.setattr(crc, "ROOT", tmp_path)
+    assert crc.skill_paths() == [
+        "agent-team/.claude/skills/chief-of-staff",
+        "agent-team/.claude/skills/project-manager",
+        "agent-team/docs/agents/chief-of-staff.md",
+    ]
+    run("add", "-A")
+    run("commit", "-qm", "one")
+    (tmp_path / "agent-team/.claude/skills/chief-of-staff/SKILL.md").write_text("two\n")
+    run("add", "-A")
+    run("commit", "-qm", "two")
+    assert crc.skill_commit() == run("rev-parse", "HEAD")
+
+
+def test_skill_paths_unchanged_without_links(tmp_path, monkeypatch):
+    run = _repo(tmp_path)
+    for rel in crc.SKILL_PATHS:
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("x\n") if rel.endswith(".md") else p.mkdir(exist_ok=True)
+    monkeypatch.setattr(crc, "ROOT", tmp_path)
+    assert crc.skill_paths() == crc.SKILL_PATHS

@@ -40,7 +40,7 @@ from pathlib import Path
 
 def project_name(script):
     """Directory name of the main checkout, even when the script runs from a git worktree."""
-    root = Path(script).resolve().parent.parent
+    root = Path(script).absolute().parent.parent
     try:
         common = subprocess.run(
             ["git", "rev-parse", "--git-common-dir"],

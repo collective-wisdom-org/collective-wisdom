@@ -27,11 +27,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_state  # noqa: E402
 import project_config  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).absolute().parent.parent
 WAITING = ("merge", "merge-queued", "awaiting-merge")
 BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,100}")
 TICKET = project_config.ticket_re()

@@ -25,6 +25,7 @@ from pathlib import Path
 
 ACTIVE = ("spec", "build", "merge")
 IDLE_AFTER = timedelta(minutes=45)
+DEFAULT_STATE = Path(__file__).absolute().parent.parent / ".agent-team" / "state.json"
 
 
 def parse_ts(s):
@@ -107,7 +108,7 @@ def main():
     ap.add_argument(
         "--file",
         type=Path,
-        default=Path(__file__).resolve().parent.parent / ".agent-team" / "state.json",
+        default=DEFAULT_STATE,
     )
     ap.add_argument("--skip", action="append", default=[], metavar="TICKET")
     ap.add_argument("--now", type=parse_ts, default=datetime.now(timezone.utc))

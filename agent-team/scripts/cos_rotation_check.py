@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).absolute().parent
 ROOT = HERE.parent
 SIZE_CAP = 220_000
 AGE_HOURS = 4
@@ -111,8 +111,22 @@ def git(*args):
     return r.stdout.strip()
 
 
+def skill_paths():
+    """SKILL_PATHS resolved through symlinks, relative to the git top level; missing entries are skipped."""
+    top = os.path.realpath(git("rev-parse", "--show-toplevel"))
+    out = []
+    for p in SKILL_PATHS:
+        real = os.path.realpath(ROOT / p)
+        if os.path.exists(real):
+            out.append(os.path.relpath(real, top))
+    return out
+
+
 def skill_commit():
-    commit = git("log", "-1", "--format=%H", "--", *SKILL_PATHS)
+    paths = skill_paths()
+    if not paths:
+        raise Unreadable("git")
+    commit = git("log", "-1", "--format=%H", "--", *paths)
     if not commit:
         raise Unreadable("git")
     return commit
