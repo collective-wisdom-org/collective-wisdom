@@ -38,7 +38,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Every Todo move by the project manager has a ticket comment with its reason.
 - No child is left reporting to a thread nobody reads: after a rotation, the retired thread forwards each old child's notices to the current one.
 - No state is kept for tickets finished over a day ago; retired threads with no tickets are archived.
-- Every request passed to another repo ends with a ticket link or a refusal reason in the thread the user asked in.
+- Every request passed to another repo ends with a ticket link in the thread the user asked in, or with a refusal reason when the receiver could verify the sender. Otherwise only the receiving thread shows the refusal.
 
 ## See also
 
