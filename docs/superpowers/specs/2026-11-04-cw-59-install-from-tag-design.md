@@ -2,6 +2,7 @@
 
 **Ticket:** [CW-59](https://github.com/dbeallor/collective-wisdom/issues/59)
 **Status:** Shipped
+**Shipped:** in PR #70, with differences: [as-built](../as-built/2026-11-04-cw-59-install-from-tag.md)
 
 ## Goal
 
