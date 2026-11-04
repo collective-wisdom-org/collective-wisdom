@@ -31,13 +31,28 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Claude Code names a transcript dir after the checkout path, so the repo directory name matches it.
-PROJECT = Path(__file__).resolve().parent.parent.name
+
+def project_name(script):
+    """Directory name of the main checkout, even when the script runs from a git worktree."""
+    root = Path(script).resolve().parent.parent
+    try:
+        common = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=root, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        return (root / common).resolve().parent.name or root.name
+    except (OSError, subprocess.CalledProcessError):
+        return root.name
+
+
+# Claude Code names a transcript dir after the checkout path, so the main checkout's directory name matches it.
+PROJECT = project_name(__file__)
 
 # $/MTok: input, output, cache read, cache write 1h, cache write 5m
 PRICES = {

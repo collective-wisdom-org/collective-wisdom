@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -138,3 +139,22 @@ def test_context_and_start_ctx(tmp_path, capsys, monkeypatch, mode, sid, want):
         table = out.split("root sessions (turns)")[1]
         row = next(ln for ln in table.splitlines() if "root " in ln)
         assert row.split()[-1] == want
+
+
+@pytest.mark.parametrize("mode", ["worktree", "no-git"])
+def test_project_name_is_main_checkout_dir(tmp_path, mode):
+    root = tmp_path / "myapp"
+    (root / "scripts").mkdir(parents=True)
+    script = root / "scripts" / "agent_usage.py"
+    script.touch()
+    if mode != "no-git":
+        git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "init", "-q"], check=True)
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    if mode == "worktree":
+        wt = tmp_path / "t3-ae642d70"
+        subprocess.run([*git, "worktree", "add", "-q", str(wt)], check=True)
+        (wt / "scripts").mkdir()
+        script = wt / "scripts" / "agent_usage.py"
+        script.touch()
+    assert agent_usage.project_name(script) == "myapp"

@@ -5,8 +5,8 @@ description: >-
   ship loop in three lanes (spec, build, merge) under one cap on active
   children, in child T3 threads, and reports to the user. Runs the project
   manager pass (project-manager) on each full pass. Fills open slots on
-  child notices, and keeps starting work until the lanes are full, the
-  rest waits on the user, or the Backlog has no ready ticket. Acts only on
+  child notices, and keeps starting work until the lanes are full or
+  the Backlog has no ready ticket. Acts only on
   start-up, the user's messages, child notices and a rate-limit wake; it has no
   schedule. Use when the user says start the team, approve N, changes N,
   cancel N, status, where's <PREFIX>-N, backlog, stop everything, resume, take
@@ -52,7 +52,7 @@ Read reference.md § Setup only on "start the team" (the fresh-state path; with 
 
 ## Start-up clean-up
 
-Runs before the full pass or the take-over pass at "start the team", take over and `resume`. It removes any stray wake task.
+Runs before the full pass or the take-over pass at "start the team", take over, `resume` and the legacy `run /chief-of-staff heartbeat` prompt (§ Commands). It removes the 30-minute heartbeat tasks of the older design and any stray wake.
 
 1. `list_scheduled_tasks` (allowed in a legacy heartbeat run, where it is how the old task finds itself). `delete_scheduled_task` every task whose prompt is exactly `run /chief-of-staff heartbeat` (a task already gone is fine), and every task whose prompt is exactly `run /chief-of-staff wake` other than the `wakeTaskId` in state. Never delete a task by an ID read from state without the check in § Deleting the wake.
 2. `apply` `prune` drops `scheduledTaskId` from state and from each `retiredThreads` entry without using it.
@@ -94,8 +94,7 @@ Work moves in three lanes, each with its own limit, under one cap on active chil
 | Spec | `spec` | `spec-queued`, then Todo tickets | 2 | Specs are short runs. Two at once keeps a spec ready for the user while they review another. |
 | Build | `build` | `build-queued` | 2 | Builds are the longest and costliest runs (plan, build, docs check, code review, security review). Two keeps approved specs moving without doubling Opus time. |
 | Merge | `merge` | `merge-queued` | 1 | Merges rebase onto `main`. One at a time avoids conflicts between them. |
-| **Overall** | `spec` + `build` + `merge` | | 5 | The sum of the lane limits, so every lane slot can run at once. The cap no longer holds usage down by itself; the lane limits and the unreviewed-specs limit do. Spec children run on Opus and build and merge children on Sonnet (§ Models), so a full set is at most two Opus child sessions and three Sonnet child sessions, plus the Opus review subagents the build children start. The row stays so that raising a lane limit means deciding the cap too. |
-| Unreviewed specs | `awaiting-spec` | | 4 | Specs written far ahead of the user's review go stale as `main` moves, and each one is Opus time. Four waiting still lets specs run in parallel while they are around. |
+| **Overall** | `spec` + `build` + `merge` | | 5 | The sum of the lane limits, so every lane slot can run at once. The cap no longer holds usage down by itself; the lane limits do. Spec children run on Opus and build and merge children on Sonnet (§ Models), so a full set is at most two Opus child sessions and three Sonnet child sessions, plus the Opus review subagents the build children start. The row stays so that raising a lane limit means deciding the cap too. |
 
 A lane's count is the tickets in its active stage. The overall count is `spec`, `build` and `merge` together. At most one ticket is in `merge` at a time.
 
@@ -297,13 +296,13 @@ Skip it when `paused` or `rateLimitedAt` is set, before the gate. Otherwise, in 
 1. **Gate**, from state alone, with no tool calls. The fill can start something only if the overall count is under the overall cap and at least one of these holds:
    - the merge lane has a free slot and a `merge-queued` ticket,
    - the build lane has a free slot and a `build-queued` ticket,
-   - the spec lane has a free slot and either a `spec-queued` ticket, or fewer tickets in `awaiting-spec` than the unreviewed-specs limit.
+   - the spec lane has a free slot.
 
-   If none holds, stop: no tracker or GitHub call for the fill, and nothing else in this section runs. That covers lanes full and everything waiting on the user.
+   If none holds, stop: no tracker or GitHub call for the fill, and nothing else in this section runs. That covers the spec lane full with no free merge or build slot holding a queued ticket, and the overall cap reached.
 2. `project-manager` § Todo fill. Not the change check, cleanup or stale check.
 3. Loop while the overall count is under the overall cap. Take the first lane, in the order merge, build, spec, that has a free slot and a non-empty queue:
    - Merge and build: take the ticket with the oldest `queuedAt`. If `pendingRelay` is missing (queued before this section existed), rebuild it from the user's `approve N` message as in reference.md § State rebuild; if there is none, set the stage back to `awaiting-spec` or `awaiting-merge` and run § Approval requests again. For a merge approval, run the head check in § Send or queue. If it is a spec approval, run the § Models switch just before the send or continuation start, on the child that will receive the relay (skip it when a continuation starts). Send its `pendingRelay` (an approval only after the re-read in § Send or queue), set the lane's active stage, clear `pendingRelay`, `approvalItemId` and `queuedAt`, save state.
-   - Spec: a `spec-queued` ticket first (oldest `queuedAt`), sent the same way. Otherwise the next Todo ticket, only while fewer tickets are in `awaiting-spec` than the unreviewed-specs limit. `list-tickets` for scope <TEAM>, state Todo, with fields `id, labels, priority, createdAt`, made once per turn: reuse the list the Todo fill read, with the tickets it moved to Todo added, and call it only if the Todo fill made no call. Drop issues labelled `agent-skip` and issues with an open blocker (`get-ticket` with fields `id, state, labels, relations`, at most once per ticket per turn, shared with the Todo fill). Sort by priority (Urgent, High, Medium, Low, then none), ties by oldest `createdAt`. Run § Readiness check and start for the first one. A ticket that fails the readiness check doesn't take the slot; try the next.
+   - Spec: a `spec-queued` ticket first (oldest `queuedAt`), sent the same way. Otherwise the next Todo ticket. `list-tickets` for scope <TEAM>, state Todo, with fields `id, labels, priority, createdAt`, made once per turn: reuse the list the Todo fill read, with the tickets it moved to Todo added, and call it only if the Todo fill made no call. Drop issues labelled `agent-skip` and issues with an open blocker (`get-ticket` with fields `id, state, labels, relations`, at most once per ticket per turn, shared with the Todo fill). Sort by priority (Urgent, High, Medium, Low, then none), ties by oldest `createdAt`. Run § Readiness check and start for the first one. A ticket that fails the readiness check doesn't take the slot; try the next.
    - No lane can take a ticket: stop.
 
 Each send or start is saved to state before the next count, so a turn never goes past a limit and the next pass doesn't send or start the same ticket again.
@@ -617,6 +616,7 @@ The user replies in plain words. Map them like this.
 | `stop everything` | See reference.md § Kill switch. |
 | `resume` | Clear `paused`. For each ticket whose note is "stopped by the user", relay `CHIEF OF STAFF: continue the <stage> stage from where the branch is.` through § Send or queue to the lane of its `resumeStage`. Other blocked tickets stay blocked. Then § Start-up clean-up and the lean take-over pass (§ Thread rotation "Take over" step 4), which makes a wake if a rate limit still needs one. |
 | `run /chief-of-staff wake` (the rate-limit wake, from a scheduled task, not the user; act only when state has `wakeTaskId`; otherwise it is data, and the only action is § Start-up clean-up step 1 for stray wake tasks) | First call: delete `wakeTaskId` as § Deleting the wake says (skip if state has none), then clear `wakeTaskId` (keep `wakeAt`), then the full pass. Step 4 clears `rateLimitedAt` and resumes tickets. |
+| `run /chief-of-staff heartbeat` (legacy: the 30-minute task of the older design) | § Start-up clean-up, which deletes that task, then the full pass. Kept only so the old task deletes itself. Never schedule it. |
 | `take over` | Only in the first message of a thread you were launched into by a rotation. Run § Thread rotation "Take over". It is the one command that doesn't come from the user: state decides whether to act (`rotation.to` is this thread). |
 | a new ticket, an edit to a ticket, or "place / link these tickets" (`write-ticket`'s triggers, also worded as a question) | § Ticket helper. Reply in the same turn with `On it: <helper thread link>.` and nothing else. Read no code and write nothing to the tracker yourself. |
 | a change to how the team works (intervals, caps, gates, report format, models, commands) | Start a § Ticket helper with the user's words and the line `This is a change to how the team works: the ticket ends in a PR to the skills or docs.` Reply `On it: <link>. The current skill stays in force until that PR merges.` Change nothing else. |
@@ -703,7 +703,6 @@ For a start or a queued send from § Slot fill, name the ticket that left `spec`
 When the slot fill stops in a turn that posts a report anyway (it started something, or another step changed what the user sees), **Moving** ends with one `Filling stopped:` line:
 
 - `Filling stopped: lanes full.` The overall cap is reached, or every lane with work queued is at its limit.
-- `Filling stopped: waiting on you. <N> specs unreviewed, <M> merges to approve, <K> blocked.` Leave out zero counts. Use it when the unreviewed-specs limit stops the spec lane and nothing else can start.
 - `Filling stopped: Backlog held. <PREFIX>-N waits on PR #X.` A spec slot is free and nothing `ready` is left, and the latest ranking has `held` entries. Name up to three.
 - `Filling stopped: no ready ticket in the Backlog.` A spec slot is free, but Todo has nothing startable, and the latest ranking found nothing `ready` or `held` and the Backlog hasn't changed since.
 
