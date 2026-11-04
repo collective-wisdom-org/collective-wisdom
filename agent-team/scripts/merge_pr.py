@@ -77,7 +77,7 @@ def owner_approval(f):
     """Return None when the owner's latest verdict review is an approval on the current head, else why not."""
     mine = [
         r for r in f["reviews"]
-        if r["author"]["login"] == f["owner"] and r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
+        if r["author"]["login"].lower() == f["owner"].lower() and r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
     ]
     short = f["headRefOid"][:7]
     if not mine:
@@ -99,7 +99,7 @@ def read_facts(pr, approved, run):
     roles = {"code": "code-reviewer", "security": "security-reviewer", "builder": "builder"}
     f["authors"] = {k: project_config.role_login(r) or f["login"] for k, r in roles.items()}
     f["owner"] = project_config.value("Owner login") or f["login"]
-    f["protection"] = read_protection(run)
+    f["protection"] = read_protection(run) if f["state"] == "OPEN" else None
     f["agentLogins"] = sorted({l for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))})
     f["docs"] = {}
     if f["state"] == "OPEN":
