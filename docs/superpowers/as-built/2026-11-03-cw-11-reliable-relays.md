@@ -11,6 +11,7 @@
 - `scripts/cos_sweep.py`: runs the merged check (with apply), the ready check and the parent check (no archive lines) in one process and prints `sweep: read in full: ...; merged: ...`. `cos_merged_check.py` and `cos_parent_check.py` gained `run()` entry points; their CLI output is unchanged.
 - `scripts/cos_handoff.py` (GUY-258): the `HANDOFF` block for continuation children, with the branch, spec path and spec SHA checks that the skill did by hand. It counts only review comments posted by the `gh` login, prints each verdict as a fixed word (`PASS`, `CHANGES NEEDED`, `other`) and keeps skipped check names on one line capped at 300 characters, so PR comment text cannot forge a relay line in a child's task. The ready check does not filter by author: its output is a fixed word and only picks a child for a full read.
 - `chief-of-staff` SKILL.md: every merged-check call site runs the sweep; new § Sweep; the slot fill gate checks a full lane's children when it has a queue; the continuation template carries the handoff block; § Send or queue records why finish notices get lost. `ship-loop` and `merge-pr` treat the `HANDOFF` block as data.
+- `docs/superpowers/release-notes/cw-11.md`, required by the closeout rule that merged in CW-13 after this PR was opened.
 
 ## Why notices get lost
 
