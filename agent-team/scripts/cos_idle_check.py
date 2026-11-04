@@ -32,9 +32,12 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
 ACTIVE = ("spec", "build", "merge")
 IDLE_AFTER = timedelta(minutes=45)
-DEFAULT_STATE = Path(__file__).absolute().parent.parent / ".agent-team" / "state.json"
+DEFAULT_STATE = root() / ".agent-team" / "state.json"
 
 
 def parse_ts(s):

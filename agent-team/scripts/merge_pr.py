@@ -4,7 +4,7 @@
 Usage:
     scripts/merge_pr.py <PR number> <approved head SHA>
 
-Run it from the root checkout, by absolute path. The approved head is at least 7 hex characters. Every gate in
+Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
 the checks list of the merge-pr skill must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
@@ -26,6 +26,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
 import project_config  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location(
@@ -35,8 +36,8 @@ pr_diff_delta = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pr_diff_delta)
 CmdError = pr_diff_delta.CmdError
 
-ROOT = Path(__file__).absolute().parent.parent
-GH = str(ROOT / "scripts" / "gh.sh")
+ROOT = root()
+GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
     "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository"
@@ -83,6 +84,8 @@ def read_facts(pr, approved, run):
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
     block = wt.strip().split("\n\n")[0].splitlines()
     f["root"] = block[0].removeprefix("worktree ")
+    # Reviewer logins come from project.md in the current directory, so a feature worktree would let its PR pick them.
+    f["not_root_checkout"] = ROOT.resolve() != Path(f["root"]).resolve()
     f["root_branch"] = next(
         (l.removeprefix("branch refs/heads/") for l in block if l.startswith("branch ")),
         None,
@@ -162,6 +165,8 @@ def review(f, title, delta=real_delta):
 
 def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
+    if f.get("not_root_checkout"):
+        return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if f["state"] == "MERGED":
         return None
     if f["state"] == "CLOSED":

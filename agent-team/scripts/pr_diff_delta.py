@@ -21,8 +21,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).absolute().parent.parent
-GH = str(ROOT / "scripts" / "gh.sh")
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
+ROOT = root()
+GH = str(Path(__file__).absolute().parent / "gh.sh")
 SHOW = 10
 # Full ref name: a tag called origin/main would win over the short name.
 MAIN = "refs/remotes/origin/main"

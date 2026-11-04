@@ -31,10 +31,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
 import project_config  # noqa: E402
 from cos_brief import latest_review  # noqa: E402
 
-ROOT = Path(__file__).absolute().parent.parent
+ROOT = root()
 BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,100}")
 SHA = re.compile(r"[0-9a-f]{7,40}")
 TICKET = project_config.ticket_re()
@@ -64,7 +65,7 @@ def gh(path, what, *args):
             return Path(path).read_text()
         except (OSError, UnicodeDecodeError):
             fail(f"unreadable {what}")
-    cmd = [str(ROOT / "scripts" / "gh.sh"), *args]
+    cmd = [str(Path(__file__).absolute().parent / "gh.sh"), *args]
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=ROOT)
     except subprocess.TimeoutExpired:

@@ -46,9 +46,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
 import project_config  # noqa: E402
 
-DEFAULT_FILE = Path(__file__).absolute().parent.parent / ".agent-team" / "state.json"
+DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
     "retiredThreads", "rotation", "rotationHeldUntil", "rateLimitedAt", "wakeTaskId", "wakeAt",

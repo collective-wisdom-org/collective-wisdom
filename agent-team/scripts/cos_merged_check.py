@@ -28,10 +28,11 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
 import cos_state  # noqa: E402
 import project_config  # noqa: E402
 
-ROOT = Path(__file__).absolute().parent.parent
+ROOT = root()
 WAITING = ("merge", "merge-queued", "awaiting-merge")
 BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,100}")
 TICKET = project_config.ticket_re()
@@ -62,7 +63,7 @@ def load_prs(path):
             fail("unreadable PR list")
     else:
         cmd = [
-            str(ROOT / "scripts" / "gh.sh"), "pr", "list", "--state", "merged",
+            str(Path(__file__).absolute().parent / "gh.sh"), "pr", "list", "--state", "merged",
             "--limit", "20", "--json", "number,headRefName,mergedAt",
         ]
         try:

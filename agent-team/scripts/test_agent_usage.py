@@ -157,4 +157,4 @@ def test_project_name_is_main_checkout_dir(tmp_path, mode):
         (wt / "scripts").mkdir()
         script = wt / "scripts" / "agent_usage.py"
         script.touch()
-    assert agent_usage.project_name(script) == "myapp"
+    assert agent_usage.project_name(script.parent.parent) == "myapp"
