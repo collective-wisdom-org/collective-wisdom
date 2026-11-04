@@ -48,7 +48,7 @@ The owner is the `Owner login` row of root `main`'s `project.md`, or the running
 
 Two new checks in `gate()`, after the checks pass and before the review comments, each a one-line stop:
 
-- `main has no branch protection; set it up per docs/agents/github-auth.md § Merge gate`, when protection is missing or requires fewer than 1 approving review.
+- `main has no branch protection requiring an approving review; set it up per docs/agents/github-auth.md § Merge gate`, when protection is missing or requires fewer than 1 approving review.
 - `no approving review by <owner> on head <short SHA>`, when the owner's latest review that is `APPROVED`, `CHANGES_REQUESTED` or `DISMISSED` (comment-only reviews are skipped) is missing, is not `APPROVED`, or was submitted on another commit. When it is `APPROVED` on an older commit, the line ends `; approved <short SHA>, head moved`.
 
 The reviews-stand note (`Head moved to ...`) still lets the agent reviews stand after a main merge. It does not stand in for the owner's approval: a head that moved after the user approved needs a new approval on GitHub.

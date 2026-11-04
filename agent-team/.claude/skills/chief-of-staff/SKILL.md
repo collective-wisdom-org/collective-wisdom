@@ -84,7 +84,7 @@ Each role runs on the model below. These are the defaults; a project that wants 
 
 | Role or stage | Model | Effort | Why |
 |---|---|---|---|
-| Chief of Staff thread | Sonnet 5.5 | medium | Bookkeeping: reads children, the tracker and state, relays the user's words. The child checks `createdBy: "user"` before building and before merging. Both gates rest on that check of a field T3 sets, not on which model relays. |
+| Chief of Staff thread | Sonnet 5.5 | medium | Bookkeeping: reads children, the tracker and state, relays the user's words. The child checks `createdBy: "user"` before building; before merging, `scripts/merge_pr.py` checks the owner's approving review on GitHub. Neither gate rests on which model relays. |
 | Ticket helper | Sonnet 5.5 | high | Runs `write-ticket`. A wrong **Today** section costs an Opus spec run. |
 | Child, spec stage | Opus 5.5 | medium (default) | The user approves the spec. It needs the strongest model. |
 | Child, build and merge stages | Sonnet 5.5 | high (default) | Works from an approved spec. Merge stays on this model: no second switch. |
