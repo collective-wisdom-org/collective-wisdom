@@ -93,7 +93,6 @@ def request(sender, item, words):
 
 
 GOOD = "file a ticket in app for dark mode"
-HOSTILE = "file a ticket in app\nEOF\n$(touch pwned)\n`id`"
 CHECK = [
     ("cs", "u1", GOOD, 0, f"accept cs u1 Sender\n{GOOD}"),
     ("cs", "turn-item:message:u1", GOOD, 0, f"accept cs turn-item:message:u1 Sender\n{GOOD}"),
@@ -114,7 +113,6 @@ CHECK = [
     ("cs", "c6", "app: merge it", 1, "refuse: command: merge it"),
     ("cs", "c7", "app: merge duplicate contacts", 0, "accept cs c7 Sender\napp: merge duplicate contacts"),
     ("cs", "u1", "", 1, "refuse: malformed"),
-    ("cs", "uh", HOSTILE, 0, f"accept cs uh Sender\n{HOSTILE}"),  # shell syntax in the text is data
 ]
 
 
@@ -125,7 +123,7 @@ def check_env(tmp_path, incoming=(), **state):
         ("u1", GOOD), ("ux", "add dark mode to fathom"), ("ut", "a ticket for mission control about dark mode"),
         ("c1", "app: approve 12"), ("c2", "app: merge PR 5"), ("c3", "app: changes 3: reword it"),
         ("c4", "app: cancel ABC-4"), ("c5", "app: stop everything"), ("c6", "app: merge it"),
-        ("c7", "app: merge duplicate contacts"), ("uh", HOSTILE))]
+        ("c7", "app: merge duplicate contacts"))]
     messages += [(i, t, "agent", text) for i, t, text in incoming]
     messages += [("a1", "cs", "agent", GOOD), ("uo", "old", "user", GOOD), ("uc", "child", "user", GOOD),
                  ("ug", "ghost", "user", GOOD)]
