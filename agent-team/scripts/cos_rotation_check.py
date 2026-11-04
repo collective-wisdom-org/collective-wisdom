@@ -38,8 +38,11 @@ HERE = Path(__file__).absolute().parent
 
 def _root():
     # The Stop hook runs from wherever the session's cwd has wandered; Claude Code names the project.
+    # Move there first, so every script this one loads (project.md, agent_usage) finds the same repo.
     d = os.environ.get("CLAUDE_PROJECT_DIR")
-    return Path(d) if d and "--hook" in sys.argv else root()
+    if d and "--hook" in sys.argv:
+        os.chdir(d)
+    return root()
 
 
 ROOT = _root()
@@ -154,9 +157,7 @@ def read_context(sid=None):
         with contextlib.redirect_stderr(io.StringIO()), mock.patch.dict(
             os.environ, {"CLAUDE_CODE_SESSION_ID": sid} if sid else {}
         ):
-            usage = load_module("agent_usage")
-            usage.PROJECT = usage.project_name(ROOT)  # not the cwd's repo: the hook's cwd can drift
-            line = usage.context_line(projects)
+            line = load_module("agent_usage").context_line(projects)
     except SystemExit:
         raise Unreadable("context")
     m = re.fullmatch(r"context=(\d+) started=(\S+)", line)

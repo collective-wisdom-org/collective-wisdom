@@ -185,36 +185,27 @@ def test_skill_commit_works_when_root_is_a_subfolder(tmp_path, monkeypatch):
     assert crc.skill_commit() == run("rev-parse", "HEAD")
 
 
-@pytest.mark.parametrize("argv, want_project_dir", [(["--hook"], True), ([], False)])
-def test_hook_roots_at_claude_project_dir(tmp_path, argv, want_project_dir):
-    # The Stop hook's cwd can drift; only --hook trusts CLAUDE_PROJECT_DIR.
-    app, elsewhere = tmp_path / "app", tmp_path / "elsewhere"
-    app.mkdir()
+def test_hook_blocks_from_a_drifted_cwd(tmp_path):
+    # The Stop hook's cwd can drift out of the app. It must still read the app's project.md, state and transcript.
+    sid = "0123abcd-0123-0123-0123-0123456789ab"
+    app, elsewhere, projects = tmp_path / "app", tmp_path / "elsewhere", tmp_path / "projects"
+    (app / "docs" / "agents").mkdir(parents=True)
+    (app / "docs" / "agents" / "project.md").write_text("| Issue identifier prefix | `ZZ` |\n| Repo | `acme/app` |\n")
+    (app / ".agent-team").mkdir()
+    state = app / ".agent-team" / "state.json"
+    state.write_text(json.dumps({"chiefSessionId": sid, "chiefThreadId": "T1", "skillCommit": OLD}))
+    (projects / "-x-app").mkdir(parents=True)
+    usage = {"input_tokens": 230_000, "output_tokens": 1}
+    (projects / "-x-app" / f"{sid}.jsonl").write_text(json.dumps(
+        {"type": "assistant", "requestId": "r1", "timestamp": "2026-11-01T10:00:00Z",
+         "message": {"model": "claude-opus-5-5", "usage": usage}}))
     elsewhere.mkdir()
-    code = (
-        "import runpy, sys; f = sys.argv[1]; sys.argv = ['x'] + sys.argv[2:]; "
-        "print(runpy.run_path(f, run_name='linked')['ROOT'])"
-    )
+    subprocess.run(["git", "init", "-q"], cwd=app, check=True)
     out = subprocess.run(
-        [sys.executable, "-c", code, str(Path(__file__).with_name("cos_rotation_check.py")), *argv],
+        [sys.executable, str(Path(__file__).with_name("cos_rotation_check.py")), "--hook"],
+        input=json.dumps({"session_id": sid, "stop_hook_active": False}),
         capture_output=True, text=True, cwd=elsewhere, check=True,
-        env={"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": str(app)},
-    ).stdout.strip()
-    assert (out == str(app)) == want_project_dir
-
-
-def test_context_lookup_uses_the_rotation_root_not_the_cwd(monkeypatch):
-    seen = {}
-
-    class FakeUsage:
-        PROJECT = "cwd-repo"
-        project_name = staticmethod(lambda root: Path(root).name)
-
-        @classmethod
-        def context_line(cls, projects):
-            seen["project"] = cls.PROJECT
-            return "context=1 started=2026-01-01T00:00:00Z"
-
-    monkeypatch.setattr(crc, "load_module", lambda name: FakeUsage)
-    crc.read_context()
-    assert seen["project"] == crc.ROOT.name
+        env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "CLAUDE_PROJECT_DIR": str(app),
+             "COS_PROJECTS_DIR": str(projects), "COS_STATE_FILE": str(state)},
+    ).stdout
+    assert json.loads(out)["decision"] == "block"
