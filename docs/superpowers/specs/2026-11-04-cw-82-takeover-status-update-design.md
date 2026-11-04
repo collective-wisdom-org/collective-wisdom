@@ -1,7 +1,8 @@
 # CW-82: Post a status update while the Chief of Staff takes over
 
 **Ticket:** [CW-82](https://github.com/dbeallor/collective-wisdom/issues/82)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #90, as specified
 
 ## Goal
 
