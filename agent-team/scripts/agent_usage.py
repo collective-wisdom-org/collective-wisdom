@@ -127,8 +127,11 @@ def read_session(path):
                 continue
             if not isinstance(d, dict) or not d.get("timestamp"):
                 continue
-            ts = parse_ts(d["timestamp"])
-            span = [min(span[0] or ts, ts), max(span[1] or ts, ts)]
+            try:
+                ts = parse_ts(d["timestamp"])
+                span = [min(span[0] or ts, ts), max(span[1] or ts, ts)]
+            except (TypeError, ValueError):
+                pass
             branch = d.get("gitBranch") or branch
             m = d.get("message")
             if not isinstance(m, dict):
@@ -229,7 +232,7 @@ def ticket_line(projects, ticket):
             runs += 1
             times += span
             # A continuation child's task names the stage it starts in.
-            m = first.startswith("TEAM MODE. CONTINUE") and re.search(
+            m = re.search(r"\bTEAM MODE\. CONTINUE\b", first) and re.search(
                 r"Do the (spec|build|merge) stage", first
             )
             start = m.group(1) if m else "spec"

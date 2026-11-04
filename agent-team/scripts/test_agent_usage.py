@@ -207,7 +207,7 @@ def test_ticket_line(tmp_path, capsys, monkeypatch, ticket, want):
     )
     # A continuation child starts in build, then the merge approval moves it to merge.
     (wt / "s2.jsonl").write_text("\n".join([
-        human("2026-11-01T11:00:00Z", "feat/cw-57", "TEAM MODE. CONTINUE. Do the build stage."),
+        human("2026-11-01T11:00:00Z", "feat/cw-57", "Act as the implementation sub-agent for this task. TEAM MODE. CONTINUE. Run /ship-loop. Do the build stage."),
         asst("2026-11-01T11:01:00Z", "feat/cw-57", "r3", 1_000_000),
         human("2026-11-01T12:00:00Z", "feat/cw-57", "CHIEF OF STAFF: the user approved the merge"),
         asst("2026-11-01T12:03:00Z", "feat/cw-57", "r4", 300_000),
