@@ -23,7 +23,7 @@ Before any phase work, apply **Repo invariants** below. Other agent-team skills 
 | Security-ready → Merge-ready | Phase 4 **complete**: **security-review** finished, and the **latest security review** PR comment has **Verdict: PASS** (see `security-review` § PR comment loop). |
 | Merge-ready → Merge | User explicitly asks to merge (**phase 5** only). |
 
-After phase 2, the default next step is **phase 3** (open PR + code review loop in the same session), not merge. Do **not** tell the user to merge, offer merge as the obvious next action, or invoke **merge-pr** until phases 3 **and** 4 **Done when** bars are met, even if CI is already green. If the user says “merge if reviewed,” check for code review **PASS** and security review **PASS** on the PR. If security review did not run or its verdict is not **PASS**, run phase 4 first.
+After phase 2, the default next step is **phase 3** (open PR + code review loop in the same session), not merge. Do **not** tell the user to merge, offer merge as the obvious next action, or invoke **merge-pr** until phases 3 **and** 4 **Done when** bars are met, even if CI is already green. If the user says “merge if reviewed,” check for code review **PASS** and security review **PASS** on the PR; green CI alone is not enough. If security review did not run or its verdict is not **PASS**, run phase 4 first.
 
 When the user invokes the full ship loop (`/ship-loop`), do not stop after opening the PR, after CI passes, or after code review **PASS**; continue **security-review** through security **PASS** before handing off merge-ready.
 

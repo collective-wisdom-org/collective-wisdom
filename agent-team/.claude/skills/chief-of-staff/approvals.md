@@ -1,6 +1,6 @@
 # Chief of Staff: approvals
 
-Read when a child ends with `SPEC READY` or `MERGE READY`, or an approval is re-requested.
+Read when a child ends with `SPEC READY` or `MERGE READY`, an approval is re-requested, or you relay an approval.
 
 ## Approval requests
 

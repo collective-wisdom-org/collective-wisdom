@@ -65,7 +65,7 @@ def resolve(root, src, ref, linked):
     ref = ref.removeprefix("docs/agents/")
     base = Path(ref).name
     skill_dir = next((p for p in src.parents if p.parent == skills), None)
-    candidates = [(src.parent / ref).resolve(), root / "docs" / "agents" / ref, root / "templates" / base]
+    candidates = [(src.parent / ref).resolve(), root / "docs" / "agents" / ref, root / "templates" / base, skills / ref]
     if skill_dir and not linked:
         candidates[:0] = [skill_dir / ref, skill_dir / base]
     found = next((c for c in candidates if c.is_file()), None)
