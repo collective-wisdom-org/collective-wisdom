@@ -17,6 +17,8 @@
 - `resume` is refused as a command word anywhere in a request, so "fix resume upload" is refused. It fails safe; the user says it in the receiving thread.
 - `check` uses `--thread` to look up this repo's T3 title as one of the names a request may use and to refuse a sender in the same project (`refuse: same repo`).
 - Request and reply labels come only from what the script printed (the sender project's T3 title and the ids), never from the message header.
+- `reply` reads the store: it refuses a reply whose `from` thread is not a Chief of Staff thread and prints `source <project title> <thread id>` first. The spec had it as a pure parser.
+- A ticket helper started from a request may only create new Backlog tickets. The spec said the helper template changes by one line only.
 - The `For:` line is parsed but not checked; the check runs on the user's words.
 - The words may name this repo by `owner/name`, repo name or this thread's T3 project title. The product name in `project.md` is not matched.
 - `find` skips this repo only when `project.md` names one, and skips deleted projects and does not fold hyphens, so "collective wisdom" matches the title but not the repo name.
