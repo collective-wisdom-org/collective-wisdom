@@ -1,7 +1,8 @@
 # CW-92: Author and push ticket branch commits as the builder user
 
 **Ticket:** [CW-92](https://github.com/dbeallor/collective-wisdom/issues/92)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #99, with differences: [as-built](../as-built/2026-11-04-cw-92-builder-commit-identity.md)
 
 ## Goal
 
