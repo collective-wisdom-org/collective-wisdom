@@ -40,7 +40,7 @@ Merge block:
 <PREFIX>-197 merge ready: <PR title>. Risk: High (touches auth)
 PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
-Cost: <the cost: line without its label, or "unknown">
+Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent, 38.6M tokens, ...", or "unknown">
 Docs: <the child's Docs checked line>
 Changes:
 - …
