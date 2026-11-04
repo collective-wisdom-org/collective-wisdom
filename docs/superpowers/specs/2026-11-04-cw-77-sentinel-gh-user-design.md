@@ -1,7 +1,8 @@
 # CW-77: Set up the collective-wisdom-sentinel GitHub user
 
 **Ticket:** [CW-77](https://github.com/dbeallor/collective-wisdom/issues/77)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #80, as specified
 
 ## Goal
 
@@ -32,7 +33,7 @@ So this PR's `## Security review` comment is posted with no role (as `dbeallor`)
 
 Once this merges, the gate on root `main` wants security reviews by `collective-wisdom-sentinel`. A PR whose only PASS security review is by `dbeallor` stops passing. Such a PR must merge `main` into its branch first, so its worktree's `gh.sh` posts as the sentinel, then run the security review again on the new head and post it as `security-reviewer`.
 
-Today no PR is open, so the PR description says none need it. Before opening the PR, the list is checked again: any PR open by then with a `## Security review` comment by `dbeallor` is named in the description with those two steps. This PR doesn't touch other PRs.
+When the PR opened, #78 (CW-56) had one; #79 (CW-53) had none. The PR description names #78. Any PR open by then with a `## Security review` comment by `dbeallor` is named in the description with those two steps. This PR doesn't touch other PRs.
 
 ## Verify
 
