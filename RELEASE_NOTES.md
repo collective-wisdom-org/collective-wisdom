@@ -1,0 +1,231 @@
+# Release notes
+
+## 2026-11-04 accept a repository ruleset as the merge gate protection (CW-88) (#95)
+
+Merged 2026-11-04 17:05 UTC.
+
+The merge gate now accepts a repository ruleset that requires an approving review on `main`, not only classic branch protection. If the gate can't read either, it says so instead of claiming there is no protection.
+
+## 2026-11-04 publish all release notes to a release-notes branch after each merge (CW-71) (#85)
+
+Merged 2026-11-04 09:23 UTC.
+
+After each team merge, all release notes are published as `RELEASE_NOTES.md` on the `release-notes` branch of the repo. Read it on GitHub instead of running `scripts/release_notes.py`. Nothing to do; the first merge after you update creates the branch.
+
+## 2026-11-04 post the owner's approving review when the user approves a merge (CW-87) (#89)
+
+Merged 2026-11-04 09:22 UTC.
+
+When you reply `approve N` on a merge in the Chief of Staff thread, the Chief of Staff now posts your approving review on the PR for you, after checking that the message is yours. You no longer approve on GitHub first, though doing so by hand still works. You need to install the new release in each app.
+
+## 2026-11-04 post a status line while the Chief of Staff takes over (CW-82) (#90)
+
+Merged 2026-11-04 09:15 UTC.
+
+A new Chief of Staff thread now posts a "Taking over" line as soon as the hand-off checks pass, then a "Take-over done" summary at the end.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 sort release notes by merge time (CW-41) (#83)
+
+Merged 2026-11-04 08:53 UTC.
+
+`python3 scripts/release_notes.py` now lists release notes by when their PR merged, newest first, and shows the merge time under each note it can date.
+
+## 2026-11-04 require an owner approval on GitHub to merge (CW-52) (#84)
+
+Merged 2026-11-04 08:42 UTC.
+
+Merging now needs your approving review on the PR in GitHub, and `main` needs branch protection (setup steps in `docs/agents/github-auth.md`). Replying `approve N` in the Chief of Staff thread alone no longer lets a merge through.
+
+## 2026-11-04 put the cost of each ticket in the merge brief (CW-57) (#81)
+
+Merged 2026-11-04 08:41 UTC.
+
+The merge request for each ticket now shows what the ticket cost to build, and the report after a merge repeats it. `status` shows the cost so far per ticket. Apps get it with the next `agent-team-update`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 set the security reviewer GitHub login (CW-77) (#80)
+
+Merged 2026-11-04 07:10 UTC.
+
+Security review comments on PRs now show `collective-wisdom-sentinel` instead of David. A PR that already has a passing security review by David needs `main` merged in and the review run again before it can merge.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 rotate the Chief of Staff thread less often (CW-53) (#79)
+
+Merged 2026-11-04 07:09 UTC.
+
+The Chief of Staff thread no longer rotates every time its own skill changes. A skill change waits for a quiet turn and at most one rotation an hour; threads no longer rotate just for being old. The size cap of 220k still rotates at once. Nothing to do on your side.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 move tracker hygiene into a one-shot project manager child (CW-56) (#78)
+
+Merged 2026-11-04 07:00 UTC.
+
+The Chief of Staff no longer scans the tracker on every message. Tidying (priorities, labels, stale tickets, duplicates) runs in a separate child at start-up, on `backlog`, and at most once a day, and ready tickets now go from the Backlog straight into work instead of through Todo. Apps pick this up with the next update.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 install from a pinned tag, one-command app update (CW-59) (#70)
+
+Merged 2026-11-04 06:36 UTC.
+
+Run `scripts/agent-team-update.sh v0.N` in an app to move its agent team to a release tag, with no clone of this repo. The maintainer tags releases with `./tag-release.sh` after a batch of merges. Apps get the new script on their next install.
+
+## 2026-11-04 list running children in idle check reports (CW-68) (#74)
+
+Merged 2026-11-04 06:26 UTC.
+
+When the Chief of Staff reports after an idle check, the message now includes a `Running` list of the children still working, each with its ticket title and a link to its thread.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 set the code reviewer GitHub login (CW-75) (#76)
+
+Merged 2026-11-04 06:18 UTC.
+
+Code review comments in this repo now show the `collective-wisdom-reviewer` user instead of David. Nothing to do in your app. Open PRs that already have a code review from David need `main` merged in and the review run again before they can merge.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-04 shrink the files agents load without changing behaviour (CW-23) (#73)
+
+Merged 2026-11-04 06:15 UTC.
+
+The Chief of Staff skill now loads about 40% less text on every turn; rotation, cross-repo requests, the kill switch, the ticket helper and similar sections load only when needed. Nothing changes in how the team works. After the next install PR, an app's Chief of Staff thread starts smaller.
+
+## 2026-11-04 CW-65: Builder PRs come from collective-wisdom-builder
+
+Merged 2026-11-04 05:39 UTC.
+
+Ship-loop pull requests, notes and ticket moves in this repo now show the `collective-wisdom-builder` user instead of David. Nothing to do in your app.
+
+## 2026-11-04 lighten the closeout docs per ticket (CW-55) (#66)
+
+Merged 2026-11-04 05:31 UTC.
+
+The closeout is lighter: the as-built is one line in the spec unless the build differs, the release note is a section in the PR body, and the index is generated by `scripts/docs_index.py`. After you re-run `install.sh --update` in an app, copy `docs/superpowers/README.md` over by hand (the installer only adds it when missing); the app's old `index/` files can be deleted.
+
+## 2026-11-04 CW-55: Lighter closeout docs
+
+Merged 2026-11-04 05:31 UTC.
+
+A ticket that ships as specified now needs only its spec (with a `**Shipped:** in PR #N, as specified` line) and a `## Release note` section in the PR body; an as-built file is written only when the build differs. `scripts/docs_index.py` builds the index from the docs, `scripts/release_notes.py` also reads merged PR bodies, and `merge_pr.py` accepts both the new and the old shape. After `install.sh --update`, copy `docs/superpowers/README.md` over by hand and delete the app's old `index/` files.
+
+## 2026-11-04 CW-51: Chief of Staff trusts its state file
+
+Merged 2026-11-04 05:17 UTC.
+
+The Chief of Staff no longer re-reads T3 to double-check what its state file says about retirement, parent threads and wake tasks, so turns cost fewer tool calls. Pull the change into your app; old state files keep working.
+
+## 2026-11-03 CW-42: Update and check an installed agent team
+
+Merged 2026-11-04 04:55 UTC.
+
+`install.sh --update <app>` now moves an app to the newest `origin/main` commit and reports what changed, and `install.sh --check <app>` says whether the app's copied files still match the commit in `installed-from.txt`. An update refuses when you have edited a copied file, unless you pass `--force`, and it never deletes old files; it lists them for you. Scripts now find the app from the repo you run them in.
+
+## 2026-11-03 CW-38: Agent roles can act as their own GitHub users
+
+Merged 2026-11-04 04:28 UTC.
+
+Each agent role can now post as its own GitHub user, with a short persona, instead of as you. Nothing changes until you create the accounts and fill in the four login rows in `project.md`; `github-auth.md` § Agent users has the steps. Merges still run as you.
+
+## 2026-11-03 CW-49: Child thread link under the ticket in status
+
+Merged 2026-11-04 04:24 UTC.
+
+In the Chief of Staff's `status` table, the link to a ticket's child thread now sits in the Ticket cell under the ID and title, not at the end of Next. Nothing to do on your side beyond pulling the change into your app.
+
+## 2026-11-03 CW-40: More tests for the Chief of Staff's wait check
+
+Merged 2026-11-04 04:21 UTC.
+
+Nothing changes for you. The check that tells a waiting child from a stalled one now has tests for the output shapes it had no coverage for.
+
+## 2026-11-03 CW-21: Children waiting on CI are no longer restarted
+
+Merged 2026-11-04 02:47 UTC.
+
+The Chief of Staff now checks whether a finished child run is only waiting on a background command, such as CI, before it calls the child stuck. Waiting children are left alone. After this lands, re-run `install.sh` in each app to pick it up.
+
+## 2026-11-03 CW-17: Cross-repo Chief of Staff requests
+
+Merged 2026-11-04 02:42 UTC.
+
+A Chief of Staff can now pass your request for a ticket in another repo to that repo's Chief of Staff. It checks that you wrote the request and files it as a Backlog ticket, and the ticket link comes back to the thread where you asked. Both repos need the install.
+
+## 2026-11-03 CW-35: Plan for one release notes file on GitHub
+
+Merged 2026-11-04 02:41 UTC.
+
+The options for a single release notes file you can read on GitHub are compared on issue #35. The pick is to publish it to a separate `release-notes` branch after each merge. Nothing changes yet; a follow-up ticket builds it.
+
+## 2026-11-03 CW-16: Warning when a relay may finish unannounced
+
+Merged 2026-11-04 02:39 UTC.
+
+The Chief of Staff now adds a line under Moving when it sends work to a child it won't hear back from: `I may not hear when this run ends; say status to check.` No timer, scheduled wake or new Stop hook was added; apps get the line the next time `install.sh` runs.
+
+## 2026-11-03 CW-14: Continuation children for more relays
+
+Merged 2026-11-04 02:35 UTC.
+
+After a Chief of Staff handoff, a restart, an answer to a blocked ticket, `resume` or a rate-limit continue now starts a new child that reports to the current Chief of Staff, as long as the old child left nothing unpushed. If it did, the relay goes to the old child as before. Apps get this the next time `install.sh` runs; nothing else to do.
+
+## 2026-11-03 CW-12: Grouped status and a risk level on every approval
+
+Merged 2026-11-04 02:00 UTC.
+
+`status` now answers with tickets grouped by what each one waits on, and every ticket and approval request shows a risk level (Low, Medium or High) with a short reason. The level only informs you; every ticket still needs your `approve N`. Apps get this the next time `install.sh` runs.
+
+## 2026-11-03 CW-15: Chief of Staff rules reviewed, none changed
+
+Merged 2026-11-04 01:59 UTC.
+
+The idle check, rotation chain walk, approval gates, lane limits and models were reviewed one by one and all five stay as they are. The reasons are on issue #15; nothing for you to do.
+
+## 2026-11-03 Tests for the Chief of Staff ready check
+
+Merged 2026-11-04 01:47 UTC.
+
+Nothing changes for you. The ready check that finds a lost `MERGE READY` or `SPEC READY` notice now has tests for its real GitHub call and for running from a symlinked root, so a break there is caught before it reaches a Chief of Staff pass.
+
+## 2026-11-03 CW-11: More reliable Chief of Staff relays
+
+Merged 2026-11-04 01:34 UTC.
+
+A Chief of Staff now finds a child that finished without its notice reaching it, through one new command (`scripts/cos_sweep.py`) that the skill runs on every turn. Continuation children start with a `HANDOFF` block of the branch, spec, PR, head and reviews. Apps get both the next time `install.sh` runs; nothing else to do.
+
+## 2026-11-03 CW-13: Release notes in the closeout docs
+
+Merged 2026-11-04 01:18 UTC.
+
+Every PR now adds a short release note under `docs/superpowers/release-notes/`, and `merge_pr.py` refuses to merge without one. Run `python3 scripts/release_notes.py` to read all the notes in one place, newest first.
+
+## 2026-11-03 GUY-330: Parity with the IHAG team files and install version pin
+
+`install.sh` now records the installed commit in `docs/agents/installed-from.txt`, refuses a dirty or non-git checkout, and warns about old skill copies it no longer ships (it never deletes them). A change to a shared team file now ships as a collective-wisdom PR plus an install PR in the app. The Chief of Staff also no longer limits how many specs can wait for review.
+
+## 2026-11-03 GUY-316: Docs check and documenter subagent
+
+The ship loop now runs a docs check before code review: a documenter subagent compares the PR against the living docs and reports stale ones, and the review comment carries a `Docs checked:` line. After you re-run `install.sh` in an app, fill in the new Docs check section of its `project.md`.
+
+## 2026-11-03 CW-28: Publish the agent team
+
+The agent team (Chief of Staff, project manager pass, ship loop, PR and security reviews) now lives in this repo and installs into any app with `./install.sh /path/to/app`. After installing, fill in the app's `docs/agents/project.md` and `AGENTS.md`. Re-running the script updates the app.
+
+## 2026-11-03 CW-27: Choose Linear, GitHub Issues or Jira as the tracker
+
+Set the `Tracker` row in `docs/agents/project.md` to `linear` (the default), `github` or `jira`, and the skills use that tracker's adapter. The Jira adapter has not been run against a real Jira site, so work through the checklist in `docs/agents/trackers/jira.md` before relying on it.
+
+## 2026-11-03 CW-25: Backfill release notes
+
+`python3 scripts/release_notes.py` now also lists the five PRs merged before release notes existed, so it shows the whole history of the agent team.
+
+## 2026-11-03 CW-9: Chief of Staff for collective-wisdom itself
+
+You can now run a Chief of Staff from this repo's root, so changes to the agent team go through the same ship loop as an app. Tickets are GitHub issues with the `CW` prefix, and this repo's `project.md` stays local and is never shipped to apps.
