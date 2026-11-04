@@ -1,7 +1,8 @@
 # CW-57: Put the cost of each ticket in the merge brief
 
 **Ticket:** [CW-57](https://github.com/dbeallor/collective-wisdom/issues/57)
-**Status:** Approved
+**Status:** Shipped
+**Shipped:** in PR #81, with differences: [as-built](../as-built/2026-11-04-cw-57-ticket-cost-in-merge-brief.md)
 
 ## Goals
 
