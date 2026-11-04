@@ -48,7 +48,7 @@ From a clone of this repo:
 ./install.sh --to <ref> /path/to/app  # install a given commit instead of this clone's HEAD
 ```
 
-The target must be a git repo with no uncommitted changes in the paths the installer touches. The files come from a commit of this repo, not from its working tree, so this clone can have uncommitted changes. The commit is this clone's `HEAD`, or `<ref>` (a SHA, a branch, anything `git rev-parse` takes), and it must be on `origin/main`: an app is never pinned to an unmerged branch. The installer copies the skills, scripts and shared docs, links `.agents/skills` to `../.claude/skills`, and adds missing lines to `.gitignore`. It never overwrites an existing `docs/agents/project.md`, `AGENTS.md` or `.claude/settings.json`. If `project.md` or `AGENTS.md` is missing it seeds one from `agent-team/templates/` and prints what to fill in. Commit the result in the app.
+The target must be a git repo with no uncommitted changes in the paths the installer touches. The files come from a commit of this repo, not from its working tree, so this clone can have uncommitted changes. The commit is this clone's `HEAD`, or `<ref>` (a SHA, a branch, anything `git rev-parse` takes), and it must be on `origin/main`: an app is never pinned to an unmerged branch. A clone with no fetched `origin/main` is refused until you run `git fetch origin` there. The installer copies the skills, scripts and shared docs, links `.agents/skills` to `../.claude/skills`, and adds missing lines to `.gitignore`. It never overwrites an existing `docs/agents/project.md`, `AGENTS.md` or `.claude/settings.json`. If `project.md` or `AGENTS.md` is missing it seeds one from `agent-team/templates/` and prints what to fill in. Commit the result in the app.
 
 The installer also writes `docs/agents/installed-from.txt` in the app: one line, `collective-wisdom <full commit SHA>`. Commit it with the install. It is the version pin: the update and the drift check read it.
 
@@ -84,7 +84,7 @@ Skills describe each step as an operation ("set the ticket to In Review"), and o
 ./install.sh --dry-run --update /path/to/app    # preview
 ```
 
-The update fetches `origin` in this clone, so you don't need to pull first. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them.
+`--update` without `--to` fetches `origin` in this clone and moves to `origin/main`, so you don't need to pull first. With `--to <ref>` it does not fetch, so the commit must already be in this clone. It needs the app's `installed-from.txt`; without one, run a plain install. Before copying it runs the drift check against the old pin. If the app's copies were edited by hand, it lists the files and stops, because the update would overwrite them. Move the edits into this repo first, or add `--force` to overwrite them.
 
 Then it copies the new commit's files, rewrites `installed-from.txt` and prints a report:
 
