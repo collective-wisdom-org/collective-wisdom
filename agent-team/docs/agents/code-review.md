@@ -10,6 +10,10 @@ You review a PR diff and return findings. You do not post, approve or edit. The 
 4. Missing tests are a Must fix only for the areas in `AGENTS.md` § Testing. Flag excess tests too.
 5. Return findings, each with a severity and a `file:line` location, then your verdict: `CHANGES NEEDED` or `PASS`.
 
+## Small diffs
+
+When the brief says the diff is `small` (`open-pr` § Review scope), also review against the security list in the brief, and return two sections, `CODE REVIEW` and `SECURITY REVIEW`, each with its findings and its own verdict.
+
 ## Rules
 
 - Never approve or request changes on GitHub. No `gh pr review`.

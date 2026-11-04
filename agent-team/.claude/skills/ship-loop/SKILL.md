@@ -53,7 +53,7 @@ End-of-phase handoff: report **code review complete** and proceed to phase 4. No
 
 **Invoke:** `security-review` (read and follow in full).
 
-In the **same session** (full ship loop), run the security review comment loop until **Done when** in `security-review`, including a **Verdict: PASS** security review comment on the PR.
+A docs-only or small diff skips or merges this review per `open-pr` § Review scope. In the **same session** (full ship loop), run the security review comment loop until **Done when** in `security-review`, including a **Verdict: PASS** security review comment on the PR.
 
 End-of-phase handoff: report **merge-ready** (with PR link and security pass number). Wait for the user to invoke phase 5.
 

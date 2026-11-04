@@ -102,6 +102,28 @@ Otherwise (Claude Code), run this loop yourself until checks are green and every
 
 Edit only in the PR's worktree when one exists (root checkout stays on `main`).
 
+### Review scope
+
+`scripts/review_scope.py` says how much review a head needs. Its classes and the 200-line limit are in the script's header.
+
+1. Before each review pass (code review pass 1, and every re-review), run `./scripts/review_scope.py <N> <head SHA>` with the full SHA of the head you review. Only its last line decides the class. On a non-zero exit, run it once more; if that also fails, review as `full`.
+2. Each pass uses the class of the head it reviews. A fix that grows a `small` PR past the limit makes the next pass `full`.
+
+By class:
+
+- **`full`**: review as the rest of this skill and `security-review` say: the code review loop, then the security review loop.
+- **`docs-only`**: the code review runs as usual. After its PASS, run `./scripts/review_scope.py <N> <head SHA>` again. Only if it still prints `docs-only` at the head the code review passed on, post a security review comment with no subagent run, with `AGENT_GH_ROLE=security-reviewer` in team mode:
+
+  ```
+  ## Security review (pass N)
+
+  Skipped: docs-only diff. <the review-scope line>
+
+  Verdict: PASS
+  ```
+
+- **`small`**: one `code-reviewer` subagent reviews the diff once with both briefs: the code review brief below, and the **Custom Instructions** list from `security-review` § Primary review path. It returns a `CODE REVIEW` and a `SECURITY REVIEW` section, each with its own findings and verdict (`docs/agents/code-review.md` § Small diffs). Post `## Code review (pass N)` as `code-reviewer` and `## Security review (pass M)` as `security-reviewer` from that one run, each in its usual shape. When either verdict is `CHANGES NEEDED`, fix, push, wait for CI and run the next combined pass, which posts both comments again. Both loops end together when both latest verdicts are PASS on the same head.
+
 ### Agent review comment loop
 
 After each pass of the primary loop, run this when doing agent-led review (in addition to the loop's comment/CI work):
