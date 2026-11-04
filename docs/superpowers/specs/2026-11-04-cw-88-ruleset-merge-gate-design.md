@@ -1,7 +1,8 @@
 # CW-88: Accept a repository ruleset as the merge gate protection
 
 **Ticket:** [CW-88](https://github.com/dbeallor/collective-wisdom/issues/88)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #95, as specified
 
 ## Goal
 
