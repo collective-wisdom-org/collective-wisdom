@@ -170,6 +170,7 @@ def op_stage(s, op):
     keys_ok(sets, TICKET - {"stage"}, "ticket")
     if new in STAMPED and "lastSeenAt" in sets:
         raise Reject(f"lastSeenAt is stamped by the script in {new}")
+    new_child = sets.get("childThreadId") not in (None, t.get("childThreadId"))
     if new == "blocked" and old in ACTIVE:
         t["resumeStage"] = old
     elif old == "blocked" and new != "blocked":
@@ -180,7 +181,7 @@ def op_stage(s, op):
     if new != old and new in STAMPED:
         t["lastSeenAt"] = now()
     t.update(stage=new, status=op["status"])
-    if new in ACTIVE and new != old:
+    if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
         s["lastRelayAt"] = now()
     if new.endswith("-queued") and (new != old or not t.get("queuedAt")):
         t["queuedAt"] = now()
@@ -195,6 +196,8 @@ def op_set(s, op):
     keys_ok(op["set"], TICKET - {"stage"}, "ticket")
     if t["stage"] in STAMPED and "lastSeenAt" in op["set"]:
         raise Reject(f"lastSeenAt is stamped by the script in {t['stage']}")
+    if t["stage"] in ACTIVE and op["set"].get("childThreadId") not in (None, t.get("childThreadId")):
+        s["lastRelayAt"] = now()
     merge_set(t, op["set"])
     check(t)
 
