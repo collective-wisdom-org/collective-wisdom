@@ -1,7 +1,8 @@
 # CW-52: Put the merge gate on GitHub: branch protection plus an owner review
 
 **Ticket:** [CW-52](https://github.com/dbeallor/collective-wisdom/issues/52)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #84, as specified
 
 ## Goal
 
