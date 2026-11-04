@@ -33,7 +33,7 @@ So this PR's `## Security review` comment is posted with no role (as `dbeallor`)
 
 Once this merges, the gate on root `main` wants security reviews by `collective-wisdom-sentinel`. A PR whose only PASS security review is by `dbeallor` stops passing. Such a PR must merge `main` into its branch first, so its worktree's `gh.sh` posts as the sentinel, then run the security review again on the new head and post it as `security-reviewer`.
 
-When the PR opened, #78 (CW-56) had one; #79 (CW-53) had none. The PR description names #78. Any PR open by then with a `## Security review` comment by `dbeallor` is named in the description with those two steps. This PR doesn't touch other PRs.
+When the PR opened, #78 (CW-56) had one; #79 (CW-53) had none. The PR description names #78. Any PR still open at merge with a `## Security review` comment by `dbeallor` needs those two steps. This PR doesn't touch other PRs.
 
 ## Verify
 
@@ -51,6 +51,6 @@ When the PR opened, #78 (CW-56) had one; #79 (CW-53) had none. The PR descriptio
 ## Calls I made
 
 - This PR's security review is posted as `dbeallor`, not as the sentinel. The gate reads root `main`, where the row is still `none`, so a sentinel-posted comment would block the merge. Same call CW-75 made for the code reviewer.
-- The ticket names #70 as needing a rerun, but it has merged and no PR is open now. The PR description says "none" unless a PR opens before this one does.
+- The ticket names #70 as needing a rerun, but it has merged and no PR is open now. The PR description names #78 instead, the one open PR with a `dbeallor` security review.
 - No tests. A row value isn't behavior, and the Verify commands cover it.
 - No plan file. The ticket changes only markdown.
