@@ -31,7 +31,8 @@ STATE = {
     "pm": {},
     "scheduledTaskId": "x",
 }
-START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "status": "s"}
+START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "parentThreadId": "t9",
+         "status": "s"}
 QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q",
          "set": {"pendingRelay": "go"}}
 
@@ -77,6 +78,7 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     {"op": "pm", "set": {"rules": ["rank ABC-9 first"]}},
     {"op": "drop", "ticket": "nope"},
     {"op": "unknown"},
+    {k: v for k, v in START.items() if k != "parentThreadId"},
 ])
 def test_invalid_op_changes_nothing(tmp_path, bad):
     path = tmp_path / "state.json"
@@ -84,6 +86,17 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
     before = path.read_bytes()
     assert cos_state.apply_file(path, [START, QUEUE, bad]) == 1
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("ops, retired, shown", [
+    ([{"op": "retire", "threadId": "t2", "successor": "t3"}], ["t1", "t2"], "t1>? t2>t3"),
+    ([{"op": "retire", "threadId": "t2"}], ["t1", "t2"], "t1>? t2>?"),
+    ([{"op": "retire", "threadId": "t1", "successor": "t3"}], ["t1"], "t1>?"),
+])
+def test_retire_keeps_successor(ops, retired, shown):
+    new, _, _ = cos_state.apply_ops(STATE, ops)
+    assert [r["threadId"] for r in new["retiredThreads"]] == retired
+    assert f"\nretired: {shown}\n" in cos_state.show(new)
 
 
 def message(mid, role="user", by="user", text="hi", streaming=0, created="2026-11-02T01:00:00Z", thread="t"):
