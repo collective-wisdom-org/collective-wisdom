@@ -37,7 +37,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Key | Value |
 |---|---|
 | Test | `python3 -I -m pytest -q agent-team/scripts` (needs `pytest`, e.g. `uvx pytest -q agent-team/scripts`) |
-| Lint | `shellcheck install.sh agent-team/scripts/*.sh` |
+| Lint | `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh` |
 | Typecheck | none |
 | Required CI checks | `script-tests` and `shellcheck` |
 | Agent-team script tests | `python3 -I -m pytest -q agent-team/scripts` (the same suite; `scripts/` at the root is a link to `agent-team/scripts/`) |

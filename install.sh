@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 # Install, update or check the agent team in a consuming repo.
-# Usage: ./install.sh [--dry-run] [--to <ref>] <target-repo-path>
-#        ./install.sh [--dry-run] --update [--to <ref>] [--force] <target-repo-path>
+# Usage: ./install.sh [--dry-run] [--to <ref> | --from <tag>] <target-repo-path>
+#        ./install.sh [--dry-run] --update [--to <ref> | --from <tag>] [--force] <target-repo-path>
 #        ./install.sh --check <target-repo-path>
+# --from <tag> is --to for a release tag (v0.N): it fetches the tag from origin and records it in the pin.
 set -euo pipefail
 export GIT_NO_REPLACE_OBJECTS=1  # a replace ref must not change which tree gets copied for a pinned SHA
 
 usage() {
   {
-    echo "Usage: $0 [--dry-run] [--to <ref>] <target-repo-path>"
-    echo "       $0 [--dry-run] --update [--to <ref>] [--force] <target-repo-path>"
+    echo "Usage: $0 [--dry-run] [--to <ref> | --from <tag>] <target-repo-path>"
+    echo "       $0 [--dry-run] --update [--to <ref> | --from <tag>] [--force] <target-repo-path>"
     echo "       $0 --check <target-repo-path>"
   } >&2
   exit 2
 }
 
-DRY=0 UPDATE=0 FORCE=0 CHECK=0 REF="" TARGET=""
+DRY=0 UPDATE=0 FORCE=0 CHECK=0 REF="" FROM="" TARGET=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
@@ -23,6 +24,7 @@ while [ "$#" -gt 0 ]; do
     --force) FORCE=1 ;;
     --check) CHECK=1 ;;
     --to) [ "$#" -ge 2 ] || usage; REF="$2"; shift ;;
+    --from) [ "$#" -ge 2 ] || usage; FROM="$2"; shift ;;
     -h|--help) usage ;;
     -*) echo "unknown option: $1" >&2; usage ;;
     *) [ -z "$TARGET" ] || usage; TARGET="$1" ;;
@@ -31,7 +33,10 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$TARGET" ] || usage
 case "$REF" in -*) echo "bad ref: $REF" >&2; usage ;; esac
-if [ "$CHECK" -eq 1 ]; then [ -z "$REF" ] && [ "$UPDATE$FORCE" = "00" ] || usage; fi
+[ -z "$FROM" ] || [ -z "$REF" ] || { echo "--from and --to cannot be used together" >&2; usage; }
+# Release tags are v0.N only, the shape the pin records; this also rules out a name that starts with "-".
+[ -z "$FROM" ] || [[ "$FROM" =~ ^v0\.[0-9]+$ ]] || { echo "bad tag: $FROM (expected v0.N)" >&2; usage; }
+if [ "$CHECK" -eq 1 ]; then [ -z "$REF" ] && [ -z "$FROM" ] && [ "$UPDATE$FORCE" = "00" ] || usage; fi
 [ "$FORCE" -eq 0 ] || [ "$UPDATE" -eq 1 ] || { echo "--force only goes with --update" >&2; usage; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,7 +83,7 @@ drift() {
 
 # The pin of an installed app: which collective-wisdom commit its files came from.
 PIN="$TARGET/docs/agents/installed-from.txt"
-OLD=""
+OLD="" OLD_TAG=""
 if [ "$CHECK" -eq 1 ] || [ "$UPDATE" -eq 1 ]; then
   if [ ! -e "$PIN" ]; then
     if [ "$CHECK" -eq 1 ]; then
@@ -86,10 +91,10 @@ if [ "$CHECK" -eq 1 ] || [ "$UPDATE" -eq 1 ]; then
     fi
     echo "Refusing: no docs/agents/installed-from.txt in $TARGET, so there is nothing to update. Run a plain install (without --update) first." >&2; exit 1
   fi
-  PIN_RE='^collective-wisdom ([0-9a-f]{40})$'
+  PIN_RE='^collective-wisdom ([0-9a-f]{40})( (v0\.[0-9]+))?$'
   PIN_LINE="$(cat -- "$PIN")"
-  [[ "$PIN_LINE" =~ $PIN_RE ]] || { echo "docs/agents/installed-from.txt in $TARGET is not 'collective-wisdom <40-character SHA>'." >&2; exit 2; }
-  OLD="${BASH_REMATCH[1]}"
+  [[ "$PIN_LINE" =~ $PIN_RE ]] || { echo "docs/agents/installed-from.txt in $TARGET is not 'collective-wisdom <40-character SHA>' (optionally followed by a v0.N tag)." >&2; exit 2; }
+  OLD="${BASH_REMATCH[1]}" OLD_TAG="${BASH_REMATCH[3]:-}"
   # The old files come from the pinned commit, so this clone must have it.
   git -C "$ROOT" cat-file -e "$OLD^{commit}" 2>/dev/null || { echo "collective-wisdom $OLD is not in $ROOT; run 'git fetch origin' there and try again." >&2; exit 2; }
   extract "$OLD" "$TMP/old"
@@ -99,14 +104,18 @@ fi
 if [ "$CHECK" -eq 1 ]; then
   if [ "${#DRIFT[@]}" -gt 0 ]; then
     printf '%s\n' "${DRIFT[@]}"
-    echo "check: drift in ${#DRIFT[@]} file(s) against collective-wisdom $OLD"; exit 1
+    echo "check: drift in ${#DRIFT[@]} file(s) against collective-wisdom $OLD${OLD_TAG:+ ($OLD_TAG)}"; exit 1
   fi
-  echo "check: matches collective-wisdom $OLD"; exit 0
+  echo "check: matches collective-wisdom $OLD${OLD_TAG:+ ($OLD_TAG)}"; exit 0
 fi
 
 # Resolve the target commit. It must be on origin/main, so an app is never pinned to an unmerged branch.
 # Look the branch up by its exact ref name: rev-parse and merge-base guess (tags, heads) when a short or missing name is given.
-if [ -z "$REF" ] && [ "$UPDATE" -eq 1 ]; then
+if [ -n "$FROM" ]; then
+  # The "+" lets origin's tag replace a stale or hand-made local tag of the same name.
+  git -C "$ROOT" fetch -q --no-tags origin main "+refs/tags/$FROM:refs/tags/$FROM" || { echo "cannot fetch origin main and tag $FROM in $ROOT" >&2; exit 1; }
+  REF="refs/tags/$FROM"
+elif [ -z "$REF" ] && [ "$UPDATE" -eq 1 ]; then
   git -C "$ROOT" fetch -q --no-tags origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
 fi
 MAIN="$(git -C "$ROOT" show-ref --verify --hash refs/remotes/origin/main 2>/dev/null)" || { echo "Refusing: $ROOT has no origin/main; run 'git fetch origin' there." >&2; exit 1; }
@@ -115,6 +124,9 @@ if [ -z "$REF" ]; then
 fi
 SHA="$(git -C "$ROOT" rev-parse --verify --quiet "$REF^{commit}")" || { echo "Refusing: $REF is not a commit in $ROOT." >&2; exit 1; }
 git -C "$ROOT" merge-base --is-ancestor "$SHA" "$MAIN" 2>/dev/null || { echo "Refusing: $SHA ($REF) is not on origin/main, so the install cannot be pinned to it. Merge it, or run 'git fetch origin' in $ROOT." >&2; exit 1; }
+
+# The pin names a tag only when the files came from --from, so it never names a tag they did not come from.
+PIN_TEXT="collective-wisdom $SHA${FROM:+ $FROM}"
 
 TOUCHED=(.claude scripts docs/agents docs/superpowers/README.md .agents .gitignore AGENTS.md)
 DIRTY="$(git -C "$TARGET" status --porcelain -- "${TOUCHED[@]}")"
@@ -132,11 +144,11 @@ if [ "$UPDATE" -eq 1 ]; then
     echo "Commit them upstream or revert them, or run again with --force to overwrite." >&2
     exit 1
   fi
-  if [ "$OLD" = "$SHA" ] && [ "${#DRIFT[@]}" -eq 0 ]; then
+  if [ "$PIN_LINE" = "$PIN_TEXT" ] && [ "${#DRIFT[@]}" -eq 0 ]; then
     echo "already at $SHA, nothing to do"; exit 0
   fi
   N="$(git -C "$ROOT" rev-list --count "$OLD..$SHA" -- agent-team)"
-  echo "collective-wisdom ${OLD:0:12} -> ${SHA:0:12} ($N commit$([ "$N" -eq 1 ] || echo s))"
+  echo "collective-wisdom ${OLD_TAG:+$OLD_TAG }${OLD:0:12} -> ${FROM:+$FROM }${SHA:0:12} ($N commit$([ "$N" -eq 1 ] || echo s))"
   git -C "$ROOT" log --oneline "$OLD..$SHA" -- agent-team | sed 's/^/  /'
 fi
 extract "$SHA" "$TMP/new"
@@ -209,7 +221,6 @@ sync_dir "$SRC/scripts" "$TARGET/scripts"
 sync_dir "$SRC/docs/agents" "$TARGET/docs/agents"
 
 # Version pin: which collective-wisdom commit the installed files came from.
-PIN_TEXT="collective-wisdom $SHA"
 if [ ! -e "$PIN" ]; then
   say "add     docs/agents/installed-from.txt"; CHANGED=$((CHANGED + 1))
   run mkdir -p "$TARGET/docs/agents"; [ "$DRY" -eq 1 ] || echo "$PIN_TEXT" > "$PIN"
