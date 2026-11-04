@@ -18,6 +18,8 @@ Work from the PR's worktree, on the PR head branch.
 
 ## Primary review path
 
+On a `docs-only` diff this review is skipped, and on a `small` diff it is already posted from the combined run (`open-pr` § Review scope).
+
 **Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 
 - **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on `main` unless the branch lives there.

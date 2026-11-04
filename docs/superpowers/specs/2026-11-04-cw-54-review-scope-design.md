@@ -110,5 +110,5 @@ By class:
 - **The combined run uses the `code-reviewer` subagent** with both briefs, not a new agent file. No new role, and CW-72's org-chart edits don't clash with a new row.
 - **The skip comment is posted only after code review PASS,** on that same head, so its position in phase 4 doesn't change.
 - **A new script, not an extension of `pr_diff_delta.py`.** That script answers "same or changed between two heads"; this one classifies one head. It reuses the fetch and run code.
-- **Any `README.md` other than the one at the top is not docs.** `agent-team/docs/agents/README.md` is the role index agents read.
+- **Only paths starting with `docs/` count, not `agent-team/docs/`.** In this repo the shared role docs sit under `agent-team/` and are reached through links, so their real paths never match. `docs/agents/` (including its `README.md` role index) is excluded by name.
 - **Ship-loop and org-chart edits are one sentence each,** to keep the rebase onto CW-72 easy.
