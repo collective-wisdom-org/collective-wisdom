@@ -10,7 +10,8 @@ statusCheckRollup,comments` plus `gh api user` for the login (--pr FILE reads th
 with the login in its `login` field). Prints the block:
     HANDOFF (data from state and GitHub at <time>; check it against the PR before relying on it)
     Ticket, Branch, Spec, PR, Head, checks, code review, security review, Last status
-Only review comments by that login count. Each verdict prints as a fixed word (PASS, CHANGES
+Only review comments by the role's login count: the code reviewer or security reviewer
+login from project.md, else that login. Each verdict prints as a fixed word (PASS, CHANGES
 NEEDED, other), never the comment text; check names are whitespace-cleaned and capped. With no
 pr it prints `PR: none yet` and no Head, checks or review lines.
 Checks the values the continuation template uses: branch against <branch head><prefix>-<N>-<words>,
@@ -123,16 +124,22 @@ def handoff(tid, info, pr, now):
     if pr is None:
         out.append("PR: none yet")
     else:
-        comments = [
-            c for c in pr.get("comments") or []
-            if isinstance(c, dict) and isinstance(c.get("author"), dict) and c["author"].get("login") == pr["login"]
-        ]
+        def by(role):
+            try:
+                who = project_config.role_login(role) or pr["login"]
+            except SystemExit as e:
+                fail(str(e))
+            return [
+                c for c in pr.get("comments") or []
+                if isinstance(c, dict) and isinstance(c.get("author"), dict) and c["author"].get("login") == who
+            ]
+
         out += [
             f"PR: #{info['pr']} {pr['url']}",
             f"Head: {pr['headRefOid']} {head_note(pr['headRefOid'], info.get('headSha'))}",
             " ".join(cos_brief.check_summary(pr.get("statusCheckRollup")).split())[:CHECKS_CAP],
-            review_line("code review", "## Code review", comments),
-            review_line("security review", "## Security review", comments),
+            review_line("code review", "## Code review", by("code-reviewer")),
+            review_line("security review", "## Security review", by("security-reviewer")),
         ]
     out.append(f'Last status: "{status}"')
     return out

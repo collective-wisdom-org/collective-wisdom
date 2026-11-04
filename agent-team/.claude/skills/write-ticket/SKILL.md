@@ -97,4 +97,4 @@ After saving, tell the user:
 
 ## Team mode
 
-A team-mode child follows `ship-loop` § Team mode: it changes only its own ticket. This skill doesn't widen that.
+A team-mode child follows `ship-loop` § Team mode: it changes only its own ticket. This skill doesn't widen that. In the Chief of Staff's ticket helper, and for the Chief of Staff's own ticket writes, every `./scripts/gh.sh` call runs with `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user). A child's own ticket moves use the builder role (`ship-loop` § Team mode, GitHub users).

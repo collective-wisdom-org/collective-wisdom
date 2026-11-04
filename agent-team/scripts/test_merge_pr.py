@@ -205,3 +205,38 @@ def test_review_older_than_head(change, delta, cause):
         assert reason is None
     else:
         assert "older than head commit" in reason and cause in reason
+
+
+ROLES = {"code-reviewer": "riley", "security-reviewer": "quinn", "builder": "sam"}
+
+
+def posted(code="riley", security="quinn", note="sam"):
+    """Reviews older than the head, so a reviews-stand note from `note` has to cover them."""
+    def change(f):
+        moved(f, who=note)
+        f["comments"][:0] = [
+            review("## Code review", who=code, at="2026-11-02T09:30:00Z"),
+            review("## Security review", who=security, at="2026-11-02T09:30:00Z"),
+        ]
+    return change
+
+
+@pytest.mark.parametrize(
+    "change, roles, code, cause",
+    [
+        (posted(), ROLES, 0, None),
+        (posted(code="me"), ROLES, 1, "no Code review comment by riley"),
+        (posted(security="me"), ROLES, 1, "no Security review comment by quinn"),
+        (posted(code="quinn"), ROLES, 1, "no Code review comment by riley"),
+        (posted(note="me"), ROLES, 1, "no reviews-stand note"),
+        (posted(code="me", security="me", note="me"), {}, 0, None),
+    ],
+)
+def test_main_trusts_the_role_login_once_set(monkeypatch, capsys, change, roles, code, cause):
+    monkeypatch.setattr(merge_pr.project_config, "role_login", roles.get)
+    monkeypatch.setattr(merge_pr, "gate", lambda f, g=merge_pr.gate: g(f, lambda f, reviewed: ("same", [])))
+    f = green()
+    change(f)
+    runner, _ = fake(copy.deepcopy(f))
+    assert merge_pr.main(["7", f["approved"]], runner) == code
+    assert cause is None or cause in capsys.readouterr().out

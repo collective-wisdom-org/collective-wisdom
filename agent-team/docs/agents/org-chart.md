@@ -96,6 +96,8 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 
 The child fixes what the documenter and the reviews find; they only report.
 
+Each GitHub-facing role works as a GitHub user with a short persona ([`personas.md`](personas.md)): Morgan for the Chief of Staff, the Project Manager pass and the ticket helper, Sam for the ship-loop child, implementer and documenter, Riley for code review, Quinn for security review. A role with no login set in `project.md` keeps using the account running `gh`. Merges always run as the user's own login.
+
 The Chief of Staff, the Project Manager pass, the ticket helper and the ship-loop child have no agent file: they are T3 threads or a pass, and `delegate_task` takes a provider, model and prompt, not an agent type.
 
 ## How approval travels
@@ -115,4 +117,5 @@ The Chief of Staff, the Project Manager pass, the ticket helper and the ship-loo
 - [`documenter.md`](documenter.md): the documenter subagent's role file and the checklist of docs that must stay current. `.claude/agents/documenter.md` points at it.
 - [`implementer.md`](implementer.md): the implementer subagent's role file. `.claude/agents/implementer.md` points at it.
 - [`code-review.md`](code-review.md): the code reviewer subagent's role file, the review method. `.claude/agents/code-reviewer.md` points at it; the comment format and verdict rules stay in `open-pr`.
+- [`personas.md`](personas.md): the four agent GitHub users, their personas and profile bios.
 - [`github-auth.md`](github-auth.md), [`security-review.md`](security-review.md): reference docs.

@@ -301,9 +301,13 @@ def cmd_pr(args):
     by_count = sorted(areas.items(), key=lambda kv: (-kv[1], kv[0]))
     comments = pr.get("comments") or []
     try:
-        moved = moved_line(oid, comments, gh("api", "user", "-q", ".login").strip())
+        moved = moved_line(
+            oid, comments, project_config.role_login("builder") or gh("api", "user", "-q", ".login").strip()
+        )
     except ReadError:
         die(f"cannot read PR #{n}")
+    except SystemExit as e:  # a bad login row in project.md
+        die(str(e))
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",

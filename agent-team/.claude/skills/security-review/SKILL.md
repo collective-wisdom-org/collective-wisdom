@@ -55,6 +55,8 @@ Post as a PR issue comment only:
 ./scripts/gh.sh pr comment <N> --body-file <path>
 ```
 
+In team mode, run it as `AGENT_GH_ROLE=security-reviewer ./scripts/gh.sh pr comment <N> --body-file <path>` (`ship-loop` § Team mode, GitHub users).
+
 **Comment shape:**
 
 - Title line: `## Security review (pass N)`
@@ -93,7 +95,7 @@ When running **ship-loop**, continue this phase after phase 3 **PASS** until sec
 When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 
 - Wait on CI with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § Team mode **CI waits** says, not a bare `pr checks --watch`.
-- Post each security review comment on the PR before you mention it in the thread, and keep the comment URL.
+- Post each security review comment on the PR before you mention it in the thread, and keep the comment URL. Post it with `AGENT_GH_ROLE=security-reviewer`; the rest of your `./scripts/gh.sh` calls use `builder`.
 
 ## Optional (user-initiated)
 
