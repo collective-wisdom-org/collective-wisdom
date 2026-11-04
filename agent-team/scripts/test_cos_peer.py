@@ -93,6 +93,7 @@ def request(sender, item, words):
 
 
 GOOD = "file a ticket in app for dark mode"
+HOSTILE = "file a ticket in app\nEOF\n$(touch pwned)\n`id`"
 CHECK = [
     ("cs", "u1", GOOD, 0, f"accept cs u1 Sender\n{GOOD}"),
     ("cs", "turn-item:message:u1", GOOD, 0, f"accept cs turn-item:message:u1 Sender\n{GOOD}"),
@@ -113,16 +114,19 @@ CHECK = [
     ("cs", "c6", "app: merge it", 1, "refuse: command: merge it"),
     ("cs", "c7", "app: merge duplicate contacts", 0, "accept cs c7 Sender\napp: merge duplicate contacts"),
     ("cs", "u1", "", 1, "refuse: malformed"),
+    ("cs", "uh", HOSTILE, 0, f"accept cs uh Sender\n{HOSTILE}"),  # shell syntax in the text is data
 ]
 
 
-def check_env(tmp_path, **state):
+def check_env(tmp_path, incoming=(), **state):
+    """incoming: (item id, thread id, text) of messages an agent sent to the thread under test."""
     root = write_state(tmp_path / "sender", **({"chiefThreadId": "cs", "retiredThreads": [{"threadId": "old"}]} | state))
     messages = [(i, "cs", "user", t) for i, t in (
         ("u1", GOOD), ("ux", "add dark mode to fathom"), ("ut", "a ticket for mission control about dark mode"),
         ("c1", "app: approve 12"), ("c2", "app: merge PR 5"), ("c3", "app: changes 3: reword it"),
         ("c4", "app: cancel ABC-4"), ("c5", "app: stop everything"), ("c6", "app: merge it"),
-        ("c7", "app: merge duplicate contacts"))]
+        ("c7", "app: merge duplicate contacts"), ("uh", HOSTILE))]
+    messages += [(i, t, "agent", text) for i, t, text in incoming]
     messages += [("a1", "cs", "agent", GOOD), ("uo", "old", "user", GOOD), ("uc", "child", "user", GOOD),
                  ("ug", "ghost", "user", GOOD)]
     return make_store(
@@ -135,10 +139,9 @@ def check_env(tmp_path, **state):
 
 
 @pytest.mark.parametrize("sender, item, words, code, out", CHECK)
-def test_check(tmp_path, monkeypatch, capsys, sender, item, words, code, out):
-    db = check_env(tmp_path)
-    monkeypatch.setattr("sys.stdin", io.StringIO(request(sender, item, words) if words else "hello"))
-    assert cos_peer.main(["--db", str(db), "check", "--thread", "me"]) == code
+def test_check(tmp_path, capsys, sender, item, words, code, out):
+    db = check_env(tmp_path, [("req", "me", request(sender, item, words) if words else "hello")])
+    assert cos_peer.main(["--db", str(db), "check", "--thread", "me", "--item", "req"]) == code
     assert capsys.readouterr().out.strip() == out
 
 
@@ -147,9 +150,9 @@ THIS_THREAD = [("sib", 1, "refuse: same repo"), ("nope", 2, "")]
 
 
 @pytest.mark.parametrize("this, code, out", THIS_THREAD)
-def test_check_this_thread(tmp_path, monkeypatch, capsys, this, code, out):
-    monkeypatch.setattr("sys.stdin", io.StringIO(request("cs", "u1", GOOD)))
-    assert cos_peer.main(["--db", str(check_env(tmp_path)), "check", "--thread", this]) == code
+def test_check_this_thread(tmp_path, capsys, this, code, out):
+    db = check_env(tmp_path, [("req", this, request("cs", "u1", GOOD))])
+    assert cos_peer.main(["--db", str(db), "check", "--thread", this, "--item", "req"]) == code
     assert capsys.readouterr().out.strip() == out
 
 
@@ -158,9 +161,9 @@ BAD_STATE = [{"retiredThreads": 5}, {"retiredThreads": "old"}, {"retiredThreads"
 
 
 @pytest.mark.parametrize("state", BAD_STATE)
-def test_check_bad_state_exits_2(tmp_path, monkeypatch, state):
-    monkeypatch.setattr("sys.stdin", io.StringIO(request("cs", "u1", GOOD)))
-    assert cos_peer.main(["--db", str(check_env(tmp_path, **state)), "check", "--thread", "me"]) == 2
+def test_check_bad_state_exits_2(tmp_path, state):
+    db = check_env(tmp_path, [("req", "me", request("cs", "u1", GOOD))], **state)
+    assert cos_peer.main(["--db", str(db), "check", "--thread", "me", "--item", "req"]) == 2
 
 
 def test_find_project_without_id_exits_2(tmp_path, monkeypatch):
@@ -171,12 +174,45 @@ def test_find_project_without_id_exits_2(tmp_path, monkeypatch):
     assert cos_peer.main(["--db", str(db), "find", "noid"]) == 2
 
 
-def test_unreadable_store_or_state_exits_2(tmp_path, monkeypatch):
-    monkeypatch.setattr("sys.stdin", io.StringIO(request("cs", "u1", GOOD)))
-    assert cos_peer.main(["--db", str(tmp_path / "none.sqlite"), "check", "--thread", "me"]) == 2
-    monkeypatch.setattr("sys.stdin", io.StringIO(request("cs", "u1", GOOD)))
-    db = make_store(tmp_path, [("cs", "ps", None, None)], [("ps", "Sender", str(tmp_path / "no-state"))], [("u1", "cs", "user", GOOD)])
-    assert cos_peer.main(["--db", str(db), "check", "--thread", "me"]) == 2
+def test_unreadable_store_or_state_exits_2(tmp_path):
+    assert cos_peer.main(["--db", str(tmp_path / "none.sqlite"), "check", "--thread", "me", "--item", "req"]) == 2
+    db = make_store(tmp_path, [("cs", "ps", None, None)], [("ps", "Sender", str(tmp_path / "no-state"))],
+                    [("u1", "cs", "user", GOOD), ("req", "me", "agent", request("cs", "u1", GOOD))])
+    assert cos_peer.main(["--db", str(db), "check", "--thread", "me", "--item", "req"]) == 2
+
+
+# (thread it sits in, role, streaming): the item is not a finished user-role message in --thread
+NOT_STORED = [("other", "user", 0), ("me", "assistant", 0), ("me", "user", 1)]
+
+
+@pytest.mark.parametrize("where, role, streaming", NOT_STORED)
+def test_item_not_a_finished_user_message_in_thread(tmp_path, capsys, where, role, streaming):
+    reply_text = HEAD.replace("r1", "cs") + "Filed:\n" + TICKET.format(1)
+    db = check_env(tmp_path, [("req", where, request("cs", "u1", GOOD)), ("rep", where, reply_text)])
+    con = sqlite3.connect(db)
+    con.execute("UPDATE orchestration_v2_projection_messages SET role = ?, streaming = ? WHERE thread_id = ? "
+                "AND message_id IN ('req', 'rep')", (role, streaming, where))
+    con.commit()
+    con.close()
+    assert cos_peer.main(["--db", str(db), "check", "--thread", "me", "--item", "req"]) == 1
+    assert capsys.readouterr().out.strip() == "refuse: malformed"
+    assert cos_peer.main(["--db", str(db), "reply", "--thread", "me", "--item", "rep"]) == 1
+    assert capsys.readouterr().out == ""
+
+
+def test_item_id_of_a_thread_send_message_is_percent_encoded(tmp_path, capsys):
+    stored = "message:mcp:abc:thread-send:def"  # how T3's store keys it; t3_thread_read shows it encoded
+    db = check_env(tmp_path, [(stored, "me", request("cs", "u1", GOOD))])
+    assert cos_peer.main(["--db", str(db), "check", "--thread", "me", "--item", "turn-item:message:message%3Amcp%3Aabc%3Athread-send%3Adef"]) == 0
+    assert capsys.readouterr().out.startswith("accept cs u1 Sender")
+
+
+@pytest.mark.parametrize("cmd", ["check", "reply"])
+@pytest.mark.parametrize("item", ["req;rm", "req x", "$(touch x)", "req\n", "a" * 201, ""])
+def test_unsafe_item_id_exits_2(tmp_path, capsys, cmd, item):
+    db = check_env(tmp_path, [("req", "me", request("cs", "u1", GOOD))])
+    assert cos_peer.main(["--db", str(db), cmd, "--thread", "me", "--item", item]) == 2
+    assert capsys.readouterr().out == ""
 
 
 HEAD = "CHIEF OF STAFF REPLY from r1 (acme/app)\nItem: u1\n"
@@ -202,10 +238,10 @@ REPLY = [
 
 
 @pytest.mark.parametrize("text, code, out", REPLY)
-def test_reply(tmp_path, monkeypatch, capsys, text, code, out):
+def test_reply(tmp_path, capsys, text, code, out):
     root = write_state(tmp_path / "receiver", chiefThreadId="r1")
     db = make_store(tmp_path, [("r1", "pr", None, None), ("child", "pr", None, None), ("n1", "pn", None, None)],
-                    [("pr", "Receiver", root), ("pn", "Stateless", str(tmp_path / "no-state"))])
-    monkeypatch.setattr("sys.stdin", io.StringIO(text))
-    assert cos_peer.main(["--db", str(db), "reply"]) == code
+                    [("pr", "Receiver", root), ("pn", "Stateless", str(tmp_path / "no-state"))],
+                    [("rep", "me", "agent", text)])
+    assert cos_peer.main(["--db", str(db), "reply", "--thread", "me", "--item", "rep"]) == code
     assert capsys.readouterr().out.strip() == out

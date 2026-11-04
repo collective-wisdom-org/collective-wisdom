@@ -3,8 +3,8 @@
 
 Usage:
     scripts/cos_peer.py [--db PATH] find <name> < t3_project_list JSON
-    scripts/cos_peer.py [--db PATH] check --thread <this thread's id> < request message
-    scripts/cos_peer.py [--db PATH] reply < reply message
+    scripts/cos_peer.py [--db PATH] check --thread <this thread's id> --item <itemId of the request>
+    scripts/cos_peer.py [--db PATH] reply --thread <this thread's id> --item <itemId of the reply>
 
 find matches <name> (whole words, case folded) against each project's title, repo name and
 owner/name, leaving out this repo (project.md `Repo`). It reads the match's
@@ -14,18 +14,24 @@ owner/name, leaving out this repo (project.md `Repo`). It reads the match's
     ambiguous <name>: <owner/name>, <owner/name>                              exit 1
     no-chief <owner/name>: <state missing | no chiefThreadId | thread not in project | thread archived>   exit 1
 
+check and reply read the incoming message from the store, never from stdin or a command line, so
+no text written by another agent passes through the shell. --item is the itemId T3 gave the message in
+--thread (a finished user-role message there); an item id outside [A-Za-z0-9:._%-]{1,200} exits 2.
+
 check re-checks a CHIEF OF STAFF REQUEST in the store: the item is a createdBy "user" message in
 the sender thread whose whole normalized text equals the quoted words, the sender thread is the
 chiefThreadId or a retiredThreads entry of its project, the words name this repo and are not a
 Chief of Staff command. The sender thread must be in another project than --thread. Exit 0 and
 "accept <sender thread> <item> <sender project's T3 title>" then the words as stored, or exit 1 and
 "refuse: <malformed | not-user | words differ | not a chief of staff thread | same repo |
-not for this repo | command: <words>>". Exit 2 when the store, a state file or --thread can't be read.
+not for this repo | command: <words>>". malformed also covers an --item that is not a finished
+user-role message in --thread. Exit 2 when the store, a state file, --thread or --item can't be read.
 
 reply checks that the `from` thread is a Chief of Staff thread the same way, then prints only what
 the sender may show: "source <project title> <thread id>", then "filed <ID>: <title>, <URL>" (at
 most 5) or "refused <reason>", each cut at 200 characters (a filed line loses title, never URL), then
-"dropped <N> lines" if anything was left out. Exit 1 when nothing usable is in the reply or the
+"dropped <N> lines" if anything was left out. --thread only locates the message. Exit 1, no output,
+when --item is not a finished user-role message in --thread, nothing usable is in the reply or the
 `from` thread is not a Chief of Staff thread.
 
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro.
@@ -37,7 +43,7 @@ import re
 import sqlite3
 import sys
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_user_check  # noqa: E402
@@ -51,6 +57,7 @@ MAX_FILED, MAX_LEN = 5, 200
 REQUEST = re.compile(
     r"CHIEF OF STAFF REQUEST from (\S+) \((\S+)\)\nFor: (\S+)\nItem: (\S+)\nThe user's words:\n(.+)", re.S
 )
+ITEM_ID = re.compile(r"[A-Za-z0-9:._%-]{1,200}")
 ID = r"(?:[A-Z][A-Z0-9]*-\d+|#\d+)"
 COMMAND = re.compile(
     r"(?<!\w)(?:(?:approve|changes|cancel|hold)\s+#?(?:[a-z][a-z0-9]*-)?\d+"
@@ -160,8 +167,23 @@ def chief_thread(db, thread):
     return (pid, clean(title or "")) if thread in ids else None
 
 
-def check(db, this_thread, text):
-    m = REQUEST.fullmatch(text.strip())
+def stored_message(db, thread, item_id):
+    """Text of the finished user-role message item_id in thread, or None. The item id is checked before it is used."""
+    if not ITEM_ID.fullmatch(item_id):
+        raise Unreadable("bad item id")
+    bare = item_id[len(PREFIX):] if item_id.startswith(PREFIX) else item_id
+    rows = query(  # t3_thread_send messages: the item id is percent-encoded, the store's message id is not
+        db,
+        "SELECT json_extract(payload_json, '$.text') FROM orchestration_v2_projection_messages "
+        "WHERE thread_id = ? AND message_id IN (?, ?, ?) AND role = 'user' AND streaming = 0",
+        (thread, bare, unquote(bare), item_id),
+    )
+    return rows[0][0] if rows and isinstance(rows[0][0], str) else None
+
+
+def check(db, this_thread, item):
+    text = stored_message(db, this_thread, item)
+    m = text is not None and REQUEST.fullmatch(text.strip())
     if not m or not norm(m.group(5)):
         print("refuse: malformed")
         return 1
@@ -216,7 +238,10 @@ def filed_line(ticket, title, url):
     return head + title + tail if title else None
 
 
-def reply(db, text):
+def reply(db, this_thread, item):
+    text = stored_message(db, this_thread, item)
+    if text is None:
+        return 1
     lines = [ln.strip() for ln in text.strip().splitlines()]
     header = re.fullmatch(r"CHIEF OF STAFF REPLY from (\S+) \(\S+\)", lines[0]) if lines else None
     if not header:
@@ -247,14 +272,16 @@ def main(argv=None):
     ap.add_argument("--db", type=Path, default=DEFAULT_DB)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("find").add_argument("name")
-    sub.add_parser("check").add_argument("--thread", required=True)
-    sub.add_parser("reply")
+    for name in ("check", "reply"):
+        p = sub.add_parser(name)
+        p.add_argument("--thread", required=True)
+        p.add_argument("--item", required=True)
     a = ap.parse_args(argv)
     try:
         if a.cmd == "reply":
-            return reply(a.db, sys.stdin.read())
+            return reply(a.db, a.thread, a.item)
         if a.cmd == "check":
-            return check(a.db, a.thread, sys.stdin.read())
+            return check(a.db, a.thread, a.item)
         try:
             data = json.loads(sys.stdin.read())
             projects = data["projects"]
