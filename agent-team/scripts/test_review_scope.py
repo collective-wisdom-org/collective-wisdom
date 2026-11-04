@@ -22,6 +22,7 @@ CODE = lambda n: "x\n" * n  # noqa: E731
         ({"README.md": DOC}, ("docs-only", "1 files")),
         ({"docs/agents/project.md": DOC}, ("small", "1 lines in 1 files")),
         ({"docs/Agents/project.md": DOC}, ("small", "1 lines in 1 files")),
+        ({"docs/agent\u017f/project.md": DOC}, ("small", "1 lines in 1 files")),
         ({"sub/README.md": DOC}, ("small", "1 lines in 1 files")),
         ({"docs/link.md": ("link", "../scripts/s.py")}, ("small", "1 lines in 1 files")),
         ({".claude/skills/s/SKILL.md": DOC}, ("small", "1 lines in 1 files")),

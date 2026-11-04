@@ -32,12 +32,12 @@ scripts/review_scope.py <PR number> [<head SHA>]
 - Fetches `main` and the PR head the way `pr_diff_delta.py` does (imports its `run`, `fetch` and `CmdError`; head defaults to `headRefOid` from `./scripts/gh.sh pr view`).
 - Takes the diff at the head against its merge base with `origin/main`, with `--raw` and `--numstat`, `--no-renames`.
 - A file is a **docs file** when all of these hold:
-  - its path ends in `.md`;
-  - it is `README.md` at the repo top, or under `docs/` but not under `docs/agents/`;
+  - its path is ASCII and ends in `.md`;
+  - it is `README.md` at the repo top, or under `docs/` but not under `docs/agents/` (compared without regard to case, so `docs/Agents/` and lookalikes such as `docs/agentſ/` stay out on a case-insensitive checkout);
   - it is a regular file on both sides (mode `100644`, or absent on one side). A symlink or executable never counts.
 - **Changed lines** are added plus deleted lines from `--numstat`, over the files that are not docs files. A binary file (`-` in `--numstat`) makes the PR `full`.
 - Class, checked in this order:
-  - `docs-only`: every changed file is a docs file.
+  - `docs-only`: at least one file changed, and every changed file is a docs file. An empty diff is `small`.
   - `small`: changed lines are 200 or fewer.
   - `full`: anything else.
 - Exit 0, last line (full SHA):
@@ -54,13 +54,13 @@ Tests: one table-driven test in `scripts/test_review_scope.py` over a temp git r
 
 A new `open-pr` § Review scope, right before § Agent review comment loop:
 
-1. Before each review pass (code review pass 1, and every re-review), run `./scripts/review_scope.py <N>` on the current head. Exit 2 once: run it again. Exit 2 twice: review as `full`.
+1. Before each review pass (code review pass 1, and every re-review), run `./scripts/review_scope.py <N> <head SHA>` with the full SHA of the head under review. Only its last line decides the class. Any non-zero exit: run it again. Fail twice: review as `full`.
 2. Each pass uses the class of the head it reviews. A fix that grows a small PR past 200 lines makes the next pass `full`.
 
 By class:
 
 - **`full`**: as today. Phase 3 code review loop, then phase 4 security review loop.
-- **`docs-only`**: the code review runs as today. Phase 4 posts, with `AGENT_GH_ROLE=security-reviewer`, a comment with no subagent run:
+- **`docs-only`**: the code review runs as today. After its PASS, run `./scripts/review_scope.py <N> <head SHA>` again; only if it still prints `docs-only` at the head the code review passed on, phase 4 posts, with `AGENT_GH_ROLE=security-reviewer`, a comment with no subagent run:
 
   ```
   ## Security review (pass N)
