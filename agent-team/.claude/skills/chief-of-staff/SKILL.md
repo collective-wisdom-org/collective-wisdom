@@ -3,8 +3,8 @@ name: chief-of-staff
 description: >-
   Runs the agent team: keeps tickets moving through the
   ship loop in three lanes (spec, build, merge) under one cap on active
-  children, in child T3 threads, and reports to the user. Runs the project
-  manager pass (project-manager) on each full pass. Fills open slots on
+  children, in child T3 threads, and reports to the user. Starts the project
+  manager hygiene child (project-manager) when due. Fills open slots on
   child notices, and keeps starting work until the lanes are full or
   the Backlog has no ready ticket. Acts only on
   start-up, the user's messages, child notices, requests and replies from another
