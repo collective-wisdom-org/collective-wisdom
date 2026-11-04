@@ -17,6 +17,7 @@ Exit 2: bad arguments, a gh or git call failed. Last line: merge-pr: cannot <wha
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -259,6 +260,7 @@ def main(argv, run=run):
         print("merge-pr: cannot read arguments; usage: scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
         return 2
     pr, approved = argv[0], argv[1].lower()
+    os.environ.pop("AGENT_GH_ROLE", None)  # the merge and the branch delete run as the owner, never a role
     try:
         f = read_facts(pr, approved, run)
         reason = gate(f)

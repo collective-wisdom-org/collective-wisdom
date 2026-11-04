@@ -16,7 +16,9 @@ if [ -n "$role" ]; then
       echo "gh.sh: no gh login for $login; run gh auth login, then gh auth switch -u <owner>" >&2
       exit 2
     fi
-    exec env -u GITHUB_TOKEN GH_TOKEN="$token" gh "$@"
+    unset GITHUB_TOKEN
+    export GH_TOKEN="$token"
+    exec gh "$@"
   fi
 fi
 exec env -u GITHUB_TOKEN -u GH_TOKEN gh "$@"

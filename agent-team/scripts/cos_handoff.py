@@ -81,7 +81,7 @@ def load_pr(n, path):
         else:
             pr = cos_brief.gh_json("pr", "view", str(n), "--repo", cos_brief.REPO, "--json",
                                    "url,headRefOid,statusCheckRollup,comments")
-            pr["login"] = cos_brief.gh("api", "user", "-q", ".login").strip()
+            pr["login"] = cos_brief.gh("api", "user", "-q", ".login", active=True).strip()
     except (OSError, UnicodeDecodeError, ValueError, TypeError, cos_brief.ReadError):
         fail(f"cannot read PR #{n}")
     oid, url, login = (pr.get(k) for k in ("headRefOid", "url", "login")) if isinstance(pr, dict) else (None,) * 3

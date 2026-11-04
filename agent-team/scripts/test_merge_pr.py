@@ -1,6 +1,7 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -240,3 +241,12 @@ def test_main_trusts_the_role_login_once_set(monkeypatch, capsys, change, roles,
     runner, _ = fake(copy.deepcopy(f))
     assert merge_pr.main(["7", f["approved"]], runner) == code
     assert cause is None or cause in capsys.readouterr().out
+
+
+def test_main_runs_without_a_gh_role(monkeypatch):
+    """The merge stays on the owner's login even when the caller set a role."""
+    monkeypatch.setenv("AGENT_GH_ROLE", "builder")
+    f = green()
+    runner, _ = fake(f)
+    merge_pr.main(["7", f["approved"]], runner)
+    assert "AGENT_GH_ROLE" not in os.environ

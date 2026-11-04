@@ -102,7 +102,12 @@ def role_login(role):
     if role not in ROLE_ROWS:
         raise SystemExit(f"unknown role {role!r}; expected one of {', '.join(ROLE_ROWS)}")
     login = value(ROLE_ROWS[role])
-    if login is None or login.lower() == "none":
+    if login is None:
+        cell = next((v for k, v in _rows() if k.startswith(ROLE_ROWS[role])), "")
+        if cell and not re.match(r"(?i)none\b|TODO\(", cell):  # text, but no `login`: don't fall back to the owner
+            raise SystemExit(f"project.md: '{ROLE_ROWS[role]}' row has no backticked `login`")
+        return None
+    if login.lower() == "none":
         return None
     if not LOGIN_RE.fullmatch(login):
         raise SystemExit(f"project.md: '{ROLE_ROWS[role]}' row has no usable `login` value")

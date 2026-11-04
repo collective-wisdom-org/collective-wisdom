@@ -90,7 +90,7 @@ By default every agent acts as your gh account, so PRs, review comments and tick
 1. Create four GitHub accounts, one per persona. Use the suggested logins in `personas.md` or others.
 2. Set each profile from `personas.md` (name and the one-line bio).
 3. From your own account, invite each as a collaborator on the repo with write access. Accept each invite while signed in as that account.
-4. Add each account to your gh keyring with `gh auth login -h github.com -p https`, signing in as that account. gh keeps each token in the system keyring.
+4. Add each account to your gh keyring with `gh auth login -h github.com -p https`, signing in as that account. gh keeps each token in the system keyring. `gh.sh` needs gh 2.40 or newer for `gh auth token -u`; an older gh reports "no gh login" for every role.
 5. Adding an account makes it the active one. Switch back with `gh auth switch -u <owner login>`.
 6. Fill the four login rows in `project.md` with the new logins.
 7. Run the checks under Verify.
