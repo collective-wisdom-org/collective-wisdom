@@ -7,7 +7,7 @@
 ## What shipped
 
 - One sentence in `chief-of-staff` SKILL.md § Send or queue, first bullet: a relay sent to a child whose `parentThreadId` isn't the Chief of Staff thread adds a Moving line, `<PREFIX>-N: I may not hear when this run ends; say status to check.`
-- The spec, plan and index for the decision ticket.
+- The spec, plan, as-built, index entry and release note for the decision ticket.
 - One comment on #16 recording the five answers: no timer, no scheduled wake, no new Stop-hook check, the wait isn't a real cost yet, and yes to the report line.
 
 ## Differs from the spec
