@@ -18,7 +18,7 @@ Work from the PR's worktree, on the PR head branch.
 
 ## Primary review path
 
-On a `docs-only` diff this review is skipped, and on a `small` diff it is already posted from the combined run (`open-pr` § Review scope).
+When `scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
 
 **Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 

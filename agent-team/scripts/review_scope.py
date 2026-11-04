@@ -6,7 +6,7 @@ Usage:
 
 The head (40 hex) defaults to the PR's current headRefOid. The PR's diff is taken at the head against its merge base
 with origin/main (by its full ref name). A docs file is a .md file that is README.md at the repo top, or under docs/ but not
-under docs/agents/, and is a regular file (mode 100644, or absent) on both sides. Changed lines are added plus deleted lines
+under docs/agents/ (compared without regard to case), and is a regular file (mode 100644, or absent) on both sides. Changed lines are added plus deleted lines
 over the files that are not docs files.
 
 Classes, checked in this order:
@@ -41,7 +41,8 @@ REGULAR = ("100644", "000000")  # 000000: the file is absent on that side
 
 
 def is_docs(path, modes):
-    in_docs = path == "README.md" or (path.startswith("docs/") and not path.startswith("docs/agents/"))
+    low = path.lower()  # case-insensitive checkouts: docs/Agents/ lands on docs/agents/
+    in_docs = path == "README.md" or (low.startswith("docs/") and not low.startswith("docs/agents/"))
     return path.endswith(".md") and in_docs and all(m in REGULAR for m in modes)
 
 
@@ -62,7 +63,7 @@ def classify(head, run):
             raise CmdError(f"compare {path!r}: unexpected git diff --raw line")
         modes[path] = m[:2]
     docs = {p for p, m in modes.items() if is_docs(p, m)}
-    if len(docs) == len(modes):
+    if modes and len(docs) == len(modes):
         return "docs-only", f"{len(docs)} files"
     lines, files = 0, 0
     for entry in stat:

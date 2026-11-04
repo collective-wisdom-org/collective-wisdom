@@ -106,13 +106,13 @@ Edit only in the PR's worktree when one exists (root checkout stays on `main`).
 
 `scripts/review_scope.py` says how much review a head needs. Its classes and the 200-line limit are in the script's header.
 
-1. Before each review pass (code review pass 1, and every re-review), run `./scripts/review_scope.py <N>` on the current head. On exit 2, run it once more; if that also exits 2, review as `full`.
+1. Before each review pass (code review pass 1, and every re-review), run `./scripts/review_scope.py <N> <head SHA>` with the full SHA of the head you review. Only its last line decides the class. On a non-zero exit, run it once more; if that also fails, review as `full`.
 2. Each pass uses the class of the head it reviews. A fix that grows a `small` PR past the limit makes the next pass `full`.
 
 By class:
 
 - **`full`**: review as the rest of this skill and `security-review` say: the code review loop, then the security review loop.
-- **`docs-only`**: the code review runs as usual. After its PASS, on the same head, post a security review comment with no subagent run, with `AGENT_GH_ROLE=security-reviewer` in team mode:
+- **`docs-only`**: the code review runs as usual. After its PASS, run `./scripts/review_scope.py <N> <head SHA>` again. Only if it still prints `docs-only` at the head the code review passed on, post a security review comment with no subagent run, with `AGENT_GH_ROLE=security-reviewer` in team mode:
 
   ```
   ## Security review (pass N)

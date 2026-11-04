@@ -21,6 +21,7 @@ CODE = lambda n: "x\n" * n  # noqa: E731
         ({"docs/superpowers/specs/a.md": DOC}, ("docs-only", "1 files")),
         ({"README.md": DOC}, ("docs-only", "1 files")),
         ({"docs/agents/project.md": DOC}, ("small", "1 lines in 1 files")),
+        ({"docs/Agents/project.md": DOC}, ("small", "1 lines in 1 files")),
         ({"sub/README.md": DOC}, ("small", "1 lines in 1 files")),
         ({"docs/link.md": ("link", "../scripts/s.py")}, ("small", "1 lines in 1 files")),
         ({".claude/skills/s/SKILL.md": DOC}, ("small", "1 lines in 1 files")),
@@ -59,7 +60,7 @@ def test_classify(tmp_path, files, expected):
     assert review_scope.classify(head, run) == expected
 
 
-def test_bad_sha_exits_2(capsys):
+def test_failed_read_exits_2(capsys):
     def run(cmd):
         raise review_scope.CmdError("bad object")
 
