@@ -27,7 +27,7 @@ The child passes:
 6. **Extra checks from `project.md`.** Run each one listed under "Extra checks" in § Docs check, for example brand docs when the diff touches the theme.
 7. **Team docs.** Only when the diff touches `.claude/skills/`, `.claude/agents/`, `scripts/` or `docs/agents/`: `docs/agents/org-chart.md` and the role file each changed piece names.
 
-On a re-run, check the new range plus the as-built against the head. Don't re-read the whole diff.
+On a re-run, check the new range plus the closeout (the `**Shipped:**` line, the as-built if any, and the PR body's release note) against the head. Don't re-read the whole diff.
 
 ## Never flag
 

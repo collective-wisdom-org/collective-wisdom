@@ -6,7 +6,7 @@
 
 ## Differs from the spec
 
-- This PR still ships the old-shape closeout: this as-built file, `index/cw-55.md` and `release-notes/cw-55.md`. The `merge_pr.py` on root `main` is the old gate until this PR merges, and it refuses a PR without them. The other index files are deleted as specified; a follow-up deletes `index/cw-55.md` and the `index/` folder.
+- This PR still ships the old-shape closeout: this as-built file, `index/cw-55.md` and `release-notes/cw-55.md`. The `merge_pr.py` on root `main` is the old gate until this PR merges, and it refuses a PR without them. The other index files are deleted as specified; a follow-up deletes `index/cw-55.md`, the `index/` folder and `release-notes/cw-55.md` (its note is also in this PR's body, so it prints twice until then).
 - `release_notes.py` prints its docstring and exits 0 when given any argument (`--help`), because `test_script_runs_by_link_path` runs every script with `--help` and the script would otherwise call `gh`.
 - On the same date, PR notes sort before file notes. The spec did not say how to mix them.
 - `merge_pr.py` uses `release_notes.section` for the `## Release note` parser instead of a second copy.

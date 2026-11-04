@@ -212,13 +212,12 @@ def gate(f, delta=real_delta):
     if not as_specified and not any(x["changeType"] == "ADDED" and re.fullmatch(AS_BUILT, x["path"]) for x in paths):
         return f'closeout missing: no spec says "**Shipped:** in PR #{f["pr"]}, as specified" and no added docs/superpowers/as-built/*.md'
     notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
-    if not release_notes.section(f["body"]):
-        if not notes:
-            return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
-        for p in notes:
-            first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
-            if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
-                return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
+    if not notes and not release_notes.section(f["body"]):
+        return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
+    for p in notes:
+        first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
+        if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
+            return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
     if f["root_branch"] != "main":
         return f"root checkout is on {f['root_branch']}, not main; cannot fast-forward"
     if f["root_dirty"]:

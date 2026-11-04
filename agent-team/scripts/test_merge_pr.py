@@ -90,6 +90,7 @@ def reviews(**kw):
         (old_shape, None),
         (lambda f: old_shape(f, "# A title\n"), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
         (lambda f: (old_shape(f), f["files"].pop()), 'no "## Release note" section'),
+        (lambda f: (old_shape(f, "# A title\n"), f.update(body="## Release note\n\nx\n")), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
         (lambda f: f.update(root_branch="feat/y"), "root checkout is on feat/y"),
         (lambda f: f.update(state="MERGED", approved="bbbbbbb"), None),
     ],
