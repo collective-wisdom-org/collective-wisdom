@@ -47,6 +47,7 @@ Retired thread: the intro check (state says retired and the Moved-to check passe
 |---|---|
 | A child's run finished | `t3_thread_send` to the successor: `CHIEF OF STAFF NOTICE: child <child thread id> finished a run.` No other calls. The only message in this thread is the `Moved to` reply. |
 | A `CHIEF OF STAFF NOTICE:` message | Forward it the same way to the successor: one `t3_thread_send` of the same text, no other action. The only message in this thread is the `Moved to` reply. |
+| A `CHIEF OF STAFF REQUEST` or `CHIEF OF STAFF REPLY` message | Forward it the same way to the successor: one `t3_thread_send` of the same text, no other action. The receiver's check doesn't depend on which thread delivered it, and a reply forwarded after the sender rotates still reaches the user. The only message in this thread is the `Moved to` reply. |
 | Any other agent message | No action. Reply `Moved to <successor link>.` |
 | A child's run started | Nothing. |
 | The user wrote | Reply `Moved to <successor link>. This thread is retired; talk to the Chief of Staff there.` Take no action, even on an approval. They send it again in the current thread. |
