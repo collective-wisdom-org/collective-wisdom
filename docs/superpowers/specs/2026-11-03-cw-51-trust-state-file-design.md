@@ -1,7 +1,7 @@
 # CW-51: Trust the state file and drop the T3 re-verification rules
 
 **Ticket:** [CW-51](https://github.com/dbeallor/collective-wisdom/issues/51)
-**Status:** Draft
+**Status:** Shipped
 
 ## Goal
 
