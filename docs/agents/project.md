@@ -25,6 +25,10 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Branch pattern | `feat/cw-N-short-title` (`cw` is the issue prefix in lower case) |
 | Repo (`<owner>/<repo>`) | `dbeallor/collective-wisdom` (<https://github.com/dbeallor/collective-wisdom>) |
 | Owner login (trusted review-comment author) | `dbeallor` |
+| Chief of Staff login | `none` (the account that files and moves tickets as the Chief of Staff; set it once the account exists and is added to gh, see [github-auth.md](github-auth.md) § Agent users) |
+| Builder login | `none` (the ship-loop child's account: PRs, notes and its own ticket; same setup) |
+| Code reviewer login | `none` (the account that posts the code review comment; same setup) |
+| Security reviewer login | `none` (the account that posts the security review comment; same setup) |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
 

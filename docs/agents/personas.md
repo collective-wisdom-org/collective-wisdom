@@ -1,0 +1,1 @@
+../../agent-team/docs/agents/personas.md

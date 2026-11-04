@@ -82,3 +82,47 @@ def tracker():
     if t not in TRACKERS:
         raise SystemExit(f"project.md: 'Tracker' row must be one of {', '.join(TRACKERS)}, got `{t}`")
     return t
+
+
+ROLE_ROWS = {
+    "chief-of-staff": "Chief of Staff login",
+    "builder": "Builder login",
+    "code-reviewer": "Code reviewer login",
+    "security-reviewer": "Security reviewer login",
+}
+LOGIN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?")
+
+
+def role_login(role):
+    """GitHub login for an agent role, or None when its row is missing, empty, `none` or TODO.
+
+    None means the role keeps using the account running gh. Raises SystemExit for an unknown role or a
+    value that is not a GitHub login.
+    """
+    if role not in ROLE_ROWS:
+        raise SystemExit(f"unknown role {role!r}; expected one of {', '.join(ROLE_ROWS)}")
+    login = value(ROLE_ROWS[role])
+    if login is None:
+        cell = next((v for k, v in _rows() if k.startswith(ROLE_ROWS[role])), "")
+        if cell and not re.match(r"(?i)none(\s|\(|$)|TODO\(", cell):  # text, but no `login`: don't fall back to the owner
+            raise SystemExit(f"project.md: '{ROLE_ROWS[role]}' row has no backticked `login`")
+        return None
+    if login.lower() == "none":
+        return None
+    if not LOGIN_RE.fullmatch(login):
+        raise SystemExit(f"project.md: '{ROLE_ROWS[role]}' row has no usable `login` value")
+    return login
+
+
+if __name__ == "__main__":
+    import sys
+
+    try:
+        if len(sys.argv) != 3 or sys.argv[1] != "login":
+            raise SystemExit("usage: project_config.py login <role>")
+        found = role_login(sys.argv[2])
+    except SystemExit as e:
+        print(e, file=sys.stderr)
+        sys.exit(2)
+    if found:
+        print(found)
