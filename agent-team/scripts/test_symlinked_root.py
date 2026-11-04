@@ -38,6 +38,7 @@ def _env():
         ("cos_idle_check", "DEFAULT_STATE", ".agent-team/state.json"),
         ("cos_parent_check", "DEFAULT_STATE", ".agent-team/state.json"),
         ("docs_index", "INDEX", "docs/superpowers/index"),
+        ("release_notes", "NOTES", "docs/superpowers/release-notes"),
         ("merge_pr", "ROOT", ""),
         ("pr_diff_delta", "ROOT", ""),
         ("cos_merged_check", "ROOT", ""),
