@@ -15,6 +15,7 @@
 ## Differs from the spec
 
 - The rebuild's chain walk in reference.md records `successor` on each thread it re-adds to `retiredThreads`.
+- When the legacy Moved-to fallback also fails, the intro replies `State says this thread is retired but names no successor. Check .agent-team/state.json.` instead of the old "never handed off" reply.
 
 ## Checks
 
