@@ -19,6 +19,8 @@ flowchart TB
 
     Helper["Ticket helper<br/>one-shot T3 thread per request<br/>read only, writes the tracker"]
 
+    Peer["Another repo's Chief of Staff<br/>its own tracker and state"]
+
     Child["Ship-loop child<br/>one per ticket, up to 5 active, one per lane slot<br/>T3 thread in its own worktree"]
 
     Impl["Implementer subagent"]
@@ -43,6 +45,9 @@ flowchart TB
     Helper -- "TICKET HELPER DONE" --> Chief
     Helper -- "create or edit tickets, epics, links, labels" --> Tracker
 
+    Chief -- "CHIEF OF STAFF REQUEST: the user's words, for a ticket in that repo" --> Peer
+    Peer -- "CHIEF OF STAFF REPLY: ticket link or refusal" --> Chief
+
     Chief -- "status, labels, comments" --> Tracker
     PM -- "Todo moves, empty fields, state-drift moves, comments" --> Tracker
     PM -. "read only" .-> GitHub
@@ -51,6 +56,8 @@ flowchart TB
     CR -- "Code review PR comment" --> GitHub
     SR -- "Security review PR comment" --> GitHub
 ```
+
+A ticket helper started by another repo's request creates new Backlog tickets only.
 
 ## Where the user approves
 
