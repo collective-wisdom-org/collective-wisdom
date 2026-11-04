@@ -1,7 +1,8 @@
 # CW-53: Rotate the Chief of Staff thread less often
 
 **Ticket:** [CW-53](https://github.com/dbeallor/collective-wisdom/issues/53)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #79, with differences: [as-built](../as-built/2026-11-04-cw-53-rotate-less-often.md)
 
 ## Goal
 
