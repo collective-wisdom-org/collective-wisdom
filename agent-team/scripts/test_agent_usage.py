@@ -158,3 +158,71 @@ def test_project_name_is_main_checkout_dir(tmp_path, mode):
         script = wt / "scripts" / "agent_usage.py"
         script.touch()
     assert agent_usage.project_name(script.parent.parent) == "myapp"
+
+
+def ev(ts, branch, **kw):
+    # Compact separators, like Claude Code's transcripts; the --ticket pre-filter reads raw text.
+    return json.dumps({"timestamp": ts, "gitBranch": branch, **kw}, separators=(",", ":"))
+
+
+def asst(ts, branch, rid, tokens):
+    usage = {"input_tokens": tokens}
+    msg = {"model": "claude-opus-5-5", "usage": usage}
+    return ev(ts, branch, type="assistant", requestId=rid, message=msg)
+
+
+def human(ts, branch, content):
+    return ev(ts, branch, type="user", message={"role": "user", "content": content})
+
+
+# Opus input is $4 per million tokens, so 1_000_000 tokens cost $4.00.
+TICKET_LINE = (
+    "cost $19.20 API-equivalent, 4.8M tokens, spec $4.00 / build $14.00 / merge $1.20, "
+    "2 child runs, wall 2h 03m"
+)
+
+
+@pytest.mark.parametrize(
+    "ticket, want",
+    [
+        ("CW-57", TICKET_LINE),
+        ("cw-57", TICKET_LINE),
+        ("CW-99", 2),  # no sessions
+        ("CW57", 2),  # not an ID
+    ],
+)
+def test_ticket_line(tmp_path, capsys, monkeypatch, ticket, want):
+    t3, b = "t3/abc", "feat/cw-57-foo"
+    wt = tmp_path / f"-Users-x--t3-worktrees-{agent_usage.PROJECT}-t3-aaa"
+    (wt / "s1" / "subagents").mkdir(parents=True)
+    # Spec on the t3 branch, approval relay, build on the feature branch, a subagent in build.
+    (wt / "s1.jsonl").write_text("\n".join([
+        human("2026-11-01T10:00:00Z", t3, "Run /ship-loop for CW-57"),
+        asst("2026-11-01T10:01:00Z", t3, "r1", 1_000_000),
+        human("2026-11-01T10:10:00Z", b, "CHIEF OF STAFF: the user approved the spec"),
+        asst("2026-11-01T10:11:00Z", b, "r2", 2_000_000),
+    ]))
+    (wt / "s1" / "subagents" / "agent-1.jsonl").write_text(
+        asst("2026-11-01T10:12:00Z", b, "s1", 500_000)
+    )
+    # A continuation child starts in build, then the merge approval moves it to merge.
+    (wt / "s2.jsonl").write_text("\n".join([
+        human("2026-11-01T11:00:00Z", "feat/cw-57", "TEAM MODE. CONTINUE. Do the build stage."),
+        asst("2026-11-01T11:01:00Z", "feat/cw-57", "r3", 1_000_000),
+        human("2026-11-01T12:00:00Z", "feat/cw-57", "CHIEF OF STAFF: the user approved the merge"),
+        asst("2026-11-01T12:03:00Z", "feat/cw-57", "r4", 300_000),
+    ]))
+    # Neither of these belongs to CW-57: a longer number, and the root checkout.
+    (wt / "s3.jsonl").write_text(asst("2026-11-01T10:00:00Z", "feat/cw-570-x", "r5", 9_000_000))
+    root = tmp_path / f"-Users-x-Documents-{agent_usage.PROJECT}"
+    root.mkdir()
+    (root / "s4.jsonl").write_text(asst("2026-11-01T10:00:00Z", b, "r6", 9_000_000))
+    monkeypatch.setattr(sys, "argv", ["agent_usage", "--projects", str(tmp_path), "--ticket", ticket])
+    if want == 2:
+        with pytest.raises(SystemExit) as e:
+            agent_usage.main()
+        assert e.value.code == 2
+        assert capsys.readouterr().out == ""
+        return
+    agent_usage.main()
+    assert capsys.readouterr().out.strip() == want
