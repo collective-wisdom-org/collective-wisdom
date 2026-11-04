@@ -40,6 +40,12 @@ def value(key_prefix):
     return None
 
 
+def no_ci():
+    """True when the `Required CI checks` row declares no CI: the cell starts with `none`, in backticks or not."""
+    cell = next((v for k, v in _rows() if k.startswith("Required CI checks")), "")
+    return bool(re.match(r"`?none\b", cell, re.I))
+
+
 def prefix():
     """Issue identifier prefix, e.g. GORP. Raises if project.md doesn't give one."""
     p = value("Issue identifier prefix")
@@ -122,11 +128,14 @@ if __name__ == "__main__":
     import sys
 
     try:
-        if len(sys.argv) != 3 or sys.argv[1] != "login":
-            raise SystemExit("usage: project_config.py login <role>")
-        found = role_login(sys.argv[2])
+        if sys.argv[1:] == ["no-ci"]:
+            print("yes" if no_ci() else "no")
+        elif len(sys.argv) == 3 and sys.argv[1] == "login":
+            found = role_login(sys.argv[2])
+            if found:
+                print(found)
+        else:
+            raise SystemExit("usage: project_config.py login <role> | no-ci")
     except SystemExit as e:
         print(e, file=sys.stderr)
         sys.exit(2)
-    if found:
-        print(found)

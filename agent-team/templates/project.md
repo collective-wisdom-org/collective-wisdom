@@ -44,7 +44,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Test | `<test command>` |
 | Lint | <command, or TODO(<owner>)> |
 | Typecheck | <command, or TODO(<owner>)> |
-| Required CI checks | <check names, or TODO(<owner>)> |
+| Required CI checks | <check names, or `none (no CI yet)` when the repo has no CI, or TODO(<owner>)> |
 | Agent-team script tests | `python3 -I -m pytest -q scripts` (needs `pytest`, e.g. `uvx pytest -q scripts`) |
 | Docs index listing | `python3 scripts/docs_index.py` (generates one table of every spec, plan and as-built under `docs/superpowers/`) |
 | Release notes listing | `python3 scripts/release_notes.py` (prints the `## Release note` sections of merged PRs and any `docs/superpowers/release-notes/*.md` notes, newest first) |
