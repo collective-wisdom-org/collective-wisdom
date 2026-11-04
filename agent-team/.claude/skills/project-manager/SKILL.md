@@ -19,6 +19,7 @@ You keep the Backlog ranked, keep Todo filled with the next ready tickets while 
 Tools:
 
 - Tracker: the operations in the adapter doc.
+- GitHub user: the pass runs in the Chief of Staff's turn, so every `./scripts/gh.sh` call and tracker write carries `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user).
 - GitHub, read only: `./scripts/gh.sh pr list` and `./scripts/gh.sh api` with GET requests. Never bare `gh`.
 - T3: `delegate_task` (`mode: "wait"`) for the ranking child only, and `task_cancel` for its timeout.
 

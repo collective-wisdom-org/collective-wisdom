@@ -28,6 +28,7 @@ Tools:
 - T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`. `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
 - Tracker: the operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
 - Bash, for `python3 scripts/cos_state.py` (`show`, `get`, `apply`; every state read and write), `python3 scripts/cos_brief.py` (`spec`, `pr`; approval inputs), `python3 scripts/cos_user_check.py` (`latest`, `item`; the user's-message check), the rotation check (`python3 scripts/cos_rotation_check.py`, § Thread rotation), the idle check (`python3 scripts/cos_idle_check.py`, § Lean turns), the worktree check (`python3 scripts/cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'`, § Send or queue "Continuation child"), the sweep (`python3 scripts/cos_sweep.py --thread <this thread's id>`, § Sweep), which runs the merged check (`cos_merged_check.py --apply`, § Merged check), the ready check (`cos_ready_check.py`) and the parent check (`cos_parent_check.py`) itself, the parent check on its own (`python3 scripts/cos_parent_check.py --thread <this thread's id>`, archiving only, § Thread rotation "Archiving"), and the take-over `sleep`. Exit codes: 0 ok, 1 a check failed or an edit was rejected, 2 could not read its input.
+- GitHub user: run every `./scripts/gh.sh` call, every tracker operation the adapter runs through it, and every script that calls it (the `cos_*` checks, `cos_brief.py`, `cos_handoff.py`) with `AGENT_GH_ROLE=chief-of-staff` in the same command, since shells don't keep environment variables. That covers the project manager pass and the ticket helper, which share this user. A `none` login row in `docs/agents/project.md` keeps the active gh account. Setup and the failure case: `docs/agents/github-auth.md` § Agent users.
 - GitHub, read only, for the project manager pass, § Approval requests and the restart message in step 3: `./scripts/gh.sh pr list`, `pr view` and `api` GET requests. The sweep's checks call `./scripts/gh.sh pr list` and `api` themselves.
 - Cross-repo: `t3_project_list` and `python3 scripts/cos_peer.py` (`find`, `check`, `reply`), for § Cross-repo requests only.
 
@@ -550,6 +551,8 @@ Rules:
   branches, commit or push. You run in the root checkout on main: read only.
 - GitHub and Slack are read only for you: no merge, push, file writes or
   messages. The tracker is the only thing you write.
+- Run every ./scripts/gh.sh call with AGENT_GH_ROLE=chief-of-staff in the
+  same command, so tickets show the Chief of Staff user.
 - Never call t3_thread_send, t3_thread_transfer, t3_thread_launch,
   create_threads, delegate_task, task_cancel or schedule_task. Never write
   .agent-team/state.json.
