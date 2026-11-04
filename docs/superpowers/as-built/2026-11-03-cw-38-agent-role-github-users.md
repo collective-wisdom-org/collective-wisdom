@@ -17,7 +17,7 @@
 
 ## Differs from the spec
 
-- Added after code review: `merge_pr.py` drops `AGENT_GH_ROLE` itself, so a merge cannot run as a bot. `cos_brief.role_author` and `cos_handoff` read the fallback login with the role removed (the Chief of Staff runs them as its own role, so a plain `gh api user` would name the wrong account). A role row with text but no backticked login is an error, not a quiet fallback to the owner. `gh.sh` exports `GH_TOKEN` instead of passing it through `env`, so it never sits in an argument list.
+- Added after code review: `merge_pr.py` drops `AGENT_GH_ROLE` itself, so a merge cannot run as a bot. `cos_brief.role_author` and `cos_handoff` read the fallback login with the role removed (the Chief of Staff runs them as its own role, so a plain `gh api user` would name the wrong account). A role row with text but no backticked login is an error, not a quiet fallback to the owner. `merge_pr.py` also refuses to run while the active gh account is one of the four agent users, in case `gh auth switch` was skipped. `Approval withdrawn` counts from the Chief of Staff login or the `Owner login`. `gh.sh` exports `GH_TOKEN` instead of passing it through `env`, so it never sits in an argument list.
 - `merge_pr.py` stores the resolved logins as `f["authors"]`. A bad login row ends the run with `cannot read PR #N` and exit 2.
 - `docs/agents/personas.md` is a root link, because `test_root_links.py` requires every shared agent doc to be linked.
 

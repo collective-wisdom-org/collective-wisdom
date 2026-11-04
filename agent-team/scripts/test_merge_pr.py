@@ -74,6 +74,7 @@ def reviews(**kw):
         (reviews(who="other"), "no Security review"),
         (lambda f: [c.update(body=c["body"].replace("**Verdict:**", "Verdict:")) for c in f["comments"]], None),
         (lambda f: f.update(isCrossRepository=True), "from a fork"),
+        (lambda f: f.update(login="sam", agentLogins=["cw-morgan", "sam"]), "agent user sam"),
         (lambda f: f.update(commits=[{"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}, {"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "older than head"),
         (lambda f: f.update(commits=[{"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "head commit not in"),
         (lambda f: f.update(root_ahead=1), "local commits"),

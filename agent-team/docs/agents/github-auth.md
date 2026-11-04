@@ -89,9 +89,9 @@ By default every agent acts as your gh account, so PRs, review comments and tick
 
 1. Create four GitHub accounts, one per persona. Use the suggested logins in `personas.md` or others.
 2. Set each profile from `personas.md` (name and the one-line bio).
-3. From your own account, invite each as a collaborator on the repo with write access. Accept each invite while signed in as that account.
+3. From your own account, invite each as a collaborator on the repo. A personal repo only offers write access, so every agent user can push and its tickets count as team tickets; turn on two-factor sign-in for each account. Accept each invite while signed in as that account.
 4. Add each account to your gh keyring with `gh auth login -h github.com -p https`, signing in as that account. gh keeps each token in the system keyring. `gh.sh` needs gh 2.40 or newer for `gh auth token -u`; an older gh reports "no gh login" for every role.
-5. Adding an account makes it the active one. Switch back with `gh auth switch -u <owner login>`.
+5. Adding an account makes it the active one. Switch back with `gh auth switch -u <owner login>`. `scripts/merge_pr.py` refuses to run while the active account is one of the four agent users.
 6. Fill the four login rows in `project.md` with the new logins.
 7. Run the checks under Verify.
 
@@ -127,4 +127,7 @@ The trust checks follow the same rule. A team comment counts when its author is 
 for role in chief-of-staff builder code-reviewer security-reviewer; do
   AGENT_GH_ROLE=$role ./scripts/gh.sh api user --jq .login
 done
+
+# With no role it must print your own login (the owner), not an agent user
+./scripts/gh.sh api user --jq .login
 ```

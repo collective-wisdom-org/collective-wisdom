@@ -68,6 +68,7 @@ def read_facts(pr, approved, run):
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     roles = {"code": "code-reviewer", "security": "security-reviewer", "builder": "builder"}
     f["authors"] = {k: project_config.role_login(r) or f["login"] for k, r in roles.items()}
+    f["agentLogins"] = sorted({l for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))})
     f["docs"] = {}
     if f["state"] == "OPEN":
         want = [
@@ -167,6 +168,8 @@ def gate(f, delta=real_delta):
         return "PR is closed, not merged"
     if f["state"] != "OPEN":
         return f"PR state is {f['state']}"
+    if f["login"] in f.get("agentLogins", ()):
+        return f"gh is signed in as the agent user {f['login']}, not the owner; run gh auth switch -u <owner login>"
     if f["isDraft"]:
         return "PR is a draft"
     if f["isCrossRepository"]:
