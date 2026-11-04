@@ -229,6 +229,8 @@ def retired(s, op):
 
 def op_retire(s, op):
     need(op, "threadId", optional=("successor",))
+    if op.get("successor") == op["threadId"]:
+        raise Reject("successor is the thread itself")
     if not retired(s, op):
         s["retiredThreads"].append({
             "threadId": op["threadId"], "retiredAt": now(), "archivedAt": None,

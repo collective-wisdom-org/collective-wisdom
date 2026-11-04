@@ -16,6 +16,7 @@
 
 - The rebuild's chain walk in reference.md records `successor` on each thread it re-adds to `retiredThreads`.
 - When the legacy Moved-to fallback also fails, the intro replies `State says this thread is retired but names no successor. Check .agent-team/state.json.` instead of the old "never handed off" reply.
+- A rotation under 10 minutes old no longer gets the "no handoff is confirmed" reply or "take no action": state says retired only after handoff step 5, which writes `successor`, so the thread acts as a retired thread and still ends with `Moved to`. `retire` rejects a `successor` equal to `threadId`.
 
 ## Checks
 

@@ -79,6 +79,7 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     {"op": "drop", "ticket": "nope"},
     {"op": "unknown"},
     {k: v for k, v in START.items() if k != "parentThreadId"},
+    {"op": "retire", "threadId": "t2", "successor": "t2"},
 ])
 def test_invalid_op_changes_nothing(tmp_path, bad):
     path = tmp_path / "state.json"
