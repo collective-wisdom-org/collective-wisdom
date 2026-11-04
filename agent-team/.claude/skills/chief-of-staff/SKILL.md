@@ -802,7 +802,7 @@ Cleanup
 - <PREFIX>-224 may duplicate <PREFIX>-190 (commented)
 ```
 
-The `Running` section lists the idle check's `ok` children, each with the link from its read. It shows on every report that ran the idle check, not only when it changed, so it is exempt from the "only lines that changed" rule in § Lean turns Reports. A `status` or `where's` answer doesn't add it: the status layout already has a row and a link for each of those children.
+The `Running` section lists the idle check's `ok` children that are still in `spec`, `build` or `merge` when the message is written, each with the link from its read. It shows on every report that ran the idle check, not only when it changed, so it is exempt from the "only lines that changed" rule in § Lean turns Reports. A `status` or `where's` answer doesn't add it: the status layout already has a row and a link for each of those children.
 
 The `Tickets` section carries a ticket helper's report (§ Lean turns Notice turns) and the reply lines from § Cross-repo requests (`<ID> filed in <project title>: ...`, `Refused by <project title> (...): ...`, `Reply had other text; ignored.`). The `On it:` reply, the `Passed to ...` reply and the `Request from ...: ticket helper started ...` post are each their own short message, not a report.
 
