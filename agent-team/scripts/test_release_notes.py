@@ -86,15 +86,17 @@ def test_prs_merge_with_files(tmp_path, monkeypatch, capsys, files, prs, heading
 
 LOG = (
     "\0" + "2026-11-04T08:00:00+02:00\n\ndocs/superpowers/release-notes/cw-2.md\ndocs/other.md\n"
-    "\0" + "2026-11-03T19:30:00-06:00\n\ndocs/superpowers/release-notes/cw-2.md\ndocs/superpowers/release-notes/cw-1.md\n"
+    "\0" + "2026-11-03T19:30:00-06:00\n\ndocs/superpowers/release-notes/cw-2.md\n"
+    "\0" + "2026-11-03T10:00:00+00:00\n\ndocs/superpowers/release-notes/cw-1.md\n"
+    "\0" + "2026-11-02T10:00:00+00:00\n\ndocs/superpowers/release-notes/cw-8.md\ndocs/superpowers/release-notes/cw-9.md\n"
 )
 
 
-def test_parse_added_newest_add_wins_in_utc_inside_folder():
+def test_parse_added_newest_add_wins_in_utc_inside_folder_skipping_multi_add():
     got = release_notes.parse_added(LOG)
     assert {k: v.isoformat() for k, v in got.items()} == {
         "cw-2.md": "2026-11-04T06:00:00+00:00",
-        "cw-1.md": "2026-11-04T01:30:00+00:00",
+        "cw-1.md": "2026-11-03T10:00:00+00:00",
     }
 
 
@@ -102,7 +104,7 @@ def fail(*a, **k):
     raise OSError("no git")
 
 
-@pytest.mark.parametrize("run", [fail, lambda *a, **k: type("P", (), {"returncode": 128, "stdout": "fatal"})])
+@pytest.mark.parametrize("run", [fail, lambda *a, **k: type("P", (), {"returncode": 128, "stdout": LOG})])
 def test_file_merge_times_is_empty_when_git_fails(monkeypatch, run):
     monkeypatch.setattr(release_notes.subprocess, "run", run)
     assert release_notes.file_merge_times() == {}

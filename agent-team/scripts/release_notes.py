@@ -60,13 +60,13 @@ def utc(iso):
 
 
 def parse_added(log):
-    """{file name: UTC time} from `git log --format=%x00%cI --name-only` output, newest commit first; the newest add of a file wins."""
+    """{file name: UTC time} from `git log --format=%x00%cI --name-only` output, newest commit first; the newest add of a file wins; a commit that adds several notes is skipped."""
     added = {}
     for commit in log.split("\0")[1:]:
         when, *paths = commit.split("\n")
-        for path in paths:
-            if path.startswith(FOLDER):
-                added.setdefault(path[len(FOLDER):], utc(when))
+        names = [p[len(FOLDER):] for p in paths if p.startswith(FOLDER)]
+        if len(names) == 1:  # a commit adding several notes is a backfill or a shallow boundary, not their merge
+            added.setdefault(names[0], utc(when))
     return added
 
 
