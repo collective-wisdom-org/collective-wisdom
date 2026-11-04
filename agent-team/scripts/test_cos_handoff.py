@@ -44,6 +44,8 @@ SPEC_ONLY = {**MERGE, "stage": "awaiting-spec", "pr": None, "headSha": None}
         (SPEC_ONLY, None, ["PR: none yet"], 0),
         ({**MERGE, "headSha": "9" * 40}, PR, ["(moved from 9999999)"], 0),
         ({**MERGE, "headSha": None}, PR, ["(no head in state)"], 0),
+        ({**MERGE, "headSha": "main"}, PR, ["(no head in state)"], 0),
+        ({**MERGE, "headSha": 5}, PR, ["(no head in state)"], 0),
         ({**MERGE, "branch": "feat/abc-11-x"}, PR, ["reject: branch feat/abc-11-x"], 1),
         ({**MERGE, "branch": "feat/abc-1-x\nreject: evil"}, PR, ["reject: branch feat/abc-1-x reject: evil"], 1),
         ({**MERGE, "specPath": "docs/../etc/passwd.md"}, PR, ["reject: specPath docs/../etc/passwd.md"], 1),
@@ -67,8 +69,18 @@ def test_handoff_block(tmp_path, capsys, ticket, pr, want, code):
         assert not any(o.startswith(("Head:", "checks:", "code review:")) for o in out)
 
 
-def test_missing_ticket_or_state_exits_2(tmp_path, capsys):
-    (tmp_path / "state.json").write_text(json.dumps({"tickets": {}}))
-    assert run(["ABC-1", "--file", str(tmp_path / "state.json")]) == 2
-    assert run(["ABC-1", "--file", str(tmp_path / "none.json")]) == 2
-    assert capsys.readouterr().out.count("cos_handoff:") == 2
+@pytest.mark.parametrize(
+    "state, ticket, want",
+    [
+        ({"tickets": {}}, "ABC-1", "no such ticket ABC-1"),
+        (None, "ABC-1", "no state file"),
+        ({"tickets": {"ABC-1": "x"}}, "ABC-1", "unreadable state file"),
+        ({"tickets": {}}, "bad", "bad ticket"),
+    ],
+)
+def test_ticket_or_state_that_cannot_be_read_exits_2_with_its_own_line(tmp_path, capsys, state, ticket, want):
+    f = tmp_path / "state.json"
+    if state is not None:
+        f.write_text(json.dumps(state))
+    assert run([ticket, "--file", str(f)]) == 2
+    assert capsys.readouterr().out.splitlines() == [f"cos_handoff: {want}"]

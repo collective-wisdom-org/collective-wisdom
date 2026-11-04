@@ -1,5 +1,8 @@
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -47,3 +50,21 @@ def test_sweep_lists_each_child_once_and_runs_every_part(tmp_path, capsys, ticke
         assert text in out
     if "merged ABC-2" in out:
         assert "ABC-2" not in json.loads((tmp_path / "state.json").read_text())["tickets"]
+
+
+def test_project_md_without_a_repo_row_only_stops_the_ready_part(tmp_path):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Issue identifier prefix (`<PREFIX>`) | `ABC` |\n")
+    (tmp_path / "state.json").write_text(json.dumps({"tickets": {"ABC-1": {**BUILD, "parentThreadId": "ME"}}, "merged": {}}))
+    (tmp_path / "merged.json").write_text("[]")
+    (tmp_path / "open.json").write_text("[]")
+    r = subprocess.run(
+        [sys.executable, "-I", str(Path(__file__).with_name("cos_sweep.py")), "--thread", "ME",
+         "--file", str(tmp_path / "state.json"), "--merged-prs", str(tmp_path / "merged.json"),
+         "--open-prs", str(tmp_path / "open.json")],
+        capture_output=True, text=True, env={**os.environ, "PROJECT_MD": str(md)},
+    )
+    lines = r.stdout.splitlines()
+    assert r.returncode == 2
+    assert any(line.startswith("merged-check:") for line in lines)
+    assert lines[-1] == "sweep: read in full: none; merged: none; didn't run: ready"

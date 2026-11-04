@@ -65,29 +65,28 @@ def test_build_lane(monkeypatch, capsys, tmp_path, branch, pr_branch, comments, 
 
 
 @pytest.mark.parametrize(
-    "spec_sha, refs, want",
+    "info, refs, want",
     [
-        (OLD, [], ["writing ABC-1"]),
-        (OLD, [("feat/abc-1-a", OLD)], ["writing ABC-1"]),
-        (OLD[:7], [("feat/abc-1-a", OLD)], ["writing ABC-1"]),
-        (OLD, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
-        (None, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
-        (OLD, [("feat/abc-1-a", HEAD), ("feat/abc-1-b", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d", "pushed ABC-1 feat/abc-1-b a1b2c3d"]),
-        (OLD, [("feat/abc-1-a", "not a sha")], ["unreadable ABC-1"]),
+        ({"specSha": OLD}, [], ["writing ABC-1"]),
+        ({"specSha": OLD}, [("feat/abc-1-a", OLD)], ["writing ABC-1"]),
+        ({"specSha": OLD[:7]}, [("feat/abc-1-a", OLD)], ["writing ABC-1"]),
+        ({"specSha": OLD}, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
+        ({"specSha": None}, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
+        ({"specSha": OLD}, [("feat/abc-1-a", HEAD), ("feat/abc-1-b", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d", "pushed ABC-1 feat/abc-1-b a1b2c3d"]),
+        ({"specSha": OLD}, [("feat/abc-1-a", "not a sha")], ["unreadable ABC-1"]),
+        # the branch in state picks its own ref
+        ({"specSha": OLD, "branch": "feat/abc-1-b"}, [("feat/abc-1-a", HEAD), ("feat/abc-1-b", HEAD)], ["pushed ABC-1 feat/abc-1-b a1b2c3d"]),
+        # a ticket in another stage is not checked
+        ({"stage": "merge"}, [], []),
     ],
 )
-def test_spec_lane(monkeypatch, capsys, tmp_path, spec_sha, refs, want):
-    state = {"tickets": {"ABC-1": {"stage": "spec", "specSha": spec_sha}}}
+def test_spec_lane(monkeypatch, capsys, tmp_path, info, refs, want):
+    state = {"tickets": {"ABC-1": {"stage": "spec", **info}}}
     fixture = {"ABC-1": [{"ref": f"refs/heads/{b}", "object": {"sha": s}} for b, s in refs]}
     code, out = run(monkeypatch, capsys, tmp_path, state, refs=fixture)
     assert out[:-1] == want
-    assert code == int(want[0].startswith("pushed"))
-
-
-def test_spec_branch_in_state_picks_its_own_ref(monkeypatch, capsys, tmp_path):
-    state = {"tickets": {"ABC-1": {"stage": "spec", "branch": "feat/abc-1-b", "specSha": OLD}}}
-    refs = {"ABC-1": [{"ref": f"refs/heads/feat/abc-1-{x}", "object": {"sha": HEAD}} for x in "ab"]}
-    assert run(monkeypatch, capsys, tmp_path, state, refs=refs)[1][:-1] == ["pushed ABC-1 feat/abc-1-b a1b2c3d"]
+    assert out[-1].startswith(f"ready-check: {int(bool(want))} checked")
+    assert code == int(want[:1] != [] and want[0].startswith("pushed"))
 
 
 @pytest.mark.parametrize("prs", ["not json", '{"number": 5}', "[]\n[]"])
@@ -95,8 +94,3 @@ def test_check_that_cannot_run_prints_only_the_error_and_exits_2(monkeypatch, ca
     state = {"tickets": {"ABC-1": {"stage": "build"}}}
     code, out = run(monkeypatch, capsys, tmp_path, state, prs)
     assert code == 2 and len(out) == 1 and out[0].startswith("cos_ready_check:")
-
-
-def test_nothing_to_check_exits_0(monkeypatch, capsys, tmp_path):
-    code, out = run(monkeypatch, capsys, tmp_path, {"tickets": {"ABC-1": {"stage": "merge"}}}, "[]")
-    assert (code, out) == (0, ["ready-check: 0 checked, 0 may have reported"])

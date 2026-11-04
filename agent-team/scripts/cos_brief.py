@@ -28,9 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import project_config  # noqa: E402
 
-REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md
-if REPO is None:
-    raise SystemExit("cos_brief: docs/agents/project.md has no `<owner>/<repo>` in its Repo row")
+REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md, None without a Repo row
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 SECTIONS = ("Goals", "Non-goals", "Calls I made")
 SECTION_CAP = 40
@@ -322,6 +320,8 @@ def cmd_pr(args):
 
 
 def main():
+    if REPO is None:  # checked here, not at import, so other scripts can use the rest of the module
+        raise SystemExit("cos_brief: docs/agents/project.md has no `<owner>/<repo>` in its Repo row")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sp = sub.add_parser("spec")
