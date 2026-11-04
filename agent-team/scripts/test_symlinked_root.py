@@ -35,7 +35,7 @@ ROOTS = [
     ("cos_state", "DEFAULT_FILE", ".agent-team/state.json"),
     ("cos_idle_check", "DEFAULT_STATE", ".agent-team/state.json"),
     ("cos_parent_check", "DEFAULT_STATE", ".agent-team/state.json"),
-    ("docs_index", "INDEX", "docs/superpowers/index"),
+    ("docs_index", "DOCS", "docs/superpowers"),
     ("release_notes", "NOTES", "docs/superpowers/release-notes"),
     ("merge_pr", "ROOT", ""),
     ("pr_diff_delta", "ROOT", ""),
