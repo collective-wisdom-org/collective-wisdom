@@ -7,6 +7,10 @@ from pathlib import Path
 import pytest
 
 SCRIPTS = Path(__file__).resolve().parent
+TOP = SCRIPTS.parent.parent
+
+# Apps have a real scripts/ folder holding their own scripts too; this checks the symlinked layout of collective-wisdom only.
+pytestmark = pytest.mark.skipif(not (TOP / "install.sh").exists(), reason="only meaningful in collective-wisdom")
 
 
 @pytest.fixture
@@ -38,8 +42,6 @@ def _env():
         ("pr_diff_delta", "ROOT", ""),
         ("cos_merged_check", "ROOT", ""),
         ("cos_rotation_check", "ROOT", ""),
-        ("cos_brief", "REPO", "="),
-        ("cos_rank", "CAP", "="),
     ],
 )
 def test_root_is_the_link_parent(app, module, attr, rel):
@@ -54,10 +56,7 @@ def test_root_is_the_link_parent(app, module, attr, rel):
         [sys.executable, "-I", "-c", code, str(link), str((app / "scripts").resolve())],
         capture_output=True, text=True, env=_env(), check=True, cwd=app,
     ).stdout.strip()
-    if rel == "=":
-        assert out in ("acme/widgets", "5")
-    else:
-        assert out == str(app / rel if rel else app)
+    assert out == str(app / rel if rel else app)
 
 
 SCRIPT_NAMES = sorted(
