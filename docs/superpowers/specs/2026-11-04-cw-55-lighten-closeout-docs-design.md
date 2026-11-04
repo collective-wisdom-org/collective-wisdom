@@ -1,7 +1,8 @@
 # CW-55: Lighten the closeout docs per ticket
 
 **Ticket:** [CW-55](https://github.com/dbeallor/collective-wisdom/issues/55)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #66, with differences: [as-built](../as-built/2026-11-04-cw-55-lighten-closeout-docs.md)
 
 ## Goal
 
