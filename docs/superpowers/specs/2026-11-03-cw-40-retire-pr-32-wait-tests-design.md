@@ -1,6 +1,6 @@
 # Retire PR 32 and add its missing --wait test rows (design)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** CW-40 (#40)
 
 ## Intent
