@@ -38,7 +38,7 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 |------|-----------------|
 | Plan Task 0 | Use exactly what the plan specifies |
 | Everything else | The test, lint and typecheck commands in `docs/agents/project.md` § Commands, scoped to touched paths when the tool allows |
-| Guards | Follow `docs/agents/project.md` § Repo invariants (for example: never test or migrate against the dev database) |
+| Guards | Follow `docs/agents/project.md` § Commands (Test database) and § Repo invariants (local data directories, docker rules). Never test or migrate against the dev database |
 
 ## Git
 

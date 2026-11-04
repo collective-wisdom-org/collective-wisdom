@@ -54,6 +54,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Required CI checks | <check names, or TODO(<owner>)> |
 | Agent-team script tests | `python3 -I -m pytest -q scripts` (needs `pytest`, e.g. `uvx pytest -q scripts`) |
 | Docs index listing | `python3 scripts/docs_index.py` (prints every `docs/superpowers/index/*.md` entry as one table) |
+| Test database | none (or how to create the per-ticket test database; never test or migrate against the dev database) |
 | Migration heads check | none (or the command, e.g. a migration tool's heads listing) |
 | Migrations directory | none (or a path in backticks; scripts read the first backticked path, so keep any note free of backticks. Clash checks expect files named NNN_name.py there) |
 
@@ -64,7 +65,7 @@ Skills and the Chief of Staff restate these in every child task.
 - The root checkout stays on `main`. Branch work happens in a worktree: `.worktrees/<short-name>/`, or the one T3 Code created under `~/.t3/worktrees/`.
 - Never push to `main`; push only the ticket's own `feat/<prefix>-N-*` branch.
 - Never commit `.env`, API keys or tokens.
-- <Add repo-specific rules: local data directories, docker rules, and so on.>
+- <Name the local data directories that must never be deleted, and the docker rules (for example, no `docker compose up` from a worktree, no `down -v`). Add any other repo-specific rules.>
 
 ## Areas and labels
 

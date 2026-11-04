@@ -19,7 +19,7 @@ Nothing here is specific to one app. Each app keeps its own facts (ticket prefix
 - `agent-team/docs/agents/`: shared role docs (including the documenter)
 - `agent-team/docs/superpowers/README.md`: the docs index convention
 - `agent-team/templates/`: starting points for `docs/agents/project.md`, `AGENTS.md` and the `.gitignore` lines
-- `install.sh`: installs or updates the team in a repo
+- `install.sh`: installs or updates the team in a repo, and writes `docs/agents/installed-from.txt` in the app (the version pin)
 
 ## Requirements
 
@@ -38,7 +38,11 @@ From a clone of this repo:
 ./install.sh /path/to/app             # install
 ```
 
-The target must be a git repo with no uncommitted changes in the paths the installer touches. It copies the skills, scripts and shared docs, links `.agents/skills` to `../.claude/skills`, and adds missing lines to `.gitignore`. It never overwrites an existing `docs/agents/project.md`, `AGENTS.md` or `.claude/settings.json`. If `project.md` or `AGENTS.md` is missing it seeds one from `agent-team/templates/` and prints what to fill in. Commit the result in the app.
+The target must be a git repo with no uncommitted changes in the paths the installer touches. This clone must be a git repo with a clean working tree too, in dry-run as well as a real run, because the install is pinned to its `HEAD`. It copies the skills, scripts and shared docs, links `.agents/skills` to `../.claude/skills`, and adds missing lines to `.gitignore`. It never overwrites an existing `docs/agents/project.md`, `AGENTS.md` or `.claude/settings.json`. If `project.md` or `AGENTS.md` is missing it seeds one from `agent-team/templates/` and prints what to fill in. Commit the result in the app.
+
+The installer also writes `docs/agents/installed-from.txt` in the app: one line, `collective-wisdom <full commit SHA>`. Commit it with the install, and check it to see which version an app runs.
+
+After syncing skills it warns about any folder in the app's `.claude/skills/` that it did not ship and whose name ends with a shipped skill's name (for example `acme-ship-loop` next to `ship-loop`). That is an old copy from before the app installed from here. The installer never deletes anything; remove the folder yourself.
 
 ## Configure a consuming repo
 
@@ -56,11 +60,11 @@ Skills describe each step as an operation ("set the ticket to In Review"), and o
 
 ## Update
 
-Re-run `./install.sh /path/to/app` after pulling. It is idempotent and updates skills, scripts and shared docs in place. If `.claude/settings.json` differs from the shipped one it is left alone and the script tells you to merge the hook by hand.
+Pull this repo, then re-run `./install.sh /path/to/app`. It is idempotent and updates skills, scripts and shared docs in place, and rewrites `docs/agents/installed-from.txt` when `HEAD` has moved. Commit the update in the app as an install PR. If `.claude/settings.json` differs from the shipped one it is left alone and the script tells you to merge the hook by hand.
 
 ## Propose changes
 
-Open a PR here, not in the app. Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same). After it merges, re-run `install.sh` in each app. Prose follows the `human-writing` skill: plain sentences, no em dashes.
+Open a PR here, not in the app. Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same). After it merges, pull and re-run `install.sh` in each app; each app's install PR bumps `docs/agents/installed-from.txt`. Prose follows the `human-writing` skill: plain sentences, no em dashes.
 
 ## Known couplings
 

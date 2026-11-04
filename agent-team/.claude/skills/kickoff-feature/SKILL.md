@@ -22,7 +22,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 ## Normal path
 
 1. **brainstorming** — design gate; clarify goal, scope, non-goals.
-2. **superpowers-project-memory** — spec path, plan path, index rows, templates (do not duplicate here).
+2. **superpowers-project-memory** — spec path, plan path, index rows, templates (do not duplicate here). Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
 3. Get user approval on the spec (or revise).
 4. Write the issue with **write-ticket**; link the spec in the description.
 5. Worktree — follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants. From root on `main`:
@@ -45,7 +45,7 @@ When the user builds before spec approval:
 
 ## Scope
 
-- Stay within the assigned ticket and the area boundaries in `docs/agents/project.md` § Areas (if it lists any) and the role docs under `docs/agents/`.
+- Stay within the assigned ticket and the area boundaries in `docs/agents/project.md` § Areas and labels (if it lists any) and the role docs under `docs/agents/`.
 
 ## Do not
 

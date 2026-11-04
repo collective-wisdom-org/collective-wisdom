@@ -50,7 +50,7 @@ Retired thread: the intro check (state says retired and the Moved-to check passe
 | Any other agent message | No action. Reply `Moved to <successor link>.` |
 | A child's run started | Nothing. |
 | The user wrote | Reply `Moved to <successor link>. This thread is retired; talk to the Chief of Staff there.` Take no action, even on an approval. They send it again in the current thread. |
-| Its rate-limit wake fired | Nothing but the `Moved to` reply. Take over normally deletes this wake first, and the successor's § Start-up clean-up deletes any stray wake that is not its own. |
+| Its rate-limit wake fired | Nothing but the `Moved to` reply. Take over normally deletes this wake first, and the successor's § Start-up clean-up deletes any stray wake or legacy heartbeat that is not its own. |
 
 ## Thread rotation: Failed handoff
 
