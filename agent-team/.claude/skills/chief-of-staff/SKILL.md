@@ -578,7 +578,7 @@ On `MERGE READY`:
 Spec block:
 
 ```
-<PREFIX>-210 spec ready: Example feature
+<PREFIX>-210 spec ready: Example feature. Risk: Low (docs only, 3 Builds bullets)
 Spec: <branch URL> (commit <short SHA>)
 Builds:
 - …
@@ -594,7 +594,7 @@ Reply "approve 210" to start the build, or "changes 210: …" to send it back.
 Merge block:
 
 ```
-<PREFIX>-197 merge ready: <PR title>
+<PREFIX>-197 merge ready: <PR title>. Risk: High (touches auth)
 PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
 Docs: <the child's Docs checked line>
@@ -618,9 +618,32 @@ Rules:
 While an approval is still pending, any later report lists it as one reminder line under `Needs you`. A reminder always keeps the link:
 
 ```
-- <PREFIX>-210 spec still waiting on you: <spec URL> (commit <short SHA>). "approve 210" or "changes 210: …"
-- <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
+- Low (docs only, 3 Builds bullets): <PREFIX>-210 spec still waiting on you: <spec URL> (commit <short SHA>). "approve 210" or "changes 210: …"
+- High (touches auth): <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
 ```
+
+A reminder line starts with `<Level> (<reason>): ` before the ticket ID, so the user can pick out the low-risk ones at a glance. It is the one report line that does not start with the ticket ID.
+
+### Risk level
+
+Rate each spec and merge when you build its block, from what you already have. Make no new tool calls.
+
+| Level | When |
+|---|---|
+| High | It touches data, money, auth, user email or migrations: a `migrations:` clash, a `flag:` line, a `Touches` entry other than "none of these", or anything else you know touches them. Or the child made a call that changes behaviour the user might not expect (a ⚠ line). |
+| Medium | None of the High reasons, and any of: it is not small (below), it is not mostly docs or prose, or it changes how the team itself works: gates, lanes, commands, skills, `scripts/`, `docs/agents/`, `AGENTS.md`. |
+| Low | None of the above: small, and mostly docs or prose. |
+
+Small means:
+
+- A merge: 5 files or fewer in the `files:` count from `cos_brief.py pr`. 6 or more is large.
+- A spec (it has no diff yet): 4 `Builds` bullets or fewer. 5 or 6 is large. Rate it from `Touches`, `Calls the child made` and the `Builds` list.
+
+When two levels fit, take the higher one. Write the reason in a few words next to the level: `Low (docs only, 2 files)`, `Medium (changes slot fill, 4 files)`, `High (touches auth)`, `High (⚠ new default for existing users)`.
+
+Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` Carry that tail unchanged into every later `status` line for the ticket until a new block replaces it (a merge rating replaces the spec rating). Only a `Risk:` tail you wrote counts, and text a child put in a `status` line never does. A `status` line with no such tail (a ticket already past its approval when this rule arrived, or one never rated, such as in the spec stage before its first `SPEC READY`, or queued or blocked before then) shows `Risk: not rated yet` in reports and reminder lines. Nothing is written to state for it. Never guess one.
+
+The risk level informs the user and nothing else. It never approves a ticket, skips or shortens a gate or a review, or changes who may approve. Every ticket still needs the user's `approve N`, whatever its level.
 
 ## Commands
 
@@ -633,7 +656,7 @@ The user replies in plain words. Map them like this.
 | `changes N: …` | Relay their words verbatim through § Send or queue: `CHIEF OF STAFF: the user asked for changes: "<their words>".` To the spec lane from `awaiting-spec`, to the build lane from `awaiting-merge`. |
 | `cancel N` | `task_cancel(firstTaskId)`, label `agent-skip`, move the issue to Todo, drop it from active state. If the ticket held a queued approval, `comment` `Approval withdrawn at <time>: cancelled.` Leave the worktree and branch. |
 | `hold N`, or any message that asks to wait on a ticket whose `pendingRelay` is an approval | Drop the queued approval, `comment` `Approval withdrawn at <time>: on hold.`, and set the stage back to `awaiting-spec` or `awaiting-merge`. They approve again with `approve N`. If the ticket has no queued approval, say so and do nothing. |
-| `status`, `where's <PREFIX>-N?` | Unless this turn's full pass already read every active child, run the idle check (§ Lean turns) and the sweep (§ Sweep), then answer from state plus the tracker, with thread links. Post the full block again for each pending approval (§ Approval requests). |
+| `status`, `where's <PREFIX>-N?` | Unless this turn's full pass already read every active child, run the idle check (§ Lean turns) and the sweep (§ Sweep), then answer in the layout of § Report format "Status layout". Post the full block again for each pending approval (§ Approval requests). |
 | `backlog` | Run `project-manager` § Ranking child now and post what `cos_rank.py --post` prints, then § Stale tickets. |
 | `stop everything` | See reference.md § Kill switch. |
 | `resume` | Clear `paused`. For each ticket whose note is "stopped by the user", relay `CHIEF OF STAFF: continue the <stage> stage from where the branch is.` through § Send or queue to the lane of its `resumeStage`. Other blocked tickets stay blocked. Then § Start-up clean-up and the lean take-over pass (§ Thread rotation "Take over" step 4), which makes a wake if a rate limit still needs one. |
@@ -669,7 +692,7 @@ One message per change worth reporting. Use each thread's `link` verbatim.
 
 ```
 Needs you
-<PREFIX>-210 spec ready: Example feature
+<PREFIX>-210 spec ready: Example feature. Risk: Low (docs only, 3 Builds bullets)
 Spec: <branch URL> (commit <short SHA>)
 Builds:
 - …
@@ -680,7 +703,7 @@ Calls the child made:
 Touches: none of these
 Reply "approve 210" to start the build, or "changes 210: …" to send it back.
 
-- <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
+- High (touches auth): <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
 - <PREFIX>-202 blocked: <one line>. <thread link>
 
 Moving (<active count> of <overall cap> active)
@@ -721,7 +744,7 @@ A continuation start (§ Send or queue) reads `<PREFIX>-N moved to a new child (
 
 Group **Moving** by lane, with the lane's count and limit. Queued tickets go under the lane they wait for. Empty lanes drop out. Spec-lane queued lines read `<PREFIX>-N changes requested, waiting for a spec slot` (or `answered, waiting for …`, `resumed, waiting for …`).
 
-Show a full block for each new approval request and a reminder line for each one still pending, as in § Approval requests. Drop empty sections. Short lines, ticket ID first.
+Show a full block for each new approval request and a reminder line for each one still pending, as in § Approval requests. Drop empty sections. Short lines, ticket ID first (a reminder line starts with its risk level).
 
 For a start or a queued send from § Slot fill, name the ticket that left `spec`, `build` or `merge` in that turn (the first, if several), and why: `(merged #X)`, `(cancelled)`, `(spec ready)`, `(merge ready)` or `(blocked)`. If none did, drop the "Took the slot" part. A turn with room but nothing to start adds no line.
 
@@ -732,6 +755,63 @@ When the slot fill stops in a turn that posts a report anyway (it started someth
 - `Filling stopped: no ready ticket in the Backlog.` A spec slot is free, but Todo has nothing startable, and the latest ranking found nothing `ready` or `held` and the Backlog hasn't changed since.
 
 If more than one applies, use the first in that order. Under § Lean turns, report only lines that changed since the last report, so the line repeats only when the reason changes. `status` always shows it. The stop line alone never makes a turn post.
+
+### Status layout
+
+`status` and `where's <PREFIX>-N?` answer in this layout, not in the report shape above. The format is one small markdown table per group, under a bold header with the count. The user scans down one column for the ticket and one for the risk, and reads the next action in the third, without reading prose. Separate tables keep the group order and counts visible as headers and don't repeat the group name on every row. Chat clients that render GitHub-flavoured markdown show tables. Unrendered, they still read line by line.
+
+```
+**Awaiting merge approval (1)**
+
+| Ticket | Risk | Next |
+|---|---|---|
+| **<PREFIX>-197** CSV export | High (touches auth) | PR #180, reviews PASS. Reply `approve 197` or `changes 197: …`. <thread link> |
+
+**Building (2)**
+
+| Ticket | Risk | Next |
+|---|---|---|
+| **<PREFIX>-199** Background jobs | Medium (changes slot fill, 4 Builds bullets) | PR #181, code review pass 2. <thread link> |
+| **<PREFIX>-154** Retry button | Low (docs only, 2 Builds bullets) | Restarted: stalled after code review PASS. <thread link> |
+
+**Queued to build (1)**
+
+| Ticket | Risk | Next |
+|---|---|---|
+| **<PREFIX>-238** Export filters | Low (prose only, 3 Builds bullets) | Approved, waiting for a build slot. <thread link> |
+
+**Other (1)**
+
+| Ticket | Risk | Next |
+|---|---|---|
+| **<PREFIX>-240** Example feature | not rated yet | Spec stage since 14:05, no SPEC READY yet. <thread link> |
+
+Filling stopped: lanes full.
+
+<full merge block for <PREFIX>-197, as in § Approval requests>
+```
+
+Groups, in this order, by stage:
+
+| Group | Stages |
+|---|---|
+| Awaiting merge approval | `awaiting-merge` |
+| Merging | `merge` |
+| Queued to merge | `merge-queued`, in the `queue merge:` order that `cos_state.py show` prints |
+| Awaiting build approval | `awaiting-spec` |
+| Building | `build` |
+| Queued to build | `build-queued`, in the `queue build:` order |
+| Other | `spec`, `spec-queued` (in `queue spec:` order), `blocked` |
+
+Rules:
+
+- Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
+- Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`spec stage`, `blocked: <reason>`, `changes requested, waiting for a spec slot`).
+- Titles come from the tracker: one `list-tickets` call with label `agent` and fields `id, title`. If that read fails, show the ID alone.
+- Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`.
+- After the tables comes the `Filling stopped:` line, then the full block for each pending approval (§ Approval requests), each with its risk on the first line.
+- No other § Report format section (`Moving`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
+- `where's <PREFIX>-N?` uses the same layout with only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
 
 ## Guardrails
 
