@@ -6,7 +6,7 @@
 
 ## What shipped
 
-- `agent-team/scripts/test_cos_ready_check.py`: `test_live_gh_call`, one table-driven test of the real `gh` path with `subprocess.run` stubbed. Rows: a failed `gh` call exits 2, paginated output (several arrays back to back) reports `pushed` for the right branch, empty refs report `writing`.
+- `agent-team/scripts/test_cos_ready_check.py`: `test_live_gh_call`, one table-driven test of the real `gh` path with `subprocess.run` stubbed. Rows: a failed `gh` call exits 2, paginated output (several arrays back to back, two branches at different shas) reports `pushed` for the ticket's own branch, empty refs report `writing`. Every row also checks the `gh api --paginate .../matching-refs/heads/<prefix>` command that was built.
 - `agent-team/scripts/test_symlinked_root.py`: one `cos_ready_check` row.
 
 ## Differs from the spec
