@@ -1,7 +1,8 @@
 # CW-54: Skip the security review on docs-only diffs and merge the two review passes for small ones
 
 **Ticket:** [CW-54](https://github.com/dbeallor/collective-wisdom/issues/54)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #93, as specified
 
 ## Goal
 
