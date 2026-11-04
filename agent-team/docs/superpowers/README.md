@@ -1,39 +1,52 @@
 # Superpowers
 
-Design and build history for the project. Specs come before plans. As-built notes and release notes come after a milestone ships.
+Design and build history for the project. A spec comes first, then a plan. When the PR ships, the spec says so.
 
-## Index
+## Layout
 
-Entries live in `index/`, one file per ticket, so two PRs never edit the same lines.
+- `specs/`: one design spec per ticket.
+- `plans/`: the implementation plan. A ticket that changes only markdown files (docs, skills, role docs) may skip it. A ticket that changes a script, a test, `install.sh` or config writes one.
+- `as-built/`: written only when the build differs from the spec.
 
-- `index/<prefix>-N.md` (`<prefix>` is the issue prefix in lower case, from `docs/agents/project.md`) holds the rows for that ticket: spec and plan at kickoff, as-built at closeout.
-- A doc with no ticket goes in `index/<YYYY-MM-DD>-<slug>.md`.
+Files are named `<YYYY-MM-DD>-<slug>...md`. There are no index files to edit.
 
-Each file is a three-column table. Links are relative to `index/`, so they start with `../`:
+`python3 scripts/docs_index.py` prints every spec, plan and as-built as one table sorted by date. The title is the doc's first `# ` heading.
+
+## Closeout
+
+When the PR exists, the child edits the spec header:
 
 ```markdown
-| Date | Type | Doc |
-|------|------|-----|
-| 2026-11-02 | Spec | [Title (ABC-1)](../specs/<date>-<slug>-design.md) |
+**Status:** Shipped
+**Shipped:** in PR #57, as specified
 ```
 
-`python3 scripts/docs_index.py` prints every entry as one table sorted by date.
+When the build differs from the spec, the line links an as-built file instead:
 
-`scripts/merge_pr.py` refuses to merge a PR unless it adds a file under `as-built/`, marks a spec `**Status:** Shipped`, and includes an `index/` file that links the as-built.
+```markdown
+**Shipped:** in PR #57, with differences: [as-built](../as-built/<date>-<slug>.md)
+```
+
+The as-built holds only the differences: the dateless `**Shipped:** in PR #N`, `**Ticket:**` and `**Spec:**` lines, then `## Differs from the spec` with a bullet per difference. Add `## Checks that didn't run` only when something the plan listed could not run. "Differs" means a reader of the spec would be wrong about what shipped: a behavior, flag, exit code, file or rule the spec states differently or not at all. A refactor of how the code is laid out is not a difference.
 
 ## Release notes
 
-Every PR adds one release note, in its closeout commit, that says in plain words what changed for someone using the agent team.
-
-- `release-notes/<prefix>-N.md`, named like the index file. A doc with no ticket goes in `release-notes/<YYYY-MM-DD>-<slug>.md`.
-- First line: `# <YYYY-MM-DD> <PREFIX>-N: <title>`, dated the day the closeout commit is written (a note with no ticket starts `# <YYYY-MM-DD> <title>`). Then one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. File lists and implementation detail go in the as-built.
+The PR body has a `## Release note` section, one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. No file lists or implementation detail. The text runs from the heading to the next `## ` heading or the end of the body.
 
 ```markdown
-# 2026-11-03 ABC-1: Release notes in the closeout docs
+## Release note
 
-Every PR now adds a short release note under `docs/superpowers/release-notes/`. Run `python3 scripts/release_notes.py` to read them all, newest first.
+`install.sh --update <app>` now moves an app to the newest commit and reports what changed.
 ```
 
-`python3 scripts/release_notes.py` prints every note, newest first. A note with no dated first line is printed last, with a warning on stderr. With no notes yet it prints `No release notes yet.`
+`python3 scripts/release_notes.py` prints every note, newest first: the files under `release-notes/` (older PRs) and the notes in merged PR bodies. A file note with no dated first line is printed last, with a warning on stderr. If it cannot read the merged PRs it prints the file notes, says why on stderr and exits 1. With no notes yet it prints `No release notes yet.`
 
-`scripts/merge_pr.py` also refuses to merge a PR unless it adds a file under `release-notes/` whose first line is a dated heading.
+## Merge gate
+
+`scripts/merge_pr.py` refuses to merge a PR unless:
+
+- a spec in the PR has `**Status:** Shipped`;
+- a spec has `**Shipped:** in PR #N, as specified`, or the PR adds a file under `as-built/`;
+- the PR body has a non-empty `## Release note` section, or the PR adds a `release-notes/` file; any added `release-notes/` file must start with a dated heading.
+
+The file branches keep PRs opened under the old rules mergeable.

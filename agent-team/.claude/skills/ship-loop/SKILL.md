@@ -2,7 +2,7 @@
 name: ship-loop
 description: >-
   Orchestrates the full ship workflow from kickoff through
-  merge and as-built close. Use when the user says ship feature, full cycle,
+  merge and closeout. Use when the user says ship feature, full cycle,
   plan build pr merge, or wants end-to-end feature work.
 user-invocable: true
 ---
@@ -65,9 +65,9 @@ End-of-phase handoff: report **merge-ready** (with PR link and security pass num
 
 ### 6. Close
 
-Usually nothing left: as-built, index entry and release note already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; as-built `**Shipped:** in PR #N` is dateless.
+Usually nothing left: the spec's `**Shipped:**` line, any as-built and the PR body's release note already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; `**Shipped:** in PR #N` is dateless; the index is generated, so there are no rows to fix.
 
-If an index gap remains, fix via a normal PR, not a direct commit on `main`.
+If a closeout doc is wrong after merge, fix it via a normal PR, not a direct commit on `main`.
 
 Offer worktree cleanup per **finishing-a-development-branch** when appropriate (often already offered in phase 5).
 
@@ -93,7 +93,7 @@ Applies only when the task text or a relayed message says `TEAM MODE`. A Chief o
   - <call>
   Touches: <data, money, auth, user email, migrations, or "none of these">
   ```
-- **Build stage.** Starts after a relayed spec approval. Write the plan, don't wait for approval, then run phases 2, 3 and 4 without stopping. Commit and push as you go. Post each code review and security review comment on the PR with `./scripts/gh.sh pr comment <N> --body-file <path>` (as the reviewer's user, see **GitHub users**) before you say anything about it in the thread, and keep the comment URL it prints. Before `MERGE READY`, read `./scripts/gh.sh pr view <N> --json comments,headRefOid`. The latest `## Code review` and `## Security review` comments must both end with a PASS verdict, and no commit may have been pushed after them. The one exception is a head that moved only because `main` was merged in: after `wait-for-ci.sh` passes, run `./scripts/pr_diff_delta.py <N> <reviewed SHA>`, where the reviewed SHA is the full 40-character SHA (from `./scripts/gh.sh pr view <N> --json commits`) of the head the older of the two latest PASS reviews was posted on (if they were posted on different heads, skip the script and run both reviews again). On `same`, post (full 40-character SHAs) `Head moved to <head> by merging main; PR diff unchanged since <reviewed>. Reviews from <reviewed> stand.` with `./scripts/gh.sh pr comment` (as the builder), keep both review links in `MERGE READY`, and make `Head:` the new head. The note is required; `scripts/merge_pr.py` looks for it. On `changed`, or exit 2, run both reviews on the new head. In every other case where a review is missing or stale, run it on the current head and post its result first. Stop with a final message whose last block is `MERGE READY`, in this order. The Chief of Staff checks it against the PR, so the head SHA and both links must be current.
+- **Build stage.** Starts after a relayed spec approval. Write the plan (a ticket that changes only markdown files skips it and builds from the spec), don't wait for approval, then run phases 2, 3 and 4 without stopping. Commit and push as you go. Post each code review and security review comment on the PR with `./scripts/gh.sh pr comment <N> --body-file <path>` (as the reviewer's user, see **GitHub users**) before you say anything about it in the thread, and keep the comment URL it prints. Before `MERGE READY`, read `./scripts/gh.sh pr view <N> --json comments,headRefOid`. The latest `## Code review` and `## Security review` comments must both end with a PASS verdict, and no commit may have been pushed after them. The one exception is a head that moved only because `main` was merged in: after `wait-for-ci.sh` passes, run `./scripts/pr_diff_delta.py <N> <reviewed SHA>`, where the reviewed SHA is the full 40-character SHA (from `./scripts/gh.sh pr view <N> --json commits`) of the head the older of the two latest PASS reviews was posted on (if they were posted on different heads, skip the script and run both reviews again). On `same`, post (full 40-character SHAs) `Head moved to <head> by merging main; PR diff unchanged since <reviewed>. Reviews from <reviewed> stand.` with `./scripts/gh.sh pr comment` (as the builder), keep both review links in `MERGE READY`, and make `Head:` the new head. The note is required; `scripts/merge_pr.py` looks for it. On `changed`, or exit 2, run both reviews on the new head. In every other case where a review is missing or stale, run it on the current head and post its result first. Stop with a final message whose last block is `MERGE READY`, in this order. The Chief of Staff checks it against the PR, so the head SHA and both links must be current.
 
   ```
   MERGE READY

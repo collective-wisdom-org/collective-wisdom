@@ -28,6 +28,7 @@ from urllib.parse import quote
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
 import project_config  # noqa: E402
+import release_notes  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location(
     "pr_diff_delta", Path(__file__).with_name("pr_diff_delta.py")
@@ -40,9 +41,9 @@ ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
-    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository"
+    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body"
 )
-INDEX = r"docs/superpowers/index/[^/]+\.md"
+AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
 RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
@@ -75,7 +76,7 @@ def read_facts(pr, approved, run):
         want = [
             x["path"]
             for x in f["files"]
-            if (re.fullmatch(f"{INDEX}|{SPECS}", x["path"]) and x["changeType"] != "DELETED")
+            if (re.fullmatch(SPECS, x["path"]) and x["changeType"] != "DELETED")
             or (re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
         ]
         for path in want:
@@ -203,26 +204,16 @@ def gate(f, delta=real_delta):
         if problem:
             return problem
     paths = f["files"]
-    added = [
-        x["path"]
-        for x in paths
-        if x["changeType"] == "ADDED"
-        and re.fullmatch(r"docs/superpowers/as-built/[^/]+\.md", x["path"])
-    ]
-    if not added:
-        return "closeout missing: no added docs/superpowers/as-built/*.md in the PR"
     specs = [p for p in f["docs"] if re.fullmatch(SPECS, p)]
     if not any(re.search(r"^\*\*Status:\*\*\s*Shipped\b", f["docs"][p], re.M) for p in specs):
         return "closeout missing: no spec in the PR has **Status:** Shipped"
-    index = [t for p, t in f["docs"].items() if re.fullmatch(INDEX, p)]
-    if not index:
-        return "closeout missing: no docs/superpowers/index/*.md in the PR"
-    rel = added[0].removeprefix("docs/superpowers/")
-    if not any(a.removeprefix("docs/superpowers/") in t for a in added for t in index):
-        return f"closeout missing: no index entry in the PR links {rel}"
+    pr = re.escape(str(f["pr"]))
+    as_specified = any(re.search(rf"^\*\*Shipped:\*\*\s*in PR #{pr}, as specified\s*$", f["docs"][p], re.M) for p in specs)
+    if not as_specified and not any(x["changeType"] == "ADDED" and re.fullmatch(AS_BUILT, x["path"]) for x in paths):
+        return f'closeout missing: no spec says "**Shipped:** in PR #{f["pr"]}, as specified" and no added docs/superpowers/as-built/*.md'
     notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
-    if not notes:
-        return "closeout missing: no added docs/superpowers/release-notes/*.md in the PR"
+    if not notes and not release_notes.section(f["body"]):
+        return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
     for p in notes:
         first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
         if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):

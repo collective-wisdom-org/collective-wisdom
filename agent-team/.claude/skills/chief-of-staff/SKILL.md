@@ -19,13 +19,12 @@ user-invocable: true
 
 You route work. You never write code, edit branches, or merge. Read `docs/agents/chief-of-staff.md` first, `docs/agents/project.md` (tracker, its scope `<TEAM>`, issue prefix `<PREFIX>`, repo, branch pattern, repo invariants), and `ship-loop` § Repo invariants and § Team mode.
 
-First, on every turn, read state. State says this thread is retired when `chiefThreadId` is not this thread's ID, or this thread's ID is in `retiredThreads`. State alone is not enough, because any local agent can write the file: you are retired only when state says so **and** the Moved-to check (rotation.md § Thread rotation "Moved-to check") passes on this thread. The successor is the link in that `Moved to` message, not `chiefThreadId` from state.
+First, on every turn, read state. State says this thread is retired when `chiefThreadId` is not this thread's ID, or this thread's ID is in `retiredThreads`. What state is trusted for: `docs/agents/chief-of-staff.md` § What it trusts.
 
-- State says retired but the check fails:
-  - `rotation` is non-null, `rotation.from` is this thread's ID and its `startedAt` is more than 10 minutes old: run rotation.md § Thread rotation: Failed handoff.
-  - A younger `rotation`, or one from another thread: take no action. On a turn where the user wrote, reply `State says this thread is retired (rotation from <id>, started <time>) but no handoff is confirmed. Check .agent-team/state.json.`
-  - `rotation` is null: do nothing and tell the user `State says this thread is retired but it never handed off. Check .agent-team/state.json.`
-- Retired: do only what rotation.md § Thread rotation: Retired thread says (read it), then stop.
+- `rotation` is non-null, `rotation.from` is this thread's ID and its `startedAt` is more than 10 minutes old: run rotation.md § Thread rotation: Failed handoff, whether or not state says this thread is retired (a handoff that died before step 5 leaves it not retired).
+- Otherwise, when state says this thread is retired (a younger `rotation` included, since the new thread may still be taking over), its successor is the `successor` of its `retiredThreads` entry. An entry without `successor` (written before the field existed), or no entry, falls back to the Moved-to check (rotation.md § Thread rotation "Moved-to check") on this thread, once per wake, for the link only. If that fails too, name no successor, take no action, and on a turn where the user wrote, reply `State says this thread is retired but names no successor. Check .agent-team/state.json.`
+- When neither applies, the check does nothing.
+- A retired thread does only what rotation.md § Thread rotation: Retired thread says (read it), then stops.
 - `take over` and `start the team` skip this check only when this thread is the new thread of an unfinished handoff: `rotation.to` is this thread, or `rotation.to` is null and `rotation.from` matches the id in the launch message (take over) or state names this thread as `chiefThreadId` or has none (start the team). Otherwise the check applies to them like any other message: a message that fails it gets no reply that names a successor.
 - A run-started notice skips the check (it needs no tool calls), and so does a run-finished notice for the `Backlog ranking` child (§ Lean turns).
 
@@ -133,7 +132,7 @@ Nothing goes past a lane's limit or the overall cap. Other sections say "the spe
   "takeoverContext": {"threadId": "…", "tokens": 76000},
   "skillCommit": "<sha>…",
   "retiredThreads": [
-    {"threadId": "f402e3fe-…", "retiredAt": "2026-11-02T15:10:00Z", "archivedAt": null}
+    {"threadId": "f402e3fe-…", "retiredAt": "2026-11-02T15:10:00Z", "archivedAt": null, "successor": "9c1a77b0-…"}
   ],
   "rotation": null,
   "rotationHeldUntil": null,
@@ -180,7 +179,7 @@ Each key's meaning, the `status` line shape and the `pendingRelay` rule: state-k
 
 ## Full pass
 
-1. **Load state** with `python3 scripts/cos_state.py show`. If `rotation` is set, rotation.md § Thread rotation: Failed handoff may apply; if this thread is `rotation.to`, the late take over applies (rotation.md § Thread rotation, the paragraph after "Take over" step 5). Note any `unknown keys:` it prints (except `scheduledTaskId`, which startup.md § Start-up clean-up drops silently) for the report; step 5's `prune` drops them. If `paused`, answer commands only and stop. Backfill `parentThreadId` for tickets lacking it (state-keys.md § State keys "parentThreadId").
+1. **Load state** with `python3 scripts/cos_state.py show`. If `rotation` is set, rotation.md § Thread rotation: Failed handoff may apply; if this thread is `rotation.to`, the late take over applies (rotation.md § Thread rotation, the paragraph after "Take over" step 5). Note any `unknown keys:` it prints (except `scheduledTaskId`, which startup.md § Start-up clean-up drops silently) for the report; step 5's `prune` drops them. If `paused`, answer commands only and stop.
 2. **Read children.** Queued tickets and `awaiting-*` tickets are idle: skip them. For each ticket in `spec`, `build` or `merge`, read `recentRuns[0].status` and the thread's `updatedAt`, and call `t3_thread_read` on the child (`afterPosition` from state, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`). After each read, `apply` a `set` op with the returned `nextPosition` as `lastPosition` and `lastSeenAt` now (not on the stage op into `awaiting-*` or `blocked`: the script stamps `lastSeenAt` there, as the approval cut-off, and rejects a `set` of it). Look at the last assistant message of a finished run for `SPEC READY`, `MERGE READY`, `BLOCKED:` or `MERGED #`.
    - `SPEC READY`: `stage` op to `awaiting-spec`, with `specPath`, `specSha` and `branch` in `set`. Then run approvals.md § Approval requests.
    - `MERGE READY`: `stage` op to `awaiting-merge`, with `pr` and `headSha` in `set`. Then run approvals.md § Approval requests.
@@ -300,7 +299,7 @@ Reads:
 - `list-tickets` always asks for only the fields the step uses.
 - `get-ticket` names its fields. Ask for `description` only in the readiness check, in the project manager's duplicate check, and in the Todo fill's step 2.
 - `t3_thread_read` on a child: `afterPosition` from state, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`. If a marker block is cut off, read just that item with `itemId` and `textOffset`.
-- Other thread reads are the ones named in their own sections (the Moved-to check, the size check, the rebuild reads, and the exit-2 fallbacks of the queued approval re-read and the `createdBy: "user"` command check) and use the limits given there.
+- Other thread reads are the ones named in their own sections (the Moved-to check as the legacy successor fallback, the size check, the rebuild reads, and the exit-2 fallbacks of the queued approval re-read and the `createdBy: "user"` command check) and use the limits given there.
 - `t3_thread_list` only for the state rebuild. Never as a look around.
 - Don't reopen a skill file this thread has already loaded.
 
@@ -333,7 +332,7 @@ Run `python3 scripts/cos_sweep.py --thread <this thread's id>` (the sweep) in th
 
 - Full pass: at the end of step 2, after the child reads. That covers start-up, the rate-limit wake and every message from the user.
 - Every run-finished notice and forwarded `CHIEF OF STAFF NOTICE:`, after the idle check and before § Slot fill. Not for the `Backlog ranking` child.
-- Take over, `resume` and resume mode: step 4.3 of rotation.md § Thread rotation "Take over".
+- Take over, `resume` and resume mode: step 4.2 of rotation.md § Thread rotation "Take over".
 - `status` and `where's <PREFIX>-N?`, with the idle check.
 
 Also on a ticket helper's run-finished notice (that turn already runs the slot fill). Not on a run-started notice, the `Backlog ranking` child's notice, the turn that starts a helper, or a turn of cross-repo.md § Cross-repo requests that runs no full pass (the sending turn, the turn that receives a request, and the turn that receives a reply).

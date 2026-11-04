@@ -28,7 +28,7 @@ If there is no PR yet (or the user said *make a pr* / *open pr*), run **Open** f
 
 ### Superpowers docs
 
-Read and follow **superpowers-project-memory** § PR checklist, with one override: before `gh pr create`, only the spec (retroactive if needed) and its plan/index rows must exist (add your rows to `docs/superpowers/index/<prefix>-N.md`). The as-built, spec **Shipped** status, and as-built index row come right after the PR exists, per § Closeout docs below.
+Read and follow **superpowers-project-memory** § PR checklist, with one override: before `gh pr create`, only the spec (retroactive if needed) and its plan must exist. The plan may be absent for a ticket that changes only markdown files (`ship-loop` § Team mode, Build stage). There are no index rows to write. The spec's **Shipped** line and any as-built come right after the PR exists, per § Closeout docs below.
 
 ### Create PR
 
@@ -37,7 +37,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 **Overlays on creating-pr:**
 
 - Run its `gh` calls as `./scripts/gh.sh`.
-- PR body: link **<PREFIX>-N** (`ticket-url`), spec path, and as-built path (after closeout commit below). When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
+- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section (see § Closeout docs), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
 - Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** `./scripts/gh.sh pr checks --watch`, or a PR/CI subscription when the agent has one.
@@ -46,24 +46,41 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 
 Right after the PR exists (PR number known), before the first code review pass:
 
-Read **superpowers-project-memory** for as-built template. **Overrides:**
+Closeout is a line in the spec and a section in the PR body. Edit the linked spec:
 
-- As-built header: `**Shipped:** in PR #N` (no date). Also `**Ticket:** <PREFIX>-N`.
-- Set linked spec `**Status:** Shipped`.
-- Add your as-built row to the ticket's index file. Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
-- Write the release note at `docs/superpowers/release-notes/<prefix>-N.md` (a doc PR with no ticket uses `<YYYY-MM-DD>-<slug>.md`). The first line is `# <YYYY-MM-DD> <PREFIX>-N: <title>`, dated the day you write it (a note with no ticket starts `# <YYYY-MM-DD> <title>`). The body is one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. No file lists or implementation detail; those live in the as-built.
+- Set `**Status:** Shipped`.
+- Add `**Shipped:** in PR #N, as specified` (no date) when the build matches the spec.
+- When the build differs, write an as-built and link it instead: `**Shipped:** in PR #N, with differences: [as-built](../as-built/<file>.md)`. "Differs" means a reader of the spec would be wrong about what shipped: a behavior, flag, exit code, file or rule the spec states differently or not at all. A refactor of how the code is laid out is not a difference.
 
-Commit on the feature branch: `docs: as-built for <PREFIX>-N <short>` (include spec, index and release note in the same commit). Push before step 1 of the agent review loop.
+As-built template (only the differences; the PR and its review comments hold the rest):
 
-If the PR body was created before closeout, update it to link the as-built path.
+```markdown
+# As-built: <title>
 
-During later fix commits (phase 3 or 4): if a fix changes what ships, update the as-built and the release note in the same commit. The docs check re-run below backs this up.
+**Shipped:** in PR #N
+**Ticket:** <PREFIX>-N
+**Spec:** [<spec file>](../specs/<spec file>)
+
+## Differs from the spec
+
+- <what the spec says, and what shipped instead>
+
+## Checks that didn't run
+
+- <only when something the plan listed could not run>
+```
+
+Add the release note to the PR body, as a `## Release note` section: one to three sentences for a user of the agent team, saying what they will notice and what they need to do, if anything. No file lists or implementation detail. Update the body with `./scripts/gh.sh pr edit <N> --body-file <path>`.
+
+Commit the spec (and as-built, if any) on the feature branch: `docs: shipped line for <PREFIX>-N <short>`. Push before step 1 of the agent review loop.
+
+During later fix commits (phase 3 or 4): if a fix changes what ships, update the `**Shipped:**` line or the as-built in the same commit, and the PR body's release note. The docs check re-run below backs this up.
 
 ### Docs check
 
 A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `docs/agents/documenter.md`. You apply the fixes.
 
-1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, and the as-built, spec, release note and `docs/superpowers/index/<prefix>-N.md` paths.
+1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body.
 2. Check the documenter changed nothing (`git status --porcelain` is empty and `HEAD` is the SHA you passed); if it did, stop with `BLOCKED:`. Fix each finding that is right. Commit `docs: bring docs in line with <PREFIX>-N` and push. Note any finding you reject, and why; it goes in the review brief.
 3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a `main` merge that `scripts/pr_diff_delta.py` calls `same`.
 4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in `main` isn't read as part of the change.
@@ -106,7 +123,7 @@ A docs check re-run that should have happened and didn't, or a rejected docs fin
 **Loop until pass:**
 
 1. Review → post comment (pass N) per shape above.
-2. If **CHANGES NEEDED**, fix all **Must fix** items → commit → push. Keep the as-built current if the fix changes what ships (same commit).
+2. If **CHANGES NEEDED**, fix all **Must fix** items → commit → push. Keep the `**Shipped:**` line or as-built, and the PR body's release note, current if the fix changes what ships (same commit for the docs).
 3. `./scripts/gh.sh pr checks <N> --watch` until checks finish.
 4. Re-review (focus on code changed since last pass) → next pass comment.
 5. Repeat until the latest agent comment verdict is **PASS**.
@@ -137,7 +154,7 @@ User asks Bugbot (Cursor only) → read the **review-bugbot** skill (inform your
 
 ### Done when
 
-The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout docs (as-built, spec **Shipped**, index entry, release note) are in the PR, and the docs check is current (§ Docs check). Report **code review complete** and proceed to **security-review** (phase 4). Do **not** report merge-ready here.
+The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout (spec **Shipped** line, any as-built, the PR body's release note) is in the PR, and the docs check is current (§ Docs check). Report **code review complete** and proceed to **security-review** (phase 4). Do **not** report merge-ready here.
 
 When running **ship-loop**, repeat **Feedback loop** until code review **PASS** or blocked, then continue to phase 4 in the same session.
 
