@@ -2,13 +2,14 @@
 """Would a new worktree on origin/<branch> have everything an old child's worktree has?
 
 Usage:
-    scripts/cos_worktree_check.py <PREFIX>-N <worktree path> [--file STATE] [--root DIR]
+    scripts/cos_worktree_check.py <PREFIX>-N [--file STATE] [--root DIR] -- <worktree path>
 
 Reads the ticket's `branch` from .agent-team/state.json (under the repo root unless --file is
 given) and checks the worktree, in this order: the branch matches <branch head><prefix>-<N>-<words>;
 the path is one of `git -C <root> worktree list --porcelain` (compared resolved); HEAD is that
 branch; `status --porcelain --untracked-files=all` is empty (ignored files don't count); and
-`ls-remote origin refs/heads/<branch>` prints the same sha as the worktree's HEAD. Prints one line:
+`ls-remote --heads origin refs/heads/<branch>` lists the exact ref `refs/heads/<branch>` (decoys
+like `refs/heads/a/refs/heads/<branch>` are skipped) at the same sha as the worktree's HEAD. Prints one line:
     safe <PREFIX>-N <branch> <full sha>
     unsafe <PREFIX>-N: <reason>
 Exit 0 safe, 1 unsafe, 2 could not run (one "cos_worktree_check: <what>" line: bad ticket, no state
@@ -30,6 +31,8 @@ import project_config  # noqa: E402
 
 ROOT = Path(__file__).absolute().parent.parent
 SHA = re.compile(r"[0-9a-f]{40}")
+# No fsmonitor daemon and no hooks from the worktree's own config.
+HARDEN = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
 
 
 def fail(msg):
@@ -40,7 +43,7 @@ def fail(msg):
 def git(*args, ok=(0,)):
     """(returncode, stdout) of a git command; exits 2 when it can't run or returns a code not in ok."""
     try:
-        done = subprocess.run(["git", *args], capture_output=True, text=True, timeout=30, errors="replace",
+        done = subprocess.run(["git", *HARDEN, *args], capture_output=True, text=True, timeout=30, errors="replace",
                               env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
     except (OSError, subprocess.SubprocessError):
         fail("git failed")
@@ -65,8 +68,11 @@ def check(branch, path, root):
         n = len(status.splitlines())
         return f"uncommitted changes ({n} file{'s' * (n != 1)})", None
     _, local = git("-C", path, "rev-parse", "HEAD")
-    _, remote = git("-C", str(root), "ls-remote", "origin", f"refs/heads/{branch}")
-    local, remote = local.strip(), remote.split("\t")[0].strip()
+    _, listed_refs = git("-C", str(root), "ls-remote", "--heads", "origin", f"refs/heads/{branch}")
+    # The pattern also matches decoys like refs/heads/a/refs/heads/<branch>: keep the exact ref only.
+    exact = [f.split("\t") for f in listed_refs.splitlines()]
+    remote = next((f[0] for f in exact if len(f) == 2 and f[1] == f"refs/heads/{branch}"), "")
+    local, remote = local.strip(), remote.strip()
     if not SHA.fullmatch(local) or (remote and not SHA.fullmatch(remote)):
         fail("unreadable sha")
     if local != remote:

@@ -15,6 +15,7 @@
 ## Differs from the spec
 
 - Step 1 of the new rule also sends to the old child when the thread read or `t3_pending_request` call fails, or the read gives no `worktreePath`. The spec named only a running run and a pending request. Added after code review, so an unreadable old child is never replaced.
+- The remote sha is matched on the exact ref `refs/heads/<branch>`, because `ls-remote` also lists decoy refs such as `refs/heads/a/refs/heads/<branch>`; no exact line means remote none. Every git call runs with `core.fsmonitor=false` and `core.hooksPath=/dev/null`. The worktree path is passed after `--`.
 
 ## Verification
 

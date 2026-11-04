@@ -47,6 +47,11 @@ def not_a_worktree(wt):
     return other
 
 
+def decoy_only(wt):
+    git(wt, "push", "origin", f"HEAD:refs/heads/zz/refs/heads/{BRANCH}")
+    git(wt, "push", "origin", "--delete", BRANCH)
+
+
 # (mutation of the pushed worktree, line the script prints, exit code); a mutation may return another path to check
 ROWS = [
     (lambda wt: None, "safe ABC-1 feat/abc-1-x ", 0),
@@ -56,6 +61,7 @@ ROWS = [
     (lambda wt: git(wt, "push", "origin", "--delete", BRANCH), "remote none)", 1),
     (lambda wt: git(wt, "switch", "-c", "other"), "unsafe ABC-1: on another branch", 1),
     (lambda wt: git(wt, "switch", "--detach"), "unsafe ABC-1: detached HEAD", 1),
+    (decoy_only, "remote none)", 1),
     (not_a_worktree, "unsafe ABC-1: not a worktree of this repo", 1),
     (ignore_only, "safe ABC-1 feat/abc-1-x ", 0),
 ]
