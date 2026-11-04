@@ -74,11 +74,11 @@ Two things ship in this PR.
 
 ### 1. The report line
 
-One sentence in `agent-team/.claude/skills/chief-of-staff/SKILL.md` § Send or queue, at the end of the first bullet (the one that sends the relay with `t3_thread_send`):
+One short paragraph in `agent-team/.claude/skills/chief-of-staff/SKILL.md` § Send or queue, after the two bullets and "A queued relay stores the relay text only". It is its own paragraph, not part of the first bullet, because that bullet applies only to a send at once and a queued relay is sent later by § Slot fill step 3:
 
-> If the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below), so report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.`
+> Whenever a relay is sent with `t3_thread_send`, at once or later from the queue (§ Slot fill), and the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below). Report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` A continuation child (below) starts under this thread instead of being sent to, so it gets no such line.
 
-- It fires on every send that goes through § Send or queue, at once or from the queue, so a queued relay sent later by § Slot fill gets the line in that turn's report.
+- It fires on every send that goes through § Send or queue, at once or from the queue, so a queued relay sent later by § Slot fill gets the line in that turn's report. That includes a queued approval written in an older thread, which always goes to the old child.
 - It does not fire for a continuation child: that path starts a new child with `delegate_task` under this thread instead of sending, so its notices arrive.
 - The line goes under Moving like the other one-off lines in this section (`moved to a new child`, `model switch failed`). § Report format is not edited.
 
@@ -88,20 +88,20 @@ One comment on #16 with each question, its answer and its reason (the table abov
 
 ### Sections touched, and overlap with other open work
 
-Only `chief-of-staff` SKILL.md § Send or queue, first bullet. Nothing else in the skill, no script, no hook, no `settings.json`.
+Only `chief-of-staff` SKILL.md § Send or queue, one new paragraph after the bullets. Nothing else in the skill, no script, no hook, no `settings.json`.
 
 - **CW-12** (building) edits § Commands `status` row, § Approval requests and § Report format (the `Needs you` example and a new `### Status layout`). It does not touch § Send or queue or the Moving group. Under CW-12 a `status` answer has no Moving section, so this line shows in the report of the turn that sent the relay, not in a later `status`. That is where it is useful: it tells the user to ask for `status`.
-- **CW-14** (spec) rewrites two later paragraphs of § Send or queue (the "keeps its child" paragraph and the T3 notice-rule paragraph) and the "Continuation child" subsection. It doesn't touch the first bullet. Once CW-14 ships, fewer relays go to old children, so the line shows less often.
+- **CW-14** (spec) rewrites two later paragraphs of § Send or queue (the "keeps its child" paragraph and the T3 notice-rule paragraph) and the "Continuation child" subsection. It doesn't touch the first bullet or the paragraph this PR adds. Once CW-14 ships, fewer relays go to old children, so the line shows less often.
 - **CW-17** (PR #26) adds § Commands rows and a § Guardrails line. No overlap.
 - **CW-15** (spec) changes no § Send or queue text.
 
 ## Testing
 
-Prose only, so no new test, per `AGENTS.md` § Testing. The existing suite (`python3 -I -m pytest -q agent-team/scripts`) and `shellcheck install.sh agent-team/scripts/*.sh` must still pass. Manual check: `git diff main` touches only § Send or queue's first bullet in the skill, plus closeout docs.
+Prose only, so no new test, per `AGENTS.md` § Testing. The existing suite (`python3 -I -m pytest -q agent-team/scripts`) and `shellcheck install.sh agent-team/scripts/*.sh` must still pass. Manual check: `git diff main` touches only that new paragraph in the skill, plus closeout docs.
 
 ## Calls I made (surprising first)
 
-- ⚠ The line covers only relays sent through § Send or queue. The stuck-check restart in § Full pass step 3 also uses `t3_thread_send` and can finish unannounced, but it doesn't go through § Send or queue, and CW-14 is rewriting that path into continuation children. Adding it here would mean editing a section CW-14 changes and going past "do only this".
+- ⚠ The line covers only relays sent through § Send or queue. The stuck-check restart in § Full pass step 3 and the send-backs in § Approval requests (`spec not found`, the `MERGE READY` mismatch) also use `t3_thread_send` and can finish unannounced, but they don't go through § Send or queue, and CW-14 is rewriting that path into continuation children. Adding it here would mean editing a section CW-14 changes and going past "do only this".
 - ⚠ The rule sits in § Send or queue, not § Report format, so this PR stays out of CW-12's sections. That matches how the section already reports `moved to a new child`.
 - A merge relay for a PR with no ticket in state (PR #18's case) doesn't go through § Send or queue, so it gets no line. The Chief of Staff wrote the warning by hand there; this ticket doesn't make that automatic.
 - I counted the 15 minutes since CW-11 merged as the evidence the ticket asks for, rather than holding a spec slot to collect more.

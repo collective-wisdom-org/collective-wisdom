@@ -210,7 +210,7 @@ Stages: `spec`, `awaiting-spec`, `spec-queued`, `build-queued`, `build`, `awaiti
 
 Every relay that puts a child back to work goes through here. Given a ticket, the target lane and the relay text:
 
-- If the lane's count is under its limit, the overall count is under the overall cap, **and** no ticket is in that lane's `<lane>-queued` stage: send the relay with `t3_thread_send`, then a `stage` op to the lane's active stage. If the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below), so report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.`
+- If the lane's count is under its limit, the overall count is under the overall cap, **and** no ticket is in that lane's `<lane>-queued` stage: send the relay with `t3_thread_send`, then a `stage` op to the lane's active stage.
 - Otherwise: a `stage` op to `<lane>-queued` with `pendingRelay` and, for an approval, `approvalItemId` in `set`. Don't send.
 
 The empty-queue check keeps order: a newer relay never jumps a ticket already waiting in that lane. Every spec or merge approval relay has a second line, `Approval in thread: <thread id>`: the thread where the user wrote the approval (your own thread ID for an immediate one; the stored line for a queued one). The spec approval relay:
@@ -223,6 +223,8 @@ Approval in thread: <thread id>
 A queued approval stores both lines in `pendingRelay`, and the item id of the user's message in `approvalItemId`. Before sending a queued approval, run `python3 scripts/cos_user_check.py item <thread in its Approval in thread: line> <approvalItemId>` with the quoted words on stdin (quoted heredoc). Exit 0 (`ok`) passes. Exit 1 (`reject: …`): don't send: drop the queued relay, `comment` `Approval withdrawn at <time>: the approval message could not be verified.`, and report it under Needs you. Exit 2: `t3_thread_read` that thread with `itemId: <approvalItemId>` and `maxCharsPerItem: 500`; `createdBy` must be `"user"` and the text must contain the quoted words; add one Cleanup line, `User check script unavailable; used thread read`. An approval sent at once uses the item id of the message you read when you verified the command (§ Commands).
 
 A queued relay stores the relay text only; any model switch happens at send time, just before the send.
+
+Whenever a relay is sent with `t3_thread_send`, at once or later from the queue (§ Slot fill), and the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below). Report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` A continuation child (below) starts under this thread instead of being sent to, so it gets no such line.
 
 **Continuation child.** When this section is about to send a relay (at once or from the queue) to a ticket whose `parentThreadId` is known and is not `chiefThreadId`, the relay is the user's approval (`CHIEF OF STAFF: the user approved`) or `changes N` (`CHIEF OF STAFF: the user asked for changes`) for a ticket that was in `awaiting-spec` or `awaiting-merge` (the child has pushed everything and is idle; a queued relay of this kind is told apart by its first words), **and** the relay has no `Approval in thread:` line or that line names this thread, start a new child under this thread instead of sending. A queued approval written in an older thread (the line names another thread) is sent to the old child as before.
 
