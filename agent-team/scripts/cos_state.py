@@ -22,7 +22,7 @@ Operations (each {"op": NAME, ...}):
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
-    top       set (top-level keys other than tickets, merged, retiredThreads, pm)
+    top       set (top-level keys other than tickets, merged, retiredThreads, pm, lastRelayAt)
     pm        set
     retire    threadId; optional successor (the thread id that took over)
     archive   threadId, archivedAt (a time, or null to undo)
@@ -52,7 +52,7 @@ import project_config  # noqa: E402
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
-    "retiredThreads", "rotation", "rotationHeldUntil", "rateLimitedAt", "wakeTaskId", "wakeAt",
+    "retiredThreads", "rotation", "rotationHeldUntil", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
     "merged", "tickets", "pm",
 }
 TICKET = {
@@ -152,6 +152,7 @@ def op_start(s, op):
         "resumeStage": None, "pendingRelay": None, "approvalItemId": None, "queuedAt": None,
         "restarts": {"spec": 0}, "note": "",
     }
+    s["lastRelayAt"] = now()
 
 
 STAMPED = ("awaiting-spec", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
@@ -169,6 +170,7 @@ def op_stage(s, op):
     keys_ok(sets, TICKET - {"stage"}, "ticket")
     if new in STAMPED and "lastSeenAt" in sets:
         raise Reject(f"lastSeenAt is stamped by the script in {new}")
+    new_child = sets.get("childThreadId") not in (None, t.get("childThreadId"))
     if new == "blocked" and old in ACTIVE:
         t["resumeStage"] = old
     elif old == "blocked" and new != "blocked":
@@ -179,6 +181,8 @@ def op_stage(s, op):
     if new != old and new in STAMPED:
         t["lastSeenAt"] = now()
     t.update(stage=new, status=op["status"])
+    if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
+        s["lastRelayAt"] = now()
     if new.endswith("-queued") and (new != old or not t.get("queuedAt")):
         t["queuedAt"] = now()
     check(t)
@@ -192,6 +196,8 @@ def op_set(s, op):
     keys_ok(op["set"], TICKET - {"stage"}, "ticket")
     if t["stage"] in STAMPED and "lastSeenAt" in op["set"]:
         raise Reject(f"lastSeenAt is stamped by the script in {t['stage']}")
+    if t["stage"] in ACTIVE and op["set"].get("childThreadId") not in (None, t.get("childThreadId")):
+        s["lastRelayAt"] = now()
     merge_set(t, op["set"])
     check(t)
 
@@ -213,7 +219,7 @@ def op_drop(s, op):
 
 def op_top(s, op):
     need(op, "set")
-    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads"}, "top-level")
+    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt"}, "top-level")
     s.update(op["set"])
 
 
@@ -390,7 +396,7 @@ def show(s):
         f"chief={v(s.get('chiefThreadId'))} paused={v(s.get('paused'))} "
         f"rateLimitedAt={t(s.get('rateLimitedAt'))} wakeTaskId={v(s.get('wakeTaskId'))} "
         f"wakeAt={t(s.get('wakeAt'))} rotation={v(s.get('rotation'))} "
-        f"rotationHeldUntil={t(s.get('rotationHeldUntil'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
+        f"rotationHeldUntil={t(s.get('rotationHeldUntil'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)
         + f" active={len(by(*ACTIVE))} awaiting-spec={len(by('awaiting-spec'))}"

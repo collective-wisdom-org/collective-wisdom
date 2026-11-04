@@ -12,13 +12,14 @@ python3 scripts/cos_rotation_check.py
 
 The only turn that skips it is a run-started notice, which makes no tool calls. A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`.claude/settings.json`) runs the same script and sends the turn back when it says `rotate:`, so the check still happens if you forget it.
 
-It prints one line, `ok ...` or `rotate: <reason>`, and exits 0. It applies this table (the numbers are `SIZE_CAP`, `AGE_HOURS` and `AGE_MIN_CONTEXT` in the script; change both together):
+It prints one line, `ok ...` or `rotate: <reason>`, and exits 0. It applies this table (the size cap is `SIZE_CAP` and the quiet windows are `QUIET_RELAY_MIN` and `QUIET_ROTATED_MIN` in the script; change doc and script together):
 
 | Trigger | Threshold |
 |---|---|
-| Size | context is 220k or more |
-| Age | this session started 4 hours ago or more **and** context is 120k or more |
-| Skill change | the current skill commit differs from `skillCommit` in state (only on `main`; a `null` `skillCommit` prints `ok; set skillCommit <sha>`, save it and don't rotate) |
+| Size | context is 220k or more (ignores the quiet-turn rule) |
+| Skill change | the current skill commit differs from `skillCommit` in state (only on `main`) **and** the turn is quiet (below). A `null` `skillCommit` prints `ok; set skillCommit <sha>`, save it and don't rotate |
+
+A turn is quiet when no ticket is in a `*-queued` stage, `lastRelayAt` is absent or 10 minutes old or more, and the newest `retiredAt` in `retiredThreads` is 60 minutes old or more (or there is none). A skill change on a turn that isn't quiet prints `ok (skill change waits: queued <PREFIX>-N)`, `ok (skill change waits: relay <N>m ago)` or `ok (skill change waits: rotated <N>m ago)`, the first that applies. Do nothing: the skill commit stays different, so the first quiet turn rotates. If the size trigger also fires, it rotates now.
 
 It holds (prints `ok (held: ...)`) while `paused` is set, while `rotation` is set, and while `rotationHeldUntil` is in the future. Never rotate in the middle of a command. It also saves `chiefSessionId` in state.
 
@@ -59,7 +60,7 @@ Take over, in the new thread (the `take over` command):
    2. For each ticket in `spec`, `build` or `merge`, the idle-check read (`limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`). A child that is running and idle more than 45 minutes, or whose `updatedAt` is later than its `lastSeenAt`, or whose ticket has no `status` line, gets the full read and steps 2 to 4 of SKILL.md § Full pass. Every other child costs that one small read. This picks up anything that finished during the handoff. Then run the sweep (SKILL.md § Sweep), before 4.4. Every ticket on its `read in full:` line gets the full read and steps 2 to 4 of SKILL.md § Full pass, whatever the small read showed. A part that didn't run gets the fallback in SKILL.md § Sweep.
    3. Queued, awaiting and blocked tickets are not read; their `status` line is enough. A pending `rateLimitedAt` still gets its wake or its clearing as SKILL.md § Full pass step 4 says.
    4. Run SKILL.md § Slot fill in full: the gate, then step 2 (merge, build, then spec: `spec-queued`, Todo, then the Backlog pick with its ranking when nothing ranked is `ready`). The hygiene child runs on the next full pass that needs it.
-5. Set `skillCommit` to the commit from step 1 and save state. Then run `python3 scripts/cos_rotation_check.py --record-takeover` as the last Bash call: it saves `takeoverContext` with this thread's context size and prints the rotation check line. Post one line: `Chief of Staff moved here from <old thread link>. <N> tickets in flight.` When the sweep's parent check printed any `full` or `idle` line, add `<M> still under an older thread: <PREFIX>-125, <PREFIX>-127.` to that line. When a lane is free and nothing started, add `Filling stopped: <reason>.` (the reasons in SKILL.md § Report format). Add a report only if step 4 found something.
+5. Set `skillCommit` to the commit from step 1 and save state. Then run `python3 scripts/cos_rotation_check.py --record-takeover` as the last Bash call: it saves `takeoverContext` with this thread's context size and prints the rotation check line. Post one line: `Chief of Staff moved here from <old thread link>. <N> tickets in flight. Take-over context <K>k.` (`<K>` is the `take-over context=<K>k` the script printed). When the sweep's parent check printed any `full` or `idle` line, add `<M> still under an older thread: <PREFIX>-125, <PREFIX>-127.` to that line. When a lane is free and nothing started, add `Filling stopped: <reason>.` (the reasons in SKILL.md § Report format). Add a report only if step 4 found something.
 
 If the user writes in a thread that is `rotation.to` while `rotation` is non-null, take over never ran (this thread runs one turn at a time). Within 10 minutes of `rotation.startedAt`, run take over before their command. After 10 minutes the old thread's failed handoff may be recovering, so don't take over: reply `Rotation never confirmed; write in <old thread link>.` Re-run step 1's check on the old thread just before step 3, and stop with `Rotation mismatch` if `rotation` changed or the check no longer passes.
 
