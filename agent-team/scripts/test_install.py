@@ -214,7 +214,7 @@ WRAPPER = [
     ("no tag takes the newest on origin/main", [], "app", {}, 0, ["collective-wisdom {A12} -> v0.2 {B12}"], "{B} v0.2"),
     ("a named tag", ["v0.1"], "app", {}, 0, [], "{A} v0.1"),
     ("dry run writes nothing", ["--dry-run"], "app", {}, 0, ["[dry-run] update  " + SKILL], "{A}"),
-    ("a tag off origin/main is refused", ["v0.9"], "app", {}, 1, ["not on origin/main"], "{A}"),
+    ("a tag off origin/main is refused before its installer runs", ["v0.9"], "app", {}, 1, ["its installer will not be run"], "{A}"),
     ("a failed clone points at credentials", [], "app", {"COLLECTIVE_WISDOM_REPO": "/nonexistent"}, 1, ["gh auth setup-git"], "{A}"),
     ("collective-wisdom itself is refused", [], "cw", {}, 1, ["collective-wisdom itself"], "{A}"),
 ]

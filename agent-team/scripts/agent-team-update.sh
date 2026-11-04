@@ -36,7 +36,11 @@ if [ -z "$TAG" ]; then
   TAG="$(git -C "$CW" tag --merged refs/remotes/origin/main --list 'v0.*' | { grep -E "$TAG_RE" || true; } | sort -t. -k2,2n | tail -n 1)"
   [ -n "$TAG" ] || { echo "no v0.N tag on origin/main in $URL; ask the maintainer to run tag-release.sh." >&2; exit 1; }
 fi
-git -C "$CW" checkout -q --detach "refs/tags/$TAG" || { echo "no tag $TAG in $URL" >&2; exit 1; }
+git -C "$CW" rev-parse --verify --quiet "refs/tags/$TAG^{commit}" >/dev/null || { echo "no tag $TAG in $URL" >&2; exit 1; }
+# Never run an installer from a commit that is not on origin/main: the installer's own check would be code from that commit checking itself.
+git -C "$CW" merge-base --is-ancestor "refs/tags/$TAG" refs/remotes/origin/main 2>/dev/null || { echo "Refusing: $TAG is not on origin/main in $URL, so its installer will not be run." >&2; exit 1; }
+git -C "$CW" checkout -q --detach "refs/tags/$TAG"
+echo "collective-wisdom $TAG from $URL"
 
 # The installer that runs is the one shipped with the tag, so it and the files come from the same release.
 RC=0
