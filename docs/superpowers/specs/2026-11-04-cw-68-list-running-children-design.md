@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-68](https://github.com/dbeallor/collective-wisdom/issues/68)
 **Status:** Shipped
-**Shipped:** in PR #74, as specified
+**Shipped:** in PR #74, with differences: [as-built](../as-built/2026-11-04-cw-68-list-running-children.md)
 
 ## Goal
 
