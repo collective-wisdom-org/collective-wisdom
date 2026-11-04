@@ -107,11 +107,11 @@ def by(who, k, n):
 @pytest.mark.parametrize(
     "roles, comments, want",
     [
-        ({"code-reviewer": "riley", "security-reviewer": "quinn"}, [by("riley", "Code", 4), by("quinn", "Security", 3)],
+        ({"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel"}, [by("cw-reviewer", "Code", 4), by("cw-sentinel", "Security", 3)],
          ["code review: pass 4 PASS", "security review: pass 3 PASS"]),
-        ({"code-reviewer": "riley", "security-reviewer": "quinn"}, PR["comments"] + [by("quinn", "Code", 5)],
+        ({"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel"}, PR["comments"] + [by("cw-sentinel", "Code", 5)],
          ["code review: not posted", "security review: not posted"]),
-        ({"code-reviewer": "riley"}, [by("riley", "Code", 4), by("bot", "Security", 3)],
+        ({"code-reviewer": "cw-reviewer"}, [by("cw-reviewer", "Code", 4), by("bot", "Security", 3)],
          ["code review: pass 4 PASS", "security review: pass 3 PASS"]),
     ],
 )

@@ -64,17 +64,17 @@ def test_tracker_missing_file_is_linear(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "row, role, want",
     [
-        ("| Builder login | `cw-sam` (the account) |\n", "builder", "cw-sam"),
+        ("| Builder login | `cw-builder` (the account) |\n", "builder", "cw-builder"),
         ("| Builder login | `none` |\n", "builder", None),
         ("| Builder login | `None` |\n", "builder", None),
         ("| Builder login | TODO(owner) |\n", "builder", None),
         ("| Builder login | none until the account exists |\n", "builder", None),
         ("| Repo | `me/thing` |\n", "builder", None),
-        ("| Builder login | cw-sam |\n", "builder", SystemExit),
+        ("| Builder login | cw-builder |\n", "builder", SystemExit),
         ("| Builder login | none-bot |\n", "builder", SystemExit),
         ("| Builder login | `not a login` |\n", "builder", SystemExit),
-        ("| Builder login | `-sam` |\n", "builder", SystemExit),
-        ("| Builder login | `cw-sam` |\n", "janitor", SystemExit),
+        ("| Builder login | `-builder` |\n", "builder", SystemExit),
+        ("| Builder login | `cw-builder` |\n", "janitor", SystemExit),
     ],
 )
 def test_role_login(tmp_path, monkeypatch, row, role, want):

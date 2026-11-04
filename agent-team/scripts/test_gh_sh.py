@@ -5,24 +5,24 @@ from pathlib import Path
 import pytest
 
 GH_SH = Path(__file__).with_name("gh.sh")
-# Fake gh: `auth token -u cw-sam` prints a token, any other login fails; everything else records env and args.
+# Fake gh: `auth token -u cw-builder` prints a token, any other login fails; everything else records env and args.
 FAKE = """#!/usr/bin/env bash
 if [ "$1 $2 $3" = "auth token -u" ]; then
-  [ "$4" = cw-sam ] && echo fake-token && exit 0
+  [ "$4" = cw-builder ] && echo fake-token && exit 0
   exit 1
 fi
 echo "GH_TOKEN=${GH_TOKEN-unset} GITHUB_TOKEN=${GITHUB_TOKEN-unset} ARGS=$*" >> "$RECORD"
 """
-SAM = "| Builder login | `cw-sam` |\n"
+BUILDER = "| Builder login | `cw-builder` |\n"
 
 
 @pytest.mark.parametrize(
     "role, row, code, seen, stderr",
     [
-        (None, SAM, 0, "GH_TOKEN=unset GITHUB_TOKEN=unset ARGS=api user", ""),
+        (None, BUILDER, 0, "GH_TOKEN=unset GITHUB_TOKEN=unset ARGS=api user", ""),
         ("builder", "| Builder login | `none` |\n", 0, "GH_TOKEN=unset GITHUB_TOKEN=unset ARGS=api user", ""),
-        ("builder", SAM, 0, "GH_TOKEN=fake-token GITHUB_TOKEN=unset ARGS=api user", ""),
-        ("janitor", SAM, 2, None, "unknown role"),
+        ("builder", BUILDER, 0, "GH_TOKEN=fake-token GITHUB_TOKEN=unset ARGS=api user", ""),
+        ("janitor", BUILDER, 2, None, "unknown role"),
         ("builder", "| Builder login | `cw-gone` |\n", 2, None, "no gh login for cw-gone"),
     ],
 )

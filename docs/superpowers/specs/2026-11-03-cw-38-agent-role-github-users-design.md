@@ -48,10 +48,10 @@ New doc `agent-team/docs/agents/personas.md`, linked from `org-chart.md` and `do
 
 | Persona | Suggested login | Role | Voice |
 |---|---|---|---|
-| Morgan | `cw-morgan` | Chief of Staff: runs the team, files and moves tickets | Brief and calm. Says what changed and what needs the user. |
-| Sam | `cw-sam` | Builder: specs, builds and ships one ticket | Plain and concrete. Says what it did and what it left. |
-| Riley | `cw-riley` | Code reviewer | Direct. Names the file and line, says why it matters. |
-| Quinn | `cw-quinn` | Security reviewer | Careful. Names the risk, who could exploit it, and the fix. |
+| Chief | `cw-chief` | Chief of Staff: runs the team, files and moves tickets | Brief and calm. Says what changed and what needs the user. |
+| Builder | `cw-builder` | Builder: specs, builds and ships one ticket | Plain and concrete. Says what it did and what it left. |
+| Reviewer | `cw-reviewer` | Code reviewer | Direct. Names the file and line, says why it matters. |
+| Sentinel | `cw-sentinel` | Security reviewer | Careful. Names the risk, who could exploit it, and the fix. |
 
 The doc also gives a one-line GitHub profile bio per persona. The logins are suggestions, since the accounts don't exist yet and a name may be taken. The real logins live in `project.md` (below), so an installed app can use other accounts or none. Voice is guidance for comment and PR prose within the `human-writing` rules. No signatures or headings change, because the scripts parse the comment headings.
 
@@ -132,7 +132,7 @@ A comment by the owner login under a review heading doesn't count once the revie
 - **The child posts the reviewers' comments** as the reviewer users. The reviewers stay read only, so the child holds all four tokens through the keyring.
 - **A missing login fails, it doesn't fall back to you.** A wrong setup stops gh calls with a clear error instead of quietly posting as you.
 - **Strict review authorship once set.** A `## Code review` comment counts only from the code reviewer user. In-flight PRs need their reviews re-run after the rows are filled.
-- **Persona names and logins** (Morgan, Sam, Riley, Quinn; `cw-morgan` and so on) are suggestions. Change them in `personas.md` and `project.md` if a name is taken.
+- **Persona names and logins** (Chief, Builder, Reviewer, Sentinel; `cw-chief` and so on) are suggestions. The user asked for names that reflect the roles, not first names, and picked the plain role names. Change them in `personas.md` and `project.md` if a name is taken.
 - **Commits and pushes stay yours.** Only gh calls (PRs, comments, tickets, labels) change user.
 - **The role is an environment variable per command** (`AGENT_GH_ROLE=builder ./scripts/gh.sh ...`), not a flag or a lookup from the working directory, so scripts inherit it and nothing guesses.
 - **The installed-app template gets the four rows** as `none`, so apps keep working without bot accounts.

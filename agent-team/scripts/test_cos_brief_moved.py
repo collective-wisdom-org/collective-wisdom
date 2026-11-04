@@ -10,20 +10,20 @@ NOTE = f"Head moved to {OID} by merging main; PR diff unchanged since {OLD}. Rev
 @pytest.mark.parametrize(
     "who, oid, counts",
     [
-        ("sam", OID, True),
+        ("cw-builder", OID, True),
         ("me", OID, False),
-        ("sam", "b" * 40, False),
+        ("cw-builder", "b" * 40, False),
     ],
 )
 def test_moved_line_counts_the_note_only_from_the_given_login(who, oid, counts):
     comments = [{"body": NOTE, "url": "https://x/n", "author": {"login": who}}]
-    got = cos_brief.moved_line(oid, comments, "sam")
+    got = cos_brief.moved_line(oid, comments, "cw-builder")
     assert (got is not None) == counts
     if counts:
         assert "since ccccccc" in got
 
 
-@pytest.mark.parametrize("set_login, want, asked_gh", [("sam", "sam", False), (None, "owner", True)])
+@pytest.mark.parametrize("set_login, want, asked_gh", [("cw-builder", "cw-builder", False), (None, "owner", True)])
 def test_role_author_falls_back_to_the_active_account_not_the_callers_role(monkeypatch, set_login, want, asked_gh):
     seen = []
 

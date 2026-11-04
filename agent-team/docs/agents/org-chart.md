@@ -96,7 +96,7 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 
 The child fixes what the documenter and the reviews find; they only report.
 
-Each GitHub-facing role works as a GitHub user with a short persona ([`personas.md`](personas.md)): Morgan for the Chief of Staff, the Project Manager pass and the ticket helper, Sam for the ship-loop child, implementer and documenter, Riley for code review, Quinn for security review. A role with no login set in `project.md` keeps using the account running `gh`. Merges always run as the user's own login.
+Each GitHub-facing role works as a GitHub user with a short persona ([`personas.md`](personas.md)): Chief for the Chief of Staff, the Project Manager pass and the ticket helper, Builder for the ship-loop child, implementer and documenter, Reviewer for code review, Sentinel for security review. A role with no login set in `project.md` keeps using the account running `gh`. Merges always run as the user's own login.
 
 The Chief of Staff, the Project Manager pass, the ticket helper and the ship-loop child have no agent file: they are T3 threads or a pass, and `delegate_task` takes a provider, model and prompt, not an agent type.
 

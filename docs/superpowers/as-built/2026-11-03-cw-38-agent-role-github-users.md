@@ -11,7 +11,7 @@
 - `gh.sh` reads `AGENT_GH_ROLE`. Unset, or a role whose row is unset: the active gh account, as before. A role with a login runs that one `gh` call with `GH_TOKEN` from `gh auth token -u <login>`. A bad role, a bad row or a login missing from the keyring exits 2 with one line and no `gh` call.
 - Four rows in `project.md` § Git and GitHub (this repo and the template), all `none`.
 - `merge_pr.py`, `cos_handoff.py` and `cos_brief.py` (`moved_line`) count `## Code review` from the code reviewer login, `## Security review` from the security reviewer login and `Head moved to` from the builder login. An unset row falls back to the running account.
-- `personas.md` (Morgan, Sam, Riley, Quinn), linked from `org-chart.md`, the docs README and, through a root link, `docs/agents/`.
+- `personas.md` (Chief, Builder, Reviewer, Sentinel), linked from `org-chart.md`, the docs README and, through a root link, `docs/agents/`.
 - `github-auth.md` § Agent users and the role checks in § Verify.
 - Skills: `ship-loop` § Team mode "GitHub users", plus short edits in `open-pr`, `security-review`, `merge-pr`, `chief-of-staff`, `project-manager` and `write-ticket`. The GitHub adapter's Own login and Team tickets rules name the Chief of Staff login.
 
@@ -24,7 +24,7 @@
 ## Verification
 
 - `python3 -I -m pytest -q agent-team/scripts` and `shellcheck install.sh agent-team/scripts/*.sh` pass.
-- By hand, with a temp `PROJECT_MD` naming `cw-sam` and no such keyring account: `AGENT_GH_ROLE=builder ./scripts/gh.sh api user` exits 2 with `gh.sh: no gh login for cw-sam; run gh auth login, then gh auth switch -u <owner>`.
+- By hand, with a temp `PROJECT_MD` naming `cw-builder` and no such keyring account: `AGENT_GH_ROLE=builder ./scripts/gh.sh api user` exits 2 with `gh.sh: no gh login for cw-builder; run gh auth login, then gh auth switch -u <owner>`.
 
 ## Not verified
 
