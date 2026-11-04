@@ -1,7 +1,7 @@
 # CW-49: Show the child thread link under the ticket in the status table
 
 **Ticket:** [CW-49](https://github.com/dbeallor/collective-wisdom/issues/49)
-**Status:** Spec
+**Status:** Shipped
 
 ## Goal
 
