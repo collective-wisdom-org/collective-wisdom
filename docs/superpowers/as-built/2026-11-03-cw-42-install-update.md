@@ -18,6 +18,8 @@
 - `--update` with no `installed-from.txt` exits 1 (a refusal); a malformed pin or a SHA the clone lacks exits 2.
 - A plain install with no `--to` refuses when this clone's `HEAD` is not on `origin/main`.
 - `agent_usage.project_name` takes the repo directory (default `app_root.root()`) instead of a script path.
+- `cos_rotation_check.py --hook` roots at `CLAUDE_PROJECT_DIR` when set, because the Stop hook's working directory can drift away from the repo top. Other modes use the current repo.
+- `--check` exits 2 when it cannot extract the pinned commit.
 
 ## Verification
 
