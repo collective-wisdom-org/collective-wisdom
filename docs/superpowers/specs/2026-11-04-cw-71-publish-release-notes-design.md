@@ -1,7 +1,8 @@
 # CW-71: Publish all release notes to a release-notes branch after each merge
 
 **Ticket:** [CW-71](https://github.com/dbeallor/collective-wisdom/issues/71)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #85, as specified
 
 ## Goal
 
@@ -23,7 +24,7 @@ Move the sort and the text out of `main()` into one function, `render(files, prs
 
 ### `merge_pr.py`: the publish step
 
-A new function, `publish(pr, run)`, runs after `cleanup()` succeeds, on both the merge path and the "already merged" path, before the last line. It never raises. Each problem prints one `merge-pr: warn <reason>` line and skips the rest; the exit code and the last line stay as they are. When `cleanup()` fails the script exits 2 as today and doesn't publish; the rerun publishes.
+A new function, `publish(pr, sha, run)`, runs after `cleanup()` succeeds, on both the merge path and the "already merged" path, before the last line. It never raises. Each problem prints one `merge-pr: warn <reason>` line and skips the rest; the exit code and the last line stay as they are. When `cleanup()` fails the script exits 2 as today and doesn't publish; the rerun publishes.
 
 Steps, every call through `run` (so through `gh.sh` as the owner, with no `--verbose` and no `GH_DEBUG`):
 
