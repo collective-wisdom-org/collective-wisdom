@@ -6,7 +6,7 @@
 
 ## What shipped
 
-- Release notes for #1 (`2026-11-03-publish-agent-team.md`), #2 (`guy-316.md`), #5 (`2026-11-03-tracker-choice.md`), #8 (`guy-330.md`) and #10 (`cw-9.md`).
+- Release notes for #1 (`cw-28.md`, ticket filed after the fact), #2 (`guy-316.md`), #5 (`cw-27.md`, ticket filed after the fact), #8 (`guy-330.md`) and #10 (`cw-9.md`).
 - This PR's own note, `cw-25.md`.
 
 ## Differs from the spec
