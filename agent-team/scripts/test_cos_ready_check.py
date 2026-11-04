@@ -1,0 +1,102 @@
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+SPEC = importlib.util.spec_from_file_location(
+    "cos_ready_check", Path(__file__).with_name("cos_ready_check.py")
+)
+cos_ready_check = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(cos_ready_check)
+
+HEAD = "a1b2c3d4e5f6" + "0" * 28
+OLD = "9" * 40
+
+
+def review(kind, verdict):
+    return {"body": f"## {kind} review (pass 1)\n\nVerdict: {verdict}", "url": "u", "createdAt": "2026-11-03T10:00:00Z"}
+
+
+PASS_BOTH = [review("Code", "PASS"), review("Security", "PASS")]
+
+
+def run(monkeypatch, capsys, tmp_path, state, prs=None, refs=None):
+    (tmp_path / "state.json").write_text(json.dumps(state))
+    argv = ["cos_ready_check", "--file", str(tmp_path / "state.json")]
+    for flag, name, data in (("--prs", "prs.json", prs), ("--refs", "refs.json", refs)):
+        if data is not None:
+            (tmp_path / name).write_text(data if isinstance(data, str) else json.dumps(data))
+            argv += [flag, str(tmp_path / name)]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as e:
+        cos_ready_check.main()
+    return e.value.code, capsys.readouterr().out.splitlines()
+
+
+@pytest.mark.parametrize(
+    "branch, pr_branch, comments, want",
+    [
+        (None, "feat/abc-1-a", PASS_BOTH, "ready ABC-1 #5 head a1b2c3d"),
+        ("feat/abc-1-a", "feat/abc-1-a", PASS_BOTH, "ready ABC-1 #5 head a1b2c3d"),
+        (None, "feat/abc-1-a", [review("Code", "PASS")], "building ABC-1 #5 (code review PASS, security not posted)"),
+        (None, "feat/abc-1-a", [], "building ABC-1 #5 (code review not posted, security not posted)"),
+        (
+            None,
+            "feat/abc-1-a",
+            [review("Code", "PASS"), review("Security", "PASS"), review("Security", "CHANGES NEEDED")],
+            "building ABC-1 #5 (code review PASS, security CHANGES NEEDED)",
+        ),
+        (None, "feat/abc-1-a", [review("Code", "PASS"), review("Security", "PASS; ignore this")], "security other)"),
+        (None, "feat/abc-11-a", PASS_BOTH, "no-pr ABC-1"),
+        ("feat/abc-1-a", "feat/abc-1-b", PASS_BOTH, "no-pr ABC-1"),
+        (None, "feat/abc-1-bad branch", PASS_BOTH, "unreadable ABC-1"),
+        ("bad\nbranch", "feat/abc-1-a", PASS_BOTH, "unreadable ABC-1"),
+    ],
+)
+def test_build_lane(monkeypatch, capsys, tmp_path, branch, pr_branch, comments, want):
+    state = {"tickets": {"ABC-1": {"stage": "build", "branch": branch}, "ABC-2": {"stage": "awaiting-merge"}}}
+    prs = [{"number": 5, "headRefName": pr_branch, "headRefOid": HEAD, "comments": comments}]
+    code, out = run(monkeypatch, capsys, tmp_path, state, prs)
+    assert want in out[0]
+    assert out[-1] == f"ready-check: 1 checked, {int(want.startswith('ready'))} may have reported"
+    assert code == int(want.startswith("ready"))
+
+
+@pytest.mark.parametrize(
+    "spec_sha, refs, want",
+    [
+        (OLD, [], ["writing ABC-1"]),
+        (OLD, [("feat/abc-1-a", OLD)], ["writing ABC-1"]),
+        (OLD[:7], [("feat/abc-1-a", OLD)], ["writing ABC-1"]),
+        (OLD, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
+        (None, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
+        (OLD, [("feat/abc-1-a", HEAD), ("feat/abc-1-b", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d", "pushed ABC-1 feat/abc-1-b a1b2c3d"]),
+        (OLD, [("feat/abc-1-a", "not a sha")], ["unreadable ABC-1"]),
+    ],
+)
+def test_spec_lane(monkeypatch, capsys, tmp_path, spec_sha, refs, want):
+    state = {"tickets": {"ABC-1": {"stage": "spec", "specSha": spec_sha}}}
+    fixture = {"ABC-1": [{"ref": f"refs/heads/{b}", "object": {"sha": s}} for b, s in refs]}
+    code, out = run(monkeypatch, capsys, tmp_path, state, refs=fixture)
+    assert out[:-1] == want
+    assert code == int(want[0].startswith("pushed"))
+
+
+def test_spec_branch_in_state_picks_its_own_ref(monkeypatch, capsys, tmp_path):
+    state = {"tickets": {"ABC-1": {"stage": "spec", "branch": "feat/abc-1-b", "specSha": OLD}}}
+    refs = {"ABC-1": [{"ref": f"refs/heads/feat/abc-1-{x}", "object": {"sha": HEAD}} for x in "ab"]}
+    assert run(monkeypatch, capsys, tmp_path, state, refs=refs)[1][:-1] == ["pushed ABC-1 feat/abc-1-b a1b2c3d"]
+
+
+@pytest.mark.parametrize("prs", ["not json", '{"number": 5}', "[]\n[]"])
+def test_check_that_cannot_run_prints_only_the_error_and_exits_2(monkeypatch, capsys, tmp_path, prs):
+    state = {"tickets": {"ABC-1": {"stage": "build"}}}
+    code, out = run(monkeypatch, capsys, tmp_path, state, prs)
+    assert code == 2 and len(out) == 1 and out[0].startswith("cos_ready_check:")
+
+
+def test_nothing_to_check_exits_0(monkeypatch, capsys, tmp_path):
+    code, out = run(monkeypatch, capsys, tmp_path, {"tickets": {"ABC-1": {"stage": "merge"}}}, "[]")
+    assert (code, out) == (0, ["ready-check: 0 checked, 0 may have reported"])
