@@ -26,10 +26,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
 import cos_handoff  # noqa: E402
 import project_config  # noqa: E402
 
-ROOT = Path(__file__).absolute().parent.parent
+ROOT = root()
 SHA = re.compile(r"[0-9a-f]{40}")
 # No fsmonitor daemon and no hooks from the worktree's own config.
 HARDEN = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")

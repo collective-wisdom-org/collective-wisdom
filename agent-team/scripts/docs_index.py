@@ -2,9 +2,13 @@
 """Print every docs/superpowers/index/*.md entry as one table sorted by date."""
 
 import re
+import sys
 from pathlib import Path
 
-INDEX = Path(__file__).absolute().parent.parent / "docs" / "superpowers" / "index"
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
+INDEX = root() / "docs" / "superpowers" / "index"
 
 
 def main():

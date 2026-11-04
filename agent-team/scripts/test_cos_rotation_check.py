@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -182,3 +183,33 @@ def test_skill_commit_works_when_root_is_a_subfolder(tmp_path, monkeypatch):
     (sub / "docs" / "agents").mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(crc, "ROOT", sub)
     assert crc.skill_commit() == run("rev-parse", "HEAD")
+
+
+def test_hook_blocks_from_a_drifted_cwd(tmp_path):
+    # The Stop hook's cwd can drift out of the app. It must still read the app's project.md, state and transcript.
+    sid = "0123abcd-0123-0123-0123-0123456789ab"
+    app, elsewhere, projects = tmp_path / "app", tmp_path / "elsewhere", tmp_path / "projects"
+    (app / "docs" / "agents").mkdir(parents=True)
+    (app / "docs" / "agents" / "project.md").write_text("| Issue identifier prefix | `ZZ` |\n| Repo | `acme/app` |\n")
+    (app / ".agent-team").mkdir()
+    state = app / ".agent-team" / "state.json"
+    state.write_text(json.dumps({"chiefSessionId": sid, "chiefThreadId": "T1", "skillCommit": None}))
+    (projects / "-x-app").mkdir(parents=True)
+    usage = {"input_tokens": 230_000, "output_tokens": 1}
+    (projects / "-x-app" / f"{sid}.jsonl").write_text(json.dumps(
+        {"type": "assistant", "requestId": "r1", "timestamp": "2026-11-01T10:00:00Z",
+         "message": {"model": "claude-opus-5-5", "usage": usage}}))
+    elsewhere.mkdir()
+    (app / ".claude" / "skills" / "chief-of-staff").mkdir(parents=True)
+    (app / ".claude" / "skills" / "chief-of-staff" / "SKILL.md").write_text("x")
+    for cmd in (["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"]):
+        subprocess.run(["git", *cmd], cwd=app, check=True)
+    out = subprocess.run(
+        [sys.executable, str(Path(__file__).with_name("cos_rotation_check.py")), "--hook"],
+        input=json.dumps({"session_id": sid, "stop_hook_active": False}),
+        capture_output=True, text=True, cwd=elsewhere, check=True,
+        env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "CLAUDE_PROJECT_DIR": str(app),
+             "COS_PROJECTS_DIR": str(projects), "COS_STATE_FILE": str(state)},
+    ).stdout
+    # "rotate: size", not "cannot read ...": a wrong project.md, transcript or git root also blocks, with another reason.
+    assert json.loads(out)["reason"].startswith("rotate: size")

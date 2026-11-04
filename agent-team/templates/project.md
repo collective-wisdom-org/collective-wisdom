@@ -41,6 +41,10 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is the issue prefix in lower case) |
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
 | Owner login (trusted review-comment author) | `<github-login>` |
+| Chief of Staff login | `none` (the account that files and moves tickets as the Chief of Staff; set it once the account exists and is added to gh, see [github-auth.md](github-auth.md) § Agent users; an app may leave all four as none) |
+| Builder login | `none` (the ship-loop child's account: PRs, notes and its own ticket; same setup; an app may leave all four as none) |
+| Code reviewer login | `none` (the account that posts the code review comment; same setup; an app may leave all four as none) |
+| Security reviewer login | `none` (the account that posts the security review comment; same setup; an app may leave all four as none) |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
 

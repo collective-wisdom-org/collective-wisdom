@@ -25,9 +25,12 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
 ACTIVE = {"spec", "build", "merge"}
 ID = re.compile(r"[A-Za-z0-9._:-]+")
-DEFAULT_STATE = Path(__file__).absolute().parent.parent / ".agent-team" / "state.json"
+DEFAULT_STATE = root() / ".agent-team" / "state.json"
 
 
 def check(state, thread, archive=True):

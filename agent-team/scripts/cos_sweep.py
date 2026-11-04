@@ -23,11 +23,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
 import cos_merged_check  # noqa: E402
 import cos_parent_check  # noqa: E402
 import cos_ready_check  # noqa: E402
 
-ROOT = Path(__file__).absolute().parent.parent
+ROOT = root()
 
 
 def part(name, fn):

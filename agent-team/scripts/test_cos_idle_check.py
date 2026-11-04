@@ -51,14 +51,25 @@ def test_finished_child_with_lost_notice_is_flagged(
     assert capsys.readouterr().out.startswith(want_line)
 
 
-def wait_read(run_id="r2", completed="04:45", matched=(), unmatched=(), text=None, run_of_wait="r2"):
-    call = {"toolName": "mcp__t3-code__t3_background_wait"}
-    call["output"] = {"structuredContent": {"matched": list(matched), "unmatched": list(unmatched)}}
+def wait_call(matched=(), unmatched=(), content=False, structured=True):
+    found = {"matched": list(matched), "unmatched": list(unmatched)}
+    output = {"content": json.dumps(found)} if content else {}
+    if structured:
+        output["structuredContent"] = found
+    return json.dumps({"toolName": "mcp__t3-code__t3_background_wait", "output": output})
+
+
+def cut_before(call_text, key):
+    """The call's JSON text up to just before "key", as maxCharsPerItem cuts it."""
+    return call_text[: call_text.index(f'"{key}"')]
+
+
+def wait_read(run_id="r2", completed="04:45", matched=(), unmatched=(), text=None, run_of_wait="r2",
+              content=False, structured=True):
     items = []
     if text is not None or matched or unmatched:
-        items.append(
-            {"runId": run_of_wait, "type": "dynamic_tool", "text": text or json.dumps(call)}
-        )
+        call = wait_call(matched, unmatched, content, structured)
+        items.append({"runId": run_of_wait, "type": "dynamic_tool", "text": text or call})
     run = {"runId": run_id, "status": "completed", "completedAt": f"2026-11-02T{completed}:00Z"}
     return json.dumps({"recentRuns": [run], "items": items})
 
@@ -78,6 +89,9 @@ CUT = '{"toolName": "mcp__t3-code__t3_background_wait", "output": {"structuredCo
         (wait_read(text=CUT + '["bg1", "bg2'), 0, "waiting ABC-1"),
         (wait_read(text=CUT + "[], \"unm"), 2, "cos_idle_check:"),
         (wait_read(text=CUT + "[], \"unm", completed="04:00"), 1, "stalled ABC-1 wait-expired 50m"),
+        (wait_read(text=cut_before(wait_call(["bg1"], content=True), "structuredContent")), 0, "waiting ABC-1"),
+        (wait_read(text=cut_before(wait_call(["bg1"]), "output")), 2, "cos_idle_check:"),
+        (wait_read(matched=["bg1"], content=True, structured=False), 0, "waiting ABC-1 on bg1"),
     ],
 )
 def test_wait_tells_waiting_child_from_stalled(capsys, monkeypatch, stdin, want_code, want_line):

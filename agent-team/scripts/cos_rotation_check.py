@@ -30,8 +30,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
 HERE = Path(__file__).absolute().parent
-ROOT = HERE.parent
+
+
+def _root():
+    # The Stop hook runs from wherever the session's cwd has wandered; Claude Code names the project.
+    # Move there first, so every script this one loads (project.md, agent_usage) finds the same repo.
+    d = os.environ.get("CLAUDE_PROJECT_DIR")
+    if d and "--hook" in sys.argv:
+        try:
+            os.chdir(d)
+        except OSError:
+            pass  # the hook exits 0 silently on any error
+    return root()
+
+
+ROOT = _root()
 SIZE_CAP = 220_000
 AGE_HOURS = 4
 AGE_MIN_CONTEXT = 120_000

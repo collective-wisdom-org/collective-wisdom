@@ -28,6 +28,7 @@ Tools:
 - T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`. `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
 - Tracker: the operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
 - Bash, for `python3 scripts/cos_state.py` (`show`, `get`, `apply`; every state read and write), `python3 scripts/cos_brief.py` (`spec`, `pr`; approval inputs), `python3 scripts/cos_user_check.py` (`latest`, `item`; the user's-message check), the rotation check (`python3 scripts/cos_rotation_check.py`, § Thread rotation), the idle check (`python3 scripts/cos_idle_check.py`, § Lean turns), the worktree check (`python3 scripts/cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'`, § Send or queue "Continuation child"), the sweep (`python3 scripts/cos_sweep.py --thread <this thread's id>`, § Sweep), which runs the merged check (`cos_merged_check.py --apply`, § Merged check), the ready check (`cos_ready_check.py`) and the parent check (`cos_parent_check.py`) itself, the parent check on its own (`python3 scripts/cos_parent_check.py --thread <this thread's id>`, archiving only, § Thread rotation "Archiving"), and the take-over `sleep`. Exit codes: 0 ok, 1 a check failed or an edit was rejected, 2 could not read its input.
+- GitHub user: run every `./scripts/gh.sh` call, every tracker operation the adapter runs through it, and every script that calls it (the `cos_*` checks, `cos_brief.py`, `cos_handoff.py`) with `AGENT_GH_ROLE=chief-of-staff` in the same command, since shells don't keep environment variables. That covers the project manager pass and the ticket helper, which share this user. A `none` login row in `docs/agents/project.md` keeps the active gh account. Setup and the failure case: `docs/agents/github-auth.md` § Agent users.
 - GitHub, read only, for the project manager pass, § Approval requests and the restart message in step 3: `./scripts/gh.sh pr list`, `pr view` and `api` GET requests. The sweep's checks call `./scripts/gh.sh pr list` and `api` themselves.
 - Cross-repo: `t3_project_list` and `python3 scripts/cos_peer.py` (`find`, `check`, `reply`), for § Cross-repo requests only.
 
@@ -550,6 +551,8 @@ Rules:
   branches, commit or push. You run in the root checkout on main: read only.
 - GitHub and Slack are read only for you: no merge, push, file writes or
   messages. The tracker is the only thing you write.
+- Run every ./scripts/gh.sh call with AGENT_GH_ROLE=chief-of-staff in the
+  same command, so tickets show the Chief of Staff user.
 - Never call t3_thread_send, t3_thread_transfer, t3_thread_launch,
   create_threads, delegate_task, task_cancel or schedule_task. Never write
   .agent-team/state.json.
@@ -825,26 +828,26 @@ If more than one applies, use the first in that order. Under § Lean turns, repo
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-197** CSV export | High (touches auth) | PR #180, reviews PASS. Reply `approve 197` or `changes 197: …`. <thread link> |
+| **<PREFIX>-197** CSV export<br><thread link> | High (touches auth) | PR #180, reviews PASS. Reply `approve 197` or `changes 197: …`. |
 
 **Building (2)**
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-199** Background jobs | Medium (changes slot fill, 4 Builds bullets) | PR #181, code review pass 2. <thread link> |
-| **<PREFIX>-154** Retry button | Low (docs only, 2 Builds bullets) | Restarted: stalled after code review PASS. <thread link> |
+| **<PREFIX>-199** Background jobs<br><thread link> | Medium (changes slot fill, 4 Builds bullets) | PR #181, code review pass 2. |
+| **<PREFIX>-154** Retry button<br><thread link> | Low (docs only, 2 Builds bullets) | Restarted: stalled after code review PASS. |
 
 **Queued to build (1)**
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-238** Export filters | Low (prose only, 3 Builds bullets) | Approved, waiting for a build slot. <thread link> |
+| **<PREFIX>-238** Export filters<br><thread link> | Low (prose only, 3 Builds bullets) | Approved, waiting for a build slot. |
 
 **Other (1)**
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-240** Example feature | not rated yet | Spec stage since 14:05, no SPEC READY yet. <thread link> |
+| **<PREFIX>-240** Example feature<br><thread link> | not rated yet | Spec stage since 14:05, no SPEC READY yet. |
 
 Filling stopped: lanes full.
 
@@ -867,11 +870,12 @@ Rules:
 
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
 - Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`spec stage`, `blocked: <reason>`, `changes requested, waiting for a spec slot`).
+- The Ticket cell is `**<PREFIX>-N** title`, then `<br>` and the link to the ticket's child thread (`childThreadId` in state). A row with no `childThreadId` (or a null one) has no `<br>` and no link. The link is never repeated in Next.
 - Titles come from the tracker: one `list-tickets` call with label `agent` and fields `id, title`. If that read fails, show the ID alone.
 - Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`.
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (§ Approval requests), each with its risk on the first line.
 - No other § Report format section (`Moving`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
-- `where's <PREFIX>-N?` uses the same layout with only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
+- `where's <PREFIX>-N?` uses the same layout, with the thread link under the ticket, and only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
 
 ## Guardrails
 
