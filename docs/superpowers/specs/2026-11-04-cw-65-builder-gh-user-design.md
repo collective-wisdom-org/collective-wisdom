@@ -1,7 +1,7 @@
 # CW-65: Set up the collective-wisdom-builder GitHub user
 
 **Ticket:** [CW-65](https://github.com/dbeallor/collective-wisdom/issues/65)
-**Status:** Draft
+**Status:** Shipped
 
 ## Goal
 
