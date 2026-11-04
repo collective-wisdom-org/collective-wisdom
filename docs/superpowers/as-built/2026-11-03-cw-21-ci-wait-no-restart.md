@@ -11,7 +11,7 @@
 - `chief-of-staff` SKILL.md § Full pass step 3: a `completed` run with no marker goes through the wait check first. `waiting` means no restart and no change to `restarts`. `stalled` restarts once, then blocks, quoting the line. An unreadable check can restart but never blocks, and adds a Cleanup line. The "Text about waiting is no exception" sentence is gone.
 - `chief-of-staff.md` § Done when: the restart line says "unless it is waiting on a background command".
 - `ship-loop` SKILL.md § Team mode: "Run endings" and "CI waits" tell a child to start background commands with the tool's option, never `&`, to start again on an `unmatched` wait, and to keep the wait among its last few tool calls.
-- One table-driven test for `--wait` in `test_cos_idle_check.py`: the six rows from the ticket plus two cut-off-text rows.
+- One table-driven test for `--wait` in `test_cos_idle_check.py`: the six rows from the ticket plus three cut-off-text rows.
 
 ## Differs from the spec
 
@@ -23,5 +23,5 @@
 
 ## Verification
 
-- `python3 -I -m pytest -q agent-team/scripts`: 335 passed.
+- `python3 -I -m pytest -q agent-team/scripts`: 336 passed.
 - `shellcheck install.sh agent-team/scripts/*.sh`: clean.
