@@ -18,7 +18,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 - **`rotation`**: `{"from": "<old id>", "to": "<new id or null>", "startedAt": "…"}` while a handoff is in progress (rotation.md § Thread rotation), otherwise `null`.
 - **`rotationHeldUntil`**: set by a failed handoff; no rotation before this time.
 - **`wakeTaskId`, `wakeAt`**: the pending rate-limit wake (SKILL.md § Full pass step 4) and the time it is set to fire. `wakeTaskId` is `null` when no wake is pending. `wakeAt` stays set until `rateLimitedAt` clears, so a lost wake can be made again.
-- **`merged`**: tickets whose child reported `MERGED #N`, as `{"pr": N, "at": "<time>"}`. The project manager uses it to move them to Done if the tracker lags. `prune` drops entries older than 24 hours and rewrites a bare number as merged now.
+- **`merged`**: tickets whose child reported `MERGED #N`, as `{"pr": N, "at": "<time>"}`. The project manager hygiene child uses it to move them to Done if the tracker lags. `prune` drops entries older than 24 hours and rewrites a bare number as merged now.
 - **`pm`**: owned by `project-manager` § State (`apply` `pm` ops). Don't edit it here.
 
 ## Unknown keys and prune

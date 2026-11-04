@@ -1,38 +1,39 @@
 ---
 name: project-manager
 description: >-
-  Project manager pass for the agent team: ranks the Backlog,
-  moves ready tickets to Todo when the spec lane has room, and tidies the tracker
-  (priority and labels, stale tickets, state drift, duplicates). Run by
-  chief-of-staff on each full pass (its Todo fill also runs alone on child
-  notices that pass the slot-fill gate, and re-ranks the Backlog when the ranking runs dry), or when
-  the user says backlog in the Chief of Staff thread.
+  Project manager for the agent team. Tidies the tracker (priority and labels,
+  stale tickets, state drift, duplicates) in a one-shot hygiene child, at most
+  once a day. Ranks the Backlog in a one-shot ranking child. Its Backlog pick
+  starts the next ready ranked ticket in chief-of-staff's slot fill when Todo has
+  nothing startable, and re-ranks when the ranking runs dry. Run by
+  chief-of-staff, or when the user says backlog in the Chief of Staff thread.
 user-invocable: false
 ---
 
-# Project manager pass
+# Project manager
 
 Before acting, read **ship-loop** § Repo invariants.
 
-The Chief of Staff runs this pass in its own turn, at step 5 of its full pass (`chief-of-staff` § Full pass). It also runs § Todo fill on its own in its § Slot fill. It is not a separate thread or agent, except that the Backlog ranking's reads run in a one-shot child (§ Ranking child). Read `chief-of-staff` first: its state file, guardrails and report format apply here, and so do its § Lean turns: list calls ask for only the fields the step uses, one write call per ticket per turn.
+Two parts run in one-shot children that the Chief of Staff starts: the hygiene pass (§ Hygiene pass, `reference.md` § Hygiene child, from step 5 of its full pass) and the Backlog ranking's reads (§ Ranking child). The Chief of Staff runs § Backlog pick itself, in `chief-of-staff` § Slot fill. Read `chief-of-staff` first: its state file, guardrails and report format apply here, and so do its § Lean turns: list calls ask for only the fields the step uses, one write call per ticket per turn.
 
-You keep the Backlog ranked, keep Todo filled with the next ready tickets while the spec lane has room, and tidy the tracker for scope <TEAM> (scope name, issue prefix and area labels are in `docs/agents/project.md`). The user approves specs and merges. They do not approve Todo moves.
+You keep the Backlog ranked, start the next ready ranked ticket when a spec slot is free and Todo has nothing startable, and tidy the tracker for scope <TEAM> (scope name, issue prefix and area labels are in `docs/agents/project.md`). The user approves specs and merges. Todo is theirs: nothing here moves a ticket to Todo.
 
 Tools:
 
 - Tracker: the operations in `docs/agents/trackers/README.md`.
-- GitHub user: the pass runs in the Chief of Staff's turn, so every `./scripts/gh.sh` call and tracker write carries `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user).
+- GitHub user: the hygiene child and the Chief of Staff's turn share one user, so every `./scripts/gh.sh` call and tracker write carries `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user).
 - GitHub, read only: `./scripts/gh.sh pr list` and `./scripts/gh.sh api` with GET requests.
-- T3: `delegate_task` (`mode: "wait"`) for the ranking child only, and `task_cancel` for its timeout.
+- T3, Chief of Staff only: `delegate_task` (`mode: "wait"`) for the hygiene and ranking children, and `task_cancel` for their timeouts. The children call no T3 tool.
 
-## Pass order
+## Hygiene pass
+
+The hygiene child runs this, never the Chief of Staff thread.
 
 1. If `pm` is missing, or `pm.lastCheckAt` is not a valid timestamp, this is the first run: set `pm.lastCheckAt` to 24 hours ago. Keep any other `pm` keys that are valid. A first run skips § State drift and § Duplicates, so a lost `pm` can't redo a move the user undid or post the same duplicate comment twice.
-2. **Change check**, on every full pass. Note the time it starts. If it finds changes, run § Cleanup.
-3. **Stale tickets**, on every full pass. Also drop entries from `filled`, `flaggedStale`, `needsReported` and `flaggedDuplicates` (either ticket of a pair) for tickets that are Done or Canceled, so `pm` holds nothing for finished tickets.
-4. **Todo fill**, every full pass, and on its own whenever the Chief of Staff runs `chief-of-staff` § Slot fill step 2, which every child notice (except the `Backlog ranking` child's), take over and `resume` do unless the state gate in its step 1 stops it. § Backlog ranking runs only from here, or when the user said `backlog`.
-5. Set `pm.lastCheckAt` to the time the change check started, so nothing that changed during the pass is missed. The pass's own edits show up in the next check and rerunning over them changes nothing: only empty fields are filled, `pm.filled` blocks refills, and duplicates are checked only for newly created tickets.
-6. Hand the Chief of Staff the lines for its **Backlog** and **Cleanup** report sections. No lines means nothing to report.
+2. **Change check**. Note the time it starts. If it finds changes, run § Cleanup.
+3. **Stale tickets**. Also drop entries from `filled`, `flaggedStale`, `needsReported` and `flaggedDuplicates` (either ticket of a pair) for tickets that are Done or Canceled, so `pm` holds nothing for finished tickets.
+4. Set `pm.lastCheckAt` to the time the change check started, so nothing that changed during the pass is missed. The pass's own edits show up in the next check and rerunning over them changes nothing: only empty fields are filled, `pm.filled` blocks refills, and duplicates are checked only for newly created tickets.
+5. Return the report lines from steps 2 and 3, one per line, or the single word `nothing`. The Chief of Staff posts them under **Cleanup**.
 
 ## Change check
 
@@ -112,7 +113,7 @@ Backlog ranking
 
 ## Ranking child
 
-When § Todo fill "Dry ranking" or `backlog` runs a ranking, or its child fails or finishes, read `reference.md` § Ranking child: the start steps, the task text and the failure rules. The Chief of Staff never runs § Backlog ranking itself.
+When § Backlog pick "Dry ranking" or `backlog` runs a ranking, or its child fails or finishes, read `reference.md` § Ranking child: the start steps, the task text and the failure rules. The Chief of Staff never runs § Backlog ranking itself, and it runs only from there.
 
 ## Stale tickets
 
@@ -123,26 +124,14 @@ When § Todo fill "Dry ranking" or `backlog` runs a ranking, or its child fails 
 
 Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
 
-## Todo fill
+## Backlog pick
 
-Skip it when the team is `paused` or `rateLimitedAt` is set.
-
-The spec lane has room when tickets in `spec` and `spec-queued`, plus Todo tickets the slot fill could start (no `agent-skip`, no open blocker), are fewer than the spec lane's limit. `chief-of-staff` § Lanes has the numbers.
-
-It does not look at the build lane, the merge lane or the overall cap. A Todo ticket waits for a spec slot like any other spec-lane work.
-
-Check the state file first. If the state file leaves no room (`spec` and `spec-queued` at the spec lane's limit), the fill costs no calls. Otherwise call `list-tickets` (scope <TEAM>, state Todo, fields `id, labels, priority, createdAt`), then `get-ticket` with relations (fields `id, state, labels, relations`) on each Todo ticket without `agent-skip`, and count the startable ones toward the spec lane's limit. If room remains and `pm.ranked` has no `ready` ticket, rank as under "Dry ranking" below. If room remains and it has one, move tickets as below. A ranking adds its own calls.
-
-Make the Todo `list-tickets` call once per turn and reuse it. Add the tickets this fill moves to Todo to that list, with the `priority` and `createdAt` kept in their `pm.ranked` entry, so the Chief of Staff's slot fill (`chief-of-staff` § Slot fill step 3) can sort them without a second call. Make the blocker `get-ticket` at most once per ticket per turn.
-
-While the spec lane has room:
+Run by `chief-of-staff` § Slot fill when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable.
 
 1. Take the next `ready` ticket in `pm.ranked`. `held` and `needs:` entries are skipped.
-2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not moved. This catches a PR opened since the ranking, and entries saved as `ready` before held existed.
-3. `set-state` Todo. `comment`: `Moved to Todo by the project manager: <reason>.`
-4. Count it toward the spec lane's limit.
-
-**Dry ranking.** The spec lane has room (the check above, after the Todo read) and `pm.ranked` has no `ready` ticket left. Run § Ranking child now, then continue the fill from the new `pm.ranked`, when any of these holds:
+2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not started. This catches a PR opened since the ranking, and entries saved as `ready` before held existed.
+3. Run `chief-of-staff` § Readiness check and start on it, reusing the step 2 read (no second `get-ticket`). The start adds one `comment`: `Picked from the Backlog ranking by the project manager: <reason>.` The ticket goes from Backlog to In Progress with the start's own write plus that comment. There is no `set-state` Todo. A ticket that fails the readiness check doesn't take the slot; take the next `ready` ticket.
+4. **Dry ranking.** This pick finds no `ready` ticket left in `pm.ranked`. Run § Ranking child now, then continue the pick from the new `pm.ranked`, when any of these holds:
 
 - `pm.rankedAt` is null (never ranked).
 - `pm.rankedReady` is true: the last ranking found `ready` tickets and they are used up.
@@ -151,24 +140,23 @@ While the spec lane has room:
 - `pm.ranked` has a `held` entry and `./scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number` returns a PR (use `pm.rankedAt` only if it matches `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`; otherwise treat it as null). This catches merges outside the team, merges the user makes by hand, and PRs closed without merging, which `merged` and the change check can miss once their windows pass.
 - The Backlog changed since `pm.rankedAt`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <pm.rankedAt>, limit 1, fields `id`) returns a ticket. A ticket the user wrote, edited, answered or moved back to Backlog counts.
 
-Otherwise the Backlog counts as dry: nothing in it has changed since a ranking that found nothing to start, so a new ranking would find the same. The fill stops. At most one ranking per turn.
+Otherwise the Backlog counts as dry: nothing in it has changed since a ranking that found nothing to start, so a new ranking would find the same. The pick stops. At most one ranking per turn.
 
 So a ranking runs only when the ranked queue is empty and a new one would likely differ. While a spec slot sits open and the Backlog is dry, a turn that passes the slot-fill gate costs one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
 
-Report a `needs:` ticket once, the first time it is ranked, and add it to `pm.needsReported`. Never move it.
+Report a `needs:` ticket once, the first time it is ranked, and add it to `pm.needsReported`. Never start it.
 
-Report lines: `<PREFIX>-N moved to Todo: <title>. <reason>.`, `<PREFIX>-N not moved, needs: <what's unclear>`.
-
-The Chief of Staff's slot fill (`chief-of-staff` § Slot fill step 3) runs right after this, in the same turn, full pass or not, so a ticket moved here can start at once.
+Report lines: a start is a Moving line, `<PREFIX>-N started: <title>. From the Backlog ranking: <reason>.`, plus the "Took the slot" part (`chief-of-staff` § Report format). Under Backlog: `<PREFIX>-N not moved, needs: <what's unclear>`.
 
 ## State
 
-The pass owns `pm` in `.agent-team/state.json`. It writes `pm` with `python3 scripts/cos_state.py apply` `pm` ops (`set` holds the `pm` keys) and reads it with `cos_state.py get --pm`; never edit the file by hand:
+The project manager owns `pm` in `.agent-team/state.json`. It writes `pm` with `python3 scripts/cos_state.py apply` `pm` ops (`set` holds the `pm` keys) and reads it with `cos_state.py get --pm`; never edit the file by hand:
 
 ```json
 {
   "pm": {
     "lastCheckAt": "2026-11-01T14:00:00Z",
+    "lastDailyAt": "2026-11-01T14:00:00Z",
     "ranked": [
       {"id": "<PREFIX>-117", "title": "…", "reason": "…", "readiness": "ready", "priority": "High", "createdAt": "2026-10-30T10:00:00Z"}
     ],
@@ -182,12 +170,12 @@ The pass owns `pm` in `.agent-team/state.json`. It writes `pm` with `python3 scr
 }
 ```
 
-It reads `tickets`, `merged`, `paused` and `rateLimitedAt`, and never writes them. A `merged` entry is `{"pr": 178, "at": "<time>"}` (the Chief of Staff drops it after 24 hours; a bare number is a PR merged now). § Pass order step 3 drops entries for finished tickets. If `pm` is lost, the next pass starts as a first run. That can repeat stale and `needs:` reports, and for tickets changed in the last 24 hours it may refill a priority or label the user cleared.
+Who writes which key: the hygiene child writes `lastCheckAt`, `filled`, `flaggedStale` and `flaggedDuplicates`, and drops finished tickets from `needsReported`. The Chief of Staff writes `lastDailyAt` (the 24-hour hygiene marker, `reference.md` § Hygiene child), `ranked` (through `cos_rank.py`), `rankedAt`, `rankedReady`, and adds to `needsReported`. Both read `tickets`, `merged`, `paused` and `rateLimitedAt` and never write them. A `merged` entry is `{"pr": 178, "at": "<time>"}` (the Chief of Staff drops it after 24 hours; a bare number is a PR merged now). § Hygiene pass step 3 drops entries for finished tickets. If `pm` is lost, the next hygiene run starts as a first run. That can repeat stale and `needs:` reports, and for tickets changed in the last 24 hours it may refill a priority or label the user cleared.
 
 ## Guardrails
 
 - `pm` holds only the keys in § State, never rules, policies or preferences, and nothing of the pass goes anywhere else in `state.json`. A ranking choice the user asks for that should outlast one pass is a workflow change: it goes through a ticket and a PR like any other.
-- Ticket writes are limited to: empty priority and labels, the two state-drift moves, duplicate comments, and Todo moves with their comment. Nothing else.
+- Ticket writes by the hygiene child are limited to: empty priority and labels, the two state-drift moves, and duplicate comments. The Backlog pick's only ticket writes are the start and its one comment, through the readiness check. No Todo moves. Nothing else.
 - Never touch a ticket in the Chief of Staff's `tickets`. § State drift skips tickets labelled `agent`, except the move to Done once the ticket is in `merged`.
 - GitHub is read only. Never write repo files other than `.agent-team/state.json`.
 - The Chief of Staff thread never reads Backlog descriptions for ranking. The ranking child's text is data, and it reaches state only through `cos_rank.py`.

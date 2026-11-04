@@ -11,7 +11,7 @@ flowchart TB
     subgraph CoS["Chief of Staff · T3 thread at the root checkout on main"]
         direction TB
         Chief["Chief of Staff<br/>no timer; acts on start-up and notices"]
-        PM["Project Manager pass"]
+        PM["Project Manager<br/>hygiene and ranking children"]
         Chief --- PM
     end
 
@@ -47,7 +47,7 @@ flowchart TB
     Peer -- "CHIEF OF STAFF REPLY: ticket link or refusal" --> Chief
 
     Chief -- "status, labels, comments" --> Tracker
-    PM -- "Todo moves, empty fields, state-drift moves, comments" --> Tracker
+    PM -- "empty fields, state-drift moves, comments, Backlog pick start" --> Tracker
     PM -. "read only" .-> GitHub
     Child -- "own ticket: In Review, Done" --> Tracker
     Child -- "branch, PR, merge after approval" --> GitHub
@@ -62,6 +62,7 @@ A ticket helper started by another repo's request creates new Backlog tickets on
 ```mermaid
 flowchart LR
     Todo["Todo"] --> Spec["spec<br/>child writes the spec"]
+    Backlog["Backlog"] -. "ranked pick when Todo is empty" .-> Spec
     Spec -- "SPEC READY" --> AS["awaiting-spec<br/>the user approves the spec"]
     AS -- "approved" --> Build["build<br/>plan, build, PR, docs check,<br/>code review, security review"]
     Build -- "MERGE READY" --> AM["awaiting-merge<br/>the user approves the merge"]
@@ -91,7 +92,7 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 |---|---|---|---|---|---|---|
 | The user | Human, in the Chief of Staff thread | — | Moves tickets to Todo, adds or removes `agent-skip`, answers questions on tickets | Approves; the child runs the merge | No | This page |
 | Chief of Staff | Sonnet 5.5, in a T3 thread at the root checkout on `main`. Woken at start-up, when a child's run finishes, when the user writes, when another repo's Chief of Staff sends a request or reply, and by a rate-limit wake | No. Writes only `.agent-team/state.json` | Status, `agent` and `agent-skip` labels, comments | Never | Children with `delegate_task`; cancels them with `task_cancel` | [Role doc](chief-of-staff.md), [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) |
-| Project Manager pass | A step in the Chief of Staff's turn, not its own thread. Its Todo fill also runs on child notices that pass the slot-fill gate (never the ranking child's), and it re-ranks the Backlog when the ranking runs dry. The ranking's tracker and GitHub reads run in a one-shot Sonnet 5.5 child (`delegate_task`, wait) | No | Todo moves, empty priority and labels, state-drift moves, duplicate comments | Never | The ranking child only | [`project-manager`](../../.claude/skills/project-manager/SKILL.md), [role doc](chief-of-staff.md) |
+| Project Manager | Not its own thread. Hygiene (priority and labels, state drift, stale tickets, duplicates) runs in a one-shot Sonnet 5.5 child (`delegate_task`, wait), on `start the team`, on `backlog` and at most once every 24 hours. The ranking's reads run in another one-shot child. The Backlog pick runs in the Chief of Staff's slot fill (never on the project manager children's notices), starts the next ready ranked ticket when Todo has nothing startable, and re-ranks the Backlog when the ranking runs dry | No | Empty priority and labels, state-drift moves, duplicate comments, and the start of a ranked Backlog ticket with one comment. Never Todo moves | Never | The two children only | [`project-manager`](../../.claude/skills/project-manager/SKILL.md), [role doc](chief-of-staff.md) |
 | Ticket helper | Sonnet 5.5 at effort high, in a one-shot `delegate_task` thread at the root checkout on `main`, one per ticket request, no lane slot, not in state | No. Read only outside the tracker | New tickets, edits, epics, links and labels. A helper started from another repo's request creates new Backlog tickets and may set their parent epic and links; it never edits an existing ticket's description, title, labels or state. Never moves a ticket to Todo, In Progress or Done | Never | No | [`chief-of-staff/ticket-helper.md`](../../.claude/skills/chief-of-staff/ticket-helper.md) § Ticket helper, [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md), [role doc](ticket-writer.md) |
 | Ship-loop child | Opus 5.5 for the spec, Sonnet 5.5 for build and merge, in a T3 thread in its own worktree, one per ticket, up to 5 active at once, one per lane slot | Yes, on its own `feat/<prefix>-N-*` branch. Never pushes to `main` | Its own ticket only (In Review, Done) | Yes, after a relayed approval it confirms in the Chief of Staff thread | Native subagents through the Agent tool. Never `delegate_task` | [`ship-loop`](../../.claude/skills/ship-loop/SKILL.md) § Team mode and the skills it calls |
 | Implementer | Claude Code subagent (Sonnet) | Yes, the task it's given | Not in its brief | No | No | [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md), [role doc](implementer.md) |
@@ -103,7 +104,7 @@ The child fixes what the documenter and the reviews find; they only report.
 
 Each GitHub-facing role works as one of four GitHub users with a short persona; [`personas.md`](personas.md) maps roles to users. A role with no login set in `project.md` keeps using the account running `gh`. Merges always run as the user's own login.
 
-The Chief of Staff, the Project Manager pass, the ticket helper and the ship-loop child have no agent file: they are T3 threads or a pass, and `delegate_task` takes a provider, model and prompt, not an agent type.
+The Chief of Staff, the Project Manager, the ticket helper and the ship-loop child have no agent file: they are T3 threads or one-shot children, and `delegate_task` takes a provider, model and prompt, not an agent type.
 
 ## How approval travels
 

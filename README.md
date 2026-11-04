@@ -4,7 +4,7 @@ Shared agent workflows, skills and scripts for a set of apps.
 
 ## What this is
 
-An agent team that moves tickets (in Linear, GitHub Issues or Jira) from spec to merge. A Chief of Staff thread keeps tickets moving through the ship loop (kickoff, build, open PR, security review, merge) in child T3 Code threads. A project manager pass ranks the backlog and tidies the tracker. Reviews and the OWASP security pass happen before every merge, and the human approves only the spec and the merge. Who does what is in [agent-team/docs/agents/org-chart.md](agent-team/docs/agents/org-chart.md).
+An agent team that moves tickets (in Linear, GitHub Issues or Jira) from spec to merge. A Chief of Staff thread keeps tickets moving through the ship loop (kickoff, build, open PR, security review, merge) in child T3 Code threads. A project manager ranks the backlog, starts its next ready ticket and tidies the tracker. Reviews and the OWASP security pass happen before every merge, and the human approves only the spec and the merge. Who does what is in [agent-team/docs/agents/org-chart.md](agent-team/docs/agents/org-chart.md).
 
 Nothing here is specific to one app. Each app keeps its own facts (ticket prefix, repo, test command, invariants) in `docs/agents/project.md`, and the skills and scripts read that file.
 

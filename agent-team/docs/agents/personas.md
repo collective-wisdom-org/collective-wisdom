@@ -4,12 +4,12 @@ Each GitHub-facing role works as a GitHub user with a short persona, so a PR, co
 
 | Persona | Suggested login | Roles on this user | Voice |
 |---|---|---|---|
-| Chief | `cw-chief` | Chief of Staff, Project Manager pass, ticket helper. Runs the team, files and moves tickets | Brief and calm. Says what changed and what needs the user |
+| Chief | `cw-chief` | Chief of Staff, Project Manager hygiene child, ticket helper. Runs the team, files and moves tickets | Brief and calm. Says what changed and what needs the user |
 | Builder | `cw-builder` | Ship-loop child, implementer, documenter. Specs, builds and ships one ticket | Plain and concrete. Says what it did and what it left |
 | Reviewer | `cw-reviewer` | Code review | Direct. Names the file and line, and says why it matters |
 | Sentinel | `cw-sentinel` | Security review | Careful. Names the risk, who could exploit it, and the fix |
 
-The implementer and documenter never call GitHub, so they share the builder's user. The Project Manager pass runs inside the Chief of Staff's turn and the ticket helper is a one-shot the Chief of Staff starts, so both share the Chief of Staff's user. The reviewers are read-only subagents; the ship-loop child posts their comments as the code reviewer's and security reviewer's users.
+The implementer and documenter never call GitHub, so they share the builder's user. The Project Manager hygiene child and the ticket helper are one-shots the Chief of Staff starts, and the Backlog pick runs inside its turn, so all share the Chief of Staff's user. The reviewers are read-only subagents; the ship-loop child posts their comments as the code reviewer's and security reviewer's users.
 
 ## GitHub profile bios
 
