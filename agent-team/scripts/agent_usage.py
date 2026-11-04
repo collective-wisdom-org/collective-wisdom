@@ -4,6 +4,7 @@
 Usage:
     scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--turns]
     scripts/agent_usage.py [--projects DIR] --context
+    scripts/agent_usage.py [--projects DIR] --ticket <PREFIX>-N
 
 --since and --until are ISO 8601 UTC times (default: the last 24 hours).
 --projects defaults to ~/.claude/projects. Read-only: nothing is written.
@@ -14,6 +15,10 @@ first user message after the first request) and its average cost per request. Su
 "context=<tokens of its last request> started=<time of its first request>".
 It ignores --since and --until, prints no cost report, and exits 2 if the variable
 is unset or the session has no transcript or no requests.
+--ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
+N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
+worktree sessions with a git branch feat/<prefix>-N or feat/<prefix>-N-..., plus their
+subagents, ignores --since and --until, and exits 2 when nothing matches.
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
 subagent transcripts next to each session. A dir without "worktrees" in its
@@ -107,12 +112,13 @@ def text(message):
 
 
 def read_session(path):
-    """Return (branch, first user text, relays, requests, user message times).
+    """Return (branch, first user text, relays, requests, user message times, (first, last event time)).
 
-    Requests are (time, model family, costs, context tokens), deduped by requestId;
-    the last line wins. User message times skip tool results, injected (isMeta) messages and sidechains.
+    Requests are (time, model family, costs, context tokens, all billed tokens), deduped by
+    requestId; the last line wins. User message times skip tool results, injected (isMeta) messages and sidechains.
     """
     branch, first, relays, reqs, users = None, "", [], {}, []
+    span = [None, None]
     with open(path, errors="replace") as f:
         for line in f:
             try:
@@ -121,6 +127,11 @@ def read_session(path):
                 continue
             if not isinstance(d, dict) or not d.get("timestamp"):
                 continue
+            try:
+                ts = parse_ts(d["timestamp"])
+                span = [min(span[0] or ts, ts), max(span[1] or ts, ts)]
+            except (TypeError, ValueError):
+                pass
             branch = d.get("gitBranch") or branch
             m = d.get("message")
             if not isinstance(m, dict):
@@ -153,9 +164,18 @@ def read_session(path):
                             "cache_creation_input_tokens",
                         )
                     ),
+                    sum(
+                        m["usage"].get(k, 0)
+                        for k in (
+                            "input_tokens",
+                            "output_tokens",
+                            "cache_read_input_tokens",
+                            "cache_creation_input_tokens",
+                        )
+                    ),
                 )
     reqs = sorted(reqs.values(), key=lambda r: r[0])
-    return branch, first, sorted(relays), reqs, sorted(users)
+    return branch, first, sorted(relays), reqs, sorted(users), tuple(span)
 
 
 def start_ctx(reqs, users):
@@ -179,8 +199,7 @@ def context_line(projects):
     return f"context={reqs[-1][3]} started={started}"
 
 
-def stage_at(relays, ts):
-    stage = "spec"
+def stage_at(relays, ts, stage="spec"):
     for t, body in relays:
         if t > ts:
             break
@@ -193,6 +212,51 @@ def stage_at(relays, ts):
             if m:
                 stage = m.group(1)
     return stage
+
+
+def ticket_line(projects, ticket):
+    """The --ticket line for a ticket like CW-57, or None when no worktree session ran its branch."""
+    own = re.compile(r'"gitBranch":"feat/' + re.escape(ticket.lower()) + r'[-"]')
+    spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
+    tokens, runs, times = 0, 0, []
+    for proj in sorted(projects.glob(f"*{PROJECT}*")):
+        if "worktrees" not in proj.name:
+            continue
+        for session in proj.glob("*.jsonl"):
+            try:
+                if not own.search(session.read_text(errors="replace")):
+                    continue
+            except OSError:
+                continue
+            _, first, relays, reqs, _, span = read_session(session)
+            runs += 1
+            times += span
+            # A continuation child's task names the stage it starts in.
+            m = re.search(r"\bTEAM MODE\. CONTINUE\b", first) and re.search(
+                r"Do the (spec|build|merge) stage", first
+            )
+            start = m.group(1) if m else "spec"
+            for sub in (proj / session.stem / "subagents").glob("agent-*.jsonl"):
+                _, _, _, sreqs, _, sspan = read_session(sub)
+                reqs, times = reqs + sreqs, times + list(sspan)
+            for ts, _, c, _, n in reqs:
+                spent[stage_at(relays, ts, start)] += sum(c.values())
+                tokens += n
+    if not runs:
+        return None
+    times = [t for t in times if t]
+    wall = int((max(times) - min(times)).total_seconds() // 60) if times else 0
+    return (
+        f"cost ${sum(spent.values()):.2f} API-equivalent, {tokens / 1e6:.1f}M tokens, "
+        f"spec ${spent['spec']:.2f} / build ${spent['build']:.2f} / merge ${spent['merge']:.2f}, "
+        f"{runs} child run{'s' * (runs != 1)}, wall {wall // 60}h {wall % 60:02d}m"
+    )
+
+
+def ticket_id(s):
+    if not re.fullmatch(r"[A-Za-z]+-[0-9]+", s):
+        raise argparse.ArgumentTypeError(f"{s!r} is not like CW-57")
+    return s
 
 
 def main():
@@ -213,9 +277,21 @@ def main():
         action="store_true",
         help="print the current session's latest context and start time, then exit",
     )
+    ap.add_argument(
+        "--ticket",
+        type=ticket_id,
+        help="print one cost line for a ticket's child threads (all time), then exit",
+    )
     args = ap.parse_args()
     if args.context:
         print(context_line(args.projects))
+        return
+    if args.ticket:
+        found = ticket_line(args.projects, args.ticket)
+        if not found:
+            print(f"agent_usage: no transcripts for {args.ticket}", file=sys.stderr)
+            raise SystemExit(2)
+        print(found)
         return
 
     # parts[name][bucket] -> dollars by token kind.
@@ -228,7 +304,7 @@ def main():
     starts = {}  # root session name -> start ctx in tokens
 
     def add(name, bucket, group, reqs):
-        for ts, fam, c, _ in reqs:
+        for ts, fam, c, *_ in reqs:
             if args.since <= ts <= args.until:
                 for k in KINDS:
                     parts[name][bucket][k] += c[k]
@@ -240,7 +316,7 @@ def main():
     for proj in sorted(args.projects.glob(f"*{PROJECT}*")):
         is_root = "worktrees" not in proj.name
         for session in proj.glob("*.jsonl"):
-            branch, first, relays, reqs, users = read_session(session)
+            branch, first, relays, reqs, users, _ = read_session(session)
             name = (
                 f"{ROOT}{session.stem[:8]} {first[:28]}"
                 if is_root

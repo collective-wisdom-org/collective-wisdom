@@ -14,7 +14,7 @@ On `SPEC READY`:
 
 On `MERGE READY`:
 
-1. Run `python3 scripts/cos_brief.py pr <N> --head <reported head SHA>`. It prints the URL, head, checks, the latest code review and security review lines, a `head moved by merging main since <short SHA>; reviews stand <comment URL>` line when the head moved by a main merge, file counts, `flag:` lines and `migrations:`. Exit 2 (`cannot read PR`): tell the user the PR can't be read.
+1. Run `python3 scripts/cos_brief.py pr <N> --head <reported head SHA>`. It prints the URL, head, checks, the latest code review and security review lines, a `head moved by merging main since <short SHA>; reviews stand <comment URL>` line when the head moved by a main merge, a `cost:` line (what the ticket's child threads have cost so far, or `cost: unknown`), file counts, `flag:` lines and `migrations:`. Exit 2 (`cannot read PR`): tell the user the PR can't be read.
 2. Check that `head:` says it matches the reported SHA, and that the two PASS links in the review lines are the ones the child reported. If either is off or a review says `not posted`, send the child back with `t3_thread_send`: `CHIEF OF STAFF: <the mismatch>. Fix it and report MERGE READY again.` Set the stage back to `build`. Don't ask the user yet.
 3. Build the block from the child's `MERGE READY` report and that output. When the `head moved by merging main` line is there, the merge block's Reviews line ends with `(head moved by a main merge only since <short SHA>; PR diff unchanged)`. Name each `migrations:` clash and `flag:` line under Risks; flags are hints, so still name anything else you know touches data, money, auth, user email or migrations.
 
@@ -40,6 +40,7 @@ Merge block:
 <PREFIX>-197 merge ready: <PR title>. Risk: High (touches auth)
 PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
+Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent, 38.6M tokens, ...", or "unknown">
 Docs: <the child's Docs checked line>
 Changes:
 - …
