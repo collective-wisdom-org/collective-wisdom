@@ -1,7 +1,7 @@
 # CW-38: Give each agent role its own GitHub user and persona
 
 **Ticket:** [CW-38](https://github.com/dbeallor/collective-wisdom/issues/38)
-**Status:** Draft
+**Status:** Shipped
 
 ## Goal
 
