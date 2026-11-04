@@ -1,7 +1,7 @@
 # CW-35: Pick a way to show all release notes in one file on GitHub
 
 **Ticket:** [CW-35](https://github.com/dbeallor/collective-wisdom/issues/35)
-**Status:** Draft
+**Status:** Shipped
 
 ## Goal
 
