@@ -99,7 +99,7 @@ For the security review. These are the trade-offs, not open questions.
 6. **Review body.** Up to 80 characters of the user's own message go into the body as one `-f` argument, with no shell. The body grants nothing; `merge_pr.py` reads only the review state and commit.
 7. **Config from a branch.** The root checkout check keeps a PR from changing the `Owner login` or agent logins the script reads.
 8. **Reviews before approval.** The script does not check that code and security reviews are PASS. `merge_pr.py` still requires both before it merges, so an approval on an unreviewed head cannot merge.
-9. **Withdrawn queued approval.** The review is posted before the approval is queued, so withdrawing a queued approval (`hold`, `changes`, `cancel`, head moved) leaves the review on GitHub. The withdrawal comment says so, and the user can dismiss the review there.
+9. **Withdrawn queued approval.** The review is posted before the approval is queued, so withdrawing a queued approval (`hold`, `changes`, `cancel`) leaves the review on GitHub. A head move needs no such line: branch protection dismisses the stale review. The withdrawal comment says so, and the user can dismiss the review there.
 
 ## Verify
 
