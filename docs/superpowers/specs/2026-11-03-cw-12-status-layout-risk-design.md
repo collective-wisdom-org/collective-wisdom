@@ -1,6 +1,6 @@
 # Grouped `status` layout and a risk level on every ticket and approval (design)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [CW-12](https://github.com/dbeallor/collective-wisdom/issues/12)
 
 ## Intent
