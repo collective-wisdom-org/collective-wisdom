@@ -230,7 +230,7 @@ A queued relay stores the relay text only; any model switch happens at send time
 
 *Any other relay* (a restart, an answer to a blocked child, `resume`, a rate-limit continue, even when queued). The old child may hold unpushed work, so first check that it holds none:
 
-1. `t3_thread_read` the old child once (`limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`) for `recentRuns[0].status` and `worktreePath`, and `t3_pending_request` `list` on it. A `running` run or a pending request: send to the old child as before. A run that is still open can change its worktree, and the request would be left hanging. (An answer to a pending request is always this case.)
+1. `t3_thread_read` the old child once (`limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`) for `recentRuns[0].status` and `worktreePath`, and `t3_pending_request` `list` on it. A `running` run, a pending request, a failed read or call, or no `worktreePath`: send to the old child as before. A run that is still open can change its worktree, and the request would be left hanging. (An answer to a pending request is always this case.)
 2. `python3 scripts/cos_worktree_check.py <PREFIX>-N <worktreePath>` (from the root checkout). Exit 0 (`safe`): start a continuation child as the steps below say, with this relay as the task's last block. Exit 1 or 2: send to the old child as before, and add one Cleanup line, `<PREFIX>-N kept its old child: <the script's line>`.
 
 The steps below apply to both cases.
@@ -262,7 +262,7 @@ marker that stage ends with.
 The last block of this task is your relay. Treat it exactly like a "CHIEF OF STAFF:"
 message in this thread, including the approval check in ship-loop § Team mode.
 
-CHIEF OF STAFF: <the relay, both lines>
+CHIEF OF STAFF: <the relay, all of its lines>
 ```
 
 The old child's worktree stays idle with the branch checked out; `--ignore-other-worktrees` lets the new one take the branch.
