@@ -19,6 +19,12 @@ NOTEMD = "docs/superpowers/release-notes/x.md"
 SHIPPED = "**Status:** Shipped\n**Shipped:** in PR #7, as specified\n"
 
 
+@pytest.fixture(autouse=True)
+def owner_row(monkeypatch):
+    """read_facts takes the owner from project.md; the fixtures use a fixed one."""
+    monkeypatch.setattr(merge_pr.project_config, "value", lambda key: "owner" if key == "Owner login" else None)
+
+
 def old_shape(f, note="\n# 2026-11-03 X-1: a title\n\nbody\n"):
     """As-built and release note as files, no body section."""
     f["body"] = ""
@@ -34,6 +40,10 @@ def review(title, verdict="PASS", at="2026-11-02T10:00:00Z", who="me"):
     }
 
 
+def approval(who="owner", state="APPROVED", on=HEAD, at="2026-11-02T10:00:00Z"):
+    return {"author": {"login": who}, "state": state, "commit": {"oid": on}, "submittedAt": at}
+
+
 def green():
     return {
         "state": "OPEN", "isDraft": False, "baseRefName": "main",
@@ -46,7 +56,8 @@ def green():
         "login": "me",
         "comments": [review("## Code review (pass 2)"), review("## Security review (pass 1)")],
         "commits": [{"oid": HEAD, "committedDate": "2026-11-02T09:00:00Z"}],
-        "pr": "7",
+        "pr": "7", "owner": "owner", "protection": 1,
+        "reviews": [approval()],
         "body": "## Summary\n\nx\n\n## Release note\n\nA note.\n\n## Test plan\n\ny\n",
         "files": [{"path": SPECMD, "changeType": "ADDED"}],
         "docs": {SPECMD: SHIPPED},
@@ -63,6 +74,13 @@ def reviews(**kw):
     [
         (lambda f: None, None),
         (lambda f: f.update(approved="bbbbbbb"), "is not approved head"),
+        (lambda f: f.update(reviews=[]), "no approving review by owner on head aaaaaaa"),
+        (lambda f: f.update(reviews=[approval(on="c" * 40)]), "approved ccccccc, head moved"),
+        (lambda f: f.update(reviews=[approval(who="cw-builder")]), "no approving review by owner"),
+        (lambda f: f.update(reviews=[approval(), approval(state="CHANGES_REQUESTED", at="2026-11-02T11:00:00Z")]), "latest review is CHANGES_REQUESTED"),
+        (lambda f: f.update(reviews=[approval(), approval(state="COMMENTED", on="c" * 40, at="2026-11-02T11:00:00Z")]), None),
+        (lambda f: f.update(protection=None), "no branch protection"),
+        (lambda f: f.update(protection=0), "no branch protection"),
         (lambda f: f.update(state="CLOSED"), "closed"),
         (lambda f: f.update(mergeStateStatus="UNKNOWN"), "not mergeable"),
         (lambda f: f["statusCheckRollup"][0].update(conclusion="FAILURE"), "check build failed"),
@@ -113,9 +131,13 @@ def fake(f):
         calls.append(cmd)
         text = " ".join(cmd)
         if "pr view" in text:
-            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
+            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "approved", "owner", "protection", "root", "root_branch", "root_dirty", "root_ahead")})
         if "api user" in text:
             return f["login"]
+        if "branches/main/protection" in text:
+            if f["protection"] is None:
+                raise merge_pr.CmdError("gh: Branch not protected (HTTP 404)")
+            return json.dumps({"required_pull_request_reviews": {"required_approving_review_count": f["protection"]}})
         if "/contents/" in text:
             return f["docs"][next(p for p in f["docs"] if p in text)]
         if "worktree list" in text:
@@ -141,6 +163,7 @@ def writes(calls):
     "change, code, wrote",
     [
         (lambda f: f.update(approved="bbbbbbb"), 1, 0),
+        (lambda f: f.update(protection=None), 1, 0),
         (lambda f: f.update(root="/elsewhere"), 1, 0),  # run from a worktree: read_facts flags it, gate refuses
         (lambda f: f.update(root="/elsewhere", state="MERGED", mergeCommit={"oid": "m" * 40}), 1, 0),
         (lambda f: f["statusCheckRollup"][0].update(conclusion="FAILURE"), 1, 0),
