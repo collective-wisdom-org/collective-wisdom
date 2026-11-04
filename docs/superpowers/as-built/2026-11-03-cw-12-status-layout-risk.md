@@ -16,4 +16,4 @@ Mostly in `agent-team/.claude/skills/chief-of-staff/SKILL.md`; the role file `ag
 
 ## Differs from spec
 
-Nothing. One added edit: "Short lines, ticket ID first" in § Report format now notes that a reminder line starts with its risk level.
+The role file `agent-team/docs/agents/chief-of-staff.md` also changed (Scope bullet, Tone note), which the spec said it would not touch; the docs check asked for it. One more added edit: "Short lines, ticket ID first" in § Report format now notes that a reminder line starts with its risk level.

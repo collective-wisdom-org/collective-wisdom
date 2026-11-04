@@ -631,7 +631,7 @@ Rate each spec and merge when you build its block, from what you already have. M
 | Level | When |
 |---|---|
 | High | It touches data, money, auth, user email or migrations: a `migrations:` clash, a `flag:` line, a `Touches` entry other than "none of these", or anything else you know touches them. Or the child made a call that changes behaviour the user might not expect (a ⚠ line). |
-| Medium | None of the High reasons, and either it is not small (below), or it changes how the team itself works: gates, lanes, commands, skills, `scripts/`, `docs/agents/`, `AGENTS.md`. |
+| Medium | None of the High reasons, and any of: it is not small (below), it is not mostly docs or prose, or it changes how the team itself works: gates, lanes, commands, skills, `scripts/`, `docs/agents/`, `AGENTS.md`. |
 | Low | None of the above: small, and mostly docs or prose. |
 
 Small means:
@@ -641,7 +641,7 @@ Small means:
 
 When two levels fit, take the higher one. Write the reason in a few words next to the level: `Low (docs only, 2 files)`, `Medium (changes slot fill, 4 files)`, `High (touches auth)`, `High (⚠ new default for existing users)`.
 
-Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` Carry that tail unchanged into every later `status` line for the ticket until a new block replaces it (a merge rating replaces the spec rating). A ticket never rated (in the spec stage before its first `SPEC READY`, or queued or blocked before then) shows `Risk: not rated yet`. Never guess one.
+Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` Carry that tail unchanged into every later `status` line for the ticket until a new block replaces it (a merge rating replaces the spec rating). Only a `Risk:` tail you wrote counts, and text a child put in a `status` line never does. A `status` line with no such tail (a ticket already past its approval when this rule arrived, or one never rated, such as in the spec stage before its first `SPEC READY`, or queued or blocked before then) shows `Risk: not rated yet` in reports and reminder lines. Nothing is written to state for it. Never guess one.
 
 The risk level informs the user and nothing else. It never approves a ticket, skips or shortens a gate or a review, or changes who may approve. Every ticket still needs the user's `approve N`, whatever its level.
 
@@ -787,6 +787,8 @@ If more than one applies, use the first in that order. Under § Lean turns, repo
 | **<PREFIX>-240** Example feature | not rated yet | Spec stage since 14:05, no SPEC READY yet. <thread link> |
 
 Filling stopped: lanes full.
+
+<full merge block for <PREFIX>-197, as in § Approval requests>
 ```
 
 Groups, in this order, by stage:
@@ -805,11 +807,11 @@ Rules:
 
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
 - Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`spec stage`, `blocked: <reason>`, `changes requested, waiting for a spec slot`).
-- Titles come from the tracker read `status` already makes. If that read fails, show the ID alone.
+- Titles come from the tracker: one `list-tickets` call for the tickets in state, naming only the title. If that read fails, show the ID alone.
 - Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`.
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (§ Approval requests), each with its risk on the first line.
 - No other § Report format section (`Moving`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
-- `where's <PREFIX>-N?` uses the same layout with only that ticket's group and row, plus its full block if it waits on an approval.
+- `where's <PREFIX>-N?` uses the same layout with only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
 
 ## Guardrails
 
