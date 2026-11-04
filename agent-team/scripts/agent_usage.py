@@ -246,7 +246,7 @@ def ticket_line(projects, ticket):
     return (
         f"cost ${sum(spent.values()):.2f} API-equivalent, {tokens / 1e6:.1f}M tokens, "
         f"spec ${spent['spec']:.2f} / build ${spent['build']:.2f} / merge ${spent['merge']:.2f}, "
-        f"{runs} child runs, wall {wall // 60}h {wall % 60:02d}m"
+        f"{runs} child run{'s' * (runs != 1)}, wall {wall // 60}h {wall % 60:02d}m"
     )
 
 
