@@ -18,9 +18,12 @@ if ! sha=$("$here/gh.sh" pr view "$n" --json headRefOid -q .headRefOid) || [ -z 
   exit 2
 fi
 
-# `Required CI checks` from docs/agents/project.md (PROJECT_MD overrides the file). Empty when unset.
-required=$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import project_config; print(project_config.value("Required CI checks") or "")' "$PWD/scripts" 2>/dev/null || true)
-no_ci="none (no CI yet)"
+# Whether docs/agents/project.md declares no CI (`Required CI checks` is `none (no CI yet)`).
+# The helper sits next to this script, and a failure is shown, not read as "CI required".
+if ! declared=$(python3 -I "$here/project_config.py" no-ci); then
+  echo "wait-for-ci: cannot read project.md for PR #$n at $sha"
+  exit 2
+fi
 
 # True when gh printed at least one check row: name, status, ...
 has_rows() {
@@ -29,11 +32,11 @@ has_rows() {
 
 # Right after a push GitHub can report no checks yet, and --watch exits at once.
 # Poll every 15 s for up to 5 min until at least one check exists.
-# A repo that declares no CI polls twice (one 15 s wait): enough to catch a check that shows up late.
+# A repo that declares no CI polls twice (one 15 s wait). A check that registers later is still caught:
+# merge_pr.py reads the rollup at merge and holds the PR until every check on it has passed.
 tries=20
-[ "$required" = "$no_ci" ] && tries=2
+[ "$declared" = yes ] && tries=2
 found=0
-gh_error=0
 for i in $(seq 1 "$tries"); do
   rc=0
   out=$("$here/gh.sh" pr checks "$n" 2>/dev/null) || rc=$?
@@ -41,16 +44,20 @@ for i in $(seq 1 "$tries"); do
     found=1
     break
   fi
-  # An exit other than 0, 1 or 8 (gh gives auth failures code 4) is not "no checks"; it must not read as no CI.
-  # Other gh errors (network, 5xx, rate limit) also exit 1, like "no checks reported", and still read as no checks.
-  if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ] && [ "$rc" -ne 8 ]; then gh_error=1; fi
   [ "$i" -lt "$tries" ] && sleep 15
 done
-if [ "$found" -ne 1 ] && [ "$gh_error" -eq 0 ] && [ "$required" = "$no_ci" ]; then
-  echo "wait-for-ci: PR #$n at $sha: no CI declared"
-  exit 0
-fi
 if [ "$found" -ne 1 ]; then
+  if [ "$declared" = yes ]; then
+    # `gh pr checks` exits 1 for "no checks" and for a network error alike, so ask for the rollup itself.
+    if ! rollup=$("$here/gh.sh" pr view "$n" --json statusCheckRollup -q '.statusCheckRollup | length'); then
+      echo "wait-for-ci: cannot watch PR #$n at $sha"
+      exit 2
+    fi
+    if [ "$rollup" = 0 ]; then
+      echo "wait-for-ci: PR #$n at $sha: no CI declared"
+      exit 0
+    fi
+  fi
   echo "wait-for-ci: no checks on PR #$n at $sha"
   exit 2
 fi
