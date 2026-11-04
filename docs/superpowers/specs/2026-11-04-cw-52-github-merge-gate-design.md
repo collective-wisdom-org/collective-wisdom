@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-52](https://github.com/dbeallor/collective-wisdom/issues/52)
 **Status:** Shipped
-**Shipped:** in PR #84, as specified
+**Shipped:** in PR #84, with differences: [as-built](../as-built/2026-11-04-cw-52-github-merge-gate.md)
 
 ## Goal
 
