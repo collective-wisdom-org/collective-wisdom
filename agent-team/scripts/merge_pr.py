@@ -123,6 +123,7 @@ def read_facts(pr, approved, run):
     roles = {"code": "code-reviewer", "security": "security-reviewer", "builder": "builder"}
     f["authors"] = {k: project_config.role_login(r) or f["login"] for k, r in roles.items()}
     f["owner"] = project_config.value("Owner login") or f["login"]
+    f["noCi"] = project_config.no_ci()
     f["protection"] = read_protection(run) if f["state"] == "OPEN" else None
     f["agentLogins"] = sorted({l for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))})
     f["docs"] = {}
@@ -240,8 +241,8 @@ def gate(f, delta=real_delta):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
     if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != "CLEAN":
         return f"not mergeable: mergeable {f['mergeable']}, state {f['mergeStateStatus']}"
-    if not f["statusCheckRollup"]:
-        return "no checks"
+    if not f["statusCheckRollup"] and not f.get("noCi"):
+        return "no checks (a repo with no CI says so in project.md's Required CI checks row)"
     for c in f["statusCheckRollup"]:
         name = c.get("name") or c.get("context")
         if c["__typename"] == "StatusContext":
