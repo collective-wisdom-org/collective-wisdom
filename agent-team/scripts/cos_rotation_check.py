@@ -41,7 +41,10 @@ def _root():
     # Move there first, so every script this one loads (project.md, agent_usage) finds the same repo.
     d = os.environ.get("CLAUDE_PROJECT_DIR")
     if d and "--hook" in sys.argv:
-        os.chdir(d)
+        try:
+            os.chdir(d)
+        except OSError:
+            pass  # the hook exits 0 silently on any error
     return root()
 
 
