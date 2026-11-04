@@ -141,14 +141,14 @@ def test_context_and_start_ctx(tmp_path, capsys, monkeypatch, mode, sid, want):
         assert row.split()[-1] == want
 
 
-@pytest.mark.parametrize("mode", ["worktree", "no-git"])
+@pytest.mark.parametrize("mode", ["main", "worktree", "no-git"])
 def test_project_name_is_main_checkout_dir(tmp_path, mode):
     root = tmp_path / "myapp"
     (root / "scripts").mkdir(parents=True)
     script = root / "scripts" / "agent_usage.py"
     script.touch()
     if mode != "no-git":
-        git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
         subprocess.run([*git, "init", "-q"], check=True)
         subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "x"], check=True)
     if mode == "worktree":

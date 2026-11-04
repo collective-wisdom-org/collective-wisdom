@@ -27,6 +27,9 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   echo "Commit or stash them first." >&2
   exit 1
 fi
+# A copy vendored inside another repo would otherwise pin the parent repo's commit.
+TOP="$(cd "$(git -C "$ROOT" rev-parse --show-toplevel)" && pwd -P)"
+[ "$TOP" = "$(cd "$ROOT" && pwd -P)" ] || { echo "Refusing: $ROOT is inside the git repo at $TOP, not its own repo root, so the install cannot be pinned to its commit." >&2; exit 1; }
 SHA="$(git -C "$ROOT" rev-parse HEAD)"
 [ -d "$TARGET" ] || { echo "not a directory: $TARGET" >&2; exit 1; }
 TARGET="$(cd "$TARGET" && pwd)"

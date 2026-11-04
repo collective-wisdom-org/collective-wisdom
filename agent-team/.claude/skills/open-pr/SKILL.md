@@ -50,7 +50,7 @@ Read **superpowers-project-memory** for as-built template. **Overrides:**
 
 - As-built header: `**Shipped:** in PR #N` (no date). Also `**Ticket:** <PREFIX>-N`.
 - Set linked spec `**Status:** Shipped`.
-- Add your as-built row to `docs/superpowers/index/<prefix>-N.md`. Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
+- Add your as-built row to the ticket's index file. Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
 
 Commit on the feature branch: `docs: as-built for <PREFIX>-N <short>` (include spec + index in the same commit). Push before step 1 of the agent review loop.
 

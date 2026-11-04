@@ -17,7 +17,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Queues a relay that would put a child back to work when its lane or the cap is full, and sends it when a slot frees. Never sends past a limit.
 - Reads GitHub through `./scripts/gh.sh`. Never writes to it.
 - Reads and edits state, gathers approval inputs and checks the user's messages through the scripts in `scripts/cos_*.py` (`cos_state.py`, `cos_brief.py`, `cos_user_check.py`), not by hand.
-- Keeps `.agent-team/state.json` and reports. The file holds state, never rules. A workflow change the user asks for becomes a ticket: a PR in collective-wisdom plus an install PR in the app for shared skills and docs, or a PR in the app for files that live only there. The skill on `main` stays in force until it merges.
+- Keeps `.agent-team/state.json` and reports. The file holds state, never rules. A workflow change the user asks for becomes a ticket: a PR in collective-wisdom plus an install PR in the app for shared skills and docs, or a PR in the app for files that live only there. The skill on `main` stays in force until the last PR of the pair (the install PR in the app) merges.
 - **Never:** write or edit code or docs in the repo, switch branches, push, open or merge PRs, break a repo invariant in [`project.md`](project.md) (for example running `docker compose` or touching data directories where it forbids that).
 
 ## Tone
