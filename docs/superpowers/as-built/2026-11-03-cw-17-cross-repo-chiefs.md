@@ -21,6 +21,8 @@
 - A refusal reply goes to the sender only for `same repo`, `not for this repo` and `command: ...`, after `check` verified the sender. For `malformed`, `not-user`, `words differ`, `not a chief of staff thread` and exit 2 the refusal is posted locally and nothing is sent.
 - A reply's `(from <thread link>)` names the thread the message claims, shown for the user to check; it is not proof of the sender.
 - A ticket helper started from a request may only create new Backlog tickets (plus the new ticket's parent epic and links). The spec said the helper template changes by one line only.
+- When a request's helper files nothing (its `Tickets:` lists no ticket), the receiver sends the sender `Refused: nothing filed; details in the receiving Chief of Staff thread`. The spec allowed only ticket lines or `Refused: ticket helper ended without a report`.
+- For a helper whose first item carries `Request from`, the helper-notice bullet and the `TICKET HELPER DONE` template also surface an epic line or an edit to an existing ticket the helper left undone, under `Needs the user:`. The spec allowed only a duplicate ticket or a proposed epic.
 - The `For:` line is parsed but not checked; the check runs on the user's words.
 - The words may name this repo by `owner/name`, repo name or this thread's T3 project title. The product name in `project.md` is not matched.
 - `find` skips this repo only when `project.md` names one, and skips deleted projects and does not fold hyphens, so "collective wisdom" matches the title but not the repo name.
