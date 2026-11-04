@@ -12,12 +12,12 @@
   - A wait call cut off before `"output"` gives exit 2.
   - A whole wait call with `content` and no `structuredContent` gives `waiting ABC-1 on bg1`. It fails if the `content` fallback in `matched_ids` is removed.
 - New test helpers `wait_call` and `cut_before`; `wait_read` takes `content` and `structured` options. Existing rows keep their output.
-- Comment on PR #32: superseded by CW-21 (#34), with the short comparison. #32 stays open for the user to close.
+- Comment on PR #32: superseded by CW-21 (#34), with the short comparison and a link to this PR.
 - No change to `cos_idle_check.py`, skills or docs.
 
 ## Differs from the spec
 
-Nothing.
+- PR #32 was already closed (not merged) when the comment went on, so "#32 stays open for the user to close" did not apply. The comment says so.
 
 ## Verification
 
