@@ -103,7 +103,7 @@ The builder may add a row for the cut-off text case if the parser handles it, si
 ## Calls I made (surprising first)
 
 - **I port fathom's as-built parser, not only its spec.** The merged fathom script also handles a wait call whose text was cut off by `maxCharsPerItem`: a visible match counts, and no visible match is exit 2 instead of `unmatched`. The ticket doesn't list this case. Without it, a long wait output cut off at 1500 characters would read as `unmatched` and could block a ticket that is fine.
-- **The § Lean turns run-finished sentence is left alone.** It says step 3 runs "so a run that ended without a marker is restarted in that turn". That stays true in effect (step 3 now decides), and leaving it keeps this diff away from a paragraph PR #26 and CW-12 also touch. The role doc line is the one the ticket names, and it gets the "unless" clause.
+- **The run-finished sentence in the skill intro gets a short "unless the wait check says it is waiting" clause.** It said a run with no marker is restarted in that turn, which step 3 no longer guarantees. The docs check found it. It is one clause in an existing sentence.
 - **An unreadable wait check allows a restart but never a block.** A restart is the cheaper mistake; without it, a child whose reads keep failing would sit forever.
 - **Any matched wait in the last run counts**, not only a wait on `wait-for-ci.sh`. A review or other background command wakes the child the same way.
 - **A matched wait counts as waiting for 45 minutes after the run ends,** reusing `IDLE_AFTER`. CI waits take 5 to 7 minutes in fathom.
