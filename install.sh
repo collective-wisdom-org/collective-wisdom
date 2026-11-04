@@ -4,6 +4,7 @@
 #        ./install.sh [--dry-run] --update [--to <ref>] [--force] <target-repo-path>
 #        ./install.sh --check <target-repo-path>
 set -euo pipefail
+export GIT_NO_REPLACE_OBJECTS=1  # a replace ref must not change which tree gets copied for a pinned SHA
 
 usage() {
   {
@@ -104,17 +105,16 @@ if [ "$CHECK" -eq 1 ]; then
 fi
 
 # Resolve the target commit. It must be on origin/main, so an app is never pinned to an unmerged branch.
-# Spell out refs/remotes/: a tag named origin/main would win over the short name.
+# Look the branch up by its exact ref name: rev-parse and merge-base guess (tags, heads) when a short or missing name is given.
+if [ -z "$REF" ] && [ "$UPDATE" -eq 1 ]; then
+  git -C "$ROOT" fetch -q --no-tags origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
+fi
+MAIN="$(git -C "$ROOT" show-ref --verify --hash refs/remotes/origin/main 2>/dev/null)" || { echo "Refusing: $ROOT has no origin/main; run 'git fetch origin' there." >&2; exit 1; }
 if [ -z "$REF" ]; then
-  if [ "$UPDATE" -eq 1 ]; then
-    git -C "$ROOT" fetch -q --no-tags origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
-    REF="refs/remotes/origin/main"
-  else
-    REF="HEAD"
-  fi
+  if [ "$UPDATE" -eq 1 ]; then REF="$MAIN"; else REF="HEAD"; fi
 fi
 SHA="$(git -C "$ROOT" rev-parse --verify --quiet "$REF^{commit}")" || { echo "Refusing: $REF is not a commit in $ROOT." >&2; exit 1; }
-git -C "$ROOT" merge-base --is-ancestor "$SHA" refs/remotes/origin/main 2>/dev/null || { echo "Refusing: $SHA ($REF) is not on origin/main, so the install cannot be pinned to it. Merge it, or run 'git fetch origin' in $ROOT." >&2; exit 1; }
+git -C "$ROOT" merge-base --is-ancestor "$SHA" "$MAIN" 2>/dev/null || { echo "Refusing: $SHA ($REF) is not on origin/main, so the install cannot be pinned to it. Merge it, or run 'git fetch origin' in $ROOT." >&2; exit 1; }
 
 TOUCHED=(.claude scripts docs/agents docs/superpowers/README.md .agents .gitignore AGENTS.md)
 DIRTY="$(git -C "$TARGET" status --porcelain -- "${TOUCHED[@]}")"

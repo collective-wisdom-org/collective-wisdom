@@ -112,6 +112,17 @@ def test_install_and_update(world, name, steps, args, code, out, pin, files):
         assert ((app / rel).read_text() if (app / rel).exists() else None) == want, rel
 
 
+def test_a_planted_tag_cannot_stand_in_for_a_missing_origin_main(world):
+    # git guesses refs/tags/refs/remotes/origin/main when refs/remotes/origin/main is missing (a single-branch clone).
+    cw, app, sha = world
+    git(cw, "tag", "refs/remotes/origin/main", sha["S"])
+    git(cw, "update-ref", "-d", "refs/remotes/origin/main")
+    for args in (["--to", "{S}"], ["--to", "{A}"]):
+        rc, text = run(cw, app, sha, *args)
+        assert rc == 1 and "no origin/main" in text, text
+    assert not (app / PIN).exists()
+
+
 BAD = "collective-wisdom " + "f" * 40 + "\n"
 CHECK = [
     ("clean app matches", [], 0, ["check: matches collective-wisdom {A}"]),
