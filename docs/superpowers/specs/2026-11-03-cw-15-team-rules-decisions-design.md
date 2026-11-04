@@ -1,7 +1,7 @@
 # CW-15: Decide whether to change the idle check, chain walk, approval gates, lane limits or models
 
 **Ticket:** [CW-15](https://github.com/dbeallor/collective-wisdom/issues/15)
-**Status:** spec, awaiting the user's answers
+**Status:** Shipped
 
 ## Goal
 
