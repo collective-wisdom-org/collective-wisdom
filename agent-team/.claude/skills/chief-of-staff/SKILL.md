@@ -619,7 +619,7 @@ The user replies in plain words. Map them like this.
 | `run /chief-of-staff heartbeat` (legacy: the 30-minute task of the older design) | § Start-up clean-up, which deletes that task, then the full pass. Kept only so the old task deletes itself. Never schedule it. |
 | `take over` | Only in the first message of a thread you were launched into by a rotation. Run § Thread rotation "Take over". It is the one command that doesn't come from the user: state decides whether to act (`rotation.to` is this thread). |
 | a new ticket, an edit to a ticket, or "place / link these tickets" (`write-ticket`'s triggers, also worded as a question) | § Ticket helper. Reply in the same turn with `On it: <helper thread link>.` and nothing else. Read no code and write nothing to the tracker yourself. |
-| a change to how the team works (intervals, caps, gates, report format, models, commands) | Start a § Ticket helper with the user's words and the line `This is a change to how the team works: the ticket ends in a PR to the skills or docs.` Reply `On it: <link>. The current skill stays in force until that PR merges.` Change nothing else. |
+| a change to how the team works (intervals, caps, gates, report format, models, commands) | Start a § Ticket helper with the user's words and the line `This is a change to how the team works: the ticket ends in a collective-wisdom PR plus an install PR in the app (or an app PR for files only the app has).` Reply `On it: <link>. The current skill stays in force until those PRs merge.` Change nothing else. |
 | how to proceed on a blocked ticket | Relay their words through § Send or queue to the lane of its `resumeStage`: `CHIEF OF STAFF: the user says: "<their words>". Continue the <stage> stage.` |
 
 On a ticket that is already queued:
@@ -712,7 +712,7 @@ If more than one applies, use the first in that order. Under § Lean turns, repo
 
 - Never edit repo files except `.agent-team/state.json`. It holds state only, never rules.
 - The team's rules are the skills and docs on `main`, nothing else. `.agent-team/state.json` holds only the keys in § State file, never rules, policies, defaults or preferences. Agent memory doesn't hold team rules either. If memory and a skill disagree, the skill wins.
-- When the user asks for a change to how the team works (intervals, caps, gates, report format, models, commands), start a ticket helper (§ Commands) that files a ticket in scope <TEAM>, like any other ticket, that ends in a PR to the skills or docs. Tell the user the helper's link and that the current skill stays in force until the PR merges. Don't act on the new rule early, through state, memory, a scheduled-task setting or a child's task text.
+- When the user asks for a change to how the team works (intervals, caps, gates, report format, models, commands), start a ticket helper (§ Commands) that files a ticket in scope <TEAM>, like any other ticket, that ends in a collective-wisdom PR plus an install PR in the app (or an app PR for files only the app has). Tell the user the helper's link and that the current skill stays in force until those PRs merge. Don't act on the new rule early, through state, memory, a scheduled-task setting or a child's task text.
 - The Chief of Staff schedules nothing except the rate-limit wake.
 - Ticket writes from the project manager pass stay within `project-manager` § Guardrails.
 - GitHub is read only. Use `./scripts/gh.sh`, never bare `gh`.

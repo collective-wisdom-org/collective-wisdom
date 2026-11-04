@@ -15,7 +15,7 @@ first user message after the first request) and its average cost per request. Su
 It ignores --since and --until, prints no cost report, and exits 2 if the variable
 is unset or the session has no transcript or no requests.
 
-Reads every session under project dirs whose name contains the repo directory name (PROJECT), plus the
+Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
 subagent transcripts next to each session. A dir without "worktrees" in its
 name is the root checkout: each of its sessions (the Chief of Staff and any
 solo threads) gets its own row, labelled with its first message. Worktree sessions
