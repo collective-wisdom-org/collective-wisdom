@@ -40,7 +40,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 When the user builds before spec approval:
 
 1. Proceed in worktree as directed.
-2. Before PR: retroactive spec per **superpowers-project-memory** § "Start now" path. As-built and index entry (`docs/superpowers/index/<prefix>-N.md`): right after PR creation per **open-pr** § Closeout docs (not before the PR exists).
+2. Before PR: retroactive spec per **superpowers-project-memory** § "Start now" path. As-built, index entry (`docs/superpowers/index/<prefix>-N.md`) and release note: right after PR creation per **open-pr** § Closeout docs (not before the PR exists).
 3. Next feature defaults to normal path unless user says "start now" again.
 
 ## Scope

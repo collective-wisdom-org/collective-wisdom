@@ -38,6 +38,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Required CI checks | `script-tests` and `shellcheck` |
 | Agent-team script tests | `python3 -I -m pytest -q agent-team/scripts` (the same suite; `scripts/` at the root is a link to `agent-team/scripts/`) |
 | Docs index listing | `python3 scripts/docs_index.py` (prints every `docs/superpowers/index/*.md` entry as one table) |
+| Release notes listing | `python3 scripts/release_notes.py` (prints every `docs/superpowers/release-notes/*.md` note, newest first) |
 | Test database | none |
 | Migration heads check | none |
 | Migrations directory | none |
@@ -77,6 +78,7 @@ Extra checks for the security review, on top of OWASP and "no secrets in repo".
 |---|---|
 | Specs / plans / as-built | `docs/superpowers/specs/`, `docs/superpowers/plans/`, `docs/superpowers/as-built/` |
 | Index | One file per ticket in `docs/superpowers/index/cw-N.md` (docs with no ticket: `index/<YYYY-MM-DD>-<slug>.md`); layout in [`docs/superpowers/README.md`](../superpowers/README.md) |
+| Release notes | One file per ticket in `docs/superpowers/release-notes/cw-N.md` (docs with no ticket: `release-notes/<YYYY-MM-DD>-<slug>.md`); layout in [`docs/superpowers/README.md`](../superpowers/README.md) |
 
 ## Docs check
 
