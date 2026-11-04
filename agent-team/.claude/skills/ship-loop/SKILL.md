@@ -67,7 +67,7 @@ In team mode, see § Team mode.
 
 ### 6. Close
 
-Usually nothing left: as-built and index entry already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; as-built `**Shipped:** in PR #N` is dateless.
+Usually nothing left: as-built, index entry and release note already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; as-built `**Shipped:** in PR #N` is dateless.
 
 If an index gap remains, fix via a normal PR, not a direct commit on `main`.
 

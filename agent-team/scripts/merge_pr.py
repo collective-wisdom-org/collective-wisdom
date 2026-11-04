@@ -39,6 +39,7 @@ FIELDS = (
 )
 INDEX = r"docs/superpowers/index/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
+RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
 NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
 
@@ -66,7 +67,8 @@ def read_facts(pr, approved, run):
         want = [
             x["path"]
             for x in f["files"]
-            if re.fullmatch(f"{INDEX}|{SPECS}", x["path"]) and x["changeType"] != "DELETED"
+            if (re.fullmatch(f"{INDEX}|{SPECS}", x["path"]) and x["changeType"] != "DELETED")
+            or (re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
         ]
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
@@ -198,6 +200,13 @@ def gate(f, delta=real_delta):
     rel = added[0].removeprefix("docs/superpowers/")
     if not any(a.removeprefix("docs/superpowers/") in t for a in added for t in index):
         return f"closeout missing: no index entry in the PR links {rel}"
+    notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
+    if not notes:
+        return "closeout missing: no added docs/superpowers/release-notes/*.md in the PR"
+    for p in notes:
+        first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
+        if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
+            return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
     if f["root_branch"] != "main":
         return f"root checkout is on {f['root_branch']}, not main; cannot fast-forward"
     if f["root_dirty"]:
