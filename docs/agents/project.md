@@ -93,7 +93,7 @@ Read by the documenter subagent ([documenter.md](documenter.md)).
 
 ## Environments and deploy
 
-- None. Apps pick up changes by pulling this repo and re-running `install.sh`.
+- None. Apps pick up changes through a tagged release: run `./tag-release.sh` here, then `scripts/agent-team-update.sh` in the app (or `install.sh --update` from a clone).
 
 ## Models
 
