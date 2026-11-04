@@ -165,6 +165,20 @@ def test_skill_paths_unchanged_without_links(tmp_path, monkeypatch):
     for rel in crc.SKILL_PATHS:
         p = tmp_path / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text("x\n") if rel.endswith(".md") else p.mkdir(exist_ok=True)
+        if rel.endswith(".md"):
+            p.write_text("x\n")
+        else:
+            p.mkdir(exist_ok=True)
     monkeypatch.setattr(crc, "ROOT", tmp_path)
     assert crc.skill_paths() == crc.SKILL_PATHS
+
+
+def test_skill_commit_works_when_root_is_a_subfolder(tmp_path, monkeypatch):
+    run = _repo(tmp_path)
+    run("add", "-A")
+    run("commit", "-qm", "one")
+    sub = tmp_path / "agent-team"
+    (sub / ".claude").mkdir(exist_ok=True)
+    (sub / "docs" / "agents").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(crc, "ROOT", sub)
+    assert crc.skill_commit() == run("rev-parse", "HEAD")

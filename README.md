@@ -27,6 +27,7 @@ This repo runs its own Chief of Staff. The root links into `agent-team/` so the 
 
 - `docs/agents/project.md` is real and local to this repo (tracker `github`, prefix `CW`). It is never shipped; apps are seeded from `agent-team/templates/project.md`.
 - Edit shared files under `agent-team/`, never through the links.
+- `.claude/settings.json` at the root is a link into `agent-team/.claude/settings.json`, so any permission a tool saves to project settings lands in the shipped file; put personal permissions in `.claude/settings.local.json` (gitignored).
 - Run the Chief of Staff from the root checkout on `main`, like in an app. `agent-team/scripts/test_root_links.py` fails on a dangling link or an unlinked doc.
 
 ## Requirements

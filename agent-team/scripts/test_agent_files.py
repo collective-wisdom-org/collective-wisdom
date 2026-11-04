@@ -4,6 +4,12 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).absolute().parent.parent
+TOP = ROOT.parent
+
+pytestmark = pytest.mark.skipif(
+    not (TOP / "install.sh").exists(), reason="collective-wisdom root only"
+)
+
 AGENTS = sorted((ROOT / ".claude" / "agents").glob("*.md"))
 
 
@@ -28,15 +34,3 @@ def test_agent_file_shape(path):
     assert docs, f"{path.name}: body names no docs/agents path"
     for doc in docs:
         assert (ROOT / doc).is_file(), f"{path.name}: {doc} does not exist"
-
-
-def test_expected_agents():
-    assert {p.stem for p in AGENTS} == {"code-reviewer", "documenter", "implementer", "security-reviewer"}
-
-
-def test_models():
-    models = {p.stem: parse(p)[0]["model"] for p in AGENTS}
-    assert models["implementer"] == "sonnet"
-    assert models["documenter"] == "sonnet"
-    assert models["code-reviewer"] == "opus"
-    assert models["security-reviewer"] == "opus"

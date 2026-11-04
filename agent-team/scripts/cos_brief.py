@@ -25,13 +25,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).absolute().parent))
 import project_config  # noqa: E402
 
 REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md
 if REPO is None:
     raise SystemExit("cos_brief: docs/agents/project.md has no `<owner>/<repo>` in its Repo row")
-GH = str(Path(__file__).resolve().parent / "gh.sh")
+GH = str(Path(__file__).absolute().parent / "gh.sh")
 SECTIONS = ("Goals", "Non-goals", "Calls I made")
 SECTION_CAP = 40
 FLAG_CAP = 10

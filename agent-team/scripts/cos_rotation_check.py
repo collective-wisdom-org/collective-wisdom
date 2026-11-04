@@ -126,7 +126,7 @@ def skill_commit():
     paths = skill_paths()
     if not paths:
         raise Unreadable("git")
-    commit = git("log", "-1", "--format=%H", "--", *paths)
+    commit = git("log", "-1", "--format=%H", "--", *[f":(top){p}" for p in paths])
     if not commit:
         raise Unreadable("git")
     return commit
