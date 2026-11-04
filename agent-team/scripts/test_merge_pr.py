@@ -50,7 +50,7 @@ def green():
             INDEX: "| [x](../as-built/x.md) |\n",
             NOTEMD: "\n# 2026-11-03 X-1: a title\n\nbody\n",
         },
-        "mergeCommit": None, "root": "/root", "root_branch": "main", "root_dirty": False, "root_ahead": 0,
+        "mergeCommit": None, "root": str(merge_pr.ROOT), "root_branch": "main", "root_dirty": False, "root_ahead": 0,
     }
 
 
@@ -74,6 +74,7 @@ def reviews(**kw):
         (reviews(who="other"), "no Security review"),
         (lambda f: [c.update(body=c["body"].replace("**Verdict:**", "Verdict:")) for c in f["comments"]], None),
         (lambda f: f.update(isCrossRepository=True), "from a fork"),
+        (lambda f: f.update(not_root_checkout=True), "run it from the root checkout"),
         (lambda f: f.update(login="cw-builder", agentLogins=["cw-chief", "cw-builder"]), "agent user cw-builder"),
         (lambda f: f.update(commits=[{"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}, {"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "older than head"),
         (lambda f: f.update(commits=[{"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "head commit not in"),

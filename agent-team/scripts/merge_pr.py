@@ -84,6 +84,8 @@ def read_facts(pr, approved, run):
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
     block = wt.strip().split("\n\n")[0].splitlines()
     f["root"] = block[0].removeprefix("worktree ")
+    # Reviewer logins come from project.md in the current directory, so a feature worktree would let its PR pick them.
+    f["not_root_checkout"] = ROOT.resolve() != Path(f["root"]).resolve()
     f["root_branch"] = next(
         (l.removeprefix("branch refs/heads/") for l in block if l.startswith("branch ")),
         None,
@@ -169,6 +171,8 @@ def gate(f, delta=real_delta):
         return "PR is closed, not merged"
     if f["state"] != "OPEN":
         return f"PR state is {f['state']}"
+    if f.get("not_root_checkout"):
+        return "run it from the root checkout: cd <root checkout> && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if f["login"] in f.get("agentLogins", ()):
         return f"gh is signed in as the agent user {f['login']}, not the owner; run gh auth switch -u <owner login>"
     if f["isDraft"]:
