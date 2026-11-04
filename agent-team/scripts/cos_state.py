@@ -10,21 +10,21 @@ Usage:
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket, and the retired
-thread ids, oldest first, with "(archived)" on archived ones). get prints
+threads as <id>><successor>, oldest first, with "(archived)" on archived ones). get prints
 one ticket (or the pm block) as JSON. apply reads a JSON list of operations on stdin and
 applies all of them or none: it prints "unchanged", or "saved" and one line per changed
 ticket, and writes through a temp file, fsync and os.replace under a flock on state.lock
 next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
-    start     ticket, firstTaskId, childThreadId, status; optional parentThreadId, branch
+    start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch
     stage     ticket, stage, status; optional set (a stage change needs a status line)
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
     top       set (top-level keys other than tickets, merged, retiredThreads, pm)
     pm        set
-    retire    threadId
+    retire    threadId; optional successor (the thread id that took over)
     archive   threadId, archivedAt (a time, or null to undo)
     unretire  threadId
     prune
@@ -138,7 +138,7 @@ def check(t):
 
 
 def op_start(s, op):
-    need(op, "ticket", "firstTaskId", "childThreadId", "status", optional=("parentThreadId", "branch"))
+    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", optional=("branch",))
     tid, t = ticket_of(s, op)
     if t:
         if t.get("childThreadId") != op["childThreadId"]:
@@ -146,7 +146,7 @@ def op_start(s, op):
         return
     s["tickets"][tid] = {
         "stage": "spec", "firstTaskId": op["firstTaskId"], "childThreadId": op["childThreadId"],
-        "parentThreadId": op.get("parentThreadId"), "status": op["status"],
+        "parentThreadId": op["parentThreadId"], "status": op["status"],
         "branch": op.get("branch"), "specPath": None, "specSha": None, "pr": None,
         "headSha": None, "rateLimitResumes": 0, "lastSeenAt": now(), "lastPosition": 0,
         "resumeStage": None, "pendingRelay": None, "approvalItemId": None, "queuedAt": None,
@@ -228,9 +228,14 @@ def retired(s, op):
 
 
 def op_retire(s, op):
-    need(op, "threadId")
+    need(op, "threadId", optional=("successor",))
+    if op.get("successor") == op["threadId"]:
+        raise Reject("successor is the thread itself")
     if not retired(s, op):
-        s["retiredThreads"].append({"threadId": op["threadId"], "retiredAt": now(), "archivedAt": None})
+        s["retiredThreads"].append({
+            "threadId": op["threadId"], "retiredAt": now(), "archivedAt": None,
+            "successor": op.get("successor"),
+        })
 
 
 def op_archive(s, op):
@@ -427,7 +432,7 @@ def show(s):
     )
     out += [
         "merged (24h): " + (", ".join(recent) or "-"),
-        "retired: " + (" ".join(f"{r.get('threadId')}{'(archived)' if r.get('archivedAt') else ''}" for r in rt) or "-"),
+        "retired: " + (" ".join(f"{r.get('threadId')}>{r.get('successor') or '?'}{'(archived)' if r.get('archivedAt') else ''}" for r in rt) or "-"),
         f"pm: rankedAt={t(pm.get('rankedAt'))} lastDailyAt={t(pm.get('lastDailyAt'))} "
         f"lastCheckAt={t(pm.get('lastCheckAt'))} ranked={ranked or '-'}",
         "unknown keys: " + (" ".join(k for k in s if k not in TOP and k != "scheduledTaskId") or "-"),
