@@ -1,7 +1,8 @@
 # CW-68: List the running children, with thread links, whenever the idle check runs
 
 **Ticket:** [CW-68](https://github.com/dbeallor/collective-wisdom/issues/68)
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #74, as specified
 
 ## Goal
 
