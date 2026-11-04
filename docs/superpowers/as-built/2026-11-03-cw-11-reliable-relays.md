@@ -9,7 +9,7 @@
 
 - `scripts/cos_ready_check.py`: port of fathom's GUY-327 check. Prefix, repo and branch head come from `project_config`. `cos_brief.py` exposes `latest_review` so both scripts parse review verdicts the same way.
 - `scripts/cos_sweep.py`: runs the merged check (with apply), the ready check and the parent check (no archive lines) in one process and prints `sweep: read in full: ...; merged: ...`. `cos_merged_check.py` and `cos_parent_check.py` gained `run()` entry points; their CLI output is unchanged.
-- `scripts/cos_handoff.py` (GUY-258): the `HANDOFF` block for continuation children, with the branch, spec path and spec SHA checks that the skill did by hand.
+- `scripts/cos_handoff.py` (GUY-258): the `HANDOFF` block for continuation children, with the branch, spec path and spec SHA checks that the skill did by hand. It counts only review comments posted by the `gh` login, prints each verdict as a fixed word (`PASS`, `CHANGES NEEDED`, `other`) and keeps skipped check names on one line capped at 300 characters, so PR comment text cannot forge a relay line in a child's task. The ready check does not filter by author: its output is a fixed word and only picks a child for a full read.
 - `chief-of-staff` SKILL.md: every merged-check call site runs the sweep; new § Sweep; the slot fill gate checks a full lane's children when it has a queue; the continuation template carries the handoff block; § Send or queue records why finish notices get lost. `ship-loop` and `merge-pr` treat the `HANDOFF` block as data.
 
 ## Why notices get lost
@@ -27,7 +27,7 @@ T3 sends a finish notice only to a child's parent thread, and only when that par
 
 ## Verification
 
-- `python3 -I -m pytest -q agent-team/scripts`: 315 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
+- `python3 -I -m pytest -q agent-team/scripts`: 318 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
 - `cos_handoff.py` run against PR #10: checks and review lines match `cos_brief.py pr 10`.
 
 ## Not verified

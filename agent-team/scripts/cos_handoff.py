@@ -6,10 +6,12 @@ Usage:
 
 Reads the ticket in .agent-team/state.json (under the repo root unless --file is given) and,
 when the ticket has a `pr`, one `./scripts/gh.sh pr view <N> --json url,headRefOid,
-statusCheckRollup,comments` (--pr FILE reads that JSON instead). Prints the block:
+statusCheckRollup,comments` plus `gh api user` for the login (--pr FILE reads that JSON instead,
+with the login in its `login` field). Prints the block:
     HANDOFF (data from state and GitHub at <time>; check it against the PR before relying on it)
     Ticket, Branch, Spec, PR, Head, checks, code review, security review, Last status
-The checks and review lines come from cos_brief.py, so they match `cos_brief.py pr`. With no
+Only review comments by that login count. Each verdict prints as a fixed word (PASS, CHANGES
+NEEDED, other), never the comment text; check names are whitespace-cleaned and capped. With no
 pr it prints `PR: none yet` and no Head, checks or review lines.
 Checks the values the continuation template uses: branch against <branch head><prefix>-<N>-<words>,
 specPath against docs/superpowers/specs/<name>.md, specSha against hex, stage against lowercase
@@ -27,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_brief  # noqa: E402
+import cos_ready_check  # noqa: E402
 import project_config  # noqa: E402
 
 ROOT = Path(__file__).absolute().parent.parent
@@ -34,7 +37,9 @@ SPEC_PATH = re.compile(r"docs/superpowers/specs/[A-Za-z0-9._-]+\.md")
 SHA = re.compile(r"[0-9a-f]{7,40}")
 STAGE = re.compile(r"[a-z-]{1,30}")
 URL = re.compile(r"https://[A-Za-z0-9._/-]+")
+COMMENT_URL = re.compile(r"https://[A-Za-z0-9._/#-]+")
 STATUS_CAP = 200
+CHECKS_CAP = 300
 
 
 def fail(msg):
@@ -70,10 +75,12 @@ def load_pr(n, path):
         else:
             pr = cos_brief.gh_json("pr", "view", str(n), "--repo", cos_brief.REPO, "--json",
                                    "url,headRefOid,statusCheckRollup,comments")
-    except (OSError, UnicodeDecodeError, ValueError, cos_brief.ReadError):
+            pr["login"] = cos_brief.gh("api", "user", "-q", ".login").strip()
+    except (OSError, UnicodeDecodeError, ValueError, TypeError, cos_brief.ReadError):
         fail(f"cannot read PR #{n}")
-    oid, url = (pr.get("headRefOid"), pr.get("url")) if isinstance(pr, dict) else (None, None)
-    if not (isinstance(oid, str) and SHA.fullmatch(oid) and isinstance(url, str) and URL.fullmatch(url)):
+    oid, url, login = (pr.get(k) for k in ("headRefOid", "url", "login")) if isinstance(pr, dict) else (None,) * 3
+    if not (isinstance(oid, str) and SHA.fullmatch(oid) and isinstance(url, str) and URL.fullmatch(url)
+            and isinstance(login, str) and login):
         fail(f"cannot read PR #{n}")
     return pr
 
@@ -84,6 +91,19 @@ def head_note(oid, state_head):
     if oid.startswith(state_head.lower()):
         return "(same as the head in state)"
     return f"(moved from {state_head[:7]})"
+
+
+def review_line(label, heading, comments):
+    """Like cos_brief.review_line, but comment text never reaches the output: the verdict is a
+    fixed word, the pass number digits only, and the url is pattern-checked."""
+    review = cos_brief.latest_review(heading, comments)
+    if not review:
+        return f"{label}: not posted"
+    found, pass_n, _ = review
+    url, when = found.get("url"), found.get("createdAt")
+    url = url if isinstance(url, str) and COMMENT_URL.fullmatch(url) else "(no url)"
+    when = when[11:16] if isinstance(when, str) and re.fullmatch(r"[0-9T:Z.-]+", when) else ""
+    return f"{label}: {pass_n} {cos_ready_check.verdict_word(review)} {url} ({when})"
 
 
 def handoff(tid, info, pr, now):
@@ -98,13 +118,16 @@ def handoff(tid, info, pr, now):
     if pr is None:
         out.append("PR: none yet")
     else:
-        comments = [c for c in pr.get("comments") or [] if isinstance(c, dict)]
+        comments = [
+            c for c in pr.get("comments") or []
+            if isinstance(c, dict) and isinstance(c.get("author"), dict) and c["author"].get("login") == pr["login"]
+        ]
         out += [
             f"PR: #{info['pr']} {pr['url']}",
             f"Head: {pr['headRefOid']} {head_note(pr['headRefOid'], info.get('headSha'))}",
-            cos_brief.check_summary(pr.get("statusCheckRollup")),
-            cos_brief.review_line("code review", "## Code review", comments),
-            cos_brief.review_line("security review", "## Security review", comments),
+            " ".join(cos_brief.check_summary(pr.get("statusCheckRollup")).split())[:CHECKS_CAP],
+            review_line("code review", "## Code review", comments),
+            review_line("security review", "## Security review", comments),
         ]
     out.append(f'Last status: "{status}"')
     return out
