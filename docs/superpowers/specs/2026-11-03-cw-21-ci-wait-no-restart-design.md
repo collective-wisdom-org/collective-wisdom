@@ -1,7 +1,8 @@
 # Stop the Chief of Staff restarting children that are only waiting on CI (design)
 
-**Status:** Spec
+**Status:** Shipped
 **Ticket:** [CW-21](https://github.com/dbeallor/collective-wisdom/issues/21)
+**Shipped:** in PR #34
 **Branch:** `feat/cw-21-ci-wait-no-restart`
 
 ## Intent
