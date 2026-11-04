@@ -116,7 +116,7 @@ The trust checks follow the same rule. A team comment counts when its author is 
 
 ## Merge gate
 
-A merge is approved by the owner approving the PR on GitHub. `scripts/merge_pr.py` refuses to merge without an approving review by the owner login (`project.md` § Git and GitHub, `Owner login`) on the PR's current head, and without branch protection on `main` that requires an approving review. A push after the approval, or a later changes-requested review, voids it: approve again. The `approve N` reply in the Chief of Staff thread still routes the merge child, but it proves nothing.
+A merge is approved by the owner's approving review on GitHub. When the user replies `approve N` in the Chief of Staff thread, `scripts/cos_approve_pr.py` posts that review as the owner, after it has checked the user's own message in T3's message store; approving by hand on GitHub still works. `scripts/merge_pr.py` refuses to merge without an approving review by the owner login (`project.md` § Git and GitHub, `Owner login`) on the PR's current head, and without branch protection on `main` that requires an approving review. A push after the approval, or a later changes-requested review, voids it: approve again. The `approve N` reply routes the merge child; the review is the proof. The one-time setup below (CODEOWNERS, branch protection with stale approvals dismissed) is unchanged and still required.
 
 GitHub does not let a PR's author approve it, so PRs must be opened by the builder user (§ Agent users), not the owner. The gate cannot pass without that setup.
 

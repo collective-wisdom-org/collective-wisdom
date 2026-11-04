@@ -15,7 +15,7 @@ Unless this turn's full pass already read every active child, run the idle check
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-197** CSV export<br><thread link> | High (touches auth) | PR #180, reviews PASS. Approve the PR on GitHub, then reply `approve 197`, or `changes 197: …`. |
+| **<PREFIX>-197** CSV export<br><thread link> | High (touches auth) | PR #180, reviews PASS. Reply `approve 197` (this posts your approving review), or `changes 197: …`. |
 
 **Building (2)**
 
