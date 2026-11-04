@@ -94,3 +94,23 @@ def test_check_that_cannot_run_prints_only_the_error_and_exits_2(monkeypatch, ca
     state = {"tickets": {"ABC-1": {"stage": "build"}}}
     code, out = run(monkeypatch, capsys, tmp_path, state, prs)
     assert code == 2 and len(out) == 1 and out[0].startswith("cos_ready_check:")
+
+
+@pytest.mark.parametrize(
+    "returncode, pages, want_code, want_line",
+    [
+        (1, "", 2, "cos_ready_check: gh failed"),
+        # `gh api --paginate` prints one array per page, back to back
+        (0, json.dumps([{"ref": "refs/heads/feat/abc-1-b", "object": {"sha": "8" * 40}}])
+            + json.dumps([{"ref": "refs/heads/feat/abc-1-a", "object": {"sha": HEAD}}]), 1, "pushed ABC-1 feat/abc-1-a a1b2c3d"),
+        (0, "[]", 0, "writing ABC-1"),
+    ],
+)
+def test_live_gh_call(monkeypatch, capsys, tmp_path, returncode, pages, want_code, want_line):
+    done = type("Done", (), {"returncode": returncode, "stdout": pages})()
+    calls = []
+    monkeypatch.setattr(cos_ready_check.subprocess, "run", lambda cmd, **k: calls.append(cmd) or done)
+    state = {"tickets": {"ABC-1": {"stage": "spec", "branch": "feat/abc-1-a", "specSha": OLD}}}
+    code, out = run(monkeypatch, capsys, tmp_path, state)
+    assert code == want_code and want_line in out
+    assert "--paginate" in calls[0] and calls[0][-1].endswith("/git/matching-refs/heads/feat/abc-1-")
