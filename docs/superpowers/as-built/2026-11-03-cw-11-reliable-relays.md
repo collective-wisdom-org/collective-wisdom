@@ -20,11 +20,14 @@ T3 sends a finish notice only to a child's parent thread, and only when that par
 
 - `check()` in the ready check returns `(ticket, "ready" | "pushed")` pairs so the sweep can print the reason.
 - A merged ticket is never `ready` (only `build` and `spec` tickets are candidates), so the sweep test for ordering checks that a merged ticket under an old parent is not also listed for a full read.
-- `cos_handoff.py` requires `branch` and `stage`; a null `specPath` or `specSha` prints `Spec: none`. `reject:` values are collapsed to one line and capped at 100 characters.
+- `cos_handoff.py` requires `branch` and `stage`; a null `specPath` or `specSha` prints `Spec: none`. It also checks `stage` against lowercase words and `pr` against an integer, and a `headSha` in state that is not hex prints `(no head in state)`. `reject:` values are collapsed to one line and capped at 100 characters.
+- Exit 2 of `cos_handoff.py` is split. Only `cannot read PR #N` starts the child with the old `Spec: ... PR: ...` line; any other exit-2 line starts nothing and marks the ticket `blocked`. The spec fell back on every exit 2, which would have skipped the value checks.
+- When the sweep's merged part doesn't run there is no fallback, and the merge lane is not called clear. The spec said to fall back to the old merged checks, which no longer exist as a separate step.
+- `cos_brief.py` checks for a missing `Repo` row in `main()`, not at import. Without a Repo row the sweep's ready part fails with exit 2 and the merged part still runs.
 
 ## Verification
 
-- `python3 -I -m pytest -q agent-team/scripts`: 309 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
+- `python3 -I -m pytest -q agent-team/scripts`: 315 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
 - `cos_handoff.py` run against PR #10: checks and review lines match `cos_brief.py pr 10`.
 
 ## Not verified
