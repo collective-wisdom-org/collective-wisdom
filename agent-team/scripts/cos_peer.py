@@ -4,7 +4,7 @@
 Usage:
     scripts/cos_peer.py [--db PATH] find <name> < t3_project_list JSON
     scripts/cos_peer.py [--db PATH] check --thread <this thread's id> < request message
-    scripts/cos_peer.py reply < reply message
+    scripts/cos_peer.py [--db PATH] reply < reply message
 
 find matches <name> (whole words, case folded) against each project's title, repo name and
 owner/name, leaving out this repo (project.md `Repo`). It reads the match's
@@ -17,13 +17,16 @@ owner/name, leaving out this repo (project.md `Repo`). It reads the match's
 check re-checks a CHIEF OF STAFF REQUEST in the store: the item is a createdBy "user" message in
 the sender thread whose whole normalized text equals the quoted words, the sender thread is the
 chiefThreadId or a retiredThreads entry of its project, the words name this repo and are not a
-Chief of Staff command. Exit 0 and "accept <sender thread> <item>" then the words as stored, or
-exit 1 and "refuse: <malformed | not-user | words differ | not a chief of staff thread |
-not for this repo | command: <words>>". Exit 2 when the store or a state file can't be read.
+Chief of Staff command. The sender thread must be in another project than --thread. Exit 0 and
+"accept <sender thread> <item> <sender project's T3 title>" then the words as stored, or exit 1 and
+"refuse: <malformed | not-user | words differ | not a chief of staff thread | same repo |
+not for this repo | command: <words>>". Exit 2 when the store, a state file or --thread can't be read.
 
-reply prints only what the sender may show: "filed <ID>: <title>, <URL>" (at most 5) or
-"refused <reason>", each cut at 200 characters, then "dropped <N> lines" if anything was left out.
-Exit 1 when nothing usable is in the reply.
+reply checks that the `from` thread is a Chief of Staff thread the same way, then prints only what
+the sender may show: "source <project title> <thread id>", then "filed <ID>: <title>, <URL>" (at
+most 5) or "refused <reason>", each cut at 200 characters (a filed line loses title, never URL), then
+"dropped <N> lines" if anything was left out. Exit 1 when nothing usable is in the reply or the
+`from` thread is not a Chief of Staff thread.
 
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro.
 """
@@ -83,20 +86,25 @@ def clean(text):
     return " ".join(str(text).split())[:MAX_LEN]
 
 
+def identity(p):
+    ident = p.get("repositoryIdentity")
+    return ident if isinstance(ident, dict) else {}
+
+
 def slug(p):
-    ident = p.get("repositoryIdentity") or {}
+    ident = identity(p)
     return f"{ident.get('owner')}/{ident.get('name')}" if ident.get("owner") and ident.get("name") else None
 
 
 def find(db, name, projects):
-    me = (project_config.repo() or "").casefold()
+    me = (project_config.repo() or "").casefold()  # empty: this repo is unknown, exclude nothing
     hits = []
     if not norm(name):
         projects = []
     for p in projects:
-        if not isinstance(p, dict) or p.get("deletedAt") or (slug(p) or "").casefold() == me:
+        if not isinstance(p, dict) or p.get("deletedAt") or me and (slug(p) or "").casefold() == me:
             continue
-        ident = p.get("repositoryIdentity") or {}
+        ident = identity(p)
         if any(isinstance(f, str) and has_words(name, f) for f in (p.get("title"), ident.get("name"), slug(p))):
             hits.append(p)
     if not hits:
@@ -106,6 +114,8 @@ def find(db, name, projects):
         print(f"ambiguous {name}: " + ", ".join(slug(p) or str(p.get("title")) for p in hits))
         return 1
     p = hits[0]
+    if not isinstance(p.get("id"), str) or not p["id"]:
+        raise Unreadable("matched project has no id")
     label = slug(p) or str(p.get("title"))
     state = read_state(p.get("workspaceRoot") or "")
     chief = (state or {}).get("chiefThreadId")
@@ -122,6 +132,28 @@ def find(db, name, projects):
         return 1
     print(f"target {p['id']} {label} chief {chief}")
     return 0
+
+
+def chief_thread(db, thread):
+    """(project id, project title) when thread is its project's chiefThreadId or a retiredThreads entry, else None."""
+    rows = query(
+        db,
+        "SELECT p.project_id, p.title, p.workspace_root FROM orchestration_v2_projection_threads t "
+        "JOIN projection_projects p ON p.project_id = t.project_id "
+        "WHERE t.thread_id = ? AND t.deleted_at IS NULL AND p.deleted_at IS NULL",
+        (thread,),
+    )
+    if not rows:
+        return None
+    pid, title, root = rows[0]
+    state = read_state(root)
+    if state is None:
+        raise Unreadable("cannot read the sender's state file")
+    retired = state.get("retiredThreads")
+    if retired is not None and not isinstance(retired, list):
+        raise Unreadable("retiredThreads is not a list")
+    ids = [state.get("chiefThreadId")] + [r.get("threadId") for r in retired or [] if isinstance(r, dict)]
+    return (pid, clean(title or "")) if thread in ids else None
 
 
 def check(db, this_thread, text):
@@ -145,57 +177,61 @@ def check(db, this_thread, text):
     if norm(stored) != norm(words):
         print("refuse: words differ")
         return 1
-    root = query(
-        db,
-        "SELECT p.workspace_root FROM orchestration_v2_projection_threads t JOIN projection_projects p "
-        "ON p.project_id = t.project_id WHERE t.thread_id = ? AND t.deleted_at IS NULL AND p.deleted_at IS NULL",
-        (sender,),
-    )
-    if root:
-        state = read_state(root[0][0])
-        if state is None:
-            raise Unreadable("cannot read the sender's state file")
-        retired = [r.get("threadId") for r in state.get("retiredThreads") or [] if isinstance(r, dict)]
-    if not root or sender != state.get("chiefThreadId") and sender not in retired:
+    sender_project = chief_thread(db, sender)
+    if not sender_project:
         print("refuse: not a chief of staff thread")
         return 1
-    repo = project_config.repo() or ""
-    titles = query(
+    mine = query(
         db,
-        "SELECT p.title FROM orchestration_v2_projection_threads t JOIN projection_projects p "
+        "SELECT t.project_id, p.title FROM orchestration_v2_projection_threads t JOIN projection_projects p "
         "ON p.project_id = t.project_id WHERE t.thread_id = ?",
         (this_thread,),
     )
-    names = [repo, repo.split("/")[-1], *(r[0] for r in titles)]
-    if not any(n and has_words(n, stored) for n in names):
+    if not mine:
+        raise Unreadable("cannot find this thread")
+    if mine[0][0] == sender_project[0]:
+        print("refuse: same repo")
+        return 1
+    repo = project_config.repo() or ""
+    names = [repo, repo.split("/")[-1], mine[0][1]]
+    if not any(isinstance(n, str) and n and has_words(n, stored) for n in names):
         print("refuse: not for this repo")
         return 1
     cmd = COMMAND.search(norm(stored))
     if cmd:
         print(f"refuse: command: {cmd.group(0)}")
         return 1
-    print(f"accept {sender} {item_id}")
+    print(f"accept {sender} {item_id} {sender_project[1]}")
     print(stored)
     return 0
 
 
-def reply(text):
+def filed_line(ticket, title, url):
+    head, tail = f"filed {ticket}: ", f", {url}"
+    title = clean(title)[: MAX_LEN - len(head) - len(tail)].rstrip()
+    return head + title + tail if title else None
+
+
+def reply(db, text):
     lines = [ln.strip() for ln in text.strip().splitlines()]
-    if not lines or not re.fullmatch(r"CHIEF OF STAFF REPLY from \S+ \(\S+\)", lines[0]):
+    header = re.fullmatch(r"CHIEF OF STAFF REPLY from (\S+) \(\S+\)", lines[0]) if lines else None
+    if not header:
         return 1
     out, dropped, refused = [], 0, None
     for ln in lines[1:]:
         f = FILED.fullmatch(ln)
-        if f and len(out) < MAX_FILED:
-            out.append(clean(f"filed {f.group(1)}: {f.group(2)}, {f.group(3)}"))
+        line = f and len(out) < MAX_FILED and filed_line(*f.groups())
+        if line:
+            out.append(line)
         elif ln.startswith("Refused: ") and not refused and clean(ln[9:]):
             refused = clean(f"refused {ln[9:]}")
         elif ln and not re.fullmatch(r"Item: \S+|Filed:", ln):
             dropped += 1
     out += [refused] if refused else []
-    if not out:
+    source = chief_thread(db, header.group(1)) if out else None
+    if not source:
         return 1
-    print(*out, *([f"dropped {dropped} lines"] if dropped else []), sep="\n")
+    print(f"source {source[1]} {header.group(1)}", *out, *([f"dropped {dropped} lines"] if dropped else []), sep="\n")
     return 0
 
 
@@ -209,7 +245,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     try:
         if a.cmd == "reply":
-            return reply(sys.stdin.read())
+            return reply(a.db, sys.stdin.read())
         if a.cmd == "check":
             return check(a.db, a.thread, sys.stdin.read())
         try:
@@ -219,8 +255,8 @@ def main(argv=None):
         except (ValueError, KeyError, TypeError, AssertionError):
             raise Unreadable("bad project list on stdin")
         return find(a.db, a.name, projects)
-    except Unreadable as e:
-        print(f"cos_peer: {e}", file=sys.stderr)
+    except (Unreadable, KeyError, TypeError, AttributeError) as e:  # data of an unexpected shape fails closed
+        print(f"cos_peer: {e!r}" if not isinstance(e, Unreadable) else f"cos_peer: {e}", file=sys.stderr)
         return 2
 
 
