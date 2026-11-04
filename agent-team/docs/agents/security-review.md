@@ -12,6 +12,10 @@ Reviews frame findings against:
 
 Product overlays are listed in [`project.md`](project.md) § Security overlays; the baseline (no secrets in repo, session and auth patterns matching existing code) is in **security-review**.
 
+## Security reviewer subagent
+
+The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/main...HEAD` against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
+
 ## PR gate
 
 Security findings are posted as PR issue comments (`## Security review (pass N)` … **Verdict:** `PASS` or `CHANGES NEEDED`). Merge requires the latest security review **PASS** plus code review **PASS** (see **merge-pr**).

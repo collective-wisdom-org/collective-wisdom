@@ -27,6 +27,7 @@ from pathlib import Path
 
 ACTIVE = {"spec", "build", "merge"}
 ID = re.compile(r"[A-Za-z0-9._:-]+")
+DEFAULT_STATE = Path(__file__).absolute().parent.parent / ".agent-team" / "state.json"
 
 
 def check(state, thread):
@@ -86,7 +87,7 @@ def main(argv=None):
     if not args.thread.strip():
         print("cos_parent_check: empty --thread")
         return 2
-    path = Path(args.file) if args.file else Path(__file__).resolve().parent.parent / ".agent-team" / "state.json"
+    path = Path(args.file) if args.file else DEFAULT_STATE
     if not path.is_file():
         print("cos_parent_check: no state file")
         return 2

@@ -9,7 +9,7 @@ import os
 import re
 from pathlib import Path
 
-DEFAULT = Path(__file__).resolve().parent.parent / "docs" / "agents" / "project.md"
+DEFAULT = Path(__file__).absolute().parent.parent / "docs" / "agents" / "project.md"
 FALLBACK_BRANCH_HEAD = "feat/"
 
 

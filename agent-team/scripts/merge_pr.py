@@ -31,7 +31,7 @@ pr_diff_delta = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pr_diff_delta)
 CmdError = pr_diff_delta.CmdError
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).absolute().parent.parent
 GH = str(ROOT / "scripts" / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"

@@ -25,7 +25,8 @@ import re
 import sys
 from pathlib import Path
 
-import cos_state
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+import cos_state  # noqa: E402
 
 KEYS = {"id", "title", "reason", "readiness", "priority", "createdAt"}
 PRIORITIES = ("Urgent", "High", "Medium", "Low", "No priority")

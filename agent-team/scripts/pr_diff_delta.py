@@ -21,7 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).absolute().parent.parent
 GH = str(ROOT / "scripts" / "gh.sh")
 SHOW = 10
 # Full ref name: a tag called origin/main would win over the short name.
