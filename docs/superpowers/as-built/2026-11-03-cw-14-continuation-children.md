@@ -19,7 +19,7 @@
 
 ## Verification
 
-- `python3 -I -m pytest -q agent-team/scripts`: 338 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
+- `python3 -I -m pytest -q agent-team/scripts`: 339 passed. `shellcheck install.sh agent-team/scripts/*.sh`: clean.
 - Run by hand against the build worktree with scratch files present: `unsafe CW-14: uncommitted changes (3 files)`, and `git status` unchanged afterwards.
 
 ## Not verified
