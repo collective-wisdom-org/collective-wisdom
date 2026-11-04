@@ -4,9 +4,8 @@
 Usage:
     scripts/cos_parent_check.py --thread ID [--file PATH]
 
---thread is this thread's own ID (not read from state, which any local agent can
-write). --file overrides .agent-team/state.json under the repo root. Read-only:
-nothing is written.
+--thread is this thread's own ID, passed in because the caller knows it. --file overrides
+.agent-team/state.json under the repo root. Read-only: nothing is written.
 
 Prints one line per ticket whose parentThreadId is not --thread:
     full <ticket> old-parent <id>      active ticket (spec, build, merge): read the child in full
