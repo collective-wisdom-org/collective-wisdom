@@ -1,6 +1,6 @@
 # Release notes in the PR closeout docs (design)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** CW-13
 
 ## Intent
