@@ -1,5 +1,7 @@
 # Chief of Staff for collective-wisdom itself (design)
 
+**Status:** Shipped
+
 ## Intent
 
 Run a Chief of Staff (CoS) in this repo, so changes to the agent team (skills, scripts, role docs) ship through the same spec → build → review → merge loop the apps use. Each repo gets its own CoS: its own `project.md`, tracker and `.agent-team/state.json`. This repo is the first one that is both the source of the team and a user of it.
