@@ -104,16 +104,17 @@ if [ "$CHECK" -eq 1 ]; then
 fi
 
 # Resolve the target commit. It must be on origin/main, so an app is never pinned to an unmerged branch.
+# Spell out refs/remotes/: a tag named origin/main would win over the short name.
 if [ -z "$REF" ]; then
   if [ "$UPDATE" -eq 1 ]; then
-    git -C "$ROOT" fetch -q origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
-    REF="origin/main"
+    git -C "$ROOT" fetch -q --no-tags origin || { echo "cannot fetch origin in $ROOT" >&2; exit 1; }
+    REF="refs/remotes/origin/main"
   else
     REF="HEAD"
   fi
 fi
 SHA="$(git -C "$ROOT" rev-parse --verify --quiet "$REF^{commit}")" || { echo "Refusing: $REF is not a commit in $ROOT." >&2; exit 1; }
-git -C "$ROOT" merge-base --is-ancestor "$SHA" origin/main 2>/dev/null || { echo "Refusing: $SHA ($REF) is not on origin/main, so the install cannot be pinned to it. Merge it, or run 'git fetch origin' in $ROOT." >&2; exit 1; }
+git -C "$ROOT" merge-base --is-ancestor "$SHA" refs/remotes/origin/main 2>/dev/null || { echo "Refusing: $SHA ($REF) is not on origin/main, so the install cannot be pinned to it. Merge it, or run 'git fetch origin' in $ROOT." >&2; exit 1; }
 
 TOUCHED=(.claude scripts docs/agents docs/superpowers/README.md .agents .gitignore AGENTS.md)
 DIRTY="$(git -C "$TARGET" status --porcelain -- "${TOUCHED[@]}")"

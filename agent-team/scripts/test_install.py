@@ -51,6 +51,7 @@ def world(tmp_path):
     git(cw, "checkout", "-q", "-b", "side")
     put(at, {"scripts/a.py": "side\n"})
     sha["S"] = commit(cw, "feat: unmerged")
+    git(cw, "tag", "origin/main", sha["S"])  # a hostile tag: the short name origin/main must not resolve to it
     git(cw, "checkout", "-q", "main")
     app.mkdir()
     git(app, "init", "-q")
