@@ -11,6 +11,8 @@
 - The build started before #51 was merged. CW-51 and CW-55 merged to `main` during the build, and their edits to the old `SKILL.md` and `reference.md` were ported by hand into the split files. The inventory was re-baselined on `main` at 96b31eb: rows for rules CW-51 removed (G4, O5, O6, O21, O22, O23, O97) are left as gaps and rows for rules it added are appended.
 - `test_section_pointers.py` found 9 `§` pointers already broken on `main`. All 9 are fixed in this PR.
 - `install.sh --update` adds and updates files but never deletes them, so the install PR in each app must `git rm .claude/skills/chief-of-staff/reference.md`, the file this PR removes. `--check` does not flag the leftover.
+- The spec's "Read when" table put a change to how the team works in `cross-repo.md` (CW-20 behaviour). As built, `cross-repo.md` is read only for work in another repo or a `CHIEF OF STAFF REQUEST` or `REPLY`; a change to how the team works triggers `ticket-helper.md`, as on `main`. The `continuation.md` trigger is a relay about to go to a ticket whose `parentThreadId` is known and is not `chiefThreadId`.
+- Three per-turn rules stay in `chief-of-staff/SKILL.md` instead of `approvals.md`, `state-keys.md` and `status.md`: the `Risk:` tail carry rule and the `pendingRelay` rule (§ State file), the reminder line's start (§ Report format), and the archive-before-rotation line (§ Rotation check).
 - Sizes below are characters.
 
 ## Sizes
