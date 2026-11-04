@@ -289,7 +289,7 @@ def publisher(state):
         if f"commits/{TIP}" in text:
             return "r" * 40
         if "git/trees/" in text:
-            blob = {"path": "RELEASE_NOTES.md", "type": "blob", "sha": merge_pr.blob_sha(want.encode()) if state == "same" else "0" * 40}
+            blob = {"path": "RELEASE_NOTES.md", "type": "blob", "mode": "100644", "sha": merge_pr.blob_sha(want.encode()) if state == "same" else "0" * 40}
             return json.dumps({"tree": [blob] + ([dict(blob, path="other.md")] if state == "other" else [])})
         if "-X" in cmd:
             writes.append((cmd[cmd.index("-X") + 1] + " " + cmd[-3].split("/git/")[1], json.loads(input)))
@@ -355,7 +355,7 @@ def test_publish_reads_git_objects_only(tmp_path):
 
     merge_pr.publish("7", git("rev-parse", "HEAD").strip(), runner)
     content = json.loads(sent[0])["tree"][0]["content"]
-    assert "CW-2: file note" in content and "LEAK" not in content and "DRAFT" not in content
+    assert "CW-2: file note" in content and "LEAK" not in content and "secret.md" not in content and "DRAFT" not in content
 
 
 def test_failed_publish_keeps_the_merge_result(capsys):

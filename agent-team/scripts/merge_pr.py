@@ -299,7 +299,7 @@ def publish_notes(pr, sha, run):
         run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"])
         text = release_notes.render(note_files(run), prs) + "\n"
     except Exception as e:
-        raise Skip(f"cannot build the release notes from origin/main: {e}")
+        raise Skip(f"cannot build the release notes: {type(e).__name__} {e}")
     data = text.encode()
     tip = None
     try:
@@ -313,7 +313,7 @@ def publish_notes(pr, sha, run):
             entries = json.loads(run([GH, "api", f"{API}/trees/{tree}"]))["tree"]
         except Exception as e:
             raise Skip(f"cannot read the {NOTES_BRANCH} branch: {e}")
-        if len(entries) != 1 or entries[0]["type"] != "blob" or entries[0]["path"] != NOTES_FILE:
+        if len(entries) != 1 or entries[0]["type"] != "blob" or entries[0]["path"] != NOTES_FILE or entries[0]["mode"] != "100644":
             raise Skip(f"{NOTES_BRANCH} branch holds other files; not published")
         if entries[0]["sha"] == blob_sha(data):
             return

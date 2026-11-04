@@ -14,6 +14,6 @@
 | [`personas.md`](personas.md) | The four agent GitHub users: personas, suggested logins, profile bios |
 | [`github-auth.md`](github-auth.md) | GitHub auth for agents and the `./scripts/gh.sh` wrapper |
 
-Release notes: every merge publishes them all to RELEASE_NOTES.md on the release-notes branch, at https://github.com/<owner>/<repo>/blob/release-notes/RELEASE_NOTES.md (Repo row in project.md).
+Release notes: every merge publishes them all to `RELEASE_NOTES.md` on the `release-notes` branch, at `https://github.com/<owner>/<repo>/blob/release-notes/RELEASE_NOTES.md` (Repo row in project.md).
 
 Area role docs (backend, frontend, design and so on), when an app has them, sit beside these files and are listed in the app's `AGENTS.md`.
