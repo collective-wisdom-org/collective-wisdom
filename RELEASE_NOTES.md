@@ -1,5 +1,19 @@
 # Release notes
 
+## 2026-11-04 skip the security review on docs-only diffs, merge the passes on small ones (CW-54) (#93)
+
+Merged 2026-11-04 22:58 UTC.
+
+Reviews now scale with the diff. A PR that only changes markdown under `docs/` (not `docs/agents/`, hidden folders, or agent config files such as `CLAUDE.md` and `AGENTS.md`) or the top `README.md` gets its code review and a short "skipped" security review comment. A PR of 200 changed lines or fewer gets both reviews from one run. Larger PRs are reviewed as before.
+
+## 2026-11-04 let wait-for-ci.sh pass when project.md says there is no CI (CW-105) (#106)
+
+Merged 2026-11-04 22:53 UTC.
+
+`wait-for-ci.sh` now passes with `no CI declared` when `project.md` says there is no CI.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-04 accept a repository ruleset as the merge gate protection (CW-88) (#95)
 
 Merged 2026-11-04 17:05 UTC.
