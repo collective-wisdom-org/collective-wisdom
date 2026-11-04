@@ -1,6 +1,6 @@
 # Continuation children for restarts, answers, resumes and rate-limit continues (design)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [CW-14](https://github.com/dbeallor/collective-wisdom/issues/14)
 
 ## Intent
