@@ -49,7 +49,7 @@ trap 'rm -rf -- "$TMP"' EXIT
 # extract <sha> <dest>: this clone's agent-team/ at that commit, so copies are exactly the pinned commit.
 extract() {
   mkdir -p -- "$2"
-  git -C "$ROOT" archive "$1" agent-team | tar -x -C "$2" || { echo "cannot extract agent-team/ from $1" >&2; exit 1; }
+  git -C "$ROOT" archive "$1" agent-team | tar -x -C "$2" || { echo "cannot extract agent-team/ from $1" >&2; exit 2; }
 }
 
 # shipped <dir>: sorted paths of the files the installer syncs from an extracted agent-team/ (the same paths in the app).
@@ -250,7 +250,7 @@ if [ "$UPDATE" -eq 1 ]; then
   while IFS= read -r f; do
     [ -e "$TARGET/$f" ] || [ -L "$TARGET/$f" ] || continue
     TODOS+=("Delete $f: collective-wisdom no longer ships it (shipped at ${OLD:0:12}, gone at ${SHA:0:12}).")
-  done < <(comm -23 <(shipped "$TMP/old/agent-team") <(shipped "$SRC"))
+  done < <(LC_ALL=C comm -23 <(shipped "$TMP/old/agent-team") <(shipped "$SRC"))
 fi
 
 echo

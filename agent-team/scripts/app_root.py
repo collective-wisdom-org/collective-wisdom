@@ -5,10 +5,12 @@ Every documented call runs from the repo top (or a worktree top), where this ret
 Outside any git repo it returns the current directory.
 """
 
+import functools
 import subprocess
 from pathlib import Path
 
 
+@functools.cache
 def root():
     try:
         top = subprocess.run(

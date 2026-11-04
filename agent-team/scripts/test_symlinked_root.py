@@ -42,6 +42,9 @@ ROOTS = [
     ("cos_merged_check", "ROOT", ""),
     ("cos_ready_check", "ROOT", ""),
     ("cos_rotation_check", "ROOT", ""),
+    ("cos_handoff", "ROOT", ""),
+    ("cos_sweep", "ROOT", ""),
+    ("cos_worktree_check", "ROOT", ""),
 ]
 # Loads a script file by path like `python3 scripts/x.py` does and prints one module attribute.
 CODE = (
@@ -60,7 +63,7 @@ def _attr(script, folder, attr, cwd):
 
 @pytest.mark.parametrize("module, attr, rel", ROOTS)
 def test_root_is_the_link_parent(app, module, attr, rel):
-    # `python3 scripts/x.py` puts the RESOLVED folder on sys.path[0] while __file__ keeps the link path.
+    # Run through the link like `python3 scripts/x.py` (the RESOLVED folder is on sys.path[0]); with the app not a git repo, root() is the cwd.
     out = _attr(app / "scripts" / f"{module}.py", (app / "scripts").resolve(), attr, app)
     assert out == str(app / rel if rel else app)
 

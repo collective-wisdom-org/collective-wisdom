@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -182,3 +183,21 @@ def test_skill_commit_works_when_root_is_a_subfolder(tmp_path, monkeypatch):
     (sub / "docs" / "agents").mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(crc, "ROOT", sub)
     assert crc.skill_commit() == run("rev-parse", "HEAD")
+
+
+@pytest.mark.parametrize("argv, want_project_dir", [(["--hook"], True), ([], False)])
+def test_hook_roots_at_claude_project_dir(tmp_path, argv, want_project_dir):
+    # The Stop hook's cwd can drift; only --hook trusts CLAUDE_PROJECT_DIR.
+    app, elsewhere = tmp_path / "app", tmp_path / "elsewhere"
+    app.mkdir()
+    elsewhere.mkdir()
+    code = (
+        "import runpy, sys; f = sys.argv[1]; sys.argv = ['x'] + sys.argv[2:]; "
+        "print(runpy.run_path(f, run_name='linked')['ROOT'])"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code, str(Path(__file__).with_name("cos_rotation_check.py")), *argv],
+        capture_output=True, text=True, cwd=elsewhere, check=True,
+        env={"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": str(app)},
+    ).stdout.strip()
+    assert (out == str(app)) == want_project_dir
