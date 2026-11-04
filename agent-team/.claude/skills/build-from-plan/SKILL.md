@@ -24,7 +24,7 @@ Read and follow one of:
 - **subagent-driven-development** — when plan tasks are independent.
 - **executing-plans** — otherwise.
 
-If **planner-delegates** applies: parent plans and delegates; **implementer** subagent edits files and runs verification. Start the implementer subagent with `model: "sonnet"`.
+If **planner-delegates** applies: parent plans and delegates; **implementer** subagent edits files and runs verification. Start it with the `Agent` tool and `subagent_type: "implementer"`. If that type isn't listed (the session started before `.claude/agents/implementer.md` existed), start a general Sonnet subagent with the prompt `Read docs/agents/implementer.md and follow it.` plus the task.
 
 Follow plan tasks in order; use plan file paths and acceptance criteria.
 

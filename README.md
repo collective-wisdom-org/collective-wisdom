@@ -13,13 +13,22 @@ Nothing here is specific to one app. Each app keeps its own facts (ticket prefix
 `agent-team/` mirrors a consuming repo, so every path inside the skills, scripts and docs stays valid after install.
 
 - `agent-team/.claude/skills/`: the team skills (chief-of-staff, project-manager, ship-loop, kickoff-feature, build-from-plan, open-pr, security-review, merge-pr, write-ticket) and the supporting ones (human-writing, owasp-security, agent-security, auditing-security)
-- `agent-team/.claude/agents/`: the documenter subagent, a pointer to its role doc
+- `agent-team/.claude/agents/`: the documenter, implementer, code-reviewer and security-reviewer subagents, each a pointer to its role doc
 - `agent-team/.claude/settings.json`: the Stop hook for `cos_rotation_check.py`
 - `agent-team/scripts/`: the team scripts, their tests, `gh.sh` and `wait-for-ci.sh`
 - `agent-team/docs/agents/`: shared role docs (including the documenter)
 - `agent-team/docs/superpowers/README.md`: the docs index convention
 - `agent-team/templates/`: starting points for `docs/agents/project.md`, `AGENTS.md` and the `.gitignore` lines
 - `install.sh`: installs or updates the team in a repo, and writes `docs/agents/installed-from.txt` in the app (the version pin)
+
+## Running a Chief of Staff in this repo
+
+This repo runs its own Chief of Staff. The root links into `agent-team/` so the skills, scripts and docs sit at the paths they expect, with one copy of each: `.claude/skills`, `.claude/agents`, `.claude/settings.json`, `scripts`, `.agents/skills`, `docs/superpowers/README.md`, and each entry of `docs/agents/` except `project.md`.
+
+- `docs/agents/project.md` is real and local to this repo (tracker `github`, prefix `CW`). It is never shipped; apps are seeded from `agent-team/templates/project.md`.
+- Edit shared files under `agent-team/`, never through the links.
+- `.claude/settings.json` at the root is a link into `agent-team/.claude/settings.json`, so any permission a tool saves to project settings lands in the shipped file; put personal permissions in `.claude/settings.local.json` (gitignored).
+- Run the Chief of Staff from the root checkout on `main`, like in an app. `agent-team/scripts/test_root_links.py` fails on a dangling link or an unlinked doc.
 
 ## Requirements
 

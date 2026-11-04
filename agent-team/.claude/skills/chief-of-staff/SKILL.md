@@ -70,7 +70,7 @@ Each role runs on the model below. These are the defaults; a project that wants 
 | Ticket helper | Sonnet 5.5 | high | Runs `write-ticket`. The ticket feeds the spec child, and a wrong **Today** section costs an Opus spec run. |
 | Child, spec stage | Opus 5.5 | medium (default) | The user approves the spec. It needs the strongest model. |
 | Child, build and merge stages | Sonnet 5.5 | high (default) | Works from an approved spec. Merge stays on the build model so there is no second switch. |
-| Implementer subagent | Sonnet 5.5 | inherited | Pinned in the Agent call. |
+| Implementer subagent | Sonnet 5.5 | inherited | Pinned in `.claude/agents/implementer.md`. |
 | Code review subagent | Opus 5.5 | inherited | A missed bug costs more than the review. |
 | Security review subagent | Opus 5.5 | inherited | Same reason. |
 | Fable 5.1 | not used | — | Not part of the default setup. |

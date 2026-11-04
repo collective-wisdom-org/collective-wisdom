@@ -93,9 +93,8 @@ Edit only in the PR's worktree when one exists; never switch root checkout off `
 
 After each pass of the primary loop, run this when doing agent-led review (in addition to the loop's comment/CI work):
 
-- Read the **reviewing-code** skill; worktree checkout must be the PR head branch.
-- When the review runs in a subagent, start it with `model: "opus"`. In team mode, always run it in that subagent, so the review stays on Opus when the child builds on Sonnet.
-- Review full diff vs base (`git diff main...HEAD` or equivalent).
+- The review method (reading **reviewing-code**, reviewing the full diff vs base in the PR worktree) is in `docs/agents/code-review.md`; the worktree checkout must be the PR head branch.
+- When the review runs in a subagent, start it with the `Agent` tool and `subagent_type: "code-reviewer"`. If that type isn't listed (the session started before `.claude/agents/code-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/code-review.md and follow it. Do not edit files.` plus the brief. In team mode, always run it in that subagent, so the review stays on Opus when the child builds on Sonnet.
 - The review brief includes the docs check result (the `DOCS CHECK` output, the fixes you made, and any finding you rejected with the reason).
 - Post findings as a **PR issue comment** only: `./scripts/gh.sh pr comment <N> --body '…'` or `--body-file <path>`.
 - **Never** official GitHub PR review: no `gh pr review`, no approve, no request changes.
