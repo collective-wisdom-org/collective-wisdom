@@ -1,7 +1,7 @@
 # CW-59: Install from a pinned tag so an app update is one command
 
 **Ticket:** [CW-59](https://github.com/dbeallor/collective-wisdom/issues/59)
-**Status:** Draft
+**Status:** Shipped
 
 ## Goal
 
