@@ -23,4 +23,4 @@
 
 ## Verification
 
-`uvx pytest -q agent-team/scripts` passes (454 tests) and `shellcheck install.sh agent-team/scripts/*.sh` is clean. `--dry-run`, `--check` and `--update` were run by hand against a throwaway clone and app.
+`uvx pytest -q agent-team/scripts` passes (455 tests) and `shellcheck install.sh agent-team/scripts/*.sh` is clean. `--dry-run`, `--check` and `--update` were run by hand against a throwaway clone and app.

@@ -154,7 +154,9 @@ def read_context(sid=None):
         with contextlib.redirect_stderr(io.StringIO()), mock.patch.dict(
             os.environ, {"CLAUDE_CODE_SESSION_ID": sid} if sid else {}
         ):
-            line = load_module("agent_usage").context_line(projects)
+            usage = load_module("agent_usage")
+            usage.PROJECT = usage.project_name(ROOT)  # not the cwd's repo: the hook's cwd can drift
+            line = usage.context_line(projects)
     except SystemExit:
         raise Unreadable("context")
     m = re.fullmatch(r"context=(\d+) started=(\S+)", line)

@@ -201,3 +201,20 @@ def test_hook_roots_at_claude_project_dir(tmp_path, argv, want_project_dir):
         env={"PATH": os.environ["PATH"], "CLAUDE_PROJECT_DIR": str(app)},
     ).stdout.strip()
     assert (out == str(app)) == want_project_dir
+
+
+def test_context_lookup_uses_the_rotation_root_not_the_cwd(monkeypatch):
+    seen = {}
+
+    class FakeUsage:
+        PROJECT = "cwd-repo"
+        project_name = staticmethod(lambda root: Path(root).name)
+
+        @classmethod
+        def context_line(cls, projects):
+            seen["project"] = cls.PROJECT
+            return "context=1 started=2026-01-01T00:00:00Z"
+
+    monkeypatch.setattr(crc, "load_module", lambda name: FakeUsage)
+    crc.read_context()
+    assert seen["project"] == crc.ROOT.name
