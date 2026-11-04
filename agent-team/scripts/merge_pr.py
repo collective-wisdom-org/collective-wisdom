@@ -8,6 +8,9 @@ Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.p
 the checks list of the merge-pr skill must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
+After the fast-forward it publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. A failed publish prints
+`merge-pr: warn <reason>` before the last line and changes neither the exit code nor the last line.
+
 Exit 0: merged, or already merged (cleanup is repeated). Last line:
   merge-pr: merged #N as <SHA>; head <SHA> matches approved <SHA>
   merge-pr: #N already merged as <SHA>; nothing to do; head <SHA> matches|differs from approved <SHA>
@@ -15,6 +18,7 @@ Exit 1: a gate failed, nothing changed. Last line: merge-pr: stop #N: <reason>
 Exit 2: bad arguments, a gh or git call failed. Last line: merge-pr: cannot <what>
 """
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -46,13 +50,17 @@ FIELDS = (
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
 RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
+NOTES_DIR = "docs/superpowers/release-notes/"
+NOTES_BRANCH = "release-notes"
+NOTES_FILE = "RELEASE_NOTES.md"
+API = "repos/{owner}/{repo}/git"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
 NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
 
 
-def run(cmd):
-    """Run a command in the repo and return its stdout; raise CmdError on failure."""
-    p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+def run(cmd, input=None):
+    """Run a command in the repo and return its stdout; raise CmdError on failure. `input` goes to stdin."""
+    p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, input=input)
     if p.returncode:
         raise CmdError((p.stderr or p.stdout).strip() or f"exit {p.returncode}")
     return p.stdout
@@ -254,6 +262,83 @@ def cleanup(f, run):
         raise CmdError(f"fast-forward root main: {e}")
 
 
+class Skip(Exception):
+    """A publish step that stops the publish quietly or with a reason."""
+
+
+def blob_sha(data):
+    """The git blob SHA of data (bytes)."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def note_files(run):
+    """(file name, text) for each regular `.md` blob directly in the release notes folder of origin/main."""
+    out = run(["git", "ls-tree", "-z", "refs/remotes/origin/main", "--", NOTES_DIR])
+    files = []
+    for entry in out.split("\0"):
+        meta, _, path = entry.partition("\t")
+        parts = meta.split()
+        name = path.removeprefix(NOTES_DIR)
+        if len(parts) == 3 and parts[:2] in (["100644", "blob"], ["100755", "blob"]) and path.startswith(NOTES_DIR) and "/" not in name and name.endswith(".md"):
+            files.append((name, run(["git", "cat-file", "blob", parts[2]])))
+    return files
+
+
+def post(run, kind, body, method="POST"):
+    """Send a JSON body to the git data API on stdin and return the parsed answer."""
+    return json.loads(run([GH, "api", "-X", method, f"{API}/{kind}", "--input", "-"], input=json.dumps(body)))
+
+
+def publish_notes(pr, sha, run):
+    try:
+        prs = json.loads(run([GH, "pr", "list", "--state", "merged", "--base", "main",
+                              "--json", "number,title,body,mergedAt", "--limit", "500"]))
+    except Exception:
+        raise Skip("cannot read merged PRs; release notes not published")
+    try:
+        run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"])
+        text = release_notes.render(note_files(run), prs) + "\n"
+    except Exception as e:
+        raise Skip(f"cannot build the release notes from origin/main: {e}")
+    data = text.encode()
+    tip = None
+    try:
+        tip = run([GH, "api", f"{API}/ref/heads/{NOTES_BRANCH}", "-q", ".object.sha"]).strip()
+    except CmdError as e:
+        if "HTTP 404" not in str(e):
+            raise Skip(f"cannot read the {NOTES_BRANCH} branch: {e}")
+    if tip:
+        try:
+            tree = run([GH, "api", f"{API}/commits/{tip}", "-q", ".tree.sha"]).strip()
+            entries = json.loads(run([GH, "api", f"{API}/trees/{tree}"]))["tree"]
+        except Exception as e:
+            raise Skip(f"cannot read the {NOTES_BRANCH} branch: {e}")
+        if len(entries) != 1 or entries[0]["type"] != "blob" or entries[0]["path"] != NOTES_FILE:
+            raise Skip(f"{NOTES_BRANCH} branch holds other files; not published")
+        if entries[0]["sha"] == blob_sha(data):
+            return
+    try:
+        tree = post(run, "trees", {"tree": [{"path": NOTES_FILE, "mode": "100644", "type": "blob", "content": text}]})["sha"]
+        commit = post(run, "commits", {"message": f"docs: release notes after #{pr}", "tree": tree, "parents": [tip] if tip else []})["sha"]
+        if tip:
+            post(run, f"refs/heads/{NOTES_BRANCH}", {"sha": commit, "force": False}, "PATCH")
+        else:
+            post(run, "refs", {"ref": f"refs/heads/{NOTES_BRANCH}", "sha": commit})
+    except CmdError as e:
+        if "HTTP 422" in str(e):
+            raise Skip(f"{NOTES_BRANCH} update rejected; the next merge repairs it")
+        raise
+
+
+def publish(pr, sha, run):
+    """Write RELEASE_NOTES.md on the release-notes branch through the API. Never raises: a problem prints one warn line."""
+    try:
+        publish_notes(pr, sha, run)
+    except Exception as e:
+        reason = e if isinstance(e, Skip) else f"cannot publish release notes: {e}"
+        print(f"merge-pr: warn {' '.join(str(reason).split())}")
+
+
 def main(argv, run=run):
     if len(argv) != 2 or not re.fullmatch(r"[0-9]+", argv[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", argv[1]):
         print("merge-pr: cannot read arguments; usage: scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
@@ -295,6 +380,7 @@ def main(argv, run=run):
     except Exception as e:
         print(f"merge-pr: merged #{pr} as {sha}; cannot {e}")
         return 2
+    publish(pr, sha, run)
     print(tail)
     return 0
 

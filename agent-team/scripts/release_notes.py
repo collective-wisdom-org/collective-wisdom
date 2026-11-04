@@ -52,35 +52,46 @@ def merged_prs():
         raise RuntimeError(f"{type(e).__name__} {e}")
 
 
+def render(files, prs):
+    """The release notes text: `files` is (file name, text) pairs, `prs` the merged PR list.
+
+    Raises KeyError, TypeError or ValueError when a PR is malformed. Warns on stderr about an undated note file.
+    """
+    notes = []  # (date, is_pr, order key, text)
+    for pr in prs:
+        text = section(pr["body"])
+        if text:
+            at = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
+            date = at.astimezone(timezone.utc).date().isoformat()
+            title = PREFIX.sub("", pr["title"])
+            notes.append((date, 1, [pr["number"]], f"## {date} {title} (#{pr['number']})\n\n{text}"))
+    for name, text in files:
+        text = text.strip()
+        m = DATED.match(text)
+        if not m:
+            print(f"release-notes: {name} has no dated heading", file=sys.stderr)
+        notes.append((m[1] if m else "", 0, natural(name), "#" + text if m else text))
+    # Dated notes first, newest first; undated notes last.
+    notes.sort(key=lambda n: (bool(n[0]), n[0], n[1], n[2]), reverse=True)
+    out = ["# Release notes"]
+    if not notes:
+        out.append("\nNo release notes yet.")
+    out += ["\n" + text for *_, text in notes]
+    return "\n".join(out)
+
+
 def main(argv=()):
     if argv:
         print(__doc__)
         return 0
-    notes = []  # (date, is_pr, order key, text)
-    for path in NOTES.glob("*.md"):
-        text = path.read_text().strip()
-        m = DATED.match(text)
-        if not m:
-            print(f"release-notes: {path.name} has no dated heading", file=sys.stderr)
-        notes.append((m[1] if m else "", 0, natural(path.name), "#" + text if m else text))
+    files = [(path.name, path.read_text()) for path in NOTES.glob("*.md")]
     failed = None
     try:
-        for pr in merged_prs():
-            text = section(pr["body"])
-            if text:
-                at = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
-                date = at.astimezone(timezone.utc).date().isoformat()
-                title = PREFIX.sub("", pr["title"])
-                notes.append((date, 1, [pr["number"]], f"## {date} {title} (#{pr['number']})\n\n{text}"))
+        text = render(files, merged_prs())
     except (RuntimeError, KeyError, TypeError, ValueError) as e:
         failed = e
-    # Dated notes first, newest first; undated notes last.
-    notes.sort(key=lambda n: (bool(n[0]), n[0], n[1], n[2]), reverse=True)
-    print("# Release notes")
-    if not notes:
-        print("\nNo release notes yet.")
-    for *_, text in notes:
-        print("\n" + text)
+        text = render(files, [])
+    print(text)
     if failed:
         print(f"release-notes: cannot read merged PRs: {failed}", file=sys.stderr)
         return 1

@@ -2,6 +2,7 @@ import copy
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -259,3 +260,107 @@ def test_main_runs_without_a_gh_role(monkeypatch):
     runner, _ = fake(f)
     merge_pr.main(["7", f["approved"]], runner)
     assert "AGENT_GH_ROLE" not in os.environ
+
+
+TIP = "t" * 40
+NOTE_TEXT = "# 2026-11-04 CW-2: file note\n\nbody\n"
+PRS = [{"number": 5, "title": "feat: new", "body": "## Release note\n\nA note.\n", "mergedAt": "2026-11-04T10:00:00Z"}]
+
+
+def publisher(state):
+    """A runner for publish: serves the PR list, the git reads and the API; records each write as (command, body)."""
+    writes = []
+    want = merge_pr.release_notes.render([("cw-2.md", NOTE_TEXT)], PRS) + "\n"
+
+    def runner(cmd, input=None):
+        text = " ".join(cmd)
+        if "pr list" in text:
+            if state == "prfail":
+                raise merge_pr.CmdError("gh: not logged in")
+            return json.dumps(PRS)
+        if "ls-tree" in text:
+            return "100644 blob " + "n" * 40 + "\tdocs/superpowers/release-notes/cw-2.md\0"
+        if "cat-file" in text:
+            return NOTE_TEXT
+        if "git/ref/heads" in text:
+            if state == "missing":
+                raise merge_pr.CmdError("gh: Not Found (HTTP 404)")
+            return TIP + "\n"
+        if f"commits/{TIP}" in text:
+            return "r" * 40
+        if "git/trees/" in text:
+            blob = {"path": "RELEASE_NOTES.md", "type": "blob", "sha": merge_pr.blob_sha(want.encode()) if state == "same" else "0" * 40}
+            return json.dumps({"tree": [blob] + ([dict(blob, path="other.md")] if state == "other" else [])})
+        if "-X" in cmd:
+            writes.append((cmd[cmd.index("-X") + 1] + " " + cmd[-3].split("/git/")[1], json.loads(input)))
+            if state == "422" and "PATCH" in text:
+                raise merge_pr.CmdError("gh: Update is not a fast forward (HTTP 422)")
+            return json.dumps({"sha": "s" * 40})
+        return ""  # git merge-base
+
+    return runner, writes
+
+
+@pytest.mark.parametrize(
+    "state, kinds, parents, warn",
+    [
+        ("missing", ["POST trees", "POST commits", "POST refs"], [], ""),
+        ("changed", ["POST trees", "POST commits", "PATCH refs/heads/release-notes"], [TIP], ""),
+        ("same", [], None, ""),
+        ("other", [], None, "holds other files"),
+        ("422", ["POST trees", "POST commits", "PATCH refs/heads/release-notes"], [TIP], "update rejected"),
+        ("prfail", [], None, "cannot read merged PRs"),
+    ],
+)
+def test_publish(capsys, state, kinds, parents, warn):
+    runner, writes = publisher(state)
+    merge_pr.publish("7", "m" * 40, runner)
+    out = capsys.readouterr().out
+    assert [w[0] for w in writes] == kinds
+    assert (out.startswith("merge-pr: warn ") and warn in out) if warn else out == ""
+    if parents is not None:
+        assert writes[1][1]["parents"] == parents and writes[1][1]["message"] == "docs: release notes after #7"
+        assert writes[0][1]["tree"][0]["content"].startswith("# Release notes\n") and "(#5)" in writes[0][1]["tree"][0]["content"]
+        assert writes[-1][1].get("force", False) is False
+
+
+def test_publish_reads_git_objects_only(tmp_path):
+    """A symlinked note and an untracked draft in the working tree never reach the published text."""
+    secret = tmp_path / "secret.md"
+    secret.write_text("# 2026-11-04 LEAK: outside the repo\n")
+    remote, repo = tmp_path / "remote.git", tmp_path / "repo"
+    notes = repo / "docs" / "superpowers" / "release-notes"
+    git = lambda *a, cwd=repo: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=cwd, check=True, capture_output=True, text=True).stdout
+    git("init", "-q", "--bare", str(remote), cwd=tmp_path)
+    git("init", "-q", "-b", "main", str(repo), cwd=tmp_path)
+    notes.mkdir(parents=True)
+    (notes / "cw-2.md").write_text(NOTE_TEXT)
+    (notes / "link.md").symlink_to(secret)
+    git("add", "-A")
+    git("commit", "-qm", "notes")
+    git("remote", "add", "origin", str(remote))
+    git("push", "-q", "-u", "origin", "main")
+    (notes / "draft.md").write_text("# 2026-11-04 DRAFT: untracked\n")
+    sent = []
+
+    def runner(cmd, input=None):
+        if cmd[0] == "git":
+            return git(*cmd[1:])
+        if "pr list" in " ".join(cmd):
+            return "[]"
+        if "git/ref/heads" in " ".join(cmd):
+            raise merge_pr.CmdError("HTTP 404")
+        sent.append(input)
+        return json.dumps({"sha": "s" * 40})
+
+    merge_pr.publish("7", git("rev-parse", "HEAD").strip(), runner)
+    content = json.loads(sent[0])["tree"][0]["content"]
+    assert "CW-2: file note" in content and "LEAK" not in content and "DRAFT" not in content
+
+
+def test_failed_publish_keeps_the_merge_result(capsys):
+    f = green()
+    runner, _ = fake(f)  # its PR list answers nothing, so publish warns
+    assert merge_pr.main(["7", f["approved"]], runner) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[-2].startswith("merge-pr: warn ") and out[-1].startswith("merge-pr: merged #7")
