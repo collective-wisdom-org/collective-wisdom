@@ -40,7 +40,7 @@ Reads one raw `t3_thread_read` result (activity view) on stdin. Does not read st
 
 - **`waiting`, exit 0:** `recentRuns[0].status` is `completed`, the items of that run (`runId` equal to `recentRuns[0].runId`) include a `dynamic_tool` item for a tool whose name ends in `t3_background_wait` with at least one ID under `matched`, and `recentRuns[0].completedAt` is at most 45 minutes before `--now`. Prints `waiting <PREFIX>-N on <ids>, run ended HH:MM`.
 - **`stalled <reason>`, exit 1:** any other readable input. Reasons: `no-wait` (no wait call in that run, including a wait only in an earlier run), `unmatched` (wait calls, none with a matched ID), `wait-expired Nm` (matched, but the run ended more than 45 minutes ago).
-- **Exit 2:** can't judge. Unparseable stdin, no `recentRuns`, no run ID, run not `completed`, no `completedAt`, or a wait call whose text was cut off before the `matched` list. Prints `cos_idle_check: <reason>`.
+- **Exit 2:** can't judge. Unparseable stdin, no `recentRuns`, no run ID, run not `completed`, no `completedAt`, or a wait call whose text was cut off before the `matched` list and whose run ended within 45 minutes. An older run with a cut-off wait reads `stalled <ticket> wait-expired Nm`, so an unreadable wait can't hold a lane slot forever (security review pass 1). Prints `cos_idle_check: <reason>`.
 
 Item shape, as fathom's as-built parses it: the item's `text` is the JSON of the call (`toolName`, `output`). Matched IDs come from `output.structuredContent.matched`, or from `output.content` parsed as JSON. When `text` is cut off (not valid JSON) but shows the tool name, a visible `"matched": ["…` (plain or escaped) counts as matched, and no visible match is "can't tell" (exit 2), not `unmatched`.
 

@@ -77,6 +77,7 @@ CUT = '{"toolName": "mcp__t3-code__t3_background_wait", "output": {"structuredCo
         ("not json", 2, "cos_idle_check:"),
         (wait_read(text=CUT + '["bg1", "bg2'), 0, "waiting ABC-1"),
         (wait_read(text=CUT + "[], \"unm"), 2, "cos_idle_check:"),
+        (wait_read(text=CUT + "[], \"unm", completed="04:00"), 1, "stalled ABC-1 wait-expired 50m"),
     ],
 )
 def test_wait_tells_waiting_child_from_stalled(capsys, monkeypatch, stdin, want_code, want_line):

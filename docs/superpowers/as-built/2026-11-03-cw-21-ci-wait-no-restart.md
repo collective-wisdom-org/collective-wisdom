@@ -18,6 +18,9 @@
 - The ship-loop "Run endings" sentence no longer says "the thread stays Working", because it contradicts "T3 shows the run as `completed`".
 - The "Otherwise `stage` op to `blocked`" bullet in step 3 gained one sentence: a `completed` run with no marker is blocked only on a `stalled` line. Without it an exit 2 on a second stall would fall into that bullet and block the ticket.
 
+- A cut-off wait call gives exit 2 only while the run ended within 45 minutes. Older, it reads `stalled ... wait-expired`. Found in security review pass 1: exit 2 never blocks, so an unlimited exit 2 would let a child hold its slot for good.
+- The intro of chief-of-staff SKILL.md (line 23) also gained "unless the wait check says it is waiting", found by the docs check.
+
 ## Verification
 
 - `python3 -I -m pytest -q agent-team/scripts`: 335 passed.

@@ -180,11 +180,13 @@ def check_wait(ticket, raw, now):
     items = read.get("items")
     calls = wait_calls(items if isinstance(items, list) else [], run_id)
     matched = [c for c in calls if c is None or (c is not UNKNOWN and c)]
+    expired = now - ended > IDLE_AFTER
     if not matched:
-        if UNKNOWN in calls:
+        if UNKNOWN in calls and not expired:
             return 2, "cos_idle_check: wait call cut off"
-        return 1, f"stalled {ticket} " + ("unmatched" if calls else "no-wait")
-    if now - ended > IDLE_AFTER:
+        if UNKNOWN not in calls:
+            return 1, f"stalled {ticket} " + ("unmatched" if calls else "no-wait")
+    if expired:
         minutes = int((now - ended).total_seconds() // 60)
         return 1, f"stalled {ticket} wait-expired {minutes}m"
     ids = list(dict.fromkeys(i for c in matched if c for i in c))
