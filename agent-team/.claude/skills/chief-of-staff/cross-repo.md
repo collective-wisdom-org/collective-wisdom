@@ -1,6 +1,6 @@
 # Chief of Staff: cross-repo requests
 
-Read when the user asks for work in another repo or for a change to how the team works (in an app), or a `CHIEF OF STAFF REQUEST` or `REPLY` arrives.
+Read when the user asks for work in another repo, or a `CHIEF OF STAFF REQUEST` or `REPLY` arrives.
 
 ## Cross-repo requests
 

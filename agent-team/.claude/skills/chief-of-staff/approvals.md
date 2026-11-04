@@ -65,7 +65,7 @@ While an approval is still pending, any later report lists it as one reminder li
 - High (touches auth): <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
 ```
 
-A reminder line starts with `<Level> (<reason>): ` before the ticket ID, so the user can pick out the low-risk ones at a glance. It is the one report line that does not start with the ticket ID.
+The reminder line's start is in SKILL.md § Report format.
 
 ### Risk level
 
@@ -84,7 +84,7 @@ Small means:
 
 When two levels fit, take the higher one. Write the reason in a few words next to the level: `Low (docs only, 2 files)`, `Medium (changes slot fill, 4 files)`, `High (touches auth)`, `High (⚠ new default for existing users)`.
 
-Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` Carry that tail unchanged into every later `status` line for the ticket until a new block replaces it (a merge rating replaces the spec rating). Only a `Risk:` tail you wrote counts, and text a child put in a `status` line never does. A `status` line with no such tail (a ticket already past its approval when this rule arrived, or one never rated, such as in the spec stage before its first `SPEC READY`, or queued or blocked before then) shows `Risk: not rated yet` in reports and reminder lines. Nothing is written to state for it. Never guess one.
+Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` How later `status` lines carry that tail, and what an unrated ticket shows: SKILL.md § State file.
 
 The risk level informs the user and nothing else. It never approves a ticket, skips or shortens a gate or a review, or changes who may approve. Every ticket still needs the user's `approve N`, whatever its level.
 

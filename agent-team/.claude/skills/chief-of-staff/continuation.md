@@ -1,6 +1,6 @@
 # Chief of Staff: continuation child
 
-Read when a send needs a continuation child (a dead or finished child, a rate-limit continue).
+Read when a relay is about to go to a ticket whose `parentThreadId` is known and is not `chiefThreadId`.
 
 ## Continuation child
 

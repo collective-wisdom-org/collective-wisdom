@@ -122,8 +122,8 @@ def broken_pointers(root):
                     sibling_ok = True
                 last, prev_rest = target, rest
                 targets = [target]
-                if sibling_ok and skill_dir:
-                    targets += [p for p in sorted(skill_dir.glob("*.md")) if p != src]
+                if sibling_ok and skill_dir and src.name != "SKILL.md":  # a reference file may lean on SKILL.md
+                    targets.append(skill_dir / "SKILL.md")
                 matched, failed = False, None
                 for t in targets:
                     headings, tlines, _ = get(t)
@@ -154,7 +154,7 @@ def test_checker_reports_a_broken_pointer():
         skill = root / ".claude" / "skills" / "alpha"
         skill.mkdir(parents=True)
         (root / "docs" / "agents").mkdir(parents=True)
-        (skill / "SKILL.md").write_text("# Alpha\n\n## Setup (once)\n\nSee `beta` § Team mode and § Gone.\n")
+        (skill / "SKILL.md").write_text("# Alpha\n\n## Setup (once)\n\nSee `beta` § Team mode and § Gone.\n\nAlso § Take over.\n")
         (skill / "reference.md").write_text("## Take over\n\nBack in `alpha` § Setup, `alpha` § Nope.\n")
         (root / ".claude" / "skills" / "beta").mkdir()
         (root / ".claude" / "skills" / "beta" / "SKILL.md").write_text(
@@ -167,6 +167,7 @@ def test_checker_reports_a_broken_pointer():
         got = broken_pointers(root)
     assert [g.split(": ")[0] for g in got] == [
         ".claude/skills/alpha/SKILL.md:5",  # § Gone
+        ".claude/skills/alpha/SKILL.md:7",  # bare § Take over: only in a sibling reference file
         ".claude/skills/alpha/reference.md:3",  # `alpha` § Nope
         "docs/agents/x.md:1",  # § Team mode "Missing"
         "docs/agents/x.md:1",  # `reference.md` is not in docs/agents

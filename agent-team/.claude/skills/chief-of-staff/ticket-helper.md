@@ -1,6 +1,6 @@
 # Chief of Staff: ticket helper
 
-Read on a new ticket, a ticket edit, "place / link these tickets", a team change in collective-wisdom, or a run-finished notice for a thread not in `tickets`.
+Read on a new ticket, a ticket edit, "place / link these tickets", a change to how the team works, or a run-finished notice for a thread not in `tickets`.
 
 ## Ticket helper
 

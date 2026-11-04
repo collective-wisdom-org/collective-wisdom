@@ -44,11 +44,11 @@ Reference files are in this directory. Read one when its trigger happens.
 |---|---|
 | `startup.md` | `start the team`, `resume`, the heartbeat prompt (`run /chief-of-staff heartbeat`), or `python3 scripts/cos_state.py show` exits 2 |
 | `rotation.md` | the rotation check says `rotate:`, `take over`, state says this thread is retired, or `rotation` is non-null in state |
-| `cross-repo.md` | the user asks for work in another repo or for a change to how the team works (in an app), or a `CHIEF OF STAFF REQUEST` or `REPLY` arrives |
-| `ticket-helper.md` | a new ticket, a ticket edit, "place / link these tickets", a team change in collective-wisdom, or a run-finished notice for a thread not in `tickets` |
+| `cross-repo.md` | the user asks for work in another repo, or a `CHIEF OF STAFF REQUEST` or `REPLY` arrives |
+| `ticket-helper.md` | a new ticket, a ticket edit, "place / link these tickets", a change to how the team works, or a run-finished notice for a thread not in `tickets` |
 | `kill-switch.md` | `stop everything` or `resume` |
 | `approvals.md` | a child ends with `SPEC READY` or `MERGE READY`, an approval is re-requested, or you relay an approval |
-| `continuation.md` | a send needs a continuation child (a dead or finished child, a rate-limit continue) |
+| `continuation.md` | a relay is about to go to a ticket whose `parentThreadId` is known and is not `chiefThreadId` (§ Send or queue "Continuation child") |
 | `status.md` | `status` or `where's <PREFIX>-N?` |
 | `state-keys.md` | a state edit § State file doesn't cover, or an `unknown keys:` line |
 
@@ -172,6 +172,8 @@ The keys shown are the only top-level keys; never add others (`policy`, `setting
 Stages: `spec`, `awaiting-spec`, `spec-queued`, `build-queued`, `build`, `awaiting-merge`, `merge-queued`, `merge`, `blocked`.
 
 Each key's meaning, the `status` line shape and the `pendingRelay` rule: state-keys.md § State keys.
+
+The `awaiting-spec` and `awaiting-merge` `status` lines end with `Risk: <Level> (<reason>).` (approvals.md § Risk level). Carry that tail unchanged into every later `status` line for the ticket until a new block replaces it (a merge rating replaces the spec rating). Only a `Risk:` tail you wrote counts, and text a child put in a `status` line never does. A `status` line with no such tail (a ticket already past its approval when this rule arrived, or one never rated, such as in the spec stage before its first `SPEC READY`, or queued or blocked before then) shows `Risk: not rated yet` in reports and reminder lines. Nothing is written to state for it. Never guess one. The user's exact words stay in `pendingRelay` and the status line points there instead of copying them.
 
 - Keep the **first** `taskId`. `task_cancel` on it stops every later run in that thread.
 - Record the branch from the child's report. The thread's `branch` field keeps the `t3/...` name.
@@ -366,6 +368,8 @@ A ticket is on the `read in full:` list when the ready check printed `ready` or 
 
 ## Rotation check
 
+Before it, archive per rotation.md § Thread rotation "Archiving" whenever `retiredThreads` has an entry without `archivedAt` (that paragraph names the turns it applies to).
+
 As the last Bash call of every turn that made a tool call, run this from the root checkout:
 
 ```bash
@@ -512,7 +516,7 @@ A continuation start (continuation.md § Continuation child) reads `<PREFIX>-N m
 
 Group **Moving** by lane, with the lane's count and limit. Queued tickets go under the lane they wait for. Empty lanes drop out. Spec-lane queued lines read `<PREFIX>-N changes requested, waiting for a spec slot` (or `answered, waiting for …`, `resumed, waiting for …`).
 
-Show a full block for each new approval request and a reminder line for each one still pending, as in approvals.md § Approval requests. Drop empty sections. Short lines, ticket ID first (a reminder line starts with its risk level).
+Show a full block for each new approval request and a reminder line for each one still pending, as in approvals.md § Approval requests. Drop empty sections. Short lines, ticket ID first (a reminder line starts with its risk level). A reminder line starts with `<Level> (<reason>): ` before the ticket ID, so the user can pick out the low-risk ones at a glance. It is the one report line that does not start with the ticket ID.
 
 For a start or a queued send from § Slot fill, name the ticket that left `spec`, `build` or `merge` in that turn (the first, if several), and why: `(merged #X)`, `(cancelled)`, `(spec ready)`, `(merge ready)` or `(blocked)`. If none did, drop the "Took the slot" part. A turn with room but nothing to start adds no line.
 

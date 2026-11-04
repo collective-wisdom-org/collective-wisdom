@@ -2,11 +2,11 @@
 
 ## Ranking child
 
-Where § Todo fill "Dry ranking" or `backlog` runs a ranking, the Chief of Staff does not run § Backlog ranking itself:
+Where SKILL.md § Todo fill "Dry ranking" or `backlog` runs a ranking, the Chief of Staff does not run SKILL.md § Backlog ranking itself:
 
 1. Note the time as `<started>` (ISO, UTC, `Z`).
 2. `delegate_task` with `mode: "wait"`, `timeoutMs: 900000`, `isolation: "shared"`, `role: "research"`, `title: "Backlog ranking"`, `target: {providerInstanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}`, and the task below. Fill the two inputs from the state read at the top of the turn (`cos_state.py show`): the team tickets (id, stage, PR number if any) and the `merged` entries (PR number, time).
-3. Take the child's final message from the response and pipe it to `python3 scripts/cos_rank.py --started <started>` (add `--post` for `backlog`) on stdin, in a quoted heredoc whose delimiter (for example `<<'COS_RANK_END'`) doesn't appear in the message. The script checks the list, writes `pm.ranked`, `pm.rankedAt` (= `<started>`, so a Backlog edit made while the child ran trips the next Dry ranking check) and `pm.rankedReady`, and prints `<PREFIX>-N <readiness>` per entry, or with `--post` the post above. Use those lines for `pm.needsReported` and the `not acted on` Cleanup line.
+3. Take the child's final message from the response and pipe it to `python3 scripts/cos_rank.py --started <started>` (add `--post` for `backlog`) on stdin, in a quoted heredoc whose delimiter (for example `<<'COS_RANK_END'`) doesn't appear in the message. The script checks the list, writes `pm.ranked`, `pm.rankedAt` (= `<started>`, so a Backlog edit made while the child ran trips the next Dry ranking check) and `pm.rankedReady`, and prints `<PREFIX>-N <readiness>` per entry, or with `--post` the post format in SKILL.md § Backlog ranking. Use those lines for `pm.needsReported` and the `not acted on` Cleanup line.
 
 The child is not a ticket. It is not saved in `tickets`, does not count toward a lane or the overall cap, and gets no relay. Its run-finished notice is the exception in `chief-of-staff` § Lean turns: no slot fill (see the failure rules below).
 
