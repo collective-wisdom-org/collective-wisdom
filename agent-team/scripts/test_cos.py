@@ -66,6 +66,19 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     assert path.read_bytes() == first
 
 
+@pytest.mark.parametrize("ops, stamped", [
+    ([START], True),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "merge", "status": "m"}], True),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "build", "status": "again"}], False),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "w"}], False),
+])
+def test_relay_and_child_start_stamp_lastRelayAt(ops, stamped):
+    new, _, _ = cos_state.apply_ops(STATE, ops)
+    assert ("lastRelayAt" in new) == stamped
+    with pytest.raises(cos_state.Reject):
+        cos_state.apply_ops(STATE, [{"op": "top", "set": {"lastRelayAt": "2026-11-04T00:00:00Z"}}])
+
+
 @pytest.mark.parametrize("bad", [
     {"op": "set", "ticket": "ABC-1", "set": {"bogus": 1}},
     {"op": "set", "ticket": "ABC-1", "set": {"stage": "merge"}},
