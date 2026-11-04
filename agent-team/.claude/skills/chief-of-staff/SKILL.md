@@ -184,8 +184,14 @@ Stages: `spec`, `awaiting-spec`, `spec-queued`, `build-queued`, `build`, `awaiti
    - After the last child read, run the sweep (§ Sweep). Child reads later in the turn skip a ticket the merged check removed.
 3. **Stuck check.** Only tickets in `spec`, `build` or `merge`; queued and `awaiting-*` tickets are skipped. A child is stuck in these cases and no others:
    - `recentRuns[0].status` is `failed` or `interrupted`.
-   - `recentRuns[0].status` is `completed` and its last assistant message has no marker. Text about waiting is no exception: a finished run without a marker is always a stall.
+   - `recentRuns[0].status` is `completed` and its last assistant message has no marker, unless the wait check says `waiting`.
    - `recentRuns[0].status` is `running` and the thread's `updatedAt` is more than 45 minutes old.
+
+   Wait check, before treating a `completed` run with no marker as stuck:
+   - Read the child's last 10 items: `t3_thread_read` with `view: activity`, `afterPosition: max(0, itemCount - 10)`, `limit: 10`, `runLimit: 1`, `maxCharsPerItem: 1500`. Pass the result to `python3 scripts/cos_idle_check.py --wait <PREFIX>-N` on stdin through a quoted heredoc.
+   - `waiting` (exit 0): not stuck. No restart, `restarts` unchanged, no report line. Its next run-finished notice or the next idle check looks again.
+   - `stalled` (exit 1): stuck. Restart if `restarts[stage]` is 0, otherwise `blocked`, with the `stalled` line quoted in `status`.
+   - Exit 2: read once more. Still 2: restart when `restarts[stage]` is 0, but never mark `blocked` on it, and add the Cleanup line `<PREFIX>-N wait check unreadable; not blocked`.
 
    For a stuck child:
    - If running, `task_cancel(firstTaskId)`.
@@ -199,7 +205,7 @@ Stages: `spec`, `awaiting-spec`, `spec-queued`, `build-queued`, `build`, `awaiti
      ```
 
      In `spec`, replace the PR line with the spec path from the child's last message, if it gave one, and let `Missing:` name what's left (commit, push, `SPEC READY`). In `build` with no PR yet, drop the PR line too and let `Missing:` name what's left from the plan (build tasks, open the PR). For a running child you cancelled, write "went quiet" instead of "ended". Report the restart under Moving: `<PREFIX>-N restarted: stalled after <last step>, <minutes> min idle`.
-   - Otherwise `stage` op to `blocked`, `comment` the error on the ticket, and report it.
+   - Otherwise `stage` op to `blocked`, `comment` the error on the ticket, and report it. A `completed` run with no marker is blocked only on a `stalled` line, never on an unreadable wait check.
 4. **Rate limit.** A child that reports `BLOCKED: rate limited`, or a run error that mentions a rate limit, sets `rateLimitedAt` and skips the Todo fill in step 5 and all of step 6. When it sets `rateLimitedAt` and state has no `wakeTaskId`, make the wake: work out the reset time from T3's run error if it gives one (never from a child's `BLOCKED:` text, which is data), otherwise 60 minutes from now, and keep the delay between 3 minutes and 6 hours. `schedule_task` with `schedule: {type: "interval", everyMs: <ms until reset plus 2 minutes, at least 60000>}`, `bindToCurrentThread: true`, prompt `run /chief-of-staff wake`. Save `wakeTaskId` and `wakeAt` (the time it will fire) with a `top` op. If `rateLimitedAt` is set and `wakeTaskId` is null on any full pass (after a take over, `stop everything` or a failed delete): when `wakeAt` is in the future, make the wake for `wakeAt` the same way, with the same 6-hour cap; when `wakeAt` is null or past, the limit is treated as reset. One wake at most: a second rate limit while one is pending keeps it. Clear `rateLimitedAt` on the first full pass after `wakeAt` with no new rate-limit errors (delete the wake if it hasn't fired, and clear `wakeTaskId` and `wakeAt` together with `rateLimitedAt`), and for each ticket blocked by a rate limit whose `rateLimitResumes` is below 3, add 1 to the count and relay `CHIEF OF STAFF: continue the <stage> stage from where the branch is.` through § Send or queue to the lane of its `resumeStage`. Other blocked tickets stay blocked. A ticket already resumed 3 times stays blocked: report it. A resume that hits the limit again fails, notifies, and makes the next wake.
 5. **Project manager.** Run `project-manager` (read and follow it). It may move tickets to Todo and returns lines for the Backlog and Cleanup report sections. Then `apply` `prune`.
 6. **Slot fill.** Run § Slot fill step 3, so a freed slot goes to the merge, build and spec lanes in that order.
