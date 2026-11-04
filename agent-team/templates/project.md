@@ -90,6 +90,7 @@ Extra checks for the security review, on top of OWASP and "no secrets in repo".
 |---|---|
 | Specs / plans / as-built | `docs/superpowers/specs/`, `docs/superpowers/plans/`, `docs/superpowers/as-built/` |
 | Index | One file per ticket in `docs/superpowers/index/<prefix>-N.md` (docs with no ticket: `index/<YYYY-MM-DD>-<slug>.md`); layout in [`docs/superpowers/README.md`](../superpowers/README.md) |
+| Release notes | One file per ticket in `docs/superpowers/release-notes/<prefix>-N.md` (docs with no ticket: `release-notes/<YYYY-MM-DD>-<slug>.md`); layout in [`docs/superpowers/README.md`](../superpowers/README.md) |
 
 ## Docs check
 
