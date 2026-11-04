@@ -13,7 +13,7 @@ Preconditions: this thread runs at the root checkout, on `main`. If not, stop an
 3. Read this thread's model with `t3_thread_configure` (no arguments). If it isn't `claude-sonnet-5-5` at effort `medium` (SKILL.md § Models), say so in the start report and ask the user to switch the thread in T3. Don't check again.
 4. Store your own thread ID as `chiefThreadId`. Run `python3 scripts/cos_rotation_check.py --skill-commit` and store its output as `skillCommit`. Run startup.md § Start-up clean-up, run the full pass (SKILL.md § Full pass), and report.
 
-The first full pass runs the project manager pass, which moves ready tickets to Todo at start-up (`project-manager` § Todo fill). The user can still move a ticket to Todo themself, or keep one out with `agent-skip`.
+The first full pass starts the project manager hygiene child (step 5 of SKILL.md § Full pass). Ready tickets start from the Backlog ranking in the slot fill, after Todo (`project-manager` § Backlog pick). The user can still move a ticket to Todo themself, or keep one out with `agent-skip`.
 
 ## Start-up clean-up
 
