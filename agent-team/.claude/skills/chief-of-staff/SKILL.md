@@ -807,7 +807,7 @@ Rules:
 
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
 - Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`spec stage`, `blocked: <reason>`, `changes requested, waiting for a spec slot`).
-- Titles come from the tracker: one `list-tickets` call for the tickets in state, naming only the title. If that read fails, show the ID alone.
+- Titles come from the tracker: one `list-tickets` call with label `agent` and fields `id, title`. If that read fails, show the ID alone.
 - Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`.
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (§ Approval requests), each with its risk on the first line.
 - No other § Report format section (`Moving`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
