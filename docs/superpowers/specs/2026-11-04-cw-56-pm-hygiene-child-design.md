@@ -1,7 +1,8 @@
 # CW-56: Move tracker hygiene out of the Chief of Staff full pass into a one-shot project manager child
 
 **Ticket:** [CW-56](https://github.com/dbeallor/collective-wisdom/issues/56)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #78, with differences: [as-built](../as-built/2026-11-04-cw-56-pm-hygiene-child.md)
 
 ## Goal
 
