@@ -22,7 +22,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 ## Normal path
 
 1. **brainstorming** — design gate; clarify goal, scope, non-goals.
-2. **superpowers-project-memory** — spec path, plan path, index rows, templates (do not duplicate here). Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
+2. **superpowers-project-memory** — spec path, plan path, templates (do not duplicate here). Skip its index rows: `scripts/docs_index.py` generates the index from the doc folders.
 3. Get user approval on the spec (or revise).
 4. Write the issue with **write-ticket**; link the spec in the description.
 5. Worktree — follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants. From root on `main`:
@@ -32,7 +32,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
    git worktree add .worktrees/<short-name> -b feat/<prefix>-N-short-title origin/main
    ```
 
-6. **writing-plans** — plan from approved spec (path per **superpowers-project-memory**). Size each task's tests to `AGENTS.md` § Testing: one table-driven test per rule, none for styling or small UI interactions.
+6. **writing-plans** — plan from approved spec (path per **superpowers-project-memory**). Skip it when the ticket changes only markdown files (docs, skills, role docs): the spec is enough. A ticket that changes a script, a test, `install.sh` or config writes a plan. Size each task's tests to `AGENTS.md` § Testing: one table-driven test per rule, none for styling or small UI interactions.
 7. Tell user next step: approve plan → **build-from-plan** in the worktree.
 
 ## "Start now" path
@@ -40,7 +40,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 When the user builds before spec approval:
 
 1. Proceed in worktree as directed.
-2. Before PR: retroactive spec per **superpowers-project-memory** § "Start now" path. As-built, index entry (`docs/superpowers/index/<prefix>-N.md`) and release note: right after PR creation per **open-pr** § Closeout docs (not before the PR exists).
+2. Before PR: retroactive spec per **superpowers-project-memory** § "Start now" path. The `**Shipped:**` line, any as-built and the PR body's release note: right after PR creation per **open-pr** § Closeout docs (not before the PR exists).
 3. Next feature defaults to normal path unless user says "start now" again.
 
 ## Scope
@@ -61,4 +61,4 @@ When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 - Create the branch in the worktree T3 made, from `origin/main`. Skip the `git worktree add` step.
 - Don't ask the user to approve the spec. Put unspecified choices under `## Calls I made`.
 - Commit and push the spec (the "Commit unless the user asks" rule is lifted), then stop at `SPEC READY`.
-- After a relayed spec approval, write the plan with **writing-plans** and don't wait for plan approval. Go on to **build-from-plan**.
+- After a relayed spec approval, write the plan with **writing-plans** and don't wait for plan approval. Go on to **build-from-plan**. A ticket that changes only markdown files needs no plan: go straight to building from the spec.
