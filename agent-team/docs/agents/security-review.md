@@ -1,6 +1,6 @@
 # Security review
 
-Before merge, the ship loop runs **security-review** (phase 4). On Cursor that skill uses the **review-security** subagent; on Claude Code it uses the built-in `/security-review` command plus a manual pass against the OWASP list. Either way it runs on the PR branch worktree.
+Before merge, the ship loop runs **security-review** (phase 4). On Cursor that skill uses the **review-security** subagent; on Claude Code, the built-in `/security-review` command plus a manual pass against the OWASP list. Either way it runs on the PR branch worktree.
 
 ## OWASP references
 
@@ -25,7 +25,7 @@ Security findings are posted as PR issue comments (`## Security review (pass N)`
 - **Cursor:** **`/review-security`** wraps the security-review subagent.
 - **Claude Code:** **`/security-review`** reviews the current branch's changes.
 
-Use either for ad hoc reviews; the ship loop uses **security-review** for the PR comment loop and merge gate.
+Use either ad hoc; the ship loop uses **security-review** for the PR comment loop and merge gate.
 
 ## Vendored open-source skills
 
@@ -37,33 +37,19 @@ These live under `.claude/skills/` in the repo. **security-review** reads them w
 | `agent-security/` | [olanokhin/agent-security-skill](https://github.com/olanokhin/agent-security-skill) |
 | `auditing-security/` | [spencerpauly/awesome-cursor-skills](https://github.com/spencerpauly/awesome-cursor-skills) (`resources/auditing-security`) |
 
-To refresh from upstream:
-
-### 1. agamm/claude-code-owasp
-
-Comprehensive OWASP checklists and reference files (MIT-style OSS).
+To refresh from upstream, from the repo root (adjust clone paths as needed):
 
 ```bash
-# From repo root — adjust clone path as needed
+# agamm/claude-code-owasp: OWASP checklists and reference files
 git clone --depth 1 https://github.com/agamm/claude-code-owasp /tmp/claude-code-owasp
 cp -R /tmp/claude-code-owasp/.claude/skills/owasp-security .claude/skills/owasp-security
-```
 
-### 2. olanokhin/agent-security-skill
-
-Focused on AI/agent/MCP paths.
-
-```bash
+# olanokhin/agent-security-skill: AI, agent and MCP paths
 git clone --depth 1 https://github.com/olanokhin/agent-security-skill /tmp/agent-security-skill
 cp -R /tmp/agent-security-skill/skills/agent-security .claude/skills/agent-security
 # Or symlink AI_SECURITY.md into the repo root if you prefer a single doc
-```
 
-### 3. spencerpauly/awesome-cursor-skills
-
-Lightweight audit steps under `resources/auditing-security`.
-
-```bash
+# spencerpauly/awesome-cursor-skills: lightweight audit steps
 git clone --depth 1 https://github.com/spencerpauly/awesome-cursor-skills /tmp/awesome-cursor-skills
 cp -R /tmp/awesome-cursor-skills/resources/auditing-security .claude/skills/auditing-security
 ```

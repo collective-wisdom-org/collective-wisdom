@@ -14,11 +14,11 @@ Before acting, read **ship-loop** § Repo invariants.
 
 Phase 3 (**open-pr**) complete: PR exists, CI green, and the **latest code review** agent PR comment has **Verdict: PASS** (see `open-pr` § Agent review comment loop).
 
-Work from the PR's worktree (`.worktrees/<name>/` or T3 Code's under `~/.t3/worktrees/`); checkout the PR head branch. Never switch root checkout off `main`.
+Work from the PR's worktree, on the PR head branch.
 
 ## Primary review path
 
-**Cursor:** read and follow the **review-security** skill in full. Do not duplicate subagent launch mechanics here. When launching the security-review subagent, use:
+**Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 
 - **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on `main` unless the branch lives there.
 - **Diff:** `branch changes` (default).
@@ -29,13 +29,13 @@ Work from the PR's worktree (`.worktrees/<name>/` or T3 Code's under `~/.t3/work
 **Custom Instructions** (always apply):
 
 - Frame findings against **OWASP Top 10:2025** (A01 Broken Access Control incl. SSRF, A02 Misconfiguration, A03 Supply Chain, A04 Crypto, A05 Injection, A06 Insecure Design, A07 Auth Failures, A08 Integrity, A09 Logging, A10 Exceptional Conditions).
-- Apply **OWASP ASVS** themes where relevant (V2 auth, V4 access control, V5 validation, V8 data protection) — no need to cite every ASVS level.
+- Apply **OWASP ASVS** themes where relevant (V2 auth, V4 access control, V5 validation, V8 data protection). No need to cite every ASVS level.
 - **Product security overlays:** the list in `docs/agents/project.md` § Security overlays (for example tenant scoping, admin checks). Always: no secrets in repo; session/auth patterns must match the existing code.
 - If the diff touches **LLM chat, tools, MCP, RAG, or agent loops:** also check **OWASP Top 10 for LLM Apps** and **Agentic Applications (2026)** (prompt injection, excessive agency, insecure tool output).
 
 ## Optional deeper OWASP skills
 
-If present on disk, read relevant sections before or after the subagent — **do not fail** if missing:
+If present on disk, read relevant sections before or after the subagent. **Do not fail** if missing:
 
 | Path | Source |
 |------|--------|
@@ -47,7 +47,7 @@ Install instructions: **`docs/agents/security-review.md`**.
 
 ## PR comment loop
 
-Mirror **open-pr** agent review, but as a **separate** security thread (do not conflate with code review comments).
+Mirror **open-pr** agent review, but as a **separate** security thread (never mix it with code review comments).
 
 Post as a PR issue comment only:
 
@@ -55,7 +55,7 @@ Post as a PR issue comment only:
 ./scripts/gh.sh pr comment <N> --body-file <path>
 ```
 
-In team mode, run it as `AGENT_GH_ROLE=security-reviewer ./scripts/gh.sh pr comment <N> --body-file <path>` (`ship-loop` § Team mode, GitHub users).
+In team mode, run it as `AGENT_GH_ROLE=security-reviewer ./scripts/gh.sh pr comment <N> --body-file <path>` (`ship-loop` § Team mode **GitHub users**).
 
 **Comment shape:**
 
@@ -95,7 +95,7 @@ When running **ship-loop**, continue this phase after phase 3 **PASS** until sec
 When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 
 - Wait on CI with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § Team mode **CI waits** says, not a bare `pr checks --watch`.
-- Post each security review comment on the PR before you mention it in the thread, and keep the comment URL. Post it with `AGENT_GH_ROLE=security-reviewer`; the rest of your `./scripts/gh.sh` calls use `builder`.
+- Post each security review comment on the PR before you mention it in the thread, and keep the comment URL. Your other `./scripts/gh.sh` calls use `builder`.
 
 ## Optional (user-initiated)
 

@@ -1,8 +1,8 @@
 # Project config (<product name>)
 
-The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value that is not decided yet; an agent that needs one must not guess (in team mode, stop with `BLOCKED:`).
+The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value not decided yet; an agent that needs one must not guess (in team mode, stop with `BLOCKED:`).
 
-Scripts read the first backticked token in each Value cell, so keep the backticks around the real value and keep notes free of extra backticks in the cells marked below.
+Scripts read the first backticked token in each Value cell. Keep the backticks around the real value, and keep notes free of extra backticks in the cells marked below.
 
 ## Identity
 
@@ -21,18 +21,7 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(...)` value means `linear`. Operations and adapters: [trackers/README.md](trackers/README.md).
 
 - `github`: no extra rows. Tickets are GitHub issues in the `Repo` below, and `Issue identifier prefix` is any short prefix (for example `GH`). The `./scripts/gh.sh` wrapper does every call.
-- `jira`: untested. Add these rows to the table above and fill them in:
-
-```
-| Jira site | `https://example.atlassian.net` |
-| Jira project key | `ABC` |
-| Jira status: Backlog | `Backlog` |
-| Jira status: Todo | `To Do` |
-| Jira status: In Progress | `In Progress` |
-| Jira status: In Review | `In Review` |
-| Jira status: Done | `Done` |
-| Jira status: Canceled | `Canceled` |
-```
+- `jira`: untested. Add the rows listed in [trackers/jira.md](trackers/jira.md) § project.md rows to the table above and fill them in.
 
 ## Git and GitHub
 
@@ -41,10 +30,10 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is the issue prefix in lower case) |
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
 | Owner login (trusted review-comment author) | `<github-login>` |
-| Chief of Staff login | `none` (the account that files and moves tickets as the Chief of Staff; set it once the account exists and is added to gh, see [github-auth.md](github-auth.md) § Agent users; an app may leave all four as none) |
-| Builder login | `none` (the ship-loop child's account: PRs, notes and its own ticket; same setup; an app may leave all four as none) |
-| Code reviewer login | `none` (the account that posts the code review comment; same setup; an app may leave all four as none) |
-| Security reviewer login | `none` (the account that posts the security review comment; same setup; an app may leave all four as none) |
+| Chief of Staff login | `none` (the account that files and moves tickets as the Chief of Staff; set each of the four logins once its account exists and is added to gh, see [github-auth.md](github-auth.md) § Agent users; an app may leave all four as none) |
+| Builder login | `none` (the ship-loop child's account: PRs, notes and its own ticket) |
+| Code reviewer login | `none` (the account that posts the code review comment) |
+| Security reviewer login | `none` (the account that posts the security review comment) |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
 

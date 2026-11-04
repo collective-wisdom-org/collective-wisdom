@@ -24,7 +24,7 @@ The child passes:
 3. **`AGENTS.md`.** Required reading (a new foundational spec added, a superseded one marked), Workflow, Scope, Product rules, and the branch and tooling commands it names.
 4. **The specs index.** The `<prefix>-N.md` rows exist for the spec, plan and as-built. Every link resolves to a file in the tree. The spec's `**Status:**` matches. `scripts/merge_pr.py` already checks the as-built, `Shipped` and one index link; this covers dead links and missing spec or plan rows.
 5. **The release note.** `docs/superpowers/release-notes/<prefix>-N.md` exists, its first line is `# <YYYY-MM-DD> <PREFIX>-N: <title>`, and the one to three sentences describe what ships at the head SHA in terms a user of the agent team understands. `scripts/merge_pr.py` only checks that a note was added with a dated heading; this covers the file name and the content.
-6. **Extra checks from `project.md`.** Run each one listed under "Extra checks" in § Docs check, for example brand docs when the diff touches the theme.
+6. **Extra checks from `project.md`.** Run each one listed under "Extra checks" in `docs/agents/project.md` § Docs check, for example brand docs when the diff touches the theme.
 7. **Team docs.** Only when the diff touches `.claude/skills/`, `.claude/agents/`, `scripts/` or `docs/agents/`: `docs/agents/org-chart.md` and the role file each changed piece names.
 
 On a re-run, check the new range plus the as-built against the head. Don't re-read the whole diff.
