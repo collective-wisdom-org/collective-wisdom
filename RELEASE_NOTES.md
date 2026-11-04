@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-04 author and push ticket branch commits as the builder user (CW-92) (#99)
+
+Merged 2026-11-04 22:59 UTC.
+
+Ticket branch commits from the builder child now show the builder user instead of a hostname email. To get it in an app, update the agent team; set `git config --global user.email` to an address on your own GitHub account so your hand commits link to you.
+
 ## 2026-11-04 skip the security review on docs-only diffs, merge the passes on small ones (CW-54) (#93)
 
 Merged 2026-11-04 22:58 UTC.
