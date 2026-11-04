@@ -112,7 +112,7 @@ The roles are `chief-of-staff`, `builder`, `code-reviewer` and `security-reviewe
 
 Scripts that call `gh.sh` inherit the role from their environment. Merges stay on your own login: `scripts/merge_pr.py` runs with no role, so the merge and the branch delete are yours, and the agent users never merge. Commits and pushes also keep your own git config and gh credential.
 
-The trust checks follow the same rule. A team comment counts when its author is the login of the role that writes it, or the account running the check when that row is `none`. Once the reviewer rows are set, a review comment posted earlier as your own account no longer counts, so reviews on open PRs have to run again.
+The trust checks follow the same rule. A team comment counts when its author is the login of the role that writes it, or the active gh account when that row is `none`. Once the reviewer rows are set, a review comment posted earlier as your own account no longer counts, so reviews on open PRs have to run again.
 
 ## Verify
 
