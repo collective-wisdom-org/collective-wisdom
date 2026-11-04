@@ -1,0 +1,3 @@
+# 2026-11-03 Publish the agent team
+
+The agent team (Chief of Staff, project manager pass, ship loop, PR and security reviews) now lives in this repo and installs into any app with `./install.sh /path/to/app`. After installing, fill in the app's `docs/agents/project.md` and `AGENTS.md`. Re-running the script updates the app.
