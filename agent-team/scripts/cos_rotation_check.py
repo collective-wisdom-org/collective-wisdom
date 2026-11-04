@@ -212,7 +212,7 @@ def run_hook(path):
         except Unreadable as e:
             line = f"rotation-check: cannot read {e}"
         if not line.startswith("ok"):
-            reason = f"{line}; run chief-of-staff § Thread rotation"
+            reason = f"{line}; run chief-of-staff/rotation.md § Thread rotation"
             print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
     except Exception:
         pass

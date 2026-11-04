@@ -15,8 +15,15 @@ SPEC.loader.exec_module(merge_pr)
 HEAD = "a" * 40
 ASBUILT = "docs/superpowers/as-built/x.md"
 SPECMD = "docs/superpowers/specs/x-design.md"
-INDEX = "docs/superpowers/index/x.md"
 NOTEMD = "docs/superpowers/release-notes/x.md"
+SHIPPED = "**Status:** Shipped\n**Shipped:** in PR #7, as specified\n"
+
+
+def old_shape(f, note="\n# 2026-11-03 X-1: a title\n\nbody\n"):
+    """As-built and release note as files, no body section."""
+    f["body"] = ""
+    f["docs"] = {SPECMD: "**Status:** Shipped\n", NOTEMD: note}
+    f["files"] += [{"path": ASBUILT, "changeType": "ADDED"}, {"path": NOTEMD, "changeType": "ADDED"}]
 
 
 def review(title, verdict="PASS", at="2026-11-02T10:00:00Z", who="me"):
@@ -39,17 +46,10 @@ def green():
         "login": "me",
         "comments": [review("## Code review (pass 2)"), review("## Security review (pass 1)")],
         "commits": [{"oid": HEAD, "committedDate": "2026-11-02T09:00:00Z"}],
-        "files": [
-            {"path": ASBUILT, "changeType": "ADDED"},
-            {"path": SPECMD, "changeType": "ADDED"},
-            {"path": INDEX, "changeType": "ADDED"},
-            {"path": NOTEMD, "changeType": "ADDED"},
-        ],
-        "docs": {
-            SPECMD: "**Status:** Shipped\n",
-            INDEX: "| [x](../as-built/x.md) |\n",
-            NOTEMD: "\n# 2026-11-03 X-1: a title\n\nbody\n",
-        },
+        "pr": "7",
+        "body": "## Summary\n\nx\n\n## Release note\n\nA note.\n\n## Test plan\n\ny\n",
+        "files": [{"path": SPECMD, "changeType": "ADDED"}],
+        "docs": {SPECMD: SHIPPED},
         "mergeCommit": None, "root": str(merge_pr.ROOT), "root_branch": "main", "root_dirty": False, "root_ahead": 0,
     }
 
@@ -79,12 +79,18 @@ def reviews(**kw):
         (lambda f: f.update(commits=[{"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "head commit not in"),
         (lambda f: f.update(root_ahead=1), "local commits"),
         (lambda f: f.update(root_ahead=None), "no upstream"),
-        (lambda f: f["files"].pop(0), "no added docs/superpowers/as-built"),
         (lambda f: f["docs"].update({SPECMD: "**Status:** Draft\n"}), "Shipped"),
-        (lambda f: (f["files"].pop(2), f["docs"].pop(INDEX)), "no docs/superpowers/index"),
-        (lambda f: f["docs"].update({INDEX: "no row"}), "no index entry"),
-        (lambda f: (f["files"].pop(3), f["docs"].pop(NOTEMD)), "no added docs/superpowers/release-notes"),
-        (lambda f: f["docs"].update({NOTEMD: "# A title\n"}), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
+        (lambda f: f["docs"].update({SPECMD: "**Status:** Shipped\n"}), 'no spec says "**Shipped:** in PR #7, as specified"'),
+        (lambda f: f["docs"].update({SPECMD: "**Status:** Shipped\n**Shipped:** in PR #70, as specified\n"}), "no spec says"),
+        (lambda f: f["docs"].update({SPECMD: "**Status:** Shipped\n**Shipped:** in PR #7, with differences\n"}), "no spec says"),
+        (lambda f: (f["docs"].update({SPECMD: "**Status:** Shipped\n"}), f["files"].append({"path": ASBUILT, "changeType": "ADDED"})), None),
+        (lambda f: f.update(body="## Summary\n\nx\n"), 'no "## Release note" section'),
+        (lambda f: f.update(body="## Release note\n\n## Test plan\n\ny\n"), 'no "## Release note" section'),
+        (lambda f: f.update(body="## Release note\r\n\r\nA note.\r\n"), None),
+        (old_shape, None),
+        (lambda f: old_shape(f, "# A title\n"), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
+        (lambda f: (old_shape(f), f["files"].pop()), 'no "## Release note" section'),
+        (lambda f: (old_shape(f, "# A title\n"), f.update(body="## Release note\n\nx\n")), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
         (lambda f: f.update(root_branch="feat/y"), "root checkout is on feat/y"),
         (lambda f: f.update(state="MERGED", approved="bbbbbbb"), None),
     ],

@@ -13,9 +13,9 @@ Before acting, read **ship-loop** § Repo invariants.
 
 ## Preconditions
 
-1. Confirm **cwd** is the feature worktree (`.worktrees/<short-name>/` or T3 Code's under `~/.t3/worktrees/`), not root on `main`.
+1. Confirm **cwd** is the feature worktree, not root on `main`.
 2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user).
-3. One ticket = one branch; stay within AGENTS.md scope.
+3. Stay within `AGENTS.md` scope.
 
 ## Execution
 
@@ -28,7 +28,7 @@ If **planner-delegates** applies: parent plans and delegates; **implementer** su
 
 Follow plan tasks in order; use plan file paths and acceptance criteria.
 
-**verification-before-completion** before claiming any task done — run the plan's command and show output.
+**verification-before-completion** before claiming any task done: run the plan's command and show output.
 
 ## Testing (prefer plan Task 0)
 
