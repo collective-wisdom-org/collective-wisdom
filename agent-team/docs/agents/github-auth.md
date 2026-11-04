@@ -93,7 +93,8 @@ By default every agent acts as your gh account, so PRs, review comments and tick
 4. Add each account to your gh keyring with `gh auth login -h github.com -p https`, signing in as that account; gh keeps each token in the system keyring. `gh.sh` needs gh 2.40 or newer for `gh auth token -u`; an older gh reports "no gh login" for every role.
 5. Adding an account makes it the active one. Switch back with `gh auth switch -u <owner login>`. `scripts/merge_pr.py` refuses to run while the active account is one of the four agent users.
 6. Fill the four login rows in `project.md` with the new logins.
-7. Run the checks under Verify.
+7. Set `git config --global user.email` to an address on your own GitHub account (a verified email or your noreply address), so the commits you make by hand link to you.
+8. Run the checks under Verify.
 
 ### How a role picks its account
 
@@ -110,7 +111,7 @@ The roles are `chief-of-staff`, `builder`, `code-reviewer` and `security-reviewe
 - A role with a login: that one `gh` call gets the login's token from the keyring (`gh auth token -u <login>`) as `GH_TOKEN`. The token is not written to a file, printed or exported beyond that process. Nothing sets `GITHUB_TOKEN`.
 - An unknown role, a bad login in `project.md` or a login the keyring does not have: `gh.sh` exits 2 with one line on stderr and makes no `gh` call. It never falls back to your account, so a wrong setup cannot quietly post as you.
 
-Scripts that call `gh.sh` inherit the role from their environment. Merges stay on your own login: `scripts/merge_pr.py` runs with no role, so the merge and the branch delete are yours and the agent users never merge. Commits and pushes keep your own git config and gh credential.
+Scripts that call `gh.sh` inherit the role from their environment. Merges stay on your own login: `scripts/merge_pr.py` runs with no role, so the merge and the branch delete are yours and the agent users never merge. The builder's commits and pushes on a ticket branch go through `scripts/git.sh`, which authors them with the builder's GitHub noreply address and pushes with its keyring token; the token is never written to git config, a file or the remote URL. A `none` row keeps your git config and credential, and commits you make by hand keep your own git config. `git.sh` only pushes to an https remote, since an SSH remote would use your machine's key.
 
 The trust checks follow the same rule. A team comment counts when its author is the login of the role that writes it, or the active gh account when that row is `none`. Once the reviewer rows are set, a review comment posted earlier as your own account no longer counts, so reviews on open PRs must run again.
 
@@ -153,4 +154,7 @@ done
 
 # With no role it must print your own login (the owner), not an agent user
 ./scripts/gh.sh api user --jq .login
+
+# The builder's commit identity: its name and noreply email (<id>+<login>@users.noreply.github.com)
+AGENT_GH_ROLE=builder ./scripts/git.sh var GIT_AUTHOR_IDENT
 ```
