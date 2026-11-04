@@ -210,7 +210,7 @@ Stages: `spec`, `awaiting-spec`, `spec-queued`, `build-queued`, `build`, `awaiti
 
 Every relay that puts a child back to work goes through here. Given a ticket, the target lane and the relay text:
 
-- If the lane's count is under its limit, the overall count is under the overall cap, **and** no ticket is in that lane's `<lane>-queued` stage: send the relay with `t3_thread_send`, then a `stage` op to the lane's active stage.
+- If the lane's count is under its limit, the overall count is under the overall cap, **and** no ticket is in that lane's `<lane>-queued` stage: send the relay with `t3_thread_send`, then a `stage` op to the lane's active stage. If the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below), so report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.`
 - Otherwise: a `stage` op to `<lane>-queued` with `pendingRelay` and, for an approval, `approvalItemId` in `set`. Don't send.
 
 The empty-queue check keeps order: a newer relay never jumps a ticket already waiting in that lane. Every spec or merge approval relay has a second line, `Approval in thread: <thread id>`: the thread where the user wrote the approval (your own thread ID for an immediate one; the stored line for a queued one). The spec approval relay:
