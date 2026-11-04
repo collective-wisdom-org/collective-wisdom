@@ -47,9 +47,14 @@ def fail(msg):
     raise SystemExit(2)
 
 
+def branch_re(tid):
+    """The branch names a ticket may have: <branch head><prefix lower>-<N>-<words>."""
+    return re.compile(re.escape(f"{project_config.branch_head()}{tid.lower()}-") + r"[a-z0-9-]+")
+
+
 def rejected(tid, info):
     """First (field, value) the template must not carry, or None."""
-    branch = re.compile(re.escape(f"{project_config.branch_head()}{tid.lower()}-") + r"[a-z0-9-]+")
+    branch = branch_re(tid)
     for field, pattern, optional in (
         ("stage", STAGE, False),
         ("branch", branch, False),
