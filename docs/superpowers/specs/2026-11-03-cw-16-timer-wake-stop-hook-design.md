@@ -1,11 +1,11 @@
 # CW-16: Decide whether the Chief of Staff needs a timer, scheduled wake or new Stop-hook check
 
 **Ticket:** [CW-16](https://github.com/dbeallor/collective-wisdom/issues/16)
-**Status:** spec, awaiting the user's answers
+**Status:** spec, answers recorded; awaiting spec approval
 
 ## Goal
 
-CW-11 made the Chief of Staff find a lost finish notice on its next turn that makes tool calls. It added no way to make that turn happen. This ticket asks whether the wait for the next turn costs enough to need one: a timer, a scheduled wake or a new Stop-hook check. This spec gives the facts, one question per option and a recommendation with its reason. It decides nothing itself: every answer is the user's (see § Open questions).
+CW-11 made the Chief of Staff find a lost finish notice on its next turn that makes tool calls. It added no way to make that turn happen. This ticket asks whether the wait for the next turn costs enough to need one: a timer, a scheduled wake or a new Stop-hook check. This spec gives the facts, one question per option and a recommendation with its reason. The user has answered each one (see § Decisions): no timer, no scheduled wake, no new Stop-hook check, and one new report line.
 
 ## Non-goals
 
@@ -54,58 +54,55 @@ So the cost is real in principle (cases 1 to 3 above) and unmeasured in practice
 
 **New Stop-hook check.** A Stop hook runs when a Chief of Staff turn ends. It can't start a turn in an idle thread, so it can't shorten the wait this ticket is about. What it could do is check that the turn ran the sweep, the way the rotation hook checks rotation. That targets CW-11's cause 2 (skipped checks), which CW-11 already cut to one command.
 
-## Open questions
+## Decisions
 
-Each question is the user's call. My recommendation and the reason follow each one.
+The user answered through the Chief of Staff: "Add one report line when a relay may finish unannounced ("I may not hear when this run ends; say status to check")? Recommend yes. It's cheap and needs no schedule or hook, but it overlaps CW-12's report layout. This question wasn't in the ticket; the child added it. do only this". The Chief of Staff read that as yes to question 5 and no to questions 1 to 4, as recommended.
 
-1. **Is the wait for the next wake a real cost today?**
-   **Recommend: not yet, so record "no" and revisit on evidence.** The window since CW-11 is minutes long and holds one case-1 relay, found within a minute. The long wait needs all three conditions at once, and CW-14 (continuation children for restarts, answers and resumes) will make case 1 rarer still. Revisit if a report shows `found by the sweep` or `found by the idle check` for a ticket that sat an hour or more, or the user finds a finished child the team never reported.
+| # | Question | Answer | Reason |
+|---|---|---|---|
+| 1 | Is the wait for the next wake a real cost today? | No, not yet | The window since CW-11 holds one case-1 relay, found within a minute. The long wait needs cases 1 to 3 at once, and CW-14 makes case 1 rarer. Revisit if a report shows `found by the sweep` or `found by the idle check` for a ticket that sat an hour or more, or the user finds a finished child the team never reported. |
+| 2 | Timer | No | It is the scheduled wake with worse costs: the thread never rests, every tick grows the context every turn re-reads, and this harness forbids the waiting tools it needs. |
+| 3 | Scheduled wake | No | It is the only option that ends the wait, but it costs a full-thread turn per fire and adds a second scheduled task with its own state, clean-up and rotation steps, with no lost notice yet for it to find. If question 1's evidence shows up, the narrow form (armed only while an active ticket's child has a parent other than this thread, deleted when none is left) is the one to file. An always-on heartbeat is what the older design dropped. |
+| 4 | New Stop-hook check | No | A Stop hook can't wake an idle thread, so it doesn't touch this wait. As a "did you run the sweep" check it would need a sweep trace, and nothing shows the sweep being skipped since CW-11 made it one command. |
+| 5 | One report line when a relay may finish unannounced | Yes | One line tells the user that their message is the only thing that ends the wait today. It adds no schedule, hook or script. |
 
-2. **Timer: build it?**
-   **Recommend no.** It is the scheduled wake with worse costs: the thread never rests, every tick grows the context every turn re-reads, and this harness forbids the waiting tools it needs.
-
-3. **Scheduled wake: build it?**
-   Options: (a) no; (b) the narrow wake: armed only while an active ticket's child has a parent other than this thread, every 30 minutes, prompt `run /chief-of-staff sweep`, deleted when no such ticket is left, by `stop everything` and by take over; (c) an always-on heartbeat.
-   **Recommend (a) now, with (b) as the design to build if question 1's evidence shows up.** (b) is the only option that fixes the wait, but it costs a full-thread turn per fire, adds a second scheduled task with its own state keys, clean-up and rotation steps, and today there is no lost notice for it to find. (c) is the heartbeat the older design dropped, and it fires even when no notice can be lost.
-
-4. **New Stop-hook check: build it?**
-   **Recommend no.** A Stop hook can't wake an idle thread, so it doesn't address this ticket's wait. As a "did you run the sweep" check it would need the sweep to leave a trace (a new state key or file), and nothing shows the sweep being skipped since CW-11 made it one command.
-
-5. **Cheaper interim step: tell the user when a relay may finish unannounced?**
-   Not one of the three options; it adds no schedule. When § Send or queue sends a relay to a child whose parent isn't this thread, the report gets one Moving line: `<PREFIX>-N: I may not hear when this run ends; say status to check.` The Chief of Staff already wrote this by hand for PR #18.
-   **Recommend yes.** It costs one line, it tells the user the only thing that ends the wait today is their message, and it touches no schedule or hook. It does overlap CW-12, which rewrites the report layout; if CW-12 merges first, the line goes in CW-12's Moving group.
+The Chief of Staff's rule "schedules nothing except the rate-limit wake" and the intro's "There is no timer" stay as they are.
 
 ## Design
 
-What the build stage does depends on the answers.
+Two things ship in this PR.
 
-- **Every option "no" (questions 2 to 4), with or without question 5.** Post one comment on #16 with each question, its answer and its reason (the acceptance criterion). The PR carries this spec, its as-built, index entry and release note. Question 5 "yes" adds its one line to the skill; otherwise no skill or script change.
-- **Question 3 (b) "yes".** Built in this PR, under `agent-team/`, and the skill names the schedule (the ticket's rule that a schedule, if added, is written down in the skill):
-  - `cos_state.py`: two new top-level keys, `sweepWakeTaskId` and `sweepWakeEvery` (minutes), accepted by `apply` and shown by `show`. One table-driven test for the new keys.
-  - `chief-of-staff` SKILL.md: arm the wake in § Send or queue when it sends to such a child; delete it in the sweep's turn when no such child is left; handle it in § Start-up clean-up, § Deleting the wake, § Commands (new `run /chief-of-staff sweep` row: idle check and sweep, then § Slot fill, no full pass), § Thread rotation take over, § State file, § Guardrails and the intro and frontmatter ("no schedule" and "schedules nothing except").
-  - `chief-of-staff` reference.md § Thread rotation "Retired thread": its sweep wake firing gets only the `Moved to` reply, like the rate-limit wake.
-- **Question 4 "yes".** A larger change: the record asks the Chief of Staff for its own ticket, since the hook needs a sweep trace this ticket doesn't define.
-- **Question 3 (c) "yes".** Against my recommendation; the build follows the same sections as (b), without the arming condition.
-- **Question 2 "yes".** Against my recommendation; the record asks the Chief of Staff for its own ticket, since the T3 rule against waiting loops would have to change first.
+### 1. The report line
 
-### Sections a change would touch
+One sentence in `agent-team/.claude/skills/chief-of-staff/SKILL.md` § Send or queue, at the end of the first bullet (the one that sends the relay with `t3_thread_send`):
 
-Other open work edits `agent-team/.claude/skills/chief-of-staff/SKILL.md`: PR #26 (CW-17), the CW-12 build and the CW-14 and CW-15 specs. If every answer is "no", this ticket edits no skill file. Otherwise, by question:
+> If the ticket's `parentThreadId` isn't this thread's ID, T3 won't send this thread a finish notice for the run (see below), so report it under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.`
 
-| Question | Sections a change would edit |
-|---|---|
-| 3 (b) or (c), scheduled wake | `chief-of-staff` frontmatter `description`, intro paragraph, § Tools (`schedule_task` line), § Start-up clean-up, § Deleting the wake, § State file, § Send or queue, § Sweep, § Thread rotation "Take over" step 2, § Commands (new row, `stop everything` row), § Guardrails; `chief-of-staff/reference.md` § Thread rotation "Retired thread"; `scripts/cos_state.py` |
-| 4, Stop hook | `agent-team/.claude/settings.json`, § Thread rotation (hook sentence), § Sweep, a new or changed script |
-| 5, report line | § Send or queue (cause paragraph), § Report format (Moving line) |
+- It fires on every send that goes through § Send or queue, at once or from the queue, so a queued relay sent later by § Slot fill gets the line in that turn's report.
+- It does not fire for a continuation child: that path starts a new child with `delegate_task` under this thread instead of sending, so its notices arrive.
+- The line goes under Moving like the other one-off lines in this section (`moved to a new child`, `model switch failed`). § Report format is not edited.
+
+### 2. The record
+
+One comment on #16 with each question, its answer and its reason (the table above), which is the ticket's acceptance criterion. The PR carries this spec, the plan, the as-built, the index entry and the release note.
+
+### Sections touched, and overlap with other open work
+
+Only `chief-of-staff` SKILL.md § Send or queue, first bullet. Nothing else in the skill, no script, no hook, no `settings.json`.
+
+- **CW-12** (building) edits § Commands `status` row, § Approval requests and § Report format (the `Needs you` example and a new `### Status layout`). It does not touch § Send or queue or the Moving group. Under CW-12 a `status` answer has no Moving section, so this line shows in the report of the turn that sent the relay, not in a later `status`. That is where it is useful: it tells the user to ask for `status`.
+- **CW-14** (spec) rewrites two later paragraphs of § Send or queue (the "keeps its child" paragraph and the T3 notice-rule paragraph) and the "Continuation child" subsection. It doesn't touch the first bullet. Once CW-14 ships, fewer relays go to old children, so the line shows less often.
+- **CW-17** (PR #26) adds § Commands rows and a § Guardrails line. No overlap.
+- **CW-15** (spec) changes no § Send or queue text.
 
 ## Testing
 
-All "no": nothing to test beyond the existing suite (`python3 -I -m pytest -q agent-team/scripts`). Question 3 (b) gets one table-driven test in `test_cos.py` for the new state keys (accepted, typed, cleared together). Question 5 is prose and gets no test, per `AGENTS.md` § Testing.
+Prose only, so no new test, per `AGENTS.md` § Testing. The existing suite (`python3 -I -m pytest -q agent-team/scripts`) and `shellcheck install.sh agent-team/scripts/*.sh` must still pass. Manual check: `git diff main` touches only § Send or queue's first bullet in the skill, plus closeout docs.
 
 ## Calls I made (surprising first)
 
-- ⚠ I added question 5, which the ticket doesn't ask. It is the cheapest way to shorten the wait (the user knows to ask) and needs no schedule or hook.
-- ⚠ I counted the ticket's "use any lost notice seen after CW-11 as evidence" as satisfied by a 15-minute window with one case and no wait. There is no more evidence to have yet. Waiting longer would mean holding a spec slot with no work.
-- For the narrow wake I picked 30 minutes (the old heartbeat's interval) and the prompt `run /chief-of-staff sweep`. Both are only design notes until question 3 gets a "yes".
-- I treated "timer" as a turn that keeps itself running, and "scheduled wake" as a `schedule_task`, since those are the two ways a T3 thread can act on its own clock.
-- A "yes" to question 4 becomes a new ticket rather than a build here: it needs a design for the sweep trace that this spec would be guessing at.
+- ⚠ The line covers only relays sent through § Send or queue. The stuck-check restart in § Full pass step 3 also uses `t3_thread_send` and can finish unannounced, but it doesn't go through § Send or queue, and CW-14 is rewriting that path into continuation children. Adding it here would mean editing a section CW-14 changes and going past "do only this".
+- ⚠ The rule sits in § Send or queue, not § Report format, so this PR stays out of CW-12's sections. That matches how the section already reports `moved to a new child`.
+- A merge relay for a PR with no ticket in state (PR #18's case) doesn't go through § Send or queue, so it gets no line. The Chief of Staff wrote the warning by hand there; this ticket doesn't make that automatic.
+- I counted the 15 minutes since CW-11 merged as the evidence the ticket asks for, rather than holding a spec slot to collect more.
+- "Timer" means a turn that keeps itself running; "scheduled wake" means a `schedule_task`.
