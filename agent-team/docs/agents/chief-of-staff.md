@@ -31,7 +31,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 ## Done when
 
 - Every ticket you started is merged, reported as blocked, or cancelled by the user.
-- A child whose run ends without a marker is restarted in the turn its notice arrives.
+- A child whose run ends without a marker is restarted in the turn its notice arrives, unless it is waiting on a background command.
 - Nothing was merged without the user's approval in your thread.
 - No ticket sits in progress without a running child or a report.
 - Every Todo move by the project manager has a ticket comment with its reason.
