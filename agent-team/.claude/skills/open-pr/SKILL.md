@@ -51,18 +51,19 @@ Read **superpowers-project-memory** for as-built template. **Overrides:**
 - As-built header: `**Shipped:** in PR #N` (no date). Also `**Ticket:** <PREFIX>-N`.
 - Set linked spec `**Status:** Shipped`.
 - Add your as-built row to the ticket's index file. Index rows go in `docs/superpowers/index/<prefix>-N.md`, not the README table.
+- Write the release note at `docs/superpowers/release-notes/<prefix>-N.md` (a doc PR with no ticket uses `<YYYY-MM-DD>-<slug>.md`). The first line is `# <YYYY-MM-DD> <PREFIX>-N: <title>`, dated the day you write it. The body is one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. No file lists or implementation detail; those live in the as-built.
 
-Commit on the feature branch: `docs: as-built for <PREFIX>-N <short>` (include spec + index in the same commit). Push before step 1 of the agent review loop.
+Commit on the feature branch: `docs: as-built for <PREFIX>-N <short>` (include spec, index and release note in the same commit). Push before step 1 of the agent review loop.
 
 If the PR body was created before closeout, update it to link the as-built path.
 
-During later fix commits (phase 3 or 4): if a fix changes what ships, update the as-built in the same commit. The docs check re-run below backs this up.
+During later fix commits (phase 3 or 4): if a fix changes what ships, update the as-built and the release note in the same commit. The docs check re-run below backs this up.
 
 ### Docs check
 
 A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `docs/agents/documenter.md`. You apply the fixes.
 
-1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, and the as-built, spec and `docs/superpowers/index/<prefix>-N.md` paths.
+1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, and the as-built, spec, release note and `docs/superpowers/index/<prefix>-N.md` paths.
 2. Check the documenter changed nothing (`git status --porcelain` is empty and `HEAD` is the SHA you passed); if it did, stop with `BLOCKED:`. Fix each finding that is right. Commit `docs: bring docs in line with <PREFIX>-N` and push. Note any finding you reject, and why; it goes in the review brief.
 3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a `main` merge that `scripts/pr_diff_delta.py` calls `same`.
 4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in `main` isn't read as part of the change.
@@ -143,7 +144,7 @@ User may run **`/review-security`** (Cursor) or **`/security-review`** (Claude C
 
 ### Done when
 
-The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout docs (as-built, spec **Shipped**, index entry) are in the PR, and the docs check is current (§ Docs check). Report **code review complete**; proceed to **security-review** (phase 4). Do **not** report merge-ready here.
+The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout docs (as-built, spec **Shipped**, index entry, release note) are in the PR, and the docs check is current (§ Docs check). Report **code review complete**; proceed to **security-review** (phase 4). Do **not** report merge-ready here.
 
 When running **ship-loop**, repeat **Feedback loop** until code review **PASS** or blocked, then continue to phase 4 in the same session.
 

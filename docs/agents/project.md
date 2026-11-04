@@ -38,6 +38,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Required CI checks | `script-tests` and `shellcheck` |
 | Agent-team script tests | `python3 -I -m pytest -q agent-team/scripts` (the same suite; `scripts/` at the root is a link to `agent-team/scripts/`) |
 | Docs index listing | `python3 scripts/docs_index.py` (prints every `docs/superpowers/index/*.md` entry as one table) |
+| Release notes listing | `python3 scripts/release_notes.py` (prints every `docs/superpowers/release-notes/*.md` note, newest first) |
 | Test database | none |
 | Migration heads check | none |
 | Migrations directory | none |
