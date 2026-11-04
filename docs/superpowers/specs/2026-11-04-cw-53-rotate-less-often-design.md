@@ -13,6 +13,7 @@ The Chief of Staff thread rotates only when it buys something. On 2026-11-04 sta
 - Changing the handoff, take-over, retired-thread or failed-handoff steps.
 - Changing the item-count fallback when the context is unreadable.
 - Changing the 90k "Take-over ended at <N>k" Cleanup line or the `takeoverContext` size-trigger-off rule.
+- Raising or removing the size cap. That waits for real take-over numbers and a long-thread compaction test (see Size cap).
 
 ## Design
 
@@ -23,7 +24,7 @@ The Chief of Staff thread rotates only when it buys something. On 2026-11-04 sta
 | Trigger | Fires when |
 |---|---|
 | Skill change | the skill commit differs from `skillCommit` (on `main` only, as today) **and** the turn is quiet **and** the last rotation was an hour ago or more |
-| Size | context is 400k or more (safety net; unchanged rule, new number) |
+| Size | context is 220k or more (safety net; unchanged) |
 
 The age trigger goes, with `AGE_HOURS` and `AGE_MIN_CONTEXT`.
 
@@ -50,7 +51,9 @@ The skill never sets it by hand, and a `top` op that sets it is rejected. `show`
 
 ### Size cap
 
-`SIZE_CAP` goes from 220k to 400k. Sonnet 5.5 Chief of Staff threads in this repo's transcripts reached 302k with no compaction event in any transcript, so the harness compacts well above 220k. The ticket offers removing the cap if compaction is shown to keep the working set; that needs a thread run to compaction, which nobody has done, so the cap stays as a safety net under it. See Calls I made.
+`SIZE_CAP` stays at 220k. Rotation exists to keep the per-turn working set small, and take-overs measure 80-110k, so 220k leaves room. Raising the cap would assume a context window nobody has verified, and the quiet-turn rule doesn't depend on it.
+
+The ticket asks to raise the cap to where the harness compacts, or remove it once a long thread shows compaction keeps the working set. This ticket doesn't do that. It collects the numbers first: the `Take-over context` line below records each take-over's size in the thread. The cap goes up later, once a long thread has shown compaction keeps the working set. I'll note on CW-53 that the test wasn't run and that raising the cap is left for a follow-up; a child changes only its own ticket, so the Chief of Staff or the user files that one.
 
 ### Take-over context in the report line
 
@@ -75,7 +78,7 @@ The skill never sets it by hand, and a `top` op that sets it is rejected. `show`
 
 ## Calls I made
 
-- **Size cap 400k, not removed.** The ticket says to raise it to where the harness would compact, or remove it once a long-thread test shows compaction keeps the working set. No transcript here has ever compacted (the largest is 302k), so the compaction point isn't measured and the test isn't run in this ticket. 400k is above anything seen and well short of a 1M window. I'll record on the ticket that the test wasn't run.
+- **Size cap stays at 220k** (changed after review: the first draft raised it to 400k). The 400k number assumed a 1M window that wasn't verified, and the compaction point isn't measured. Raising it is left for later, gated on a long thread showing that compaction keeps the working set.
 - **One hour since the last `retiredAt` covers both the hourly cap and the 30-minute take-over rule**, instead of a separate take-over timestamp.
 - **"No relay sent in this turn" becomes "no relay or child start in the last 10 minutes"**, stamped by `cos_state.py`. The script can't see the turn, and the Stop hook can't be told, so it uses a time window. A new child start counts too, since it is the same kind of hand-off.
 - **Quiet and the hourly cap apply only to the skill-change trigger.** The size trigger still rotates any time, since it is the safety net.
