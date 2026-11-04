@@ -11,13 +11,13 @@ user-invocable: true
 
 # Write a ticket
 
-Before acting, read **ship-loop** § Repo invariants and `docs/agents/project.md` (tracker scope `<TEAM>`, issue prefix `<PREFIX>`, labels). Tracker operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
+Before acting, read **ship-loop** § Repo invariants and `docs/agents/project.md` (tracker scope `<TEAM>`, issue prefix `<PREFIX>`, labels). The operations named below are defined in `docs/agents/trackers/README.md`.
 
 Whole-backlog tidying (ranking, filling empty priority and labels, state drift, duplicates) belongs to **project-manager**, not this skill.
 
 ## Steps
 
-1. **Check the code first.** Before writing, find how the feature works today: grep or read the files, and name the files and functions. This goes in a short **Today** section, so whoever picks the ticket up doesn't have to investigate again. Skip it when the ticket is about something that doesn't exist yet in any form.
+1. **Check the code first.** Find how the feature works today: grep or read the files, and name the files and functions. This goes in a short **Today** section, so whoever picks the ticket up doesn't have to investigate again. Skip it when the ticket is about something that doesn't exist yet in any form.
 2. **Check external facts.** Anything outside the repo that the ticket names (a subreddit, an API, a library, a site's page layout) gets checked before it goes in. Say in the report what you couldn't check.
 3. **Look for an existing ticket.** Search open <PREFIX> tickets by title words (`list-tickets`, scope <TEAM>, title words). If one already covers it, offer to edit that one instead of making a duplicate.
 4. **Write it** in the shape below.
@@ -97,4 +97,4 @@ After saving, tell the user:
 
 ## Team mode
 
-A team-mode child follows `ship-loop` § Team mode: it changes only its own ticket. This skill doesn't widen that. In the Chief of Staff's ticket helper, and for the Chief of Staff's own ticket writes, every `./scripts/gh.sh` call runs with `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user). A child's own ticket moves use the builder role (`ship-loop` § Team mode, GitHub users).
+A team-mode child follows `ship-loop` § Team mode: it changes only its own ticket, and this skill doesn't widen that. In the Chief of Staff's ticket helper, and for the Chief of Staff's own ticket writes, every `./scripts/gh.sh` call runs with `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user). A child's own ticket moves use the builder role (`ship-loop` § Team mode **GitHub users**).
