@@ -27,7 +27,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Owner login (trusted review-comment author) | `dbeallor` |
 | Chief of Staff login | `collective-wisdom-chief` (the account that files and moves tickets as the Chief of Staff; see [github-auth.md](github-auth.md) § Agent users) |
 | Builder login | `collective-wisdom-builder` (the ship-loop child's account: PRs, notes and its own ticket; same setup) |
-| Code reviewer login | `none` (the account that posts the code review comment; same setup) |
+| Code reviewer login | `collective-wisdom-reviewer` (the account that posts the code review comment; same setup) |
 | Security reviewer login | `none` (the account that posts the security review comment; same setup) |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
