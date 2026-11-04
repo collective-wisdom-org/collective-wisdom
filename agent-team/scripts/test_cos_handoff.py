@@ -98,3 +98,27 @@ def test_ticket_or_state_that_cannot_be_read_exits_2_with_its_own_line(tmp_path,
         f.write_text(json.dumps(state))
     assert run([ticket, "--file", str(f)]) == 2
     assert capsys.readouterr().out.splitlines() == [f"cos_handoff: {want}"]
+
+
+def by(who, k, n):
+    return {**PR["comments"][0], "body": f"## {k} review (pass {n})\n\nVerdict: PASS", "url": f"https://x/{k}", "author": {"login": who}}
+
+
+@pytest.mark.parametrize(
+    "roles, comments, want",
+    [
+        ({"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel"}, [by("cw-reviewer", "Code", 4), by("cw-sentinel", "Security", 3)],
+         ["code review: pass 4 PASS", "security review: pass 3 PASS"]),
+        ({"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel"}, PR["comments"] + [by("cw-sentinel", "Code", 5)],
+         ["code review: not posted", "security review: not posted"]),
+        ({"code-reviewer": "cw-reviewer"}, [by("cw-reviewer", "Code", 4), by("bot", "Security", 3)],
+         ["code review: pass 4 PASS", "security review: pass 3 PASS"]),
+    ],
+)
+def test_reviews_count_from_the_role_login_once_set(tmp_path, capsys, monkeypatch, roles, comments, want):
+    monkeypatch.setattr(cos_handoff.project_config, "role_login", roles.get)
+    (tmp_path / "state.json").write_text(json.dumps({"tickets": {"ABC-1": MERGE}}))
+    (tmp_path / "pr.json").write_text(json.dumps({**PR, "comments": comments}))
+    assert run(["ABC-1", "--file", str(tmp_path / "state.json"), "--pr", str(tmp_path / "pr.json")]) == 0
+    out = capsys.readouterr().out
+    assert all(line in out for line in want)
