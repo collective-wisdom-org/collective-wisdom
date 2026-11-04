@@ -50,7 +50,7 @@ def green():
             INDEX: "| [x](../as-built/x.md) |\n",
             NOTEMD: "\n# 2026-11-03 X-1: a title\n\nbody\n",
         },
-        "mergeCommit": None, "root": "/root", "root_branch": "main", "root_dirty": False, "root_ahead": 0,
+        "mergeCommit": None, "root": str(merge_pr.ROOT), "root_branch": "main", "root_dirty": False, "root_ahead": 0,
     }
 
 
@@ -135,6 +135,8 @@ def writes(calls):
     "change, code, wrote",
     [
         (lambda f: f.update(approved="bbbbbbb"), 1, 0),
+        (lambda f: f.update(root="/elsewhere"), 1, 0),  # run from a worktree: read_facts flags it, gate refuses
+        (lambda f: f.update(root="/elsewhere", state="MERGED", mergeCommit={"oid": "m" * 40}), 1, 0),
         (lambda f: f["statusCheckRollup"][0].update(conclusion="FAILURE"), 1, 0),
         (lambda f: f.update(state="MERGED", mergeCommit={"oid": "m" * 40}), 0, 2),
         (lambda f: None, 0, 3),

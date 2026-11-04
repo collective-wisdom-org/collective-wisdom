@@ -7,9 +7,13 @@ Set PROJECT_MD to read another file (tests do).
 
 import os
 import re
+import sys
 from pathlib import Path
 
-DEFAULT = Path(__file__).absolute().parent.parent / "docs" / "agents" / "project.md"
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+from app_root import root  # noqa: E402
+
+DEFAULT = root() / "docs" / "agents" / "project.md"
 FALLBACK_BRANCH_HEAD = "feat/"
 
 

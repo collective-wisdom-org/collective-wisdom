@@ -37,10 +37,13 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+import app_root  # noqa: E402
 
-def project_name(script):
-    """Directory name of the main checkout, even when the script runs from a git worktree."""
-    root = Path(script).absolute().parent.parent
+
+def project_name(root=None):
+    """Directory name of the main checkout, even when run from a git worktree. Defaults to the current repo."""
+    root = Path(root) if root else app_root.root()
     try:
         common = subprocess.run(
             ["git", "rev-parse", "--git-common-dir"],
@@ -52,7 +55,7 @@ def project_name(script):
 
 
 # Claude Code names a transcript dir after the checkout path, so the main checkout's directory name matches it.
-PROJECT = project_name(__file__)
+PROJECT = project_name()
 
 # $/MTok: input, output, cache read, cache write 1h, cache write 5m
 PRICES = {
