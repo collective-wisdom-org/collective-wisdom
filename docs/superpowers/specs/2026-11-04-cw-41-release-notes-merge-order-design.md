@@ -1,7 +1,8 @@
 # CW-41: Sort release notes by PR merge time
 
 **Ticket:** [CW-41](https://github.com/dbeallor/collective-wisdom/issues/41)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #83, with differences: [as-built](../as-built/2026-11-04-cw-41-release-notes-merge-order.md)
 
 ## Goal
 
