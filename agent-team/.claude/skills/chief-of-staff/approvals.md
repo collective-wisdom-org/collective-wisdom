@@ -49,7 +49,7 @@ Reviews found and fixed:
 - …
 Left open: …
 Risks: <migrations and clashes, what users see after deploy, checks that didn't really run>
-Reply "approve 197" to merge, or "changes 197: …" to send it back.
+Approve the PR on GitHub (<PR URL>), then reply "approve 197" to merge, or "changes 197: …" to send it back.
 ```
 
 Rules:
@@ -63,7 +63,7 @@ While an approval is still pending, any later report lists it as one reminder li
 
 ```
 - Low (docs only, 3 Builds bullets): <PREFIX>-210 spec still waiting on you: <spec URL> (commit <short SHA>). "approve 210" or "changes 210: …"
-- High (touches auth): <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
+- High (touches auth): <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. Approve the PR on GitHub, then "approve 197", or "changes 197: …"
 ```
 
 The reminder line's start is in SKILL.md § Report format.

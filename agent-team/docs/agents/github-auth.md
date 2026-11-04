@@ -114,6 +114,29 @@ Scripts that call `gh.sh` inherit the role from their environment. Merges stay o
 
 The trust checks follow the same rule. A team comment counts when its author is the login of the role that writes it, or the active gh account when that row is `none`. Once the reviewer rows are set, a review comment posted earlier as your own account no longer counts, so reviews on open PRs must run again.
 
+## Merge gate
+
+A merge is approved by the owner approving the PR on GitHub. `scripts/merge_pr.py` refuses to merge without an approving review by the owner login (`project.md` § Git and GitHub, `Owner login`) on the PR's current head, and without branch protection on `main` that requires an approving review. A push after the approval, or a later changes-requested review, voids it: approve again. The `approve N` reply in the Chief of Staff thread still routes the merge child, but it proves nothing.
+
+GitHub does not let a PR's author approve it, so PRs must be opened by the builder user (§ Agent users), not the owner. The gate cannot pass without that setup.
+
+The owner sets this up once, by hand. No agent changes GitHub settings.
+
+1. Add `.github/CODEOWNERS` with one line, `* @<owner login>`, and merge it.
+2. Settings → Branches → add a branch protection rule for `main`:
+   - Require a pull request before merging, with 1 required approval.
+   - Dismiss stale pull request approvals when new commits are pushed.
+   - Require review from Code Owners. Only the owner's approval then satisfies the rule, not an agent user's (the agent users have write access).
+   - Require status checks to pass, using the repo's required checks (`project.md` § Commands). Leave "require branches to be up to date" off.
+   - Do not allow bypassing the above settings (enforce for admins), since the merge runs as the owner.
+3. Check it:
+
+```bash
+./scripts/gh.sh api repos/<owner>/<repo>/branches/main/protection --jq .required_pull_request_reviews.required_approving_review_count
+```
+
+It prints `1`. A 404 means `main` is not protected; `merge_pr.py` then stops with `main has no branch protection requiring an approving review`.
+
 ## Verify
 
 ```bash
