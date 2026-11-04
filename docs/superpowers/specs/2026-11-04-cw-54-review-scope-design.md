@@ -48,6 +48,8 @@ scripts/review_scope.py <PR number> [<head SHA>]
 
 Tests: one table-driven test in `scripts/test_review_scope.py` over a temp git repo, in the style of `test_pr_diff_delta.py`: docs only under `docs/superpowers/` (docs-only), a root `README.md` (docs-only), a `docs/agents/*.md` change (not docs-only), a symlinked `.md` under `docs/` (not docs-only), a `.md` outside `docs/` such as a skill (small), docs plus 200 lines of script (small, docs lines not counted), 201 lines (full), a binary file (full), a bad SHA (exit 2).
 
+`scripts/test_symlinked_root.py` adds `review_scope.py` to the scripts allowed to exit 2 on `--help`, as `pr_diff_delta.py` is.
+
 ### 2. Where it runs
 
 A new `open-pr` § Review scope, right before § Agent review comment loop:
