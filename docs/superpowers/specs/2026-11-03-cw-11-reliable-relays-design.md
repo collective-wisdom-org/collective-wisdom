@@ -1,6 +1,6 @@
 # Reliable Chief of Staff relays: lost notices and continuation handoffs (design)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [CW-11](https://github.com/dbeallor/collective-wisdom/issues/11)
 
 ## Intent
