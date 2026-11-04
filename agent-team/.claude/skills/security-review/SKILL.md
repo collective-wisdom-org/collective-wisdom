@@ -24,7 +24,7 @@ Work from the PR's worktree (`.worktrees/<name>/` or T3 Code's under `~/.t3/work
 - **Diff:** `branch changes` (default).
 - **Custom Instructions:** the list below.
 
-**Claude Code:** from the PR worktree on the head branch, run the built-in `/security-review` command. It does not take custom instructions, so then review `git diff origin/main...HEAD` yourself against the list below. If `/security-review` is unavailable in the session, dispatch a subagent with the diff and the list below instead, with `model: "opus"`. In team mode, use that subagent path (with `model: "opus"`) instead of `/security-review`, which runs on the child's own model.
+**Claude Code:** from the PR worktree on the head branch, run the built-in `/security-review` command. It does not take custom instructions, so then review `git diff origin/main...HEAD` yourself against the list below. If `/security-review` is unavailable in the session, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below instead. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. In team mode, use that subagent path instead of `/security-review`, which runs on the child's own model.
 
 **Custom Instructions** (always apply):
 
