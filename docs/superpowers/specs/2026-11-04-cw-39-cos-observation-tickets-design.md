@@ -44,7 +44,7 @@ A sighting names the ticket it was about, when there is one.
 A new top-level key `observed`: `{"sightings": [{"kind", "ticket", "at"}], "filed": [{"kind", "at"}]}`, and a new op `{"op": "observe", "kind": "<kind>", "ticket": "<PREFIX>-N"}` (`ticket` optional). The op records the sighting and decides in the same write, so the rule lives in code, not prose:
 
 - Unknown kind or a bad `other:` slug: rejected (exit 1).
-- A sighting with the same kind and ticket as one in the last 7 days is not added again. A sighting with no ticket is always added, so kinds that name no ticket (`rotation-failed`, `helper-no-report`, `script-unavailable`) can reach 2.
+- A sighting with the same kind and ticket as one in the last 7 days is not added again. A sighting with no ticket is added once per kind per `apply` call (a second ticketless `observe` of the same kind in the same call adds nothing), so kinds that name no ticket (`rotation-failed`, `helper-no-report`, `script-unavailable`) can reach 2 across calls.
 - `file` when all of these hold, and the op then adds a `filed` entry:
   - the kind has 2 sightings in the last 7 days (`other:` kinds need 1),
   - the kind was not filed in the last 7 days,
@@ -53,7 +53,7 @@ A new top-level key `observed`: `{"sightings": [{"kind", "ticket", "at"}], "file
 - Otherwise `hold`, with the reason.
 - The op prints one note per call: `observe <kind>: file (<ticket> <HH:MM>, <ticket> <HH:MM>)` listing the sightings it counted, or `observe <kind>: hold (1 of 2 sightings)`, `hold (filed <date>)`, `hold (3 filed today)`, `hold (one per turn)`.
 - `prune` drops sightings and filed entries older than 7 days.
-- `show` prints nothing new; `get observed` is enough for the rare check.
+- `show` and `get` print nothing new. There is no read command for `observed`; the state file holds it.
 
 ### Chief of Staff steps (`chief-of-staff/SKILL.md`, `ticket-helper.md`)
 

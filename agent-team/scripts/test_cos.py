@@ -133,9 +133,14 @@ FILED_TODAY = [{"kind": k, "at": ago(2)} for k in ("stall", "rotation-failed", "
      [obs("lost-notice", "ABC-3")], ["hold (filed "], 3, ["lost-notice"]),
     ([], FILED_TODAY, [obs("other:slow-handoff")], ["hold (3 filed today)"], 1, [f["kind"] for f in FILED_TODAY]),
     ([], [], [obs("other:a"), obs("other:b")], ["file (", "hold (one per turn)"], 2, ["other:a"]),
+    (None, None, [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    (None, None, [obs("other:slow-handoff")], ["file (-"], 1, ["other:slow-handoff"]),
+    ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(24 * 8)}],
+     [obs("lost-notice", "ABC-3")], ["file ("], 3, ["lost-notice", "lost-notice"]),
+    ([], [], [obs("stall"), obs("stall")], ["hold (1 of 2 sightings)", "hold (1 of 2 sightings)"], 1, []),
 ])
 def test_observe_files_on_repeat_within_caps(seen, filed, ops, notes, sightings, filed_kinds):
-    state = {**STATE, "observed": {"sightings": seen, "filed": filed}}
+    state = dict(STATE) if seen is None else {**STATE, "observed": {"sightings": seen, "filed": filed}}  # None: key absent
     new, _, got = cos_state.apply_ops(state, ops)
     assert len(got) == len(notes)
     assert all(n.split(": ", 1)[1].startswith(w) for n, w in zip(got, notes))

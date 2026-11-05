@@ -137,7 +137,7 @@ def merge_set(t, sets):
 
 def ticket_of(s, op):
     tid = op.get("ticket")
-    if not isinstance(tid, str) or not ID.match(tid):
+    if not isinstance(tid, str) or not ID.fullmatch(tid):
         raise Reject(f"bad ticket id {tid!r}")
     return tid, s["tickets"].get(tid)
 
@@ -272,17 +272,24 @@ def op_unretire(s, op):
     s["retiredThreads"] = [r for r in s["retiredThreads"] if r.get("threadId") != op["threadId"]]
 
 
-def op_observe(s, op, notes, filed_now):
+def op_observe(s, op, notes, filed_now, ticketless):
     """Record a sighting and decide in the same write whether to file a ticket for the kind."""
     need(op, "kind", optional=("ticket",))
     kind, ticket = op["kind"], op.get("ticket")
     if not (kind in KINDS or (isinstance(kind, str) and kind.startswith("other:") and SLUG.fullmatch(kind[6:]))):
         raise Reject(f"unknown observation kind {kind!r}")
-    if ticket is not None and not (isinstance(ticket, str) and ID.match(ticket)):
+    if ticket is not None and not (isinstance(ticket, str) and ID.fullmatch(ticket)):
         raise Reject(f"bad ticket id {ticket!r}")
-    seen = s.setdefault("observed", {}).setdefault("sightings", [])
+    if not isinstance(s.get("observed"), dict):
+        s["observed"] = {}
+    seen = s["observed"].setdefault("sightings", [])
     filed = s["observed"].setdefault("filed", [])
-    if ticket is None or not any(x.get("kind") == kind and x.get("ticket") == ticket and within(x.get("at"), WEEK) for x in seen):
+    if ticket is None:
+        new = kind not in ticketless  # one ticketless sighting per kind per apply call
+        ticketless.add(kind)
+    else:
+        new = not any(x.get("kind") == kind and x.get("ticket") == ticket and within(x.get("at"), WEEK) for x in seen)
+    if new:
         seen.append({"kind": kind, "ticket": ticket, "at": now()})
     hits = [x for x in seen if x.get("kind") == kind and within(x.get("at"), WEEK)]
     need_n = 1 if kind.startswith("other:") else 2
@@ -337,7 +344,7 @@ def apply_ops(state, ops):
     s = copy.deepcopy(state)
     for k, empty in (("tickets", {}), ("merged", {}), ("retiredThreads", [])):
         s.setdefault(k, empty)
-    notes, filed_now = [], [False]  # filed_now: an observe op already said file in this call
+    notes, filed_now, ticketless = [], [False], set()  # filed_now: an observe op already said file in this call
     if not isinstance(ops, list):
         raise Reject("op 0: expected a JSON list of operations")
     for i, op in enumerate(ops):
@@ -347,7 +354,7 @@ def apply_ops(state, ops):
             if op["op"] == "prune":
                 op_prune(s, op, notes)
             elif op["op"] == "observe":
-                op_observe(s, op, notes, filed_now)
+                op_observe(s, op, notes, filed_now, ticketless)
             else:
                 OPS[op["op"]](s, op)
         except Reject as e:
