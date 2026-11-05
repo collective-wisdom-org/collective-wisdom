@@ -13,29 +13,27 @@ Before acting, read **ship-loop** § Repo invariants.
 
 Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 
-## Normal path
+## Steps
 
-1. **brainstorming**: design gate; clarify goal, scope, non-goals.
-2. **superpowers-project-memory**: spec path, plan path, templates. Skip its index rows: `scripts/docs_index.py` generates the index from the doc folders.
-3. Get user approval on the spec (or revise).
-4. Write the issue with **write-ticket**; link the spec in the description.
-5. Worktree: follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants (branch pattern, tracker scope and issue prefix are there too). From root on `main`:
+1. Ticket: if the task names a ticket, it exists; don't create one. Otherwise write the issue with **write-ticket** first, and link the spec in its description once the spec is pushed.
+2. Worktree: follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants (branch pattern, tracker scope and issue prefix are there too). In a worktree T3 made, create the branch from `origin/main`:
+
+   ```bash
+   git fetch origin
+   git switch -c feat/<prefix>-N-short-title origin/main
+   ```
+
+   From the root checkout on `main`, add a worktree instead:
 
    ```bash
    git fetch origin
    git worktree add .worktrees/<short-name> -b feat/<prefix>-N-short-title origin/main
    ```
 
-6. **writing-plans**: plan from approved spec (path per **superpowers-project-memory**). Skip it when the ticket changes only markdown files (docs, skills, role docs): the spec is enough. A ticket that changes a script, a test, `install.sh` or config writes a plan. Size each task's tests to `AGENTS.md` § Testing: one table-driven test per rule, none for styling or small UI interactions.
-7. Tell the user the next step: approve the plan, then **build-from-plan** in the worktree.
-
-## "Start now" path
-
-When the user builds before spec approval:
-
-1. Proceed in worktree as directed.
-2. Before PR: retroactive spec per **superpowers-project-memory** § "Start now" path. The `**Shipped:**` line, any as-built and the PR body's release note: right after PR creation per **open-pr** § Closeout docs (not before the PR exists).
-3. Next feature defaults to normal path unless user says "start now" again.
+3. **brainstorming**: design gate; settle goal, scope, non-goals. Write the spec without asking the user anything. List every choice the user didn't specify under a `## Calls I made` heading in the spec.
+4. **superpowers-project-memory**: spec path, plan path, templates. Skip its index rows: `scripts/docs_index.py` generates the index from the doc folders.
+5. Commit and push the spec, then stop at `SPEC READY` (`ship-loop` § Phases). The spec is approved per `ship-loop` § Approvals.
+6. After the spec approval, **writing-plans**: plan from the approved spec (path per **superpowers-project-memory**). Don't wait for plan approval; go on to **build-from-plan**. Skip the plan when the ticket changes only markdown files (docs, skills, role docs): the spec is enough, so build from it. A ticket that changes a script, a test, `install.sh` or config writes a plan. Size each task's tests to `AGENTS.md` § Testing: one table-driven test per rule, none for styling or small UI interactions.
 
 ## Scope
 
@@ -43,15 +41,4 @@ When the user builds before spec approval:
 
 ## Do not
 
-- Commit unless the user asks.
 - Commit `.env` or secrets.
-
-## Team mode
-
-When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
-
-- The ticket exists. Skip step 4 and don't create one.
-- Create the branch in the worktree T3 made, from `origin/main`. Skip the `git worktree add` step.
-- Don't ask the user to approve the spec. Put unspecified choices under `## Calls I made`.
-- Commit and push the spec (the "Commit unless the user asks" rule is lifted), then stop at `SPEC READY`.
-- After a relayed spec approval, write the plan with **writing-plans** and don't wait for plan approval. Go on to **build-from-plan**. A ticket that changes only markdown files needs no plan: go straight to building from the spec.
