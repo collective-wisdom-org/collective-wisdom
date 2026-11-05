@@ -57,8 +57,6 @@ Post as a PR issue comment only:
 ./scripts/gh.sh pr comment <N> --body-file <path>
 ```
 
-In team mode, run it as `AGENT_GH_ROLE=security-reviewer ./scripts/gh.sh pr comment <N> --body-file <path>` (`ship-loop` § Team mode **GitHub users**).
-
 **Comment shape:**
 
 - Title line: `## Security review (pass N)`
