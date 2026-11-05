@@ -7,6 +7,7 @@ Set PROJECT_MD to read another file (tests do).
 
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +24,10 @@ def _rows():
         text = path.read_text()
     except OSError:
         return []
+    return _parse(text)
+
+
+def _parse(text):
     rows = []
     for line in text.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -31,9 +36,9 @@ def _rows():
     return rows
 
 
-def value(key_prefix):
+def value(key_prefix, rows=None):
     """First backticked token in the Value cell of the row whose Key starts with key_prefix, or None."""
-    for key, val in _rows():
+    for key, val in _rows() if rows is None else rows:
         if key.startswith(key_prefix):
             m = re.search(r"`([^`]+)`", val)
             return m.group(1) if m else None
@@ -92,6 +97,46 @@ def tracker():
     if t not in TRACKERS:
         raise SystemExit(f"project.md: 'Tracker' row must be one of {', '.join(TRACKERS)}, got `{t}`")
     return t
+
+
+TOLERANCES = ("strict", "balanced", "permissive")
+# Fully qualified so a local branch or tag named `origin/main` cannot win.
+MAIN_PROJECT_MD = "refs/remotes/origin/main:docs/agents/project.md"
+
+
+def _git(cmd):
+    """Run a git command in the app's checkout and return stdout; raise OSError on any failure."""
+    try:
+        p = subprocess.run(cmd, cwd=root(), capture_output=True, text=True, timeout=60)
+    except subprocess.SubprocessError as e:
+        raise OSError(type(e).__name__)
+    if p.returncode:
+        raise OSError((p.stderr or p.stdout).strip() or f"exit {p.returncode}")
+    return p.stdout
+
+
+def approval_setting(run=_git):
+    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/main (read as refs/remotes/origin/main).
+
+    Never reads the working tree, so a branch or an uncommitted edit cannot change it. Every failure to read
+    (git, file, row) and every unknown value gives ("strict", why). note is "" when the row set the level.
+    """
+    try:
+        run(["git", "fetch", "origin", "main"])
+        text = run(["git", "show", MAIN_PROJECT_MD])
+    except OSError as e:
+        return "strict", f"could not read project.md on origin/main: {e}"
+    v = value("Approval risk tolerance", _parse(text))
+    if v is None:
+        return "strict", "no Approval risk tolerance value on origin/main"
+    if v.lower() not in TOLERANCES:
+        return "strict", f"unknown Approval risk tolerance `{v}`"
+    return v.lower(), ""
+
+
+def approval_tolerance(run=_git):
+    """`strict`, `balanced` or `permissive`; `strict` for anything missing, unknown or unreadable."""
+    return approval_setting(run)[0]
 
 
 if __name__ == "__main__":
