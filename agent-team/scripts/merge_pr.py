@@ -216,6 +216,11 @@ def gate(f, delta=real_delta):
         first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
         if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
             return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
+    proof = release_notes.section(f["body"], "Proof")
+    if not proof:
+        return 'proof missing: no "## Proof" section in the PR body'
+    if not re.search(r"^Not proven", proof, re.M):
+        return 'proof missing: the "## Proof" section has no "Not proven" line'
     if f["root_branch"] != "main":
         return f"root checkout is on {f['root_branch']}, not main; cannot fast-forward"
     if f["root_dirty"]:

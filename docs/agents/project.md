@@ -12,7 +12,7 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 |---|---|
 | Product name | collective-wisdom: the shared agent team (skills, scripts, role docs) and the installer that copies it into apps |
 | Tracker (`linear`, `github` or `jira`) | `github` |
-| Tracker scope (`<TEAM>`) | `dbeallor/collective-wisdom` |
+| Tracker scope (`<TEAM>`) | `collective-wisdom-org/collective-wisdom` |
 | Issue identifier prefix (`<PREFIX>`) | `CW` |
 | Approver | David. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
@@ -24,7 +24,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Key | Value |
 |---|---|
 | Branch pattern | `feat/cw-N-short-title` (`cw` is the issue prefix in lower case) |
-| Repo (`<owner>/<repo>`) | `dbeallor/collective-wisdom` (<https://github.com/dbeallor/collective-wisdom>) |
+| Repo (`<owner>/<repo>`) | `collective-wisdom-org/collective-wisdom` (<https://github.com/collective-wisdom-org/collective-wisdom>) |
 | Owner login (trusted review-comment author) | `dbeallor` |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |

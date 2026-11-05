@@ -29,7 +29,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf -- "$TMP"' EXIT
 CW="$TMP/cw"
-URL="${COLLECTIVE_WISDOM_REPO:-https://github.com/dbeallor/collective-wisdom.git}"
+URL="${COLLECTIVE_WISDOM_REPO:-https://github.com/collective-wisdom-org/collective-wisdom.git}"
 git clone -q --no-checkout -- "$URL" "$CW" || { echo "cannot clone $URL. Check your git credentials for GitHub (for example 'gh auth setup-git'), or set COLLECTIVE_WISDOM_REPO to an SSH URL." >&2; exit 1; }
 
 if [ -z "$TAG" ]; then

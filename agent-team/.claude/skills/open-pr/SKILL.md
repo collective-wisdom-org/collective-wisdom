@@ -26,6 +26,36 @@ If there is no PR yet (or the user said *make a pr* / *open pr*), run **Open** f
 - Run verification from the plan (Task 0) or scoped tests from **build-from-plan** § Testing.
 - Fix failures before pushing.
 
+### Proof
+
+Every PR carries a `## Proof` section: evidence for each Acceptance item that a reviewer can check in a minute or two, and a `Not proven` list that says plainly what has no proof and why. `scripts/merge_pr.py` refuses a PR without the section or without a line starting `Not proven`.
+
+Write it after § Verify and before `gh pr create`, so the PR opens with it. Shape:
+
+````markdown
+## Proof
+
+- **<Acceptance item, short>**: <what shows it holds>
+
+  ```
+  $ <command>
+  <trimmed output: the lines that show the result>
+  ```
+
+- **<next item>**: CI run <link>, job `<name>` passed at <short SHA>.
+
+Not proven:
+- <item or check>: <why: blocked, no browser, needs a deploy, needs credentials, ...>
+````
+
+Or `Not proven: nothing` when every item has proof.
+
+- One entry per Acceptance item in the ticket. A ticket with no Acceptance list uses its Scope bullets.
+- Evidence is one of: a command and its trimmed output, a CI run link, a screenshot on GitHub for a visual change, or a short note of what was done and what was seen. Output is real output from this branch, trimmed to the lines that show the result; never written by hand. For a prose change, a note pointing at the lines that make the item hold, or a test run that still passes, is evidence.
+- A screenshot must live on GitHub. Never commit image files to the branch for it. When you have no way to attach one, list the visual check under `Not proven` ("no way to attach a screenshot").
+- An item with no evidence goes under `Not proven`, with the reason. So do skipped CI jobs, tests marked skip, and manual checks the plan listed that couldn't run.
+- Keep it current: when a fix commit changes what an entry shows, update the entry in the same push, with `./scripts/gh.sh pr edit <N> --body-file <path>`.
+
 ### Superpowers docs
 
 Read and follow **superpowers-project-memory** § PR checklist, with one override: before `gh pr create`, only the spec (retroactive if needed) and its plan must exist. The plan may be absent for a ticket that changes only markdown files (`ship-loop` § Team mode, Build stage). There are no index rows to write. The spec's **Shipped** line and any as-built come right after the PR exists, per § Closeout docs below.
@@ -37,7 +67,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 **Overlays on creating-pr:**
 
 - Run its `gh` calls as `./scripts/gh.sh`.
-- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section (see § Closeout docs), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
+- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section (see § Closeout docs) and a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
 - Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** `./scripts/gh.sh pr checks --watch`, or a PR/CI subscription when the agent has one.
@@ -64,17 +94,13 @@ As-built template (only the differences; the PR and its review comments hold the
 ## Differs from the spec
 
 - <what the spec says, and what shipped instead>
-
-## Checks that didn't run
-
-- <only when something the plan listed could not run>
 ```
 
 Add the release note to the PR body, as a `## Release note` section: one to three sentences for a user of the agent team, saying what they will notice and what they need to do, if anything. No file lists or implementation detail. Update the body with `./scripts/gh.sh pr edit <N> --body-file <path>`.
 
 Commit the spec (and as-built, if any) on the feature branch: `docs: shipped line for <PREFIX>-N <short>`. Push before step 1 of the agent review loop.
 
-During later fix commits (phase 3 or 4): if a fix changes what ships, update the `**Shipped:**` line or the as-built in the same commit, and the PR body's release note. The docs check re-run below backs this up.
+During later fix commits (phase 3 or 4): if a fix changes what ships, update the `**Shipped:**` line or the as-built in the same commit, and the PR body's release note and `## Proof` section. The docs check re-run below backs this up.
 
 ### Docs check
 
@@ -130,7 +156,7 @@ After each pass of the primary loop, run this when doing agent-led review (in ad
 
 - The review method (reading **reviewing-code**, reviewing the full diff vs base in the PR worktree) is in `docs/agents/code-review.md`; the worktree checkout must be the PR head branch.
 - When the review runs in a subagent, start it with the `Agent` tool and `subagent_type: "code-reviewer"`. If that type isn't listed (the session started before `.claude/agents/code-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/code-review.md and follow it. Do not edit files.` plus the brief. In team mode, always run it in that subagent, so the review stays on Opus when the child builds on Sonnet.
-- The review brief includes the docs check result (the `DOCS CHECK` output, the fixes you made, and any finding you rejected with the reason).
+- The review brief includes the docs check result (the `DOCS CHECK` output, the fixes you made, and any finding you rejected with the reason), the ticket's Acceptance list (or its Scope bullets when there is no Acceptance list), and the PR body's `## Proof` section.
 - Post findings as a **PR issue comment** only: `./scripts/gh.sh pr comment <N> --body '…'` or `--body-file <path>`.
 - **Never** official GitHub PR review: no `gh pr review`, no approve, no request changes.
 
@@ -145,7 +171,7 @@ A docs check re-run that should have happened and didn't, or a rejected docs fin
 **Loop until pass:**
 
 1. Review → post comment (pass N) per shape above.
-2. If **CHANGES NEEDED**, fix all **Must fix** items → commit → push. Keep the `**Shipped:**` line or as-built, and the PR body's release note, current if the fix changes what ships (same commit for the docs).
+2. If **CHANGES NEEDED**, fix all **Must fix** items → commit → push. Keep the `**Shipped:**` line or as-built, and the PR body's release note and `## Proof` section, current if the fix changes what ships (same commit for the docs).
 3. `./scripts/gh.sh pr checks <N> --watch` until checks finish.
 4. Re-review (focus on code changed since last pass) → next pass comment.
 5. Repeat until the latest agent comment verdict is **PASS**.

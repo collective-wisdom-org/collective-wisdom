@@ -28,12 +28,12 @@ def natural(name):
     return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", name)]
 
 
-def section(body):
-    """Text of the body's `## Release note` section, up to the next `## ` heading; empty when absent."""
+def section(body, heading="Release note"):
+    """Text of the body's `## <heading>` section, up to the next `## ` heading; empty when absent."""
     out = None
     for line in (body or "").splitlines():
         if out is None:
-            if re.fullmatch(r"## Release note\s*", line):
+            if re.fullmatch(rf"## {re.escape(heading)}\s*", line):
                 out = []
         elif line.startswith("## "):
             break
