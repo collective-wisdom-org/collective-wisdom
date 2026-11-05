@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-127](https://github.com/collective-wisdom-org/collective-wisdom/issues/127)
 **Status:** Shipped
-**Shipped:** in PR #PRNUM, as specified
+**Shipped:** in PR #136, as specified
 
 ## Goal
 
