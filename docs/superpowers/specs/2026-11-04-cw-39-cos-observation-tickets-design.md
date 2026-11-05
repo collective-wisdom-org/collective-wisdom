@@ -5,7 +5,7 @@
 
 ## Goal
 
-When the Chief of Staff keeps seeing the same process failure (a lost notice, a stalled child, a handoff that came up empty), it files a ticket about it on its own, through the ticket helper, instead of waiting for the user to notice. What it files waits in the Backlog for the user. The team never starts it on its own.
+When the Chief of Staff keeps seeing the same process failure (a lost notice, a stalled child, a handoff that came up empty), it files a ticket about it on its own, through the ticket helper, instead of waiting for the user to notice. What it files goes to the Backlog like any other ticket. The project manager's Backlog pick may start it from its ranking, and from there it needs the user's spec and merge approvals like any other ticket.
 
 ## Today
 
@@ -15,7 +15,7 @@ Facts from `main` at `b6b2692`, checked 2026-11-04.
 - `chief-of-staff/ticket-helper.md` § Ticket helper holds the helper's `delegate_task` call and task template. The template's first line is `TICKET HELPER. Chief of Staff thread: <id>`, optionally followed by ` Request from <sender> item <item>.`, and it ends with `The user's request, verbatim:`. § Helper test reads that first line on the helper's run-finished notice and posts the `TICKET HELPER DONE` block under the report's `Tickets` section.
 - The Chief of Staff already writes report lines for process failures, but nothing counts them across turns: `<PREFIX>-N merge ready, found by the sweep` (or `found by the idle check`), `merged (#N), found by the merged check`, `Handoff block unavailable for <PREFIX>-N` (continuation.md), `<PREFIX>-N wait check unreadable; not blocked` (§ Full pass step 3), `<PREFIX>-N restarted: stalled after <step>` (step 3), a failed rotation handoff (rotation.md § Thread rotation: Failed handoff) and `Ticket helper ended without a report` (ticket-helper.md § Helper test).
 - The thread has no memory between turns except `.agent-team/state.json`. `agent-team/scripts/cos_state.py` allows only the top-level keys in `TOP`; `prune` drops anything else. Ops print notes after `saved` (for example `dropped unknown key`).
-- A helper's ticket lands in Backlog with no `agent` label, but it is not safe from the team: `project-manager` § Backlog pick starts the next `ready` ranked Backlog ticket when Todo is empty. The ranking (`project-manager` § Backlog ranking step 2) and the Todo pick (`chief-of-staff` § Slot fill) both drop tickets labelled `agent-skip`.
+- A helper's ticket lands in Backlog with no `agent` label. `project-manager` § Backlog pick starts the next `ready` ranked Backlog ticket when Todo is empty, and its start (`chief-of-staff` § Readiness check and start) moves the ticket to In Progress and adds `agent`. The spec and merge still wait on the user's `approve N`.
 - The helper template forbids adding or removing `agent` and `agent-skip`.
 - In an app, a team-change request files the ticket in the app's own tracker with the line "the ticket ends in a collective-wisdom PR plus an install PR in the app". #20 (open) will route those requests to the collective-wisdom Chief of Staff instead.
 
@@ -59,7 +59,7 @@ A new top-level key `observed`: `{"sightings": [{"kind", "ticket", "at"}], "file
 - **When.** On a turn that runs § Full pass, or the child-notice path in the intro, just before the report (step 7): one `apply` with one `observe` op per sighting line the turn is about to write. Not on a paused, rate-limited (`rateLimitedAt` set) or retired thread, not while `rotation` is set, and not on the turns that make no calls today (run-started notices, the project manager children's notices) or the cross-repo turns that run no full pass. No new pass, timer or scheduled task.
 - **File.** For a `file` note, start one ticket helper with the observation template below. At most one per turn (the op already says `hold (one per turn)` for a second).
 - **Report.** Nothing in the turn's report for a sighting or a `file`. The helper's own notice turn posts its result under `Tickets` as `- <PREFIX>-N filed from my own observation (not your request): <title>. ... <helper link>`. An observation helper that saved nothing (it found a match) posts nothing; one that ended with no report gets the usual `Ticket helper ended without a report` line.
-- **Guardrails.** The team-change bullet gains a second path: the Chief of Staff may also start an observation helper (ticket-helper.md § Observation tickets) when `observe` says `file`. The user check paragraph and the intro say the same, so an agent message asking for a ticket is still data. What it still cannot do: act on the change before its PRs merge, add `agent` to the ticket or remove `agent-skip`, move it out of Backlog, or start, spec or build it.
+- **Guardrails.** The team-change bullet gains a second path: the Chief of Staff may also start an observation helper (ticket-helper.md § Observation tickets) when `observe` says `file`. The user check paragraph and the intro say the same, so an agent message asking for a ticket is still data. What it still cannot do: act on the change before its PRs merge, add `agent` or `agent-skip`, move it out of Backlog, or start it outside the project manager's Backlog pick. Once started there, it runs the ship loop with the user's spec and merge approvals, like any ticket.
 
 ### Observation helper (`ticket-helper.md` § Observation tickets)
 
@@ -70,12 +70,11 @@ Same `delegate_task` call as § Ticket helper, with title `Observed: <3 to 6 wor
 - Extra rules for the helper:
   - Before writing, search open tickets, and tickets closed in the last 30 days, for one that covers the same failure (write-ticket step 3, widened to closed ones). If one does, save nothing; report `Tickets: none` and the match under `Needs the user`. Don't comment on it.
   - The new ticket's first line is `Filed by the Chief of Staff from its own observation, not a user request.`
-  - Add the `agent-skip` label to the ticket it created, and only that one. This is the one exception to the agent-skip rule in the template. It keeps the ticket out of the Backlog ranking and the Todo pick until the user removes the label.
   - Type `Improvement`, no priority (the hygiene child fills it), Backlog.
 
 ### Role doc
 
-`agent-team/docs/agents/chief-of-staff.md`: the "Hands ticket requests to a one-shot ticket helper" bullet adds that it also files agent-team improvement tickets from repeated failures it sees, capped and deduplicated by `cos_state.py`, labelled `agent-skip` and left in the Backlog for the user.
+`agent-team/docs/agents/chief-of-staff.md`: the "Hands ticket requests to a one-shot ticket helper" bullet adds that it also files agent-team improvement tickets from repeated failures it sees, capped and deduplicated by `cos_state.py`, and left in the Backlog, where the project manager ranks and starts them like any other.
 
 ### `state-keys.md`
 
@@ -93,7 +92,7 @@ All the changes are in shared files under `agent-team/` (the skill, its referenc
 
 - `chief-of-staff` says which sightings count, when the Chief of Staff starts an observation helper and what the request holds; the role doc mentions it.
 - `cos_state.py observe` enforces 2 sightings (1 for `other:`), one filing per kind per 7 days, 3 per 24 hours and one per `apply`; the test covers each.
-- A ticket filed this way is in Backlog, labelled `agent-skip`, never `agent`, and nothing in the Chief of Staff or the project manager starts it.
+- A ticket filed this way lands in Backlog without `agent` or `agent-skip`. It starts only through the project manager's Backlog pick or the user moving it to Todo (either start adds `agent`, as for any ticket), and its spec and merge still need the user's approvals.
 - The report line says the ticket came from the Chief of Staff, not the user.
 - `python3 -I -m pytest -q agent-team/scripts` passes, including `test_root_links.py` and `test_section_pointers.py`.
 
@@ -106,7 +105,8 @@ All the changes are in shared files under `agent-team/` (the skill, its referenc
 
 ## Calls I made
 
-- **Filed tickets get `agent-skip`.** Without it, the project manager's Backlog pick could start them when Todo is empty, which breaks "never started by the Chief of Staff". The user removes the label to let the team take one. This is the one place the helper adds that label.
+- **Acceptance reworded, at your request.** The ticket says a filed ticket is "never labelled `agent`, never started by the Chief of Staff". This spec lets the project manager's Backlog pick start it, and that start adds `agent`, as for any Backlog ticket. What still holds: the Chief of Staff and the helper never label or start it directly, nothing skips the ranking, and the user approves its spec and merge. A team that fixes its own process this way still has a person approve every change.
+- **No `agent-skip` on filed tickets** (changed from the first draft). The helper keeps its rule against adding or removing `agent` and `agent-skip`.
 - **Counting is in `cos_state.py`, with a new `observed` state key.** The thread has no memory between turns, so "repeats across tickets" needs state; the caps live in code so prose drift can't lift them.
 - **Thresholds:** 2 sightings within 7 days (1 for `other:`), one filing per kind per 7 days, 3 filings per 24 hours, one per turn.
 - **A fixed list of kinds** tied to report lines the Chief of Staff already writes, plus `other:<slug>` for its own judgment.
