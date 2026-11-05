@@ -14,7 +14,8 @@ jobs:
         with:
           fetch-depth: 2
       # Which steps this change needs. Anything unsure (push, script error, no ci-scope line) runs both.
-      - id: scope
+      - name: ci scope
+        id: scope
         env:
           EVENT: ${{ github.event_name }}
         run: |
@@ -45,7 +46,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - id: scope
+      - name: ci scope
+        id: scope
         env:
           EVENT: ${{ github.event_name }}
         run: |

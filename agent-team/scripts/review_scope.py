@@ -25,7 +25,7 @@ Exit 2 means "could not tell": review as full.
 
 --ci is for the CI workflow. It diffs the two commits directly (no fetch, no merge base) and says which CI steps the
 change needs. Tests are skipped only when at least one file changed and every changed file is a docs file, since no test
-reads one. Shellcheck runs when any changed path ends in .sh or is under .github/.
+reads one. Shellcheck runs when any changed path ends in .sh, is under .github/ or is a .shellcheckrc.
 Exit 0, last line:
   ci-scope: tests=run|skip shellcheck=run|skip
 Exit 2: bad arguments or the diff failed. Last line: ci-scope: cannot <what>. The workflow then runs both.
@@ -80,7 +80,7 @@ def ci_scope(base, head, run):
     base, head = (run(["git", "rev-parse", "--verify", f"{r}^{{commit}}"]).strip() for r in (base, head))
     modes = changed_modes(base, head, run)
     docs_only = bool(modes) and all(is_docs(p, m) for p, m in modes.items())
-    lint = any(p.endswith(".sh") or p.startswith(".github/") for p in modes)
+    lint = any(p.endswith(".sh") or p.startswith(".github/") or p.rsplit("/", 1)[-1] == ".shellcheckrc" for p in modes)
     return ("skip" if docs_only else "run"), ("run" if lint else "skip")
 
 

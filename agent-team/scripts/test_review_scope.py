@@ -83,14 +83,13 @@ def test_classify(tmp_path, files, expected):
         ({"install.sh": "#!/bin/sh\n"}, ("run", "run")),
         ({"agent-team/scripts/x.py": CODE(1)}, ("run", "skip")),
         ({".github/workflows/ci.yml": CODE(1)}, ("run", "run")),
+        ({"sub/.shellcheckrc": "disable=SC2086\n"}, ("run", "run")),
     ],
 )
 def test_ci_scope(tmp_path, files, expected, capsys):
     run, base, head = pr_repo(tmp_path, files)
     assert review_scope.main(["--ci", base, head], run=run) == 0
     assert capsys.readouterr().out.splitlines()[-1] == "ci-scope: tests=%s shellcheck=%s" % expected
-    assert review_scope.main(["--ci", base, "0" * 40], run=run) == 2
-    assert capsys.readouterr().out.splitlines()[-1].startswith("ci-scope: cannot ")
 
 
 def test_failed_read_exits_2(capsys):
@@ -99,3 +98,5 @@ def test_failed_read_exits_2(capsys):
 
     assert review_scope.main(["7", "0" * 40], run=run) == 2
     assert capsys.readouterr().out.splitlines()[-1].startswith("review-scope: cannot ")
+    assert review_scope.main(["--ci", "a", "b"], run=run) == 2
+    assert capsys.readouterr().out.splitlines()[-1].startswith("ci-scope: cannot ")
