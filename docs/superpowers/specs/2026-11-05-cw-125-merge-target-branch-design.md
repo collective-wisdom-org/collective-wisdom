@@ -1,7 +1,8 @@
 # CW-125: Add a merge target branch setting
 
 **Ticket:** [CW-125](https://github.com/collective-wisdom-org/collective-wisdom/issues/125)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #132, as specified
 
 ## Goal
 
