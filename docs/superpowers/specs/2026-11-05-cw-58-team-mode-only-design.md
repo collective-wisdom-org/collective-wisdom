@@ -1,7 +1,8 @@
 # CW-58: Make team mode the only mode in the shipped skills
 
 **Ticket:** [CW-58](https://github.com/collective-wisdom-org/collective-wisdom/issues/58)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #131, as specified
 **Related:** #46
 
 ## Goal
