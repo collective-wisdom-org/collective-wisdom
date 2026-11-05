@@ -258,3 +258,54 @@ def test_user_check(tmp_path, monkeypatch, capsys, args, words, code, out):
     monkeypatch.setattr("sys.stdin", io.StringIO(words))
     assert cos_user_check.main(["--db", str(db), *args]) == code
     assert capsys.readouterr().out.startswith(out)
+
+
+NEGATED_ROWS = [
+    ("approve 30", True), ("approve 30 please", True), ("ok, approve 30", True),
+    ("no. approve 30", True), ("approve 30 and leave 31 alone", True),
+    ("do not approve 30 yet", False), ("don't approve 30", False), ("Don\u2019t approve 30", False),
+    ("dont approve 30", False), ("never approve 30", False), ("not yet, approve 30 later", False),
+    ("approve 30, no rush", False), ("approve 30 not yet", False),
+    ("approve 30. approve 30, no rush", False), ("don't merge yet\napprove 30", False),
+]
+
+
+def negation_db(tmp_path, rows):
+    db = tmp_path / "t3.sqlite"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE orchestration_v2_projection_messages (message_id TEXT, thread_id TEXT, "
+        "role TEXT, streaming INTEGER, created_at TEXT, payload_json TEXT)"
+    )
+    con.executemany("INSERT INTO orchestration_v2_projection_messages VALUES (?,?,?,?,?,?)", rows)
+    con.commit()
+    con.close()
+    return db
+
+
+@pytest.mark.parametrize("text,passes", NEGATED_ROWS)
+def test_user_check_negation(tmp_path, monkeypatch, capsys, text, passes):
+    db = negation_db(tmp_path, [message("m1", text=text)])
+    for args, ok_out, bad_out in [
+        (["latest", "t"], "user turn-item:message:m1 ", "not-user negated turn-item:message:m1 "),
+        (["item", "t", "m1"], "ok", "reject: words negated"),
+    ]:
+        monkeypatch.setattr("sys.stdin", io.StringIO("approve 30"))
+        assert cos_user_check.main(["--db", str(db), *args]) == (0 if passes else 1)
+        assert capsys.readouterr().out.startswith(ok_out if passes else bad_out)
+
+
+def test_user_check_negated_newest_does_not_fall_back(tmp_path, monkeypatch, capsys):
+    db = negation_db(tmp_path, [
+        message("m1", text="approve 30", created="2026-11-02T01:00:00Z"),
+        message("m2", text="do not approve 30 yet", created="2026-11-02T02:00:00Z"),
+    ])
+    monkeypatch.setattr("sys.stdin", io.StringIO("approve 30"))
+    assert cos_user_check.main(["--db", str(db), "latest", "t"]) == 1
+    assert capsys.readouterr().out.startswith("not-user negated turn-item:message:m2 ")
+
+
+def test_user_check_whole_message_words_ignore_own_negation(tmp_path, monkeypatch, capsys):
+    db = negation_db(tmp_path, [message("m1", text="don't merge it")])
+    monkeypatch.setattr("sys.stdin", io.StringIO("don't merge it"))
+    assert cos_user_check.main(["--db", str(db), "item", "t", "m1"]) == 0
