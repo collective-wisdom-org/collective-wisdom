@@ -44,7 +44,7 @@ A sighting names the ticket it was about, when there is one.
 A new top-level key `observed`: `{"sightings": [{"kind", "ticket", "at"}], "filed": [{"kind", "at"}]}`, and a new op `{"op": "observe", "kind": "<kind>", "ticket": "<PREFIX>-N"}` (`ticket` optional). The op records the sighting and decides in the same write, so the rule lives in code, not prose:
 
 - Unknown kind or a bad `other:` slug: rejected (exit 1).
-- A sighting with the same kind and ticket as one in the last 7 days is not added again.
+- A sighting with the same kind and ticket as one in the last 7 days is not added again. A sighting with no ticket is always added, so kinds that name no ticket (`rotation-failed`, `helper-no-report`, `script-unavailable`) can reach 2.
 - `file` when all of these hold, and the op then adds a `filed` entry:
   - the kind has 2 sightings in the last 7 days (`other:` kinds need 1),
   - the kind was not filed in the last 7 days,

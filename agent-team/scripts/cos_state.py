@@ -282,7 +282,7 @@ def op_observe(s, op, notes, filed_now):
         raise Reject(f"bad ticket id {ticket!r}")
     seen = s.setdefault("observed", {}).setdefault("sightings", [])
     filed = s["observed"].setdefault("filed", [])
-    if not any(x.get("kind") == kind and x.get("ticket") == ticket and within(x.get("at"), WEEK) for x in seen):
+    if ticket is None or not any(x.get("kind") == kind and x.get("ticket") == ticket and within(x.get("at"), WEEK) for x in seen):
         seen.append({"kind": kind, "ticket": ticket, "at": now()})
     hits = [x for x in seen if x.get("kind") == kind and within(x.get("at"), WEEK)]
     need_n = 1 if kind.startswith("other:") else 2

@@ -127,6 +127,7 @@ FILED_TODAY = [{"kind": k, "at": ago(2)} for k in ("stall", "rotation-failed", "
     ([], [], [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
     ([LOST], [], [obs("lost-notice", "ABC-2")], ["file (ABC-1 "], 2, ["lost-notice"]),
     ([LOST], [], [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([sight("rotation-failed", None, 24)], [], [obs("rotation-failed")], ["file (- "], 2, ["rotation-failed"]),
     ([], [], [obs("other:slow-handoff")], ["file (-"], 1, ["other:slow-handoff"]),
     ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(72)}],
      [obs("lost-notice", "ABC-3")], ["hold (filed "], 3, ["lost-notice"]),
