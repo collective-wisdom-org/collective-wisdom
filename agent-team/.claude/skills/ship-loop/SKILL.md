@@ -121,7 +121,7 @@ Applies only when the task text or a relayed message says `TEAM MODE`. A Chief o
   - While CI, a review subagent or any background command is pending, keep the run going and wait on it. For a background command, call `t3_background_wait` with its task ID right after you start it. Run subagents in the foreground (`Agent` with `run_in_background: false`).
   - Never use `ScheduleWakeup`, `Monitor`, `sleep` loops or `watch_pull_request` to wait.
   - If you are about to end a run without a marker, stop. Either finish the next step, or end with `BLOCKED: <why>`.
-- **Merge stage.** Starts after a relayed merge approval. Run `merge-pr` under its Team mode section. A head other than the relayed one means `BLOCKED: head moved after approval`: the user approves again after `MERGE READY` is reported again.
+- **Merge stage.** Starts after a relayed merge approval. Run `merge-pr` under its Team mode section. A head other than the relayed one means `BLOCKED: head moved after approval`: the user approves again (or a new `--auto` pass, `chief-of-staff/approvals.md` § Auto-approval) after `MERGE READY` is reported again.
 - **Changes requested.** Relayed changes send you back to the spec or build stage. End at the same marker again.
 - **Blocked.** Stop with `BLOCKED: <one line>` and the detail below it when:
   - a product question can't be settled without guessing,

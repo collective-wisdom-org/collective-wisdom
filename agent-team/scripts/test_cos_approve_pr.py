@@ -74,7 +74,7 @@ def test_cos_approve(tmp_path, monkeypatch, capsys, changes, code, line):
     assert not [c for c in calls if "-X" in c], "the script writes nothing to GitHub"
 
 
-F = lambda *paths: [{"path": p} for p in paths]  # noqa: E731
+F = lambda *paths: [{"path": p, "changeType": "MODIFIED"} for p in paths]  # noqa: E731
 STATUS = "PR #7 ready. Risk: Medium (changes how the team works)."
 
 # --auto: each row changes one thing from the happy path (Medium under permissive, no user message in the store).
@@ -90,6 +90,7 @@ AUTO_ROWS = [
     ("approval path file", {"files": F("README.md", "agent-team/scripts/merge_pr.py")}, 1, "approval path (agent-team/scripts/merge_pr.py)"),
     ("project.md", {"files": F("docs/agents/project.md")}, 1, "approval path"),
     ("renamed file", {"files": [{"path": "docs/x.md", "changeType": "RENAMED"}]}, 1, "renames a file (docs/x.md)"),
+    ("file entry without changeType", {"files": [{"path": "docs/x.md"}]}, 2, "cannot read the state file or PR facts: KeyError"),
     ("merge-queued auto relay", {"stage": "merge-queued", "relay": "CHIEF OF STAFF: auto-approved the merge of PR #7"}, 0, "auto-approved"),
     ("merge-queued user relay", {"stage": "merge-queued", "relay": "CHIEF OF STAFF: the user approved the merge"}, 1, "not in awaiting-merge"),
     ("flag path", {"files": F("src/auth/login.py")}, 1, "flag: src/auth/login.py"),
