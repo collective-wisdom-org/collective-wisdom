@@ -70,6 +70,8 @@ PATHS = [
     ("agent-team/docs/agents/security-review.md", True),
     ("docs/agents/trackers/linear.md", True),
     ("scripts", True),
+    ("packages/foo/.claude/skills/x/SKILL.md", True),
+    ("install.sh", True),
     (".agents/skills", True),
     ("agent-team/Scripts/x.py", True),
     ("AGENTS.md", True),

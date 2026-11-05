@@ -36,12 +36,12 @@ AUTO_RELAY = "CHIEF OF STAFF: auto-approved"  # a queued auto approval is re-che
 RISK_TAIL = re.compile(r"Risk: (\w+) \(.*\)\.?\s*$")
 
 # Files a PR may not change and still be auto-approved: the setting, the review rules and every other role doc
-# (all of docs/agents/), everything that enforces them (all scripts) and every dot-directory or dot-file at the root
+# (all of docs/agents/), everything that enforces them (all scripts) and every dot-directory or dot-file at any depth
 # (.claude, .github, .agents, .cursor, .codex, .vscode, .mcp.json, .gitignore ...), plus agent instruction files
 # (AGENTS.md, CLAUDE.md, AGENTS.override.md, CLAUDE.local.md ...) at any depth and the shipped project template.
 # Matched with or without a leading `agent-team/`, ignoring case, and also by the bare name of the `scripts` root
 # link, which `gh` can list as a file.
-PATH_FILES = {"templates/project.md", "templates/agents.md", "scripts"}
+PATH_FILES = {"templates/project.md", "templates/agents.md", "scripts", "install.sh", "tag-release.sh"}
 PATH_DIRS = ("docs/agents/", "scripts/")
 
 
@@ -71,7 +71,7 @@ def on_approval_path(path):
     p = path.lower().removeprefix("./").removeprefix("agent-team/")
     name = p.rsplit("/", 1)[-1]
     instructions = name.startswith(("agents.", "claude.")) and name.endswith(".md")
-    return p in PATH_FILES or p.startswith(PATH_DIRS + (".",)) or instructions
+    return p in PATH_FILES or p.startswith(PATH_DIRS + (".",)) or "/." in p or instructions
 
 
 def _verdict(kind, who, level, setting):
