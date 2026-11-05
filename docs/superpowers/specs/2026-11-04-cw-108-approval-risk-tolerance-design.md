@@ -1,7 +1,8 @@
 # CW-108: Let users set how much the agent team asks them to approve
 
 **Ticket:** [CW-108](https://github.com/collective-wisdom-org/collective-wisdom/issues/108)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #119, with differences: [as-built](../as-built/2026-11-04-cw-108-approval-risk-tolerance.md)
 
 ## Goals
 
