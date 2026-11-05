@@ -11,7 +11,8 @@ Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs bef
 Gates, in order; the first failure stops: root checkout, state, the user's message (scripts/cos_user_check.py latest),
 gh login, PR facts, head.
 
-Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA>
+Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
+  The snippet is the start of the user's message on one line (80 characters at most), so the Chief of Staff can show the user what was verified.
 Exit 1: a gate failed. Last line: cos-approve: stop <PREFIX>-N: <reason>
 Exit 2: bad arguments, or state, the message store or gh failed, or one of them had an unexpected shape.
 Last line: cos-approve: cannot <what>
@@ -124,7 +125,7 @@ def approve(tid, run):
         raise Stop(f"base is {f['baseRefName']}, not main")
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
-    return f"cos-approve: verified approve {n} for #{pr} at {sha}"
+    return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 
 
 def main(argv, run=merge_pr.run):

@@ -83,7 +83,7 @@ Store it as `GITHUB_MCP_TOKEN`, not `GITHUB_TOKEN`.
 
 ## Merge gate
 
-A merge is approved by the user's own `approve N` reply in the Chief of Staff thread. `scripts/cos_approve_pr.py` checks that message in T3's message store, that gh is signed in as the owner (`project.md` § Git and GitHub, `Owner login`), and that the PR is open, not a draft, based on `main` and still at the head the user saw. Only when it exits 0 does the Chief of Staff relay the approval to the merge child, naming that head. `scripts/merge_pr.py` then merges only if the PR's head still equals the relayed one, so a push after the approval needs a new `approve N`.
+A merge is approved by the user's own `approve N` reply in the Chief of Staff thread. `scripts/cos_approve_pr.py` checks that message in T3's message store, that gh is signed in as the owner (`project.md` § Git and GitHub, `Owner login`), and that the PR is open, not a draft, based on `main` and still at the head the user saw. Only when it exits 0 does the Chief of Staff relay the approval to the merge child, naming that head. `scripts/merge_pr.py` then merges only if gh is signed in as the owner too and the PR's head still equals the relayed one, so a push after the approval needs a new `approve N`. The merge child stops with `BLOCKED: head moved after approval` on any other head, even one that only merges `main` in.
 
 Nothing in the team submits a GitHub review, and the gate needs no branch protection, ruleset or CODEOWNERS file. If you set those up anyway, keep in mind that GitHub does not let a PR's author approve it, so the owner's own PRs would need another human's review.
 
