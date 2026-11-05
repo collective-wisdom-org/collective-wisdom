@@ -4,8 +4,8 @@ Spec: [2026-11-05-cw-127-teammate-approval-design.md](../specs/2026-11-05-cw-127
 
 1. `scripts/merge_pr.py`:
    - Add `author,reviews,reviewDecision,reviewRequests` to `FIELDS`.
-   - In `read_facts`, set `f["teammate"]` from `project_config.value("Require teammate approval")` (lower-cased; `None` or `off` is off, `on` is on, anything else kept as is so the gate can stop on it).
-   - Add `required_reviews(f)` and `teammate_approval(f)` returning a stop reason or None, and call them in `gate()` after the approved-head check and before the mergeability check. Required reviews first, then the teammate row. Rules and stop lines exactly as the spec says. Names: a user is `login`; a team (`__typename` `Team`) is `@<owner>/<slug>`, with `<owner>` from `project_config.repo()`.
+   - In `read_facts`, set `f["teammate"]` from `project_config.setting("Require teammate approval")` (lower-cased; `None` or `off` is off, `on` is on, anything else kept as is so the gate can stop on it).
+   - Add `required_reviews(f)` and `teammate_approval(f)` returning a stop reason or None, and call them in `gate()` after the approved-head check and before the mergeability check. Required reviews first, then the teammate row. Rules and stop lines exactly as the spec says. Names: a user is `login`; a team (`__typename` `Team`) is `@<slug>` (the slug already includes the org).
    - Update the module docstring only if it lists gates.
 2. `templates/project.md`: add the `Require teammate approval` row after `Owner login`.
 3. `scripts/test_merge_pr.py`: extend `green()` with `author`, `reviews`, `reviewDecision`, `reviewRequests`, `teammate`. Add two table-driven tests at the end of the file: the teammate rule and required reviews (rows listed in the spec's Tests section). Each row must be able to fail for a real bug.

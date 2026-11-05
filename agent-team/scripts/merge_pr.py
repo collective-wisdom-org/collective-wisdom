@@ -48,6 +48,7 @@ FIELDS = (
     "author,reviews,reviewDecision,reviewRequests"
 )
 VERDICTS = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
+TEAM_ASSOCIATIONS = ("OWNER", "MEMBER", "COLLABORATOR")  # a review from anyone else is ignored
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
 RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
@@ -78,9 +79,8 @@ def read_facts(pr, approved, run):
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     f["owner"] = project_config.value("Owner login")
-    teammate = project_config.value("Require teammate approval")
+    teammate = project_config.setting("Require teammate approval")
     f["teammate"] = teammate.lower() if teammate else None
-    f["repoOwner"] = (project_config.repo() or "").split("/")[0]
     f["noCi"] = project_config.no_ci()
     f["docs"] = {}
     if f["state"] == "OPEN":
@@ -174,13 +174,9 @@ def required_reviews(f):
     """Return why GitHub's required reviews still block the PR, or None."""
     if f.get("reviewDecision") != "REVIEW_REQUIRED":
         return None
-    owner = f.get("repoOwner")
     names = []
     for r in f.get("reviewRequests") or []:
-        if r.get("__typename") == "Team":
-            names.append(f"@{owner}/{r['slug']}" if owner else f"@{r['slug']}")
-        else:
-            names.append(r["login"])
+        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
     return f"required reviews missing: waiting on {', '.join(names) or 'required reviewers'}"
 
 
@@ -194,8 +190,12 @@ def teammate_approval(f):
     author = f["author"]["login"]
     head = f["headRefOid"]
     latest = {}  # lower-cased reviewer -> (login, their newest verdict review)
-    mine = [r for r in f.get("reviews") or [] if r["author"]["login"].lower() != author.lower()]
-    for r in sorted((r for r in mine if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
+    others = [
+        r
+        for r in f.get("reviews") or []
+        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
+    ]
+    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
         latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
     stuck = [who for who, r in latest.values() if r["state"] == "CHANGES_REQUESTED"]
     if stuck:

@@ -338,8 +338,8 @@ def test_failed_publish_keeps_the_merge_result(capsys):
     assert out[-2].startswith("merge-pr: warn ") and out[-1].startswith("merge-pr: merged #7")
 
 
-def verdict(who, state, at, oid=HEAD):
-    return {"author": {"login": who}, "state": state, "submittedAt": at, "commit": {"oid": oid}}
+def verdict(who, state, at, oid=HEAD, assoc="COLLABORATOR"):
+    return {"author": {"login": who}, "state": state, "submittedAt": at, "commit": {"oid": oid}, "authorAssociation": assoc}
 
 
 def with_reviews(*reviews, teammate="on"):
@@ -353,6 +353,8 @@ def with_reviews(*reviews, teammate="on"):
         (with_reviews(teammate=None), None),
         (with_reviews(teammate="off"), None),
         (with_reviews(teammate="yes"), "Require teammate approval is yes; use on or off"),
+        (with_reviews(verdict("bob", "APPROVED", "2026-11-02T10:00:00Z", assoc="NONE")), "no approving review by a user other than me on head aaaaaaa"),
+        (with_reviews(verdict("bob", "CHANGES_REQUESTED", "2026-11-02T10:00:00Z", assoc="NONE"), verdict("amy", "APPROVED", "2026-11-02T10:00:00Z", assoc="MEMBER")), None),
         (with_reviews(verdict("ME", "APPROVED", "2026-11-02T10:00:00Z")), "; the author's own approval does not count"),
         (with_reviews(verdict("bob", "APPROVED", "2026-11-02T10:00:00Z", OLD)), "approved ccccccc, head moved"),
         (
@@ -385,20 +387,41 @@ def test_teammate_approval(change, cause):
 
 
 USER = {"__typename": "User", "login": "bob"}
-TEAM = {"__typename": "Team", "name": "Core", "slug": "core"}
+TEAM = {"__typename": "Team", "name": "Core", "slug": "acme/core"}
 
 
 @pytest.mark.parametrize(
-    "decision, requests, owner, expect",
+    "decision, requests, expect",
     [
-        ("REVIEW_REQUIRED", [USER, TEAM], "acme", "required reviews missing: waiting on bob, @acme/core"),
-        ("REVIEW_REQUIRED", [TEAM], "", "required reviews missing: waiting on @core"),
-        ("REVIEW_REQUIRED", [], "acme", "required reviews missing: waiting on required reviewers"),
-        ("APPROVED", [USER], "acme", None),
-        ("", [USER], "acme", None),
+        ("REVIEW_REQUIRED", [USER, TEAM], "required reviews missing: waiting on bob, @acme/core"),
+        ("REVIEW_REQUIRED", [], "required reviews missing: waiting on required reviewers"),
+        ("APPROVED", [USER], None),
+        ("", [USER], None),
     ],
 )
-def test_required_reviews(decision, requests, owner, expect):
+def test_required_reviews(decision, requests, expect):
     f = green()
-    f.update(reviewDecision=decision, reviewRequests=requests, repoOwner=owner, mergeStateStatus="BLOCKED" if expect else "CLEAN")
+    f.update(reviewDecision=decision, reviewRequests=requests, mergeStateStatus="BLOCKED" if expect else "CLEAN")
     assert merge_pr.gate(f) == expect
+
+
+@pytest.mark.parametrize(
+    "cell, cause",
+    [
+        ("`on`", "no approving review by a user other than me"),
+        ("on", "no approving review by a user other than me"),
+        ("ON", "no approving review by a user other than me"),
+        ("yes", "Require teammate approval is yes; use on or off"),
+        ("`off`", None),
+        ("off", None),
+        ("", None),
+    ],
+)
+def test_teammate_row_as_written(tmp_path, monkeypatch, cell, cause):
+    md = tmp_path / "project.md"
+    md.write_text(f"| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Require teammate approval | {cell} |\n")
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    runner, _ = fake(green())
+    f = merge_pr.read_facts("7", HEAD[:7], runner)
+    reason = merge_pr.gate(f)
+    assert reason is None if cause is None else cause in reason

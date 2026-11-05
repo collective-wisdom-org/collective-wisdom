@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-127](https://github.com/collective-wisdom-org/collective-wisdom/issues/127)
 **Status:** Shipped
-**Shipped:** in PR #136, with differences: [as-built](../as-built/2026-11-05-cw-127-teammate-approval-as-built.md)
+**Shipped:** in PR #136, as specified
 
 ## Goal
 
@@ -31,7 +31,7 @@ Facts from `main` at `d3df944`, checked 2026-11-05.
 | Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from someone other than the PR author. A missing row means off |
 ```
 
-`read_facts` stores `project_config.value("Require teammate approval")` in `f["teammate"]`. Missing or `off` is off; `on` is on (case-insensitive); anything else stops: `project.md's Require teammate approval is <value>; use on or off`.
+`read_facts` stores `project_config.setting("Require teammate approval")` in `f["teammate"]`. A value without backticks reads as its bare text. Missing or `off` is off; `on` is on (case-insensitive); anything else stops: `project.md's Require teammate approval is <value>; use on or off`.
 
 ### Reads
 
@@ -43,7 +43,7 @@ Right before the mergeability check, whatever the row says: when `reviewDecision
 
 `required reviews missing: waiting on <names>`
 
-where `<names>` lists `reviewRequests` in GitHub's order, comma-separated: a user as their login, a team as `@<org>/<slug>`. When `reviewRequests` is empty (a ruleset that names no one), it reads `waiting on required reviewers`.
+where `<names>` lists `reviewRequests` in GitHub's order, comma-separated: a user as their login, a team as `@<slug>` (GitHub's slug already includes the org). When `reviewRequests` is empty (a ruleset that names no one), it reads `waiting on required reviewers`.
 
 A blank or missing `reviewDecision` (no required reviews) changes nothing, so a repo without protection merges as today.
 
@@ -51,7 +51,7 @@ A blank or missing `reviewDecision` (no required reviews) changes nothing, so a 
 
 Runs right after the required-reviews check, also before the mergeability check, so it names the cause first.
 
-1. Take the PR's reviews whose author is not the PR author (logins compared case-insensitively). The author's own reviews never count.
+1. Take the PR's reviews whose author is not the PR author (logins compared case-insensitively) and whose `authorAssociation` is `OWNER`, `MEMBER` or `COLLABORATOR`. The author's own reviews never count, and reviews from anyone else are ignored as if absent.
 2. Keep verdict reviews only: `APPROVED`, `CHANGES_REQUESTED`, `DISMISSED`. Drop `COMMENTED` and `PENDING`.
 3. For each reviewer keep their latest verdict review by `submittedAt`.
 4. If any reviewer's latest is `CHANGES_REQUESTED`, stop: `changes requested by <logins> on PR #N`.
