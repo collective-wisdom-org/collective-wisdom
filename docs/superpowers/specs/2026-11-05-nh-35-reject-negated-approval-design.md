@@ -1,7 +1,8 @@
 # NH-35: Make cos_user_check.py reject a negated approval
 
 **Ticket:** [NH-35 (noahstotland/nohands#35)](https://github.com/noahstotland/nohands/issues/35)
-**Status:** In review
+**Status:** Shipped
+**Shipped:** in PR #124, as specified
 **Full spec:** the app's copy, `docs/superpowers/specs/2026-11-05-nh-35-reject-negated-approval-design.md` in noahstotland/nohands
 
 ## Goal
