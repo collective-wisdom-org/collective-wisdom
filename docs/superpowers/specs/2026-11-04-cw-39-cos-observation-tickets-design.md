@@ -1,7 +1,8 @@
 # CW-39: Let the Chief of Staff file agent-team improvement tickets from what it observes
 
 **Ticket:** [CW-39](https://github.com/dbeallor/collective-wisdom/issues/39)
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #117, as specified
 
 ## Goal
 
