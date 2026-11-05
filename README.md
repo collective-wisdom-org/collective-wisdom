@@ -103,7 +103,7 @@ scripts/agent-team-update.sh        # move to the newest tag on origin/main
 scripts/agent-team-update.sh --dry-run [--force] [<tag>]
 ```
 
-The script clones this repo into a temp folder, checks that the tag is on `origin/main` (it never runs an installer from an unmerged commit), checks it out and runs that tag's own `install.sh --update --from <tag>` on the app, so the installer and the files come from the same release. It removes the temp folder when it ends and exits with the installer's code. With no tag it takes the newest `v0.N` on `origin/main`; an app already updated past that tag (for example from `origin/main` after the last release) is refused, and `--force` is the way past it. It only updates: without `installed-from.txt` in the app, run a plain install first. It refuses to run inside collective-wisdom itself. The repo is private, so the clone uses your git credentials for GitHub; if it fails, run `gh auth setup-git`, or set `COLLECTIVE_WISDOM_REPO` to an SSH URL (it overrides the clone URL).
+The script clones this repo into a temp folder, checks that the tag is on `origin/main` (it never runs an installer from an unmerged commit), checks it out and runs that tag's own `install.sh --update --from <tag>` on the app, so the installer and the files come from the same release. It removes the temp folder when it ends and exits with the installer's code. With no tag it takes the newest `v0.N` on `origin/main`; an app already updated past that tag (for example from `origin/main` after the last release) is refused, and `--force` is the way past it. It only updates: without `installed-from.txt` in the app, run a plain install first. It refuses to run inside collective-wisdom itself. The clone needs no credentials when the repo is public. If it fails, run `gh auth setup-git`, or set `COLLECTIVE_WISDOM_REPO` to an SSH URL or a fork (it overrides the clone URL).
 
 From a clone of this repo you can run the installer directly:
 
@@ -140,7 +140,7 @@ Run it by hand after a batch of merges you want apps to take. It reads the tags 
 
 ## Propose changes
 
-Open a PR here, not in the app. Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same). After it merges, tag a release with `./tag-release.sh`, then run `scripts/agent-team-update.sh` in each app; each app's install PR bumps `docs/agents/installed-from.txt` and puts the command in its body. Prose follows the `human-writing` skill: plain sentences, no em dashes.
+Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same). After it merges, tag a release with `./tag-release.sh`, then run `scripts/agent-team-update.sh` in each app; each app's install PR bumps `docs/agents/installed-from.txt` and puts the command in its body. Prose follows the `human-writing` skill: plain sentences, no em dashes.
 
 ## Known couplings
 
@@ -149,3 +149,7 @@ Open a PR here, not in the app. Run the script tests with `uvx pytest -q agent-t
 - Plans, specs and as-built notes follow the superpowers docs layout under `docs/superpowers/`.
 - The security review skill refers to Cursor's review-security subagent and Claude Code's `/security-review`.
 - Role docs for app areas (backend, frontend and so on) are not shared; each app adds its own.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Report security problems as described in [SECURITY.md](SECURITY.md).
