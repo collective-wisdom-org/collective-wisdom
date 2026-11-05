@@ -272,6 +272,11 @@ def op_unretire(s, op):
     s["retiredThreads"] = [r for r in s["retiredThreads"] if r.get("threadId") != op["threadId"]]
 
 
+def dicts(v):
+    """A list's dict entries; [] when v is not a list (a hand-edited bad shape)."""
+    return [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+
+
 def op_observe(s, op, notes, filed_now, ticketless):
     """Record a sighting and decide in the same write whether to file a ticket for the kind."""
     need(op, "kind", optional=("ticket",))
@@ -282,8 +287,8 @@ def op_observe(s, op, notes, filed_now, ticketless):
         raise Reject(f"bad ticket id {ticket!r}")
     if not isinstance(s.get("observed"), dict):
         s["observed"] = {}
-    seen = s["observed"].setdefault("sightings", [])
-    filed = s["observed"].setdefault("filed", [])
+    seen = s["observed"]["sightings"] = dicts(s["observed"].get("sightings"))
+    filed = s["observed"]["filed"] = dicts(s["observed"].get("filed"))
     if ticket is None:
         new = kind not in ticketless  # one ticketless sighting per kind per apply call
         ticketless.add(kind)
@@ -324,7 +329,7 @@ def op_prune(s, op, notes=None):
             del s["merged"][tid]
     if isinstance(s.get("observed"), dict):
         for k in ("sightings", "filed"):
-            s["observed"][k] = [x for x in s["observed"].get(k, []) if within(x.get("at"), WEEK)]
+            s["observed"][k] = [x for x in dicts(s["observed"].get(k)) if within(x.get("at"), WEEK)]
     s["retiredThreads"] = [
         {k: v for k, v in r.items() if k != "scheduledTaskId"}
         for r in s["retiredThreads"]

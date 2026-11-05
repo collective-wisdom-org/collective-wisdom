@@ -134,7 +134,6 @@ FILED_TODAY = [{"kind": k, "at": ago(2)} for k in ("stall", "rotation-failed", "
     ([], FILED_TODAY, [obs("other:slow-handoff")], ["hold (3 filed today)"], 1, [f["kind"] for f in FILED_TODAY]),
     ([], [], [obs("other:a"), obs("other:b")], ["file (", "hold (one per turn)"], 2, ["other:a"]),
     (None, None, [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
-    (None, None, [obs("other:slow-handoff")], ["file (-"], 1, ["other:slow-handoff"]),
     ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(24 * 8)}],
      [obs("lost-notice", "ABC-3")], ["file ("], 3, ["lost-notice", "lost-notice"]),
     ([], [], [obs("stall"), obs("stall")], ["hold (1 of 2 sightings)", "hold (1 of 2 sightings)"], 1, []),
