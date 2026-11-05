@@ -1,7 +1,8 @@
 # CW-127: Require a teammate's GitHub approval and GitHub's required reviews before merge
 
 **Ticket:** [CW-127](https://github.com/collective-wisdom-org/collective-wisdom/issues/127)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #PRNUM, as specified
 
 ## Goal
 
