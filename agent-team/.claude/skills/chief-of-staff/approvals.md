@@ -109,6 +109,8 @@ Spec and merge use the same rule, and each decision reads the setting again. Tic
 
 **A merge.** After you write the `awaiting-merge` status line, run the head check and `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto` (SKILL.md § Send or queue). On exit 0, post the full merge block as a notice ending `Auto-approved under <tolerance>; merging now. Reply "cancel N" to stop it.` and send or queue the auto merge relay. On exit 1 or 2, ask the user as above. The script also stops a merge with a `flag:` or migration path, even if you rated it lower.
 
+**Observation tickets.** A ticket whose body starts `Filed by the Chief of Staff from its own observation` (ticket-helper.md § Observation tickets) is never auto-approved, at spec or merge, under any setting: don't run the auto check, ask the user. A change the team files for itself keeps a person approving every step.
+
 An auto-approval still posts the whole block to the user, so they see what went through. `cancel N` stops it as for any ticket.
 
 ## Ticket comment on approval
