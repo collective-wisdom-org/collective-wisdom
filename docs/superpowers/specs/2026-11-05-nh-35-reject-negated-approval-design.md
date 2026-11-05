@@ -2,7 +2,7 @@
 
 **Ticket:** [NH-35 (noahstotland/nohands#35)](https://github.com/noahstotland/nohands/issues/35)
 **Status:** Shipped
-**Shipped:** in PR #124, with the differences listed under Calls I made
+**Shipped:** in PR #124, as specified
 **Full spec:** the app's copy, `docs/superpowers/specs/2026-11-05-nh-35-reject-negated-approval-design.md` in noahstotland/nohands
 
 ## Goal
@@ -14,7 +14,7 @@
 - New `command_in(words, text)` returns `None`, `"negated"` or `"ok"`. A match is negated when its sentence holds a negation word (`no`, `not`, `never`, `nor`, `cannot`, `dont`, `cant`, `wont`, or any `n't` word) outside the matched words, before or after them. A sentence ends at `.`, `!`, `?` or `;` followed by whitespace or the end of the text. Line breaks do not end one. Curly apostrophes count. A negation word that starts the next sentence also negates ("Approve 30? No, not yet."). An ellipsis does not end a sentence. Any negated occurrence negates the message.
 - `latest` still picks the newest user-role message with the words; if that one is negated it prints `not-user negated <itemId> <snippet>` and exits 1, with no fall back to an older message. `item` prints `reject: words negated`.
 - `has_words` is unchanged, so `cos_peer.py` is unaffected.
-- `chief-of-staff/SKILL.md` gets one sentence on `not-user negated`.
+- `chief-of-staff/SKILL.md` (the `cos_user_check.py latest` paragraph) says what `not-user negated` means, keeps the strict check for `approve N`, `cancel N` and `resume` only, passes the user's whole message as the words for every other command or answer, requires a quoted heredoc, and notes the exit 2 thread-read fallback does not run a negated approve, cancel or resume.
 - One table-driven test in `test_cos.py` (both `latest` and `item`), one for the no-fall-back rule, one for the whole-message words.
 
 ## Left out
