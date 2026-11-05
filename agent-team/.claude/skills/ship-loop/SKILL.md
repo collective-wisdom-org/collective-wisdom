@@ -27,6 +27,8 @@ After phase 2, the default next step is **phase 3** (open PR + code review loop 
 
 When the user invokes the full ship loop (`/ship-loop`), do not stop after opening the PR, after CI passes, or after code review **PASS**; continue **security-review** through security **PASS** before handing off merge-ready.
 
+**Review mode.** When `docs/agents/project.md` § Review sets `Review mode` to `ci`, a review bot in CI replaces the code and security reviewer agents. Phase 3 then ends when CI is green on the head and `./scripts/ci_review.py list <N>` exits 0 on that head (`open-pr` § CI review mode), and phase 4 does not run. The rest of the gate table applies with that substitution. A missing row or `agents` keeps the gates above; any other value is an error, not `agents`.
+
 In team mode, see § Team mode.
 
 ## Phases (required skills)
@@ -115,6 +117,15 @@ Applies only when the task text or a relayed message says `TEAM MODE`. A Chief o
   ```
 
   "Docs checked" comes from the `Docs checked:` line of the latest code review comment.
+
+  In `ci` mode there are no review comments, so the review check above does not apply. Replace the two review link lines with these, using the last `wait-for-ci.sh` and `ci_review.py list <N>` results on the current head:
+
+  ```
+  CI: green at <full head SHA>
+  CI review: <F> fixed, <A> answered and resolved, <U> unresolved
+  ```
+
+  `Reviews found and fixed` lists the bot findings you fixed, and `Docs checked` comes from your own docs check. The exception for a head moved by merging `main` does not apply: after the merge, wait for CI and run `list` again on the new head.
 
   "Proof" links the PR body's `## Proof` section (`open-pr` § Proof), and "Not proven" is that section's `Not proven` list, copied word for word: it must match the PR body.
 - **Run endings.** A run ends only with a marker: `SPEC READY`, `MERGE READY`, `BLOCKED:` or `MERGED #N`. Anything else ("waiting on CI", "I'll post the review once CI finishes") is a progress note. Write it if useful, then keep going. After `t3_background_wait`, ending your turn is fine and is not a run ending: you are woken when the command exits. Don't write a closing message then. T3 shows the run as `completed`, and the Chief of Staff tells a waiting child from a stalled one by that call. Make the wait one of the last few tool calls before ending the turn, because the Chief of Staff reads only the last 10 items. Start the background command with the tool's background option, never with `&` in the command. If `t3_background_wait` lists the ID under `unmatched`, nothing will wake you: start the command again and wait again, and never end a turn on an unmatched wait.
