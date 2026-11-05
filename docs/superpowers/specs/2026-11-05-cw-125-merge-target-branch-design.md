@@ -40,7 +40,7 @@ Every app-side `main` reads `target_branch()`:
 - `pr_diff_delta.py`, `review_scope.py`, `release_notes.py`: the ref becomes `refs/remotes/origin/<target>` and the fetch refspec `+refs/heads/<target>:refs/remotes/origin/<target>`. Docstrings say "the merge target branch".
 - `cos_approve_pr.py`: the base check uses the target.
 - `cos_brief.py`: `?ref=<target>` for the migrations folder, and the moved line says "merging <target>". The `Head moved to` regexes don't mention `main`, so they stay.
-- `cos_rotation_check.py`: rotate on a skill change when the root checkout is on the target.
+- `cos_rotation_check.py`: rotate on a skill change when the root checkout is on the target; an invalid `Merge target branch` row exits 2 with `rotation-check: cannot read the Merge target branch row of project.md`.
 - `project_config.approval_setting()` reads `refs/remotes/origin/<target>:docs/agents/project.md`, with two extra guards so a branch an agent can push cannot become the trusted source (see Calls I made). The target and the branch pattern head come from the root checkout's `project.md` (the first entry of `git worktree list`, as `merge_pr.read_facts` finds it), never from the worktree the script runs in, so a PR cannot edit the `Merge target branch` row to redirect it. Failing to find or read that file gives `strict`:
   - the target must not start with the branch pattern head (`feat/` by default), and
   - the committed file on `origin/<target>` must name the same target (or no target, when the target is `main`).
