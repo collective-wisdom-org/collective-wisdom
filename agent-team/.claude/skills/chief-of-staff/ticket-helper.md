@@ -25,8 +25,6 @@ Rules:
   branches, commit or push. You run in the root checkout on main: read only.
 - GitHub and Slack are read only for you: no merge, push, file writes or
   messages. The tracker is the only thing you write.
-- Run every ./scripts/gh.sh call with AGENT_GH_ROLE=chief-of-staff in the
-  same command, so tickets show the Chief of Staff user.
 - Never call t3_thread_send, t3_thread_transfer, t3_thread_launch,
   create_threads, delegate_task, task_cancel or schedule_task. Never write
   .agent-team/state.json.

@@ -82,7 +82,7 @@ def load_pr(n, path):
         else:
             pr = cos_brief.gh_json("pr", "view", str(n), "--repo", cos_brief.REPO, "--json",
                                    "url,headRefOid,statusCheckRollup,comments")
-            pr["login"] = cos_brief.gh("api", "user", "-q", ".login", active=True).strip()
+            pr["login"] = cos_brief.own_login()
     except (OSError, UnicodeDecodeError, ValueError, TypeError, cos_brief.ReadError):
         fail(f"cannot read PR #{n}")
     oid, url, login = (pr.get(k) for k in ("headRefOid", "url", "login")) if isinstance(pr, dict) else (None,) * 3
@@ -125,22 +125,17 @@ def handoff(tid, info, pr, now):
     if pr is None:
         out.append("PR: none yet")
     else:
-        def by(role):
-            try:
-                who = project_config.role_login(role) or pr["login"]
-            except SystemExit as e:
-                fail(str(e))
-            return [
-                c for c in pr.get("comments") or []
-                if isinstance(c, dict) and isinstance(c.get("author"), dict) and c["author"].get("login") == who
-            ]
+        own = [
+            c for c in pr.get("comments") or []
+            if isinstance(c, dict) and isinstance(c.get("author"), dict) and c["author"].get("login") == pr["login"]
+        ]
 
         out += [
             f"PR: #{info['pr']} {pr['url']}",
             f"Head: {pr['headRefOid']} {head_note(pr['headRefOid'], info.get('headSha'))}",
             " ".join(cos_brief.check_summary(pr.get("statusCheckRollup")).split())[:CHECKS_CAP],
-            review_line("code review", "## Code review", by("code-reviewer")),
-            review_line("security review", "## Security review", by("security-reviewer")),
+            review_line("code review", "## Code review", own),
+            review_line("security review", "## Security review", own),
         ]
     out.append(f'Last status: "{status}"')
     return out

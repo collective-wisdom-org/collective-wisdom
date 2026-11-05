@@ -59,30 +59,3 @@ def test_tracker_rejects_unknown_value(tmp_path, monkeypatch):
 def test_tracker_missing_file_is_linear(tmp_path, monkeypatch):
     monkeypatch.setenv("PROJECT_MD", str(tmp_path / "nope.md"))
     assert project_config.tracker() == "linear"
-
-
-@pytest.mark.parametrize(
-    "row, role, want",
-    [
-        ("| Builder login | `cw-builder` (the account) |\n", "builder", "cw-builder"),
-        ("| Builder login | `none` |\n", "builder", None),
-        ("| Builder login | `None` |\n", "builder", None),
-        ("| Builder login | TODO(owner) |\n", "builder", None),
-        ("| Builder login | none until the account exists |\n", "builder", None),
-        ("| Repo | `me/thing` |\n", "builder", None),
-        ("| Builder login | cw-builder |\n", "builder", SystemExit),
-        ("| Builder login | none-bot |\n", "builder", SystemExit),
-        ("| Builder login | `not a login` |\n", "builder", SystemExit),
-        ("| Builder login | `-builder` |\n", "builder", SystemExit),
-        ("| Builder login | `cw-builder` |\n", "janitor", SystemExit),
-    ],
-)
-def test_role_login(tmp_path, monkeypatch, row, role, want):
-    md = tmp_path / "project.md"
-    md.write_text("| Key | Value |\n|---|---|\n" + row)
-    monkeypatch.setenv("PROJECT_MD", str(md))
-    if want is SystemExit:
-        with pytest.raises(SystemExit):
-            project_config.role_login(role)
-    else:
-        assert project_config.role_login(role) == want
