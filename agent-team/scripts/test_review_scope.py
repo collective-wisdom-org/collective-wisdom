@@ -15,6 +15,41 @@ DOC = "# t\n"
 CODE = lambda n: "x\n" * n  # noqa: E731
 
 
+def pr_repo(tmp_path, files):
+    """Commit base.txt on main, then files on a pr branch. Return (run, base SHA, head SHA)."""
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
+            cwd=tmp_path, capture_output=True, text=True, check=True,
+        ).stdout
+
+    git("init", "-b", "main")
+    (tmp_path / "base.txt").write_text("base\n")
+    git("add", "-A")
+    git("commit", "-m", "base")
+    base = git("rev-parse", "HEAD").strip()
+    git("tag", "origin/main")  # a pusher's tag must not stand in for the real merge base
+    git("update-ref", "refs/remotes/origin/main", "main")
+    git("checkout", "-b", "pr")
+    for path, content in files.items():
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(content, tuple):
+            os.symlink(content[1], tmp_path / path)
+        else:
+            (tmp_path / path).write_bytes(content if isinstance(content, bytes) else content.encode())
+    git("add", "-A")
+    git("commit", "-m", "pr")
+
+    def run(cmd):
+        p = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True)
+        if p.returncode:
+            raise review_scope.CmdError(p.stderr.strip())
+        return p.stdout
+
+    return run, base, git("rev-parse", "HEAD").strip()
+
+
 @pytest.mark.parametrize(
     "files, expected",
     [
@@ -34,33 +69,28 @@ CODE = lambda n: "x\n" * n  # noqa: E731
     ],
 )
 def test_classify(tmp_path, files, expected):
-    def git(*args):
-        return subprocess.run(
-            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
-            cwd=tmp_path, capture_output=True, text=True, check=True,
-        ).stdout
-
-    git("init", "-b", "main")
-    (tmp_path / "base.txt").write_text("base\n")
-    git("add", "-A")
-    git("commit", "-m", "base")
-    git("tag", "origin/main")  # a pusher's tag must not stand in for the real merge base
-    git("update-ref", "refs/remotes/origin/main", "main")
-    git("checkout", "-b", "pr")
-    for path, content in files.items():
-        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(content, tuple):
-            os.symlink(content[1], tmp_path / path)
-        else:
-            (tmp_path / path).write_bytes(content if isinstance(content, bytes) else content.encode())
-    git("add", "-A")
-    git("commit", "-m", "pr")
-    head = git("rev-parse", "HEAD").strip()
-
-    def run(cmd):
-        return subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True, check=True).stdout
-
+    run, _, head = pr_repo(tmp_path, files)
     assert review_scope.classify(head, run) == expected
+
+
+@pytest.mark.parametrize(
+    "files, expected",
+    [
+        ({"docs/superpowers/specs/a.md": DOC}, ("skip", "skip")),
+        ({"README.md": DOC, "docs/x.md": DOC}, ("skip", "skip")),
+        ({".claude/skills/s/SKILL.md": DOC}, ("run", "skip")),
+        ({"docs/agents/x.md": DOC}, ("run", "skip")),
+        ({"install.sh": "#!/bin/sh\n"}, ("run", "run")),
+        ({"agent-team/scripts/x.py": CODE(1)}, ("run", "skip")),
+        ({".github/workflows/ci.yml": CODE(1)}, ("run", "run")),
+    ],
+)
+def test_ci_scope(tmp_path, files, expected, capsys):
+    run, base, head = pr_repo(tmp_path, files)
+    assert review_scope.main(["--ci", base, head], run=run) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == "ci-scope: tests=%s shellcheck=%s" % expected
+    assert review_scope.main(["--ci", base, "0" * 40], run=run) == 2
+    assert capsys.readouterr().out.splitlines()[-1].startswith("ci-scope: cannot ")
 
 
 def test_failed_read_exits_2(capsys):
