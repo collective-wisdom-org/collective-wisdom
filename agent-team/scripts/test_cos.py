@@ -267,6 +267,8 @@ NEGATED_ROWS = [
     ("dont approve 30", False), ("never approve 30", False), ("not yet, approve 30 later", False),
     ("approve 30, no rush", False), ("approve 30 not yet", False),
     ("approve 30. approve 30, no rush", False), ("don't merge yet\napprove 30", False),
+    ("Approve 30? No, not yet.", False), ("Don't... approve 30", False), ("don\u2032t approve 30", False),
+    ("shouldnt approve 30 yet", False), ("approve 30. Thanks, no problem", True),
 ]
 
 

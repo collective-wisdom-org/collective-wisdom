@@ -12,9 +12,10 @@ both sides (after NFKC and dropping zero-width characters), and the words must m
 A match is negated when the same sentence holds a negation word outside the matched words,
 before or after them: "do not approve 30 yet", "don't approve 30", "never approve 30" and
 "approve 30, no rush" are not the user's "approve 30". A sentence ends at ., !, ? or ; followed
-by whitespace or the end of the text (a period inside a token such as v0.3 does not end it). A
-negation word is no, not, never, nor, cannot, dont, cant, wont or anything ending in n't. If any
-occurrence of the words is negated, the message is negated. Words inside the match are ignored,
+by whitespace or the end of the text, after a word character (a period inside a token such as v0.3, or an ellipsis, does not end it). A
+negation word is no, not, never, nor, cannot, the apostrophe-less forms (dont, cant, shouldnt ...)
+or anything ending in n't (curly and look-alike apostrophes count). A negation word that starts the
+next sentence also negates ("Approve 30? No, not yet."). If any occurrence of the words is negated, the message is negated. Words inside the match are ignored,
 so a whole-message match still works.
 
 latest checks the newest user-role message in the thread whose text contains the words; with
@@ -95,26 +96,38 @@ def has_words(words, text):
     return re.search(r"(?<!\w)" + re.escape(norm(words)) + r"(?!\w)", norm(text)) is not None
 
 
-SENTENCE_END = re.compile(r"[.!?;](?=\s|$)")
-NEGATIONS = {"no", "not", "never", "nor", "cannot", "dont", "cant", "wont"}
+SENTENCE_END = re.compile(r"(?<=\w)(?:\.(?!\.)|[!?;])(?=\s|$)")
+NEGATIONS = {
+    "no", "not", "never", "nor", "cannot", "dont", "cant", "wont", "didnt", "doesnt", "isnt", "arent",
+    "wasnt", "werent", "shouldnt", "wouldnt", "couldnt", "havent", "hasnt", "hadnt", "mustnt",
+}
+APOSTROPHES = str.maketrans({c: "'" for c in "\u2019\u2018\u02bc\u2032\u00b4`\u201b\u02b9"})
 
 
-def negated_in(text):
-    tokens = re.findall(r"[\w']+", text.replace("\u2019", "'").replace("\u2018", "'").replace("\u02bc", "'"))
-    return any(t.strip("'") in NEGATIONS or t.strip("'").endswith("n't") for t in tokens)
+def negation_tokens(text):
+    return [t.strip("'") for t in re.findall(r"[\w']+", text.translate(APOSTROPHES))]
+
+
+def is_negation(token):
+    return token in NEGATIONS or token.endswith("n't")
 
 
 def command_in(words, text):
-    """None if the words are not in text, "negated" if any occurrence shares a sentence with a negation word, else "ok"."""
+    """None if the words are not in text, "negated" if any occurrence is negated, else "ok".
+
+    Negated: a negation word in the same sentence outside the match, or one that starts the next sentence.
+    """
     t = norm(text)
     matches = list(re.finditer(r"(?<!\w)" + re.escape(norm(words)) + r"(?!\w)", t))
     if not matches:
         return None
-    ends = [m for m in SENTENCE_END.finditer(t)]
+    ends = list(SENTENCE_END.finditer(t))
     for m in matches:
         start = max([e.end() for e in ends if e.end() <= m.start()], default=0)
-        end = min([e.start() for e in ends if e.start() >= m.end()], default=len(t))
-        if negated_in(t[start:m.start()]) or negated_in(t[m.end():end]):
+        after = [e for e in ends if e.start() >= m.end()]
+        end = after[0].start() if after else len(t)
+        following = negation_tokens(t[after[0].end():after[1].start() if len(after) > 1 else len(t)])[:1] if after else []
+        if any(map(is_negation, negation_tokens(t[start:m.start()]) + negation_tokens(t[m.end():end]) + following)):
             return "negated"
     return "ok"
 

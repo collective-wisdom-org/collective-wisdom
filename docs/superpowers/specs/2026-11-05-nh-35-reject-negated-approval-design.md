@@ -2,7 +2,7 @@
 
 **Ticket:** [NH-35 (noahstotland/nohands#35)](https://github.com/noahstotland/nohands/issues/35)
 **Status:** Shipped
-**Shipped:** in PR #124, as specified
+**Shipped:** in PR #124, with the differences listed under Calls I made
 **Full spec:** the app's copy, `docs/superpowers/specs/2026-11-05-nh-35-reject-negated-approval-design.md` in noahstotland/nohands
 
 ## Goal
@@ -11,7 +11,7 @@
 
 ## Change
 
-- New `command_in(words, text)` returns `None`, `"negated"` or `"ok"`. A match is negated when its sentence holds a negation word (`no`, `not`, `never`, `nor`, `cannot`, `dont`, `cant`, `wont`, or any `n't` word) outside the matched words, before or after them. A sentence ends at `.`, `!`, `?` or `;` followed by whitespace or the end of the text. Line breaks do not end one. Curly apostrophes count. Any negated occurrence negates the message.
+- New `command_in(words, text)` returns `None`, `"negated"` or `"ok"`. A match is negated when its sentence holds a negation word (`no`, `not`, `never`, `nor`, `cannot`, `dont`, `cant`, `wont`, or any `n't` word) outside the matched words, before or after them. A sentence ends at `.`, `!`, `?` or `;` followed by whitespace or the end of the text. Line breaks do not end one. Curly apostrophes count. A negation word that starts the next sentence also negates ("Approve 30? No, not yet."). An ellipsis does not end a sentence. Any negated occurrence negates the message.
 - `latest` still picks the newest user-role message with the words; if that one is negated it prints `not-user negated <itemId> <snippet>` and exits 1, with no fall back to an older message. `item` prints `reject: words negated`.
 - `has_words` is unchanged, so `cos_peer.py` is unaffected.
 - `chief-of-staff/SKILL.md` gets one sentence on `not-user negated`.
@@ -24,5 +24,5 @@ Intent beyond negation ("wait", "later", questions, conditionals) still passes. 
 ## Calls I made
 
 - The whole sentence counts, not just the words right before the command, so "approve 30, no rush" is refused.
-- The rule applies to every command `latest` serves, so "no, stop everything" no longer stops everything.
+- The script rule applies to every command `latest` serves. The Chief of Staff still stops on `stop everything` when it gets `not-user negated`, because stopping is the safe direction (code review finding).
 - `don t` (space for apostrophe) is not caught.
