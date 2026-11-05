@@ -1,7 +1,8 @@
 # CW-107: Require proof that the change works in every PR
 
 **Ticket:** [CW-107](https://github.com/dbeallor/collective-wisdom/issues/107)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #109, as specified
 
 ## Goal
 
