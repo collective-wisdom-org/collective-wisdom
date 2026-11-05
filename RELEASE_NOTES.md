@@ -1,5 +1,23 @@
 # Release notes
 
+## 2026-11-05 approval risk tolerance setting (CW-108) (#119)
+
+Merged 2026-11-05 21:02 UTC.
+
+You can now choose how much the agent team asks you to approve. Commit an `Approval risk tolerance` row to `docs/agents/project.md` on `main`: `balanced` skips your reply for Low risk tickets and `permissive` also skips it for Medium. High risk tickets, tickets the team files for itself from its own observation, and changes to the team's own scripts, skills, agents, role docs under `docs/agents/` or `project.md`, still wait for you, and without the row nothing changes.
+
+## 2026-11-05 reject a negated approval in cos_user_check (NH-35) (#124)
+
+Merged 2026-11-05 19:28 UTC.
+
+The Chief of Staff no longer treats a message such as "don't approve 30 yet" or "approve 30, no rush" as an approval. Send a plain `approve N` to approve; `cancel N` and `resume` need the same plain form. `stop everything` still stops even when negated, because stopping is the safe direction.
+
+## 2026-11-05 keep the merge approval human-only after CW-110 (NH-29) (#123)
+
+Merged 2026-11-05 16:24 UTC.
+
+A push after a merge approval now stops the merge: the merge child reports `BLOCKED: head moved after approval` and you reply `approve N` again. The merge script also refuses to run unless gh is signed in as the owner, and `cos_approve_pr.py` shows the words it verified. After you update the agent team, rotate the Chief of Staff thread.
+
 ## 2026-11-05 Chief of Staff files agent-team tickets from repeated failures (CW-39) (#117)
 
 Merged 2026-11-05 03:32 UTC.
