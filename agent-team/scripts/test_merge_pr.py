@@ -27,8 +27,8 @@ def owner_row(monkeypatch):
 
 
 def old_shape(f, note="\n# 2026-11-03 X-1: a title\n\nbody\n"):
-    """As-built and release note as files, no body section."""
-    f["body"] = ""
+    """As-built and release note as files, no release note body section."""
+    f["body"] = "## Proof\n\nNot proven: nothing\n"
     f["docs"] = {SPECMD: "**Status:** Shipped\n", NOTEMD: note}
     f["files"] += [{"path": ASBUILT, "changeType": "ADDED"}, {"path": NOTEMD, "changeType": "ADDED"}]
 
@@ -59,7 +59,7 @@ def green():
         "commits": [{"oid": HEAD, "committedDate": "2026-11-02T09:00:00Z"}],
         "pr": "7", "owner": "owner", "protection": (1, []),
         "reviews": [approval()],
-        "body": "## Summary\n\nx\n\n## Release note\n\nA note.\n\n## Test plan\n\ny\n",
+        "body": "## Summary\n\nx\n\n## Release note\n\nA note.\n\n## Proof\n\nNot proven: nothing\n\n## Test plan\n\ny\n",
         "files": [{"path": SPECMD, "changeType": "ADDED"}],
         "docs": {SPECMD: SHIPPED},
         "mergeCommit": None, "root": str(merge_pr.ROOT), "root_branch": "main", "root_dirty": False, "root_ahead": 0,
@@ -108,7 +108,10 @@ def reviews(**kw):
         (lambda f: (f["docs"].update({SPECMD: "**Status:** Shipped\n"}), f["files"].append({"path": ASBUILT, "changeType": "ADDED"})), None),
         (lambda f: f.update(body="## Summary\n\nx\n"), 'no "## Release note" section'),
         (lambda f: f.update(body="## Release note\n\n## Test plan\n\ny\n"), 'no "## Release note" section'),
-        (lambda f: f.update(body="## Release note\r\n\r\nA note.\r\n"), None),
+        (lambda f: f.update(body="## Release note\r\n\r\nA note.\r\n\r\n## Proof\r\n\r\nNot proven: nothing\r\n"), None),
+        (lambda f: f.update(body="## Release note\n\nA note.\n"), 'no "## Proof" section'),
+        (lambda f: f.update(body="## Release note\n\nA note.\n\n## Proof\n\n## Test plan\n\ny\n"), 'no "## Proof" section'),
+        (lambda f: f.update(body="## Release note\n\nA note.\n\n## Proof\n\nran it\n"), 'has no "Not proven" line'),
         (old_shape, None),
         (lambda f: old_shape(f, "# A title\n"), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
         (lambda f: (old_shape(f), f["files"].pop()), 'no "## Release note" section'),

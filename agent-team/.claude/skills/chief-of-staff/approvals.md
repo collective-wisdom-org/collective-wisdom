@@ -40,6 +40,7 @@ Merge block:
 <PREFIX>-197 merge ready: <PR title>. Risk: High (touches auth)
 PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
+Proof: <the child's Proof link>
 Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent, 38.6M tokens, ...", or "unknown">
 Docs: <the child's Docs checked line>
 Changes:
@@ -48,7 +49,7 @@ Differs from spec: …
 Reviews found and fixed:
 - …
 Left open: …
-Risks: <migrations and clashes, what users see after deploy, checks that didn't really run>
+Risks: <migrations and clashes, what users see after deploy, the child's Not proven list>
 Reply "approve 197" to approve and merge (this posts your approving review on GitHub), or "changes 197: …" to send it back.
 ```
 

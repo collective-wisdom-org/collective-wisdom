@@ -27,7 +27,7 @@ When the build differs from the spec, the line links an as-built file instead:
 **Shipped:** in PR #57, with differences: [as-built](../as-built/<date>-<slug>.md)
 ```
 
-The as-built holds only the differences: the dateless `**Shipped:** in PR #N`, `**Ticket:**` and `**Spec:**` lines, then `## Differs from the spec` with a bullet per difference. Add `## Checks that didn't run` only when something the plan listed could not run. "Differs" means a reader of the spec would be wrong about what shipped: a behavior, flag, exit code, file or rule the spec states differently or not at all. A refactor of how the code is laid out is not a difference.
+The as-built holds only the differences: the dateless `**Shipped:** in PR #N`, `**Ticket:**` and `**Spec:**` lines, then `## Differs from the spec` with a bullet per difference. What did not run goes in the PR's `Not proven` list (`open-pr` § Proof). "Differs" means a reader of the spec would be wrong about what shipped: a behavior, flag, exit code, file or rule the spec states differently or not at all. A refactor of how the code is laid out is not a difference.
 
 ## Release notes
 
