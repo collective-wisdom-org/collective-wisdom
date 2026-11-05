@@ -126,6 +126,7 @@ BOT_THREAD = {"path": "a.py", "line": 3, "url": "https://github.com/o/r/pull/7#d
         ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": [BOT_THREAD]}, "unresolved CI review thread by bot: a.py:3 https://github.com/o/r/pull/7#discussion_r1"),
         ({"reviewMode": "ci", "ciBot": None, "ciThreads": []}, "Review mode is ci but has no CI review bot login"),
         ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": [], "statusCheckRollup": []}, "no checks"),  # the other gates stay
+        ({"reviewMode": "ci", "ciBot": "bot"}, "CI review threads not read"),  # a missing read never passes
     ],
 )
 def test_gate_review_mode(facts, cause):

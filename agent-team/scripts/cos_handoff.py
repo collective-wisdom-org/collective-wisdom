@@ -189,7 +189,9 @@ def main(argv=None):
                 bot = ci_review.setup()
                 threads = pr.get("reviewThreads") if args.pr else ci_review.fetch(info["pr"], lambda *a: cos_brief.gh(*a))
                 ci = (bot, ci_review.classify(threads, bot))
-            except (ci_review.CiError, cos_brief.ReadError, TypeError, AttributeError, ValueError):
+            except ci_review.CiError as e:
+                fail(f"cannot read PR #{info['pr']}: {e}")
+            except (cos_brief.ReadError, TypeError, AttributeError, ValueError):
                 fail(f"cannot read PR #{info['pr']}")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     print("\n".join(handoff(tid, info, pr, now, ci)))

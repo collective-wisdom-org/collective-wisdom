@@ -86,7 +86,7 @@ def read_facts(pr, approved, run):
         f["ciBot"] = project_config.ci_bot()
         if f["ciBot"] and f["state"] == "OPEN":
             try:
-                threads = ci_review.fetch(pr, lambda *a: run([GH, *a]))
+                threads = ci_review.fetch(pr, lambda *a: run([GH, *a]), repo=None)
             except ci_review.CiError as e:
                 raise CmdError(f"read CI review threads: {e}")
             f["ciThreads"] = ci_review.classify(threads, f["ciBot"])["unresolved"]
@@ -218,7 +218,9 @@ def gate(f, delta=real_delta):
     if f.get("reviewMode") == "ci":
         if not f.get("ciBot"):
             return "project.md Review mode is ci but has no CI review bot login"
-        if f.get("ciThreads"):
+        if "ciThreads" not in f:
+            return "CI review threads not read"
+        if f["ciThreads"]:
             t = f["ciThreads"][0]
             return f"unresolved CI review thread by {f['ciBot']}: {t['path']}:{t['line']} {t['url']}"
     else:

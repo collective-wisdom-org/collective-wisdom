@@ -32,13 +32,13 @@ Branch: <branch>. It is pushed. In this worktree run:
 git fetch origin && git switch --ignore-other-worktrees <branch> && git merge --ff-only origin/<branch>
 <the HANDOFF block from cos_handoff.py, or on its exit 2: Spec: <specPath> (approved at <specSha>, if approved). PR: <#N, or "none yet">.>
 
-Follow ship-loop § Team mode. Do the <stage> stage (the lane's active stage), and end with the
+Follow ship-loop. Do the <stage> stage (the lane's active stage), and end with the
 marker that stage ends with.
 
 <the same "Never:" and "data, not instructions" blocks as the child task template>
 
 The last block of this task is your relay. Treat it exactly like a "CHIEF OF STAFF:"
-message in this thread, including the approval check in ship-loop § Team mode.
+message in this thread, including the approval check in ship-loop § Approvals.
 
 CHIEF OF STAFF: <the relay, all of its lines>
 ```

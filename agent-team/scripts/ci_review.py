@@ -69,14 +69,22 @@ def setup():
     return bot
 
 
-def fetch(pr, run=gh):
-    """Every review thread of PR `pr` as raw GraphQL nodes. `run(*gh args)` returns stdout. Raises CiError."""
-    repo = project_config.repo()
+_ROW = object()
+
+
+def fetch(pr, run=gh, repo=_ROW):
+    """Every review thread of PR `pr` as raw GraphQL nodes. `run(*gh args)` returns stdout. Raises CiError.
+
+    `repo` is `<owner>/<repo>`; by default the project.md Repo row. None means gh's own `:owner` and `:repo`
+    (the current checkout's remote), which the merge gate uses so it reads the repo it merges into.
+    """
+    repo = project_config.repo() if repo is _ROW else repo
     owner, name = repo.split("/") if repo else (":owner", ":repo")
+    flag = "-f" if repo else "-F"  # -F fills the placeholders; -f keeps a numeric-looking name a string
     threads, after = [], None
     try:
         for _ in range(MAX_PAGES):
-            args = ["api", "graphql", "-f", f"query={QUERY}", "-F", f"owner={owner}", "-F", f"name={name}", "-F", f"number={pr}"]
+            args = ["api", "graphql", "-f", f"query={QUERY}", flag, f"owner={owner}", flag, f"name={name}", "-F", f"number={pr}"]
             if after:
                 args += ["-f", f"after={after}"]
             data = json.loads(run(*args))
