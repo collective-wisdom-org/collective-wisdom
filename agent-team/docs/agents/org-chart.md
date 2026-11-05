@@ -15,7 +15,7 @@ flowchart TB
         Chief --- PM
     end
 
-    Helper["Ticket helper<br/>one-shot T3 thread per request<br/>read only, writes the tracker"]
+    Helper["Ticket helper<br/>one-shot T3 thread per request or observation<br/>read only, writes the tracker"]
 
     Peer["Another repo's Chief of Staff<br/>its own tracker and state"]
 
@@ -39,7 +39,7 @@ flowchart TB
     Child --> SR
 
     User -- "new ticket · edit ticket" --> Chief
-    Chief -- "delegate_task with the user's words" --> Helper
+    Chief -- "delegate_task with the user's words, or its own sighting notes" --> Helper
     Helper -- "TICKET HELPER DONE" --> Chief
     Helper -- "create or edit tickets, epics, links, labels" --> Tracker
 
@@ -93,7 +93,7 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 | The user | Human, in the Chief of Staff thread | — | Moves tickets to Todo, adds or removes `agent-skip`, answers questions on tickets | Approves; the child runs the merge | No | This page |
 | Chief of Staff | Sonnet 5.5, in a T3 thread at the root checkout on `main`. Woken at start-up, when a child's run finishes, when the user writes, when another repo's Chief of Staff sends a request or reply, and by a rate-limit wake | No. Writes only `.agent-team/state.json` | Status, `agent` and `agent-skip` labels, comments | Never | Children with `delegate_task`; cancels them with `task_cancel` | [Role doc](chief-of-staff.md), [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) |
 | Project Manager | Not its own thread. Hygiene (priority and labels, state drift, stale tickets, duplicates) runs in a one-shot Sonnet 5.5 child (`delegate_task`, wait), on `start the team`, on `backlog` and at most once every 24 hours. The ranking's reads run in another one-shot child. The Backlog pick runs in the Chief of Staff's slot fill (never on the project manager children's notices), starts the next ready ranked ticket when Todo has nothing startable, and re-ranks the Backlog when the ranking runs dry | No | Empty priority and labels, state-drift moves, duplicate comments, and the start of a ranked Backlog ticket with one comment. Never Todo moves | Never | The two children only | [`project-manager`](../../.claude/skills/project-manager/SKILL.md), [role doc](chief-of-staff.md) |
-| Ticket helper | Sonnet 5.5 at effort high, in a one-shot `delegate_task` thread at the root checkout on `main`, one per ticket request, no lane slot, not in state | No. Read only outside the tracker | New tickets, edits, epics, links and labels. A helper started from another repo's request creates new Backlog tickets and may set their parent epic and links; it never edits an existing ticket's description, title, labels or state. Never moves a ticket to Todo, In Progress or Done | Never | No | [`chief-of-staff/ticket-helper.md`](../../.claude/skills/chief-of-staff/ticket-helper.md) § Ticket helper, [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md), [role doc](ticket-writer.md) |
+| Ticket helper | Sonnet 5.5 at effort high, in a one-shot `delegate_task` thread at the root checkout on `main`, one per ticket request or per `observe` note that says `file`, no lane slot, not in state | No. Read only outside the tracker | New tickets, edits, epics, links and labels. A helper started from another repo's request creates new Backlog tickets and may set their parent epic and links; it never edits an existing ticket's description, title, labels or state. A helper started from the Chief of Staff's own observation creates one Backlog `Improvement` ticket with no `agent` or `agent-skip` label. Never moves a ticket to Todo, In Progress or Done | Never | No | [`chief-of-staff/ticket-helper.md`](../../.claude/skills/chief-of-staff/ticket-helper.md) § Ticket helper, [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md), [role doc](ticket-writer.md) |
 | Ship-loop child | Opus 5.5 for the spec, Sonnet 5.5 for build and merge, in a T3 thread in its own worktree, one per ticket, up to 5 active at once, one per lane slot | Yes, on its own `feat/<prefix>-N-*` branch. Never pushes to `main` | Its own ticket only (In Review, Done) | Yes, after a relayed approval it confirms in the Chief of Staff thread | Native subagents through the Agent tool. Never `delegate_task` | [`ship-loop`](../../.claude/skills/ship-loop/SKILL.md) § Team mode and the skills it calls |
 | Implementer | Claude Code subagent (Sonnet) | Yes, the task it's given | Not in its brief | No | No | [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md), [role doc](implementer.md) |
 | Documenter | Claude Code subagent (Sonnet), started by the child after the closeout commit and before a code review pass when commits since the last check changed what ships | No. Read only; reports stale docs and the child fixes them | No | No | No | [`.claude/agents/documenter.md`](../../.claude/agents/documenter.md), [role doc](documenter.md) |

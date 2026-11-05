@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -95,6 +96,8 @@ def test_relay_and_child_start_stamp_lastRelayAt(ops, stamped):
     {"op": "unknown"},
     {k: v for k, v in START.items() if k != "parentThreadId"},
     {"op": "retire", "threadId": "t2", "successor": "t2"},
+    {"op": "observe", "kind": "nope"},
+    {"op": "observe", "kind": "other:Bad Slug"},
 ])
 def test_invalid_op_changes_nothing(tmp_path, bad):
     path = tmp_path / "state.json"
@@ -102,6 +105,58 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
     before = path.read_bytes()
     assert cos_state.apply_file(path, [START, QUEUE, bad]) == 1
     assert path.read_bytes() == before
+
+
+def ago(hours):
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def sight(kind, ticket, hours):
+    return {"kind": kind, "ticket": ticket, "at": ago(hours)}
+
+
+def obs(kind, ticket=None):
+    return {"op": "observe", "kind": kind, **({"ticket": ticket} if ticket else {})}
+
+
+LOST = sight("lost-notice", "ABC-1", 24)
+FILED_TODAY = [{"kind": k, "at": ago(2)} for k in ("stall", "rotation-failed", "helper-no-report")]
+
+
+@pytest.mark.parametrize("seen, filed, ops, notes, sightings, filed_kinds", [
+    ([], [], [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([LOST], [], [obs("lost-notice", "ABC-2")], ["file (ABC-1 "], 2, ["lost-notice"]),
+    ([LOST], [], [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([sight("rotation-failed", None, 24)], [], [obs("rotation-failed")], ["file (- "], 2, ["rotation-failed"]),
+    ([], [], [obs("other:slow-handoff")], ["file (-"], 1, ["other:slow-handoff"]),
+    ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(72)}],
+     [obs("lost-notice", "ABC-3")], ["hold (filed "], 3, ["lost-notice"]),
+    ([], FILED_TODAY, [obs("other:slow-handoff")], ["hold (3 filed today)"], 1, [f["kind"] for f in FILED_TODAY]),
+    ([], [], [obs("other:a"), obs("other:b")], ["file (", "hold (one per turn)"], 2, ["other:a"]),
+    (None, None, [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(24 * 8)}],
+     [obs("lost-notice", "ABC-3")], ["file ("], 3, ["lost-notice", "lost-notice"]),
+    ([], [], [obs("stall"), obs("stall")], ["hold (1 of 2 sightings)", "hold (1 of 2 sightings)"], 1, []),
+])
+def test_observe_files_on_repeat_within_caps(seen, filed, ops, notes, sightings, filed_kinds):
+    state = dict(STATE) if seen is None else {**STATE, "observed": {"sightings": seen, "filed": filed}}  # None: key absent
+    new, _, got = cos_state.apply_ops(state, ops)
+    assert len(got) == len(notes)
+    assert all(n.split(": ", 1)[1].startswith(w) for n, w in zip(got, notes))
+    assert len(new["observed"]["sightings"]) == sightings
+    assert [f["kind"] for f in new["observed"]["filed"]] == filed_kinds
+
+
+def test_prune_drops_observed_older_than_a_week():
+    old, fresh = ago(24 * 8), ago(1)
+    state = {**STATE, "observed": {
+        "sightings": [sight("stall", "ABC-1", 24 * 8), sight("stall", "ABC-2", 1)],
+        "filed": [{"kind": "stall", "at": old}, {"kind": "lost-notice", "at": fresh}],
+    }}
+    new, _, _ = cos_state.apply_ops(state, [{"op": "prune"}])
+    assert new["observed"] == {
+        "sightings": [sight("stall", "ABC-2", 1)], "filed": [{"kind": "lost-notice", "at": fresh}],
+    }
 
 
 @pytest.mark.parametrize("ops, retired, shown", [
