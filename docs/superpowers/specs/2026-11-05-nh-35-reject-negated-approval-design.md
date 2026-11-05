@@ -24,5 +24,5 @@ Intent beyond negation ("wait", "later", questions, conditionals) still passes. 
 ## Calls I made
 
 - The whole sentence counts, not just the words right before the command, so "approve 30, no rush" is refused.
-- The script rule applies to every command `latest` serves. The Chief of Staff still stops on `stop everything` when it gets `not-user negated`, because stopping is the safe direction (code review finding).
+- The script rule applies to every command `latest` serves. The Chief of Staff still stops on `stop everything` when it gets `not-user negated`, because stopping is the safe direction (code review finding). For `changes N` and answers, the Chief of Staff passes the whole message as the words, so negation inside the user's feedback does not refuse it (code review pass 2).
 - `don t` (space for apostrophe) is not caught.
