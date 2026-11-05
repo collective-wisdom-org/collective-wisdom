@@ -9,14 +9,60 @@ jobs:
   script-tests:
     runs-on: ubuntu-latest
     steps:
+      # depth 2: on a pull_request the checkout is GitHub's merge commit, so HEAD^1 is the base tip
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+        with:
+          fetch-depth: 2
+      # Which steps this change needs. Anything unsure (push, script error, no ci-scope line) runs both.
+      - name: ci scope
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          tests=run
+          shellcheck=run
+          if [ "$EVENT" = pull_request ]; then
+            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
+            echo "$out"
+            line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
+            if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
+              tests=${BASH_REMATCH[1]}
+              shellcheck=${BASH_REMATCH[2]}
+            fi
+          fi
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          echo "shellcheck=$shellcheck" >> "$GITHUB_OUTPUT"
+      - if: steps.scope.outputs.tests == 'run'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python3 -m pip install pytest
-      - run: python3 -m pytest -q agent-team/scripts
+      - if: steps.scope.outputs.tests == 'run'
+        run: python3 -m pip install pytest
+      - if: steps.scope.outputs.tests == 'run'
+        run: python3 -m pytest -q agent-team/scripts
   shellcheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck install.sh tag-release.sh agent-team/scripts/*.sh
+        with:
+          fetch-depth: 2
+      - name: ci scope
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          tests=run
+          shellcheck=run
+          if [ "$EVENT" = pull_request ]; then
+            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
+            echo "$out"
+            line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
+            if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
+              tests=${BASH_REMATCH[1]}
+              shellcheck=${BASH_REMATCH[2]}
+            fi
+          fi
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          echo "shellcheck=$shellcheck" >> "$GITHUB_OUTPUT"
+      - if: steps.scope.outputs.shellcheck == 'run'
+        run: shellcheck install.sh tag-release.sh agent-team/scripts/*.sh
