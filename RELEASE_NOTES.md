@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-05 open-source readiness sweep (CW-104) (#120)
+
+Merged 2026-11-05 03:05 UTC.
+
+The repo now carries a LICENSE (MIT), a SECURITY.md and a CONTRIBUTING.md, and the README no longer assumes the repo is private. Nothing to do in your app.
+
 ## 2026-11-05 skip pytest and shellcheck on docs-only changes (CW-102) (#121)
 
 Merged 2026-11-05 02:44 UTC.
