@@ -1,7 +1,8 @@
 # CW-126: Review mode setting that uses CI review instead of the agent reviewers
 
 **Ticket:** [CW-126 (collective-wisdom-org/collective-wisdom#126)](https://github.com/collective-wisdom-org/collective-wisdom/issues/126)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #137, with differences: [as-built](../as-built/2026-11-05-cw-126-ci-review-mode.md)
 
 ## Goals
 
