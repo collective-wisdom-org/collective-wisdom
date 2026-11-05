@@ -1,5 +1,41 @@
 # Release notes
 
+## 2026-11-05 skip pytest and shellcheck on docs-only changes (CW-102) (#121)
+
+Merged 2026-11-05 02:44 UTC.
+
+CI skips the pytest steps on PRs that change only Markdown files in `README.md` or under `docs/` (not `docs/agents/`). It skips the shellcheck step on any PR that changes no `.sh` file, no `.shellcheckrc` and nothing under `.github/`. Both checks still appear and finish green. Skill and role-doc edits still run pytest.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-05 require a Proof section in every PR (CW-107) (#109)
+
+Merged 2026-11-05 02:03 UTC.
+
+Every PR now carries a `## Proof` section showing evidence for each Acceptance item and a `Not proven` list. The merge script refuses a PR without them, so an open PR needs the section added before it can merge.
+
+## 2026-11-05 point repo paths at collective-wisdom-org (#118)
+
+Merged 2026-11-05 02:02 UTC.
+
+The default clone URL for \`agent-team-update.sh\`, the README links, and the tracker scope now use \`collective-wisdom-org/collective-wisdom\`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-05 add noahstotland to CODEOWNERS (CW-113) (#114)
+
+Merged 2026-11-05 01:46 UTC.
+
+PRs will now request review from both David and Noah. Nothing to do on your side.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+## 2026-11-05 remove the per-agent GitHub users, thread approval is the merge proof (CW-110) (#111)
+
+Merged 2026-11-05 01:41 UTC.
+
+The agent team no longer uses separate GitHub accounts per role: every PR, comment and ticket comes from the account running `gh`. A merge is approved by your `approve N` in the Chief of Staff thread alone; no GitHub review is posted or required. Remove the four login rows from your app's `docs/agents/project.md` on the next update, and drop any branch rule that requires a Code Owners review.
+
 ## 2026-11-04 author and push ticket branch commits as the builder user (CW-92) (#99)
 
 Merged 2026-11-04 22:59 UTC.
