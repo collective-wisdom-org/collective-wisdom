@@ -1,0 +1,133 @@
+import json
+
+import pytest
+
+import approval_policy as ap
+import cos_state
+import project_config
+
+ROW = "| Approval risk tolerance (`strict`, `balanced` or `permissive`) | {} |\n"
+HEADER = "| Key | Value |\n|---|---|\n"
+
+
+def reader(text=None, fail=None):
+    """A git runner that serves `text` for the git show, or fails the named command."""
+    def run(cmd):
+        if fail and fail in cmd:
+            raise OSError("boom")
+        return text if cmd[1] == "show" else ""
+    return run
+
+
+# (project.md on origin/main, or None for a failed git call, expected tolerance)
+SETTINGS = [
+    (HEADER + ROW.format("`strict`. Which approvals..."), "strict"),
+    (HEADER + ROW.format("`balanced`. Which approvals..."), "balanced"),
+    (HEADER + ROW.format("`permissive`"), "permissive"),
+    (HEADER + ROW.format("`Permissive`"), "permissive"),
+    (HEADER + ROW.format("`yolo`"), "strict"),
+    (HEADER + ROW.format("permissive, no backticks"), "strict"),
+    (HEADER + "| Repo | `a/b` |\n", "strict"),
+    ("", "strict"),
+    (None, "strict"),
+]
+
+
+@pytest.mark.parametrize("text, tolerance", SETTINGS)
+def test_setting_reads_origin_main_and_fails_closed(text, tolerance):
+    run = reader(text) if text is not None else reader(fail="fetch")
+    assert project_config.approval_tolerance(run) == tolerance
+    assert project_config.approval_tolerance(reader("", fail="show")) == "strict"
+
+
+# tolerance x level -> auto. Anything not in the table asks.
+AUTO = {
+    ("balanced", "Low"), ("permissive", "Low"), ("permissive", "Medium"),
+}
+
+
+@pytest.mark.parametrize("tolerance", ["strict", "balanced", "permissive", "", "yolo", None])
+@pytest.mark.parametrize("level", ["Low", "Medium", "High", None, "Critical"])
+def test_decide(tolerance, level):
+    assert ap.decide(tolerance, level)[0] == ((tolerance, level) in AUTO)
+
+
+PATHS = [
+    ("docs/agents/project.md", True),
+    ("agent-team/templates/project.md", True),
+    ("templates/project.md", True),
+    ("scripts/cos_approve_pr.py", True),
+    ("agent-team/scripts/approval_policy.py", True),
+    ("agent-team/scripts/gh.sh", True),
+    ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
+    (".claude/skills/chief-of-staff/references/x.md", True),
+    ("agent-team/.github/workflows/ci.yml", True),
+    (".github/CODEOWNERS", True),
+    ("agent-team/scripts/cos_rank.py", False),
+    ("agent-team/.claude/skills/write-ticket/SKILL.md", False),
+    ("agent-team/docs/agents/approvals.md", False),
+    ("docs/agents/project.md.bak", False),
+    ("src/docs/agents/project.md", False),
+    ("scripts/merge_pr.pyc", False),
+    ("README.md", False),
+]
+
+
+@pytest.mark.parametrize("path, on", PATHS)
+def test_approval_path(path, on):
+    assert ap.on_approval_path(path) is on
+
+
+TAILS = [
+    ("Spec ready. Risk: Low (copy only).", "Low"),
+    ("Risk: Medium (changes how the team works)", "Medium"),
+    ("PR #4 ready. Risk: High (auth (login) path).", "High"),
+    ("Risk: High (see Risk: Low (a)).", "High"),
+    ("Risk: Low (x). More text after", None),
+    ("Risk: Severe (x).", None),
+    ("Risk: low (x).", None),
+    ("no rating here", None),
+    ("", None),
+    (None, None),
+]
+
+
+@pytest.mark.parametrize("status, level", TAILS)
+def test_risk_level(status, level):
+    assert ap.risk_level(status) == level
+
+
+# CLI: (state ticket or None, argv, setting, exit code, last-line part)
+def ticket(stage="awaiting-spec", status="Spec ready. Risk: Medium (x)."):
+    return {"stage": stage, "status": status}
+
+
+CLI = [
+    (ticket(), ["auto", "ABC-1", "spec"], "permissive", 0, "auto spec ABC-1 under permissive (Risk: Medium)"),
+    (ticket(), ["auto", "ABC-1", "spec"], "balanced", 1, "ask ABC-1 (Medium)"),
+    (ticket(), ["auto", "ABC-1", "spec"], "strict", 1, "ask ABC-1 (strict)"),
+    (ticket(status="Spec ready."), ["auto", "ABC-1", "spec"], "permissive", 1, "(not rated)"),
+    (ticket(stage="build"), ["auto", "ABC-1", "spec"], "permissive", 1, "not in awaiting-spec"),
+    (None, ["auto", "ABC-1", "spec"], "permissive", 1, "not in awaiting-spec"),
+    (ticket(), ["auto", "XYZ-1", "spec"], "permissive", 2, "cannot read arguments"),
+    (ticket(), ["auto", "ABC-1", "merge"], "permissive", 2, "cannot decide a merge"),
+    (ticket(), ["check", "Low"], "balanced", 0, "auto spec under balanced (Risk: Low)"),
+    (ticket(), ["check", "High"], "permissive", 1, "ask (High)"),
+    (ticket(), ["check", "Huge"], "permissive", 2, "cannot read arguments"),
+    (ticket(), [], "permissive", 2, "cannot read arguments"),
+]
+
+
+@pytest.mark.parametrize("t, argv, tolerance, code, line", CLI)
+def test_cli(tmp_path, monkeypatch, capsys, t, argv, tolerance, code, line):
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"tickets": {"ABC-1": t} if t else {}}))
+    monkeypatch.setattr(cos_state, "DEFAULT_FILE", state)
+    assert ap.main(argv, lambda: (tolerance, "")) == code
+    assert line in capsys.readouterr().out.strip().splitlines()[-1]
+
+
+def test_cli_state_failure_is_cannot(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cos_state, "DEFAULT_FILE", tmp_path / "missing.json")
+    assert ap.main(["auto", "ABC-1", "spec"], lambda: ("permissive", "")) == 2
+    assert "approval: cannot read the state file" in capsys.readouterr().out

@@ -3,6 +3,7 @@
 
 Usage:
     scripts/cos_approve_pr.py <PREFIX>-N
+    scripts/cos_approve_pr.py <PREFIX>-N --auto
 
 The only argument is the ticket ID: the caller cannot pick the message store or the state file. The PR, its head, the thread, the cut-off time and the words
 (`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
@@ -11,7 +12,12 @@ Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs bef
 Gates, in order; the first failure stops: root checkout, state, the user's message (scripts/cos_user_check.py latest),
 gh login, PR facts, head.
 
+With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
+auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/main; see
+scripts/approval_policy.py), no PR file on the approval path, and no `flag:` or migration file (scripts/cos_brief.py).
+
 Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA>
+With --auto the last line is: cos-approve: auto-approved #N at <SHA> under <tolerance> (Risk: <Level>)
 Exit 1: a gate failed. Last line: cos-approve: stop <PREFIX>-N: <reason>
 Exit 2: bad arguments, or state, the message store or gh failed, or one of them had an unexpected shape.
 Last line: cos-approve: cannot <what>
@@ -40,8 +46,11 @@ def _load(name):
 merge_pr = _load("merge_pr")
 cos_state = _load("cos_state")
 cos_user_check = _load("cos_user_check")
+cos_brief = _load("cos_brief")
+approval_policy = _load("approval_policy")
 ROOT, GH = merge_pr.ROOT, merge_pr.GH
 PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid"
+FILES_CAP = 100  # gh returns at most this many files; a PR this big can't be checked in full
 
 
 class Stop(Exception):
@@ -62,7 +71,7 @@ def check_root(run):
         raise Stop(f"not run from the root checkout; cd {first} first, its project.md is the one to trust")
 
 
-def read_state(tid):
+def read_state(tid, auto=False):
     try:
         state = cos_state.load(cos_state.DEFAULT_FILE)
     except SystemExit:
@@ -71,13 +80,14 @@ def read_state(tid):
     if not isinstance(t, dict) or t.get("stage") != "awaiting-merge":
         raise Stop("ticket not in awaiting-merge")
     pr, sha, seen, thread = str(t.get("pr") or ""), t.get("headSha") or "", t.get("lastSeenAt"), state.get("chiefThreadId")
+    status = t.get("status")
     if not re.fullmatch(r"[0-9]+", pr):
         raise Stop("ticket has no pr in the state file")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise Stop("ticket has no full headSha in the state file")
-    if not thread or not isinstance(seen, str) or not cos_user_check.valid_after(seen):
+    if not auto and (not thread or not isinstance(seen, str) or not cos_user_check.valid_after(seen)):
         raise Stop("state file has no chiefThreadId or no usable lastSeenAt")
-    return pr, sha, seen, thread
+    return pr, sha, seen, thread, status
 
 
 def user_said(db, thread, n, seen):
@@ -94,24 +104,44 @@ def user_said(db, thread, n, seen):
     return line.split(" ", 3)[3] if line.count(" ") >= 3 else ""
 
 
-def read_gh(run, pr):
+def read_gh(run, pr, auto=False):
     try:
         login = run([GH, "api", "user", "-q", ".login"]).strip()
-        facts = json.loads(run([GH, "pr", "view", pr, "--json", PR_FIELDS]))
+        facts = json.loads(run([GH, "pr", "view", pr, "--json", PR_FIELDS + (",files" if auto else "")]))
     except (merge_pr.CmdError, ValueError) as e:
         raise Cannot(f"read PR #{pr}: {e}")
     return login, facts
 
 
-def approve(tid, run):
+def auto_gate(status, files):
+    """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop."""
+    level = approval_policy.risk_level(status)
+    tolerance, note = project_config.approval_setting()
+    auto, why = approval_policy.decide(tolerance, level)
+    if not auto:
+        raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
+    paths = [x["path"] for x in files]
+    if len(paths) >= FILES_CAP:
+        raise Stop(f"PR has {len(paths)} or more files, too many to check")
+    on_path = [p for p in paths if approval_policy.on_approval_path(p)]
+    if on_path:
+        raise Stop(f"PR changes the approval path ({on_path[0]})")
+    flags = cos_brief.flags_for(paths)
+    if flags or cos_brief.migration_numbers(paths):
+        raise Stop(f"PR needs the user: {flags[0] if flags else 'migration file'}")
+    return tolerance, level
+
+
+def approve(tid, run, auto=False):
     n = str(int(tid.rsplit("-", 1)[1]))
     check_root(run)
-    pr, sha, seen, thread = read_state(tid)
-    snippet = user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
+    pr, sha, seen, thread, status = read_state(tid, auto)
+    if not auto:
+        user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
     owner = project_config.value("Owner login")
     if not owner:
         raise Cannot("read the Owner login from project.md")
-    login, f = read_gh(run, pr)
+    login, f = read_gh(run, pr, auto)
     if login.lower() != owner.lower():
         raise Stop(f"gh is signed in as {login}, not the owner")
     if f["state"] != "OPEN":
@@ -124,12 +154,16 @@ def approve(tid, run):
         raise Stop(f"base is {f['baseRefName']}, not main")
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
+    if auto:
+        tolerance, level = auto_gate(status, f["files"])
+        return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level})"
     return f"cos-approve: verified approve {n} for #{pr} at {sha}"
 
 
 def main(argv, run=merge_pr.run):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("ticket")
+    ap.add_argument("--auto", action="store_true")
     try:
         args = ap.parse_args(argv)
         tid = args.ticket if project_config.ticket_re(anchored=True).match(args.ticket) else None
@@ -138,10 +172,10 @@ def main(argv, run=merge_pr.run):
             return 0
         tid = None
     if not tid:
-        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N")
+        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N [--auto]")
         return 2
     try:
-        print(approve(tid, run))
+        print(approve(tid, run, args.auto))
         return 0
     except Stop as e:
         print(f"cos-approve: stop {tid}: {e}")

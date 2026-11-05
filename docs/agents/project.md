@@ -15,6 +15,7 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 | Tracker scope (`<TEAM>`) | `dbeallor/collective-wisdom` |
 | Issue identifier prefix (`<PREFIX>`) | `CW` |
 | Approver | David. Approves specs and merges only |
+| Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
 
 Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers/README.md](trackers/README.md), [trackers/github.md](trackers/github.md). The `./scripts/gh.sh` wrapper does every call.
 

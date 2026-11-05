@@ -240,7 +240,7 @@ if [ ! -e "$TARGET/docs/superpowers/README.md" ]; then
 fi
 
 seed_file "$SRC/templates/project.md" "$TARGET/docs/agents/project.md" \
-  "Fill in every <placeholder> in docs/agents/project.md (prefix, repo, commands, invariants). The scripts will not run until the prefix and repo rows are real."
+  "Fill in every <placeholder> in docs/agents/project.md (prefix, repo, commands, invariants), and pick an Approval risk tolerance (strict if you leave it as is). The scripts will not run until the prefix and repo rows are real."
 seed_file "$SRC/templates/AGENTS.md" "$TARGET/AGENTS.md" \
   "Fill in the <placeholders> in AGENTS.md (project name, product, stack). Add a CLAUDE.md containing @AGENTS.md if you use Claude Code."
 

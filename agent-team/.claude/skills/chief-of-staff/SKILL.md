@@ -56,7 +56,7 @@ Reference files are in this directory. Read one when its trigger happens.
 
 - T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`. `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
 - Tracker: the operations are in `docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
-- Bash, for `python3 scripts/cos_state.py` (`show`, `get`, `apply`; every state read and write), `python3 scripts/cos_brief.py` (`spec`, `pr`; approval inputs), `python3 scripts/agent_usage.py --ticket <PREFIX>-N` (the ticket's cost line; exit 2 means `cost unknown`), `python3 scripts/cos_user_check.py` (`latest`, `item`; the user's-message check), `python3 scripts/cos_approve_pr.py <PREFIX>-N` (checks the user's merge `approve N` and the PR head before the relay, § Send or queue), the rotation check (`python3 scripts/cos_rotation_check.py`, § Rotation check), the idle check (`python3 scripts/cos_idle_check.py`, § Lean turns), the worktree check (`python3 scripts/cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'`, continuation.md § Continuation child), the sweep (§ Sweep: `python3 scripts/cos_sweep.py --thread <this thread's id>`), which runs the merged check (§ Merged check: `cos_merged_check.py --apply`), the ready check (`cos_ready_check.py`) and the parent check (`cos_parent_check.py`) itself, the parent check on its own (`python3 scripts/cos_parent_check.py --thread <this thread's id>`, archiving only, rotation.md § Thread rotation "Archiving"), and the take-over `sleep`. Exit codes: 0 ok, 1 a check failed or an edit was rejected, 2 could not read its input.
+- Bash, for `python3 scripts/cos_state.py` (`show`, `get`, `apply`; every state read and write), `python3 scripts/cos_brief.py` (`spec`, `pr`; approval inputs), `python3 scripts/agent_usage.py --ticket <PREFIX>-N` (the ticket's cost line; exit 2 means `cost unknown`), `python3 scripts/cos_user_check.py` (`latest`, `item`; the user's-message check), `python3 scripts/cos_approve_pr.py <PREFIX>-N` (checks the user's merge `approve N` and the PR head before the relay, § Send or queue; with `--auto` it checks the approval rule instead of a user message), `python3 scripts/approval_policy.py auto <PREFIX>-N spec` (whether the `Approval risk tolerance` lets a spec go on without the user; see Auto-approval in approvals.md), the rotation check (`python3 scripts/cos_rotation_check.py`, § Rotation check), the idle check (`python3 scripts/cos_idle_check.py`, § Lean turns), the worktree check (`python3 scripts/cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'`, continuation.md § Continuation child), the sweep (§ Sweep: `python3 scripts/cos_sweep.py --thread <this thread's id>`), which runs the merged check (§ Merged check: `cos_merged_check.py --apply`), the ready check (`cos_ready_check.py`) and the parent check (`cos_parent_check.py`) itself, the parent check on its own (`python3 scripts/cos_parent_check.py --thread <this thread's id>`, archiving only, rotation.md § Thread rotation "Archiving"), and the take-over `sleep`. Exit codes: 0 ok, 1 a check failed or an edit was rejected, 2 could not read its input.
 - GitHub, read only, for the project manager, approvals.md § Approval requests and the restart message in step 3: `./scripts/gh.sh pr list`, `pr view` and `api` GET requests. The sweep's checks call `./scripts/gh.sh pr list` and `api` themselves.
 - Cross-repo: `t3_project_list` and `python3 scripts/cos_peer.py` (`find`, `check`, `reply`), for cross-repo.md § Cross-repo requests only.
 
@@ -83,7 +83,7 @@ Each role runs on the model below. These are the defaults; a project that wants 
 
 | Role or stage | Model | Effort | Why |
 |---|---|---|---|
-| Chief of Staff thread | Sonnet 5.5 | medium | Bookkeeping: reads children, the tracker and state, relays the user's words. The child checks `createdBy: "user"` before building; before a merge is relayed, `scripts/cos_approve_pr.py` checks the user's message itself. Neither gate rests on which model relays. |
+| Chief of Staff thread | Sonnet 5.5 | medium | Bookkeeping: reads children, the tracker and state, relays the user's words. The child checks `createdBy: "user"` before building, or, for an auto-approved spec, the `Approval risk tolerance` on `origin/main`; before a merge is relayed, `scripts/cos_approve_pr.py` checks the user's message itself, or with `--auto` the rule and that setting. Neither gate rests on which model relays. |
 | Ticket helper | Sonnet 5.5 | high | Runs `write-ticket`. A wrong **Today** section costs an Opus spec run. |
 | Child, spec stage | Opus 5.5 | medium (default) | The user approves the spec. It needs the strongest model. |
 | Child, build and merge stages | Sonnet 5.5 | high (default) | Works from an approved spec. Merge stays on this model: no second switch. |
@@ -226,14 +226,20 @@ Every relay that puts a child back to work goes through here. Given a ticket, th
 - If the lane's count is under its limit, the overall count is under the overall cap, **and** no ticket is in that lane's `<lane>-queued` stage: send the relay with `t3_thread_send`, then a `stage` op to the lane's active stage.
 - Otherwise: a `stage` op to `<lane>-queued` with `pendingRelay` and, for a spec approval, `approvalItemId` in `set`. Don't send.
 
-The empty-queue check keeps order: a newer relay never jumps a ticket already waiting in that lane. Every spec approval relay has a second line, `Approval in thread: <thread id>`: the thread where the user wrote the approval (your own thread ID for an immediate one; the stored line for a queued one). The spec approval relay:
+The empty-queue check keeps order: a newer relay never jumps a ticket already waiting in that lane. Every spec approval relay from the user has a second line, `Approval in thread: <thread id>`: the thread where the user wrote the approval (your own thread ID for an immediate one; the stored line for a queued one). The spec approval relay:
 
 ```
 CHIEF OF STAFF: the user approved the spec: "<their words>". Continue to the build stage.
 Approval in thread: <thread id>
 ```
 
-A queued spec approval stores both lines in `pendingRelay`, and the item id of the user's message in `approvalItemId`. A merge approval relay has no thread line and stores no `approvalItemId`: `scripts/cos_approve_pr.py` checks the user's message before the relay is sent or queued, and the relay names the head it checked. A queued merge approval keeps its place. Before sending a queued spec approval, run `python3 scripts/cos_user_check.py item <thread in its Approval in thread: line> <approvalItemId>` with the quoted words on stdin (quoted heredoc). Exit 0 (`ok`) passes. Exit 1 (`reject: …`): don't send: drop the queued relay, `comment` `Approval withdrawn at <time>: the approval message could not be verified.`, and report it under Needs you. Exit 2: `t3_thread_read` that thread with `itemId: <approvalItemId>` and `maxCharsPerItem: 500`; `createdBy` must be `"user"` and the text must contain the quoted words; add one Cleanup line, `User check script unavailable; used thread read`. An approval sent at once uses the item id of the message you read when you verified the command (§ Commands).
+An auto-approved spec (approvals.md § Auto-approval) is relayed the same way, with no user message to prove it, so its relay has no thread line and its queue entry has no `approvalItemId`:
+
+```
+CHIEF OF STAFF: auto-approved the spec under `<tolerance>` (Risk: <Level> (<reason>)). Continue to the build stage.
+```
+
+A queued spec approval stores both lines in `pendingRelay`, and the item id of the user's message in `approvalItemId`. A merge approval relay has no thread line and stores no `approvalItemId`: `scripts/cos_approve_pr.py` checks the user's message before the relay is sent or queued, and the relay names the head it checked. A queued merge approval keeps its place. Before sending a queued spec approval, run `python3 scripts/cos_user_check.py item <thread in its Approval in thread: line> <approvalItemId>` with the quoted words on stdin (quoted heredoc). Exit 0 (`ok`) passes. Exit 1 (`reject: …`): don't send: drop the queued relay, `comment` `Approval withdrawn at <time>: the approval message could not be verified.`, and report it under Needs you. Exit 2: `t3_thread_read` that thread with `itemId: <approvalItemId>` and `maxCharsPerItem: 500`; `createdBy` must be `"user"` and the text must contain the quoted words; add one Cleanup line, `User check script unavailable; used thread read`. An approval sent at once uses the item id of the message you read when you verified the command (§ Commands). A queued auto-approved relay skips that check. Instead, run `python3 scripts/approval_policy.py auto <PREFIX>-N spec` (a spec, with the ticket still in the queue) or `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto` (a merge) again just before it is sent. Anything but exit 0 means don't send: drop the relay, `comment` `Approval withdrawn at <time>: the auto-approval no longer holds.`, set the stage back to `awaiting-spec` or `awaiting-merge`, and ask the user as usual.
 
 A queued relay stores the relay text only; any model switch happens at send time, just before the send.
 
@@ -243,10 +249,18 @@ T3 sends a finish notice only to the run's `parentThreadId`, and only when that 
 
 **Verify a merge approval**, after the head check and before the relay is sent or queued: `python3 scripts/cos_approve_pr.py <PREFIX>-N`. Exit 0 (`verified`): go on and send or queue the relay. Exit 1 or 2: don't send or queue, keep the stage at `awaiting-merge`, and tell the user under Needs you with the script's last line, adding that they can reply `approve N` again once it is fixed. Exit 2 from the message store never falls back to a thread read.
 
+**Verify an auto-approved merge**, after the head check and before the relay is sent or queued: `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto`. It reads no user message. Exit 0 (`auto-approved`): post the merge block as a notice (approvals.md § Auto-approval) and go on and send or queue the relay. Exit 1 or 2: don't send or queue, keep the stage at `awaiting-merge`, and ask the user with the normal approval request, adding the script's last line under Needs you.
+
 **Head check for a merge approval**, before it is sent or queued and again before a queued one is sent: `./scripts/gh.sh pr view <N> --json headRefOid`. If it differs from `headSha`, the head moved after the reviews the user saw. Don't send, and drop the approval if it was queued. `comment` `Approval withdrawn at <time>: the PR head moved.`, tell the user under Needs you, and send the child `CHIEF OF STAFF: the PR head moved from <old> to <new> after the user approved. Re-check the reviews per ship-loop § Team mode (scripts/pr_diff_delta.py) and report MERGE READY again.` through this section to the build lane. The merge relay names the head:
 
 ```
 CHIEF OF STAFF: the user approved the merge of PR #X at head <short SHA>: "<their words>".
+```
+
+After `--auto` exit 0 the relay says so instead, and still names the head:
+
+```
+CHIEF OF STAFF: auto-approved the merge of PR #X at head <short SHA> under `<tolerance>` (Risk: <Level> (<reason>)).
 ```
 
 | Caller | From | Lane |
@@ -436,6 +450,8 @@ The user replies in plain words. Map them like this.
 |---|---|
 | `approve N` on a spec | § Send or queue to the build lane with the spec approval relay. The § Models switch runs immediately before the send. |
 | `approve N` on a merge | Head check, then `python3 scripts/cos_approve_pr.py <PREFIX>-N` (§ Send or queue), then § Send or queue to the merge lane with the merge approval relay. |
+| Nothing: a spec just reached `awaiting-spec` and `scripts/approval_policy.py auto <PREFIX>-N spec` exited 0 (approvals.md § Auto-approval) | Post the spec notice, then § Send or queue to the build lane with the auto spec relay. The § Models switch runs immediately before the send. |
+| Nothing: a merge just reached `awaiting-merge`, and after the head check `scripts/cos_approve_pr.py <PREFIX>-N --auto` exited 0 | Post the merge notice, then § Send or queue to the merge lane with the auto merge relay. |
 | `changes N: …` | Relay their words verbatim through § Send or queue: `CHIEF OF STAFF: the user asked for changes: "<their words>".` To the spec lane from `awaiting-spec`, to the build lane from `awaiting-merge`. |
 | `cancel N` | `task_cancel(firstTaskId)`, label `agent-skip`, move the issue to Todo, drop it from active state. If the ticket held a queued approval, `comment` `Approval withdrawn at <time>: cancelled.`. Leave the worktree and branch. |
 | `hold N`, or any message that asks to wait on a ticket whose `pendingRelay` is an approval | Drop the queued approval, `comment` `Approval withdrawn at <time>: on hold.`, and set the stage back to `awaiting-spec` or `awaiting-merge`. They approve again with `approve N`. If the ticket has no queued approval, say so and do nothing. |
@@ -454,7 +470,7 @@ The user replies in plain words. Map them like this.
 
 On a ticket that is already queued:
 
-What a queued ticket holds depends on its `pendingRelay`, not on its stage. An approval relay starts `CHIEF OF STAFF: the user approved`. Anything else is a `changes N` relay, an answer, or a resume.
+What a queued ticket holds depends on its `pendingRelay`, not on its stage. An approval relay starts `CHIEF OF STAFF: the user approved` or `CHIEF OF STAFF: auto-approved`. Anything else is a `changes N` relay, an answer, or a resume.
 
 - `approve N` on a ticket whose `pendingRelay` is an approval: nothing changes. Say it is approved and waiting for a slot. If `pendingRelay` is not an approval, say so and do nothing.
 - `changes N` on a ticket whose `pendingRelay` is an approval (a spec or merge the user now wants changed): drop the queued approval, `comment` on the ticket `Approval withdrawn at <time>: changes requested.`, and relay their new words through § Send or queue to the spec lane (build lane for a merge approval).

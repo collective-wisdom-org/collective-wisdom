@@ -15,6 +15,7 @@ Scripts read the first backticked token in each Value cell. Keep the backticks a
 | Issue identifier prefix (`<PREFIX>`) | `<PREFIX>` |
 | Linear project (Linear only) | <project name, or none (the team is the scope)> |
 | Approver | <name>. Approves specs and merges only |
+| Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
 
 ### Choosing a tracker
 

@@ -205,7 +205,7 @@ def stage_at(relays, ts, stage="spec"):
             break
         if body.startswith("CHIEF OF STAFF: the user approved the spec"):
             stage = "build"
-        elif body.startswith("CHIEF OF STAFF: the user approved the merge"):
+        elif body.startswith(("CHIEF OF STAFF: the user approved the merge", "CHIEF OF STAFF: auto-approved the merge")):
             stage = "merge"
         else:
             m = re.search(r"[Cc]ontinue the (spec|build|merge) stage", body)

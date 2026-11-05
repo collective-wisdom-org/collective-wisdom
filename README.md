@@ -79,6 +79,10 @@ This compares the skills, agents, scripts and shared docs in the app with the co
 
 Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The scripts read the first backticked token in a Value cell, so at least the issue identifier prefix, the repo, the branch pattern and the test command need real values. Anything marked `TODO(...)` is read as unset, and agents will stop rather than guess.
 
+## Approval risk tolerance
+
+The `Approval risk tolerance` row in `docs/agents/project.md` § Identity sets which approvals the team takes without asking you: `strict` (none), `balanced` (Low risk only) or `permissive` (Low and Medium). High risk always waits for your `approve N`. The default is `strict`, and a missing row, an unknown value or a failed read counts as `strict`, so existing installs keep asking. The setting counts only as committed on `origin/main`. CI, both review PASS comments and every other merge gate apply at every level, and a PR that touches the setting or the approval and merge code itself always waits for you. `install.sh --update` never edits an existing `project.md`, so add the row by hand to turn it on. Details: `agent-team/.claude/skills/chief-of-staff/approvals.md` § Auto-approval.
+
 ## Choosing a tracker
 
 The `Tracker` row in `docs/agents/project.md` § Identity picks where tickets live: `linear`, `github` or `jira`. A repo with no row uses `linear`, so existing installs keep working. New installs get the row from the template.

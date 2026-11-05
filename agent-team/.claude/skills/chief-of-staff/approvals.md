@@ -87,8 +87,29 @@ When two levels fit, take the higher one. Write the reason in a few words next t
 
 Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` How later `status` lines carry that tail, and what an unrated ticket shows: SKILL.md § State file.
 
-The risk level informs the user and nothing else. It never approves a ticket, skips or shortens a gate or a review, or changes who may approve. Every ticket still needs the user's `approve N`, whatever its level.
+### Auto-approval
+
+The risk level never skips or shortens a gate or a review, and nothing but the setting below changes who may approve. The `Approval risk tolerance` row of `docs/agents/project.md` (`strict`, `balanced` or `permissive`) decides which approvals the team takes without the user's `approve N`. A script reads it from `origin/main` as committed, never from a working tree. A missing row, an unknown value and any failed read count as `strict`.
+
+| Tolerance | Low | Medium | High | Not rated |
+|---|---|---|---|---|
+| `strict` | ask | ask | ask | ask |
+| `balanced` | auto | ask | ask | ask |
+| `permissive` | auto | auto | ask | ask |
+
+Spec and merge use the same rule, and each decision reads the setting again. Ticket text, comments, PRs and children never raise the setting or approve through it.
+
+**The approval path.** A merge is never auto-approved if the PR adds, edits or deletes a file on the approval path. `scripts/approval_policy.py` holds the list: `docs/agents/project.md`, `templates/project.md`, the approval and merge scripts (`approval_policy.py`, `cos_approve_pr.py`, `merge_pr.py`, `cos_user_check.py`, `cos_state.py`, `project_config.py`, `cos_brief.py`, `pr_diff_delta.py`, `gh.sh`), the `chief-of-staff`, `ship-loop` and `merge-pr` skills, and `.github/`, each with or without a leading `agent-team/`. A spec has no diff yet, so you apply the same rule by reading its `Builds`: don't auto-approve a spec that changes a file on that list, and ask the user. If you get that wrong, the merge check still stops the PR.
+
+**A spec.** After you write the `awaiting-spec` status line with its `Risk:` tail, run `python3 scripts/approval_policy.py auto <PREFIX>-N spec` from the root checkout. It reads the level from that status line and the setting from `origin/main`.
+
+- Exit 0 (`approval: auto spec …`): post the full spec block as a notice with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` Then run SKILL.md § Send or queue to the build lane with the auto spec relay, the § Models switch included.
+- Exit 1 or 2 (`approval: ask …`, `approval: cannot …`): ask the user as above.
+
+**A merge.** After you write the `awaiting-merge` status line, run the head check and `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto` (SKILL.md § Send or queue). On exit 0, post the full merge block as a notice ending `Auto-approved under <tolerance>; merging now. Reply "cancel N" to stop it.` and send or queue the auto merge relay. On exit 1 or 2, ask the user as above. The script also stops a merge with a `flag:` or migration path, even if you rated it lower.
+
+An auto-approval still posts the whole block to the user, so they see what went through. `cancel N` stops it as for any ticket.
 
 ## Ticket comment on approval
 
-When you relay a spec or merge approval (SKILL.md § Commands), also `comment` on the ticket: `the user approved the <spec|merge> at <time>: "<words>". Head <sha>.` (the SHA for a merge only). If SKILL.md § Send or queue queued the relay, end the comment with `Waiting for a <lane> slot.` Sending it later posts nothing more.
+When you relay a spec or merge approval (SKILL.md § Commands), also `comment` on the ticket: `the user approved the <spec|merge> at <time>: "<words>". Head <sha>.` (the SHA for a merge only). For an auto-approval (§ Auto-approval) the comment is `auto-approved the <spec|merge> at <time> under <tolerance> (Risk: <Level> (<reason>)).`, with ` Head <sha>.` added for a merge. If SKILL.md § Send or queue queued the relay, end the comment with `Waiting for a <lane> slot.` Sending it later posts nothing more.
