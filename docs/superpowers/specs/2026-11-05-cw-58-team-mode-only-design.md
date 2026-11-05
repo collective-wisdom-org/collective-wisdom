@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-58](https://github.com/collective-wisdom-org/collective-wisdom/issues/58)
 **Status:** Shipped
-**Shipped:** in PR #131, as specified
+**Shipped:** in PR #131, with differences: [as-built](../as-built/2026-11-05-cw-58-team-mode-only-as-built.md)
 **Related:** #46
 
 ## Goal
