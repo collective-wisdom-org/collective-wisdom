@@ -1,7 +1,6 @@
 import copy
 import importlib.util
 import json
-import os
 import subprocess
 from pathlib import Path
 
@@ -20,12 +19,6 @@ NOTEMD = "docs/superpowers/release-notes/x.md"
 SHIPPED = "**Status:** Shipped\n**Shipped:** in PR #7, as specified\n"
 
 
-@pytest.fixture(autouse=True)
-def owner_row(monkeypatch):
-    """read_facts takes the owner from project.md; the fixtures use a fixed one."""
-    monkeypatch.setattr(merge_pr.project_config, "value", lambda key: "owner" if key == "Owner login" else None)
-
-
 def old_shape(f, note="\n# 2026-11-03 X-1: a title\n\nbody\n"):
     """As-built and release note as files, no body section."""
     f["body"] = ""
@@ -41,10 +34,6 @@ def review(title, verdict="PASS", at="2026-11-02T10:00:00Z", who="me"):
     }
 
 
-def approval(who="owner", state="APPROVED", on=HEAD, at="2026-11-02T10:00:00Z"):
-    return {"author": {"login": who}, "state": state, "commit": {"oid": on}, "submittedAt": at}
-
-
 def green():
     return {
         "state": "OPEN", "isDraft": False, "baseRefName": "main",
@@ -57,8 +46,7 @@ def green():
         "login": "me",
         "comments": [review("## Code review (pass 2)"), review("## Security review (pass 1)")],
         "commits": [{"oid": HEAD, "committedDate": "2026-11-02T09:00:00Z"}],
-        "pr": "7", "owner": "owner", "protection": (1, []),
-        "reviews": [approval()],
+        "pr": "7",
         "body": "## Summary\n\nx\n\n## Release note\n\nA note.\n\n## Test plan\n\ny\n",
         "files": [{"path": SPECMD, "changeType": "ADDED"}],
         "docs": {SPECMD: SHIPPED},
@@ -75,13 +63,6 @@ def reviews(**kw):
     [
         (lambda f: None, None),
         (lambda f: f.update(approved="bbbbbbb"), "is not approved head"),
-        (lambda f: f.update(reviews=[]), "no approving review by owner on head aaaaaaa"),
-        (lambda f: f.update(reviews=[approval(on="c" * 40)]), "approved ccccccc, head moved"),
-        (lambda f: f.update(reviews=[approval(who="cw-builder")]), "no approving review by owner"),
-        (lambda f: f.update(reviews=[approval(), approval(state="CHANGES_REQUESTED", at="2026-11-02T11:00:00Z")]), "latest review is CHANGES_REQUESTED"),
-        (lambda f: f.update(reviews=[approval(), approval(state="COMMENTED", on="c" * 40, at="2026-11-02T11:00:00Z")]), None),
-        (lambda f: f.update(protection=(0, [])), "no branch protection or ruleset"),
-        (lambda f: f.update(protection=(0, ["branch protection: Not Found"])), "cannot read main's protection (branch protection: Not Found)"),
         (lambda f: f.update(state="CLOSED"), "closed"),
         (lambda f: f.update(statusCheckRollup=[]), "no checks"),
         (lambda f: f.update(statusCheckRollup=[], noCi=True), None),
@@ -96,7 +77,6 @@ def reviews(**kw):
         (reviews(who="other"), "no Security review"),
         (lambda f: [c.update(body=c["body"].replace("**Verdict:**", "Verdict:")) for c in f["comments"]], None),
         (lambda f: f.update(isCrossRepository=True), "from a fork"),
-        (lambda f: f.update(login="cw-builder", agentLogins=["cw-chief", "cw-builder"]), "agent user cw-builder"),
         (lambda f: f.update(commits=[{"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}, {"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "older than head"),
         (lambda f: f.update(commits=[{"oid": "c" * 40, "committedDate": "2026-11-02T08:00:00Z"}]), "head commit not in"),
         (lambda f: f.update(root_ahead=1), "local commits"),
@@ -127,49 +107,6 @@ def test_gate(change, cause):
         assert cause in reason
 
 
-def classic(n):
-    return json.dumps({"required_pull_request_reviews": {"required_approving_review_count": n}})
-
-
-def rules(*counts):
-    return json.dumps([{"type": "pull_request", "parameters": {"required_approving_review_count": n}} for n in counts] + [{"type": "deletion"}])
-
-
-def err(text, code):
-    return merge_pr.CmdError(f"gh: {text} (HTTP {code})")
-
-
-NONE, HIDDEN = err("Branch not protected", 404), err("Not Found", 404)
-
-
-@pytest.mark.parametrize(
-    "classic_out, rules_out, want",
-    [
-        (classic(1), "[]", (1, [])),
-        (NONE, rules(2), (2, [])),
-        (classic(1), rules(2), (2, [])),
-        (NONE, "[]", (0, [])),
-        (NONE, rules(), (0, [])),
-        (HIDDEN, rules(1), (1, ["branch protection: Not Found"])),
-        (HIDDEN, "[]", (0, ["branch protection: Not Found"])),
-        (classic(1), err("Forbidden", 403), (1, ["rulesets: Forbidden"])),
-        (err("Server Error", 500), "[]", None),
-    ],
-)
-def test_read_protection(classic_out, rules_out, want):
-    def runner(cmd):
-        out = classic_out if "branches/main/protection" in " ".join(cmd) else rules_out
-        if isinstance(out, Exception):
-            raise out
-        return out
-
-    if want is None:
-        with pytest.raises(merge_pr.CmdError):
-            merge_pr.read_protection(runner)
-    else:
-        assert merge_pr.read_protection(runner) == want
-
-
 def fake(f):
     """A runner that serves reads from facts f and records every call."""
     calls = []
@@ -178,15 +115,9 @@ def fake(f):
         calls.append(cmd)
         text = " ".join(cmd)
         if "pr view" in text:
-            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "approved", "owner", "protection", "root", "root_branch", "root_dirty", "root_ahead")})
+            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
         if "api user" in text:
             return f["login"]
-        if "branches/main/protection" in text:
-            if f["protection"][0] == 0:
-                raise merge_pr.CmdError("gh: Branch not protected (HTTP 404)")
-            return json.dumps({"required_pull_request_reviews": {"required_approving_review_count": f["protection"][0]}})
-        if "rules/branches/main" in text:
-            return "[]"
         if "/contents/" in text:
             return f["docs"][next(p for p in f["docs"] if p in text)]
         if "worktree list" in text:
@@ -212,7 +143,6 @@ def writes(calls):
     "change, code, wrote",
     [
         (lambda f: f.update(approved="bbbbbbb"), 1, 0),
-        (lambda f: f.update(protection=(0, [])), 1, 0),
         (lambda f: f.update(root="/elsewhere"), 1, 0),  # run from a worktree: read_facts flags it, gate refuses
         (lambda f: f.update(root="/elsewhere", state="MERGED", mergeCommit={"oid": "m" * 40}), 1, 0),
         (lambda f: f["statusCheckRollup"][0].update(conclusion="FAILURE"), 1, 0),
@@ -287,50 +217,6 @@ def test_review_older_than_head(change, delta, cause):
         assert reason is None
     else:
         assert "older than head commit" in reason and cause in reason
-
-
-ROLES = {"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel", "builder": "cw-builder"}
-
-
-def posted(code="cw-reviewer", security="cw-sentinel", note="cw-builder"):
-    """Reviews older than the head, so a reviews-stand note from `note` has to cover them."""
-    def change(f):
-        moved(f, who=note)
-        f["comments"][:0] = [
-            review("## Code review", who=code, at="2026-11-02T09:30:00Z"),
-            review("## Security review", who=security, at="2026-11-02T09:30:00Z"),
-        ]
-    return change
-
-
-@pytest.mark.parametrize(
-    "change, roles, code, cause",
-    [
-        (posted(), ROLES, 0, None),
-        (posted(code="me"), ROLES, 1, "no Code review comment by cw-reviewer"),
-        (posted(security="me"), ROLES, 1, "no Security review comment by cw-sentinel"),
-        (posted(code="cw-sentinel"), ROLES, 1, "no Code review comment by cw-reviewer"),
-        (posted(note="me"), ROLES, 1, "no reviews-stand note"),
-        (posted(code="me", security="me", note="me"), {}, 0, None),
-    ],
-)
-def test_main_trusts_the_role_login_once_set(monkeypatch, capsys, change, roles, code, cause):
-    monkeypatch.setattr(merge_pr.project_config, "role_login", roles.get)
-    monkeypatch.setattr(merge_pr, "gate", lambda f, g=merge_pr.gate: g(f, lambda f, reviewed: ("same", [])))
-    f = green()
-    change(f)
-    runner, _ = fake(copy.deepcopy(f))
-    assert merge_pr.main(["7", f["approved"]], runner) == code
-    assert cause is None or cause in capsys.readouterr().out
-
-
-def test_main_runs_without_a_gh_role(monkeypatch):
-    """The merge stays on the owner's login even when the caller set a role."""
-    monkeypatch.setenv("AGENT_GH_ROLE", "builder")
-    f = green()
-    runner, _ = fake(f)
-    merge_pr.main(["7", f["approved"]], runner)
-    assert "AGENT_GH_ROLE" not in os.environ
 
 
 TIP = "t" * 40

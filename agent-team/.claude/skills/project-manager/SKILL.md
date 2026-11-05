@@ -21,7 +21,6 @@ You keep the Backlog ranked, start the next ready ranked ticket when a spec slot
 Tools:
 
 - Tracker: the operations in `docs/agents/trackers/README.md`.
-- GitHub user: the hygiene child and the Chief of Staff's turn share one user, so every `./scripts/gh.sh` call and tracker write carries `AGENT_GH_ROLE=chief-of-staff` (`chief-of-staff` § Tools, GitHub user).
 - GitHub, read only: `./scripts/gh.sh pr list` and `./scripts/gh.sh api` with GET requests.
 - T3, Chief of Staff only: `delegate_task` (`mode: "wait"`) for the hygiene and ranking children, and `task_cancel` for their timeouts. The children call no T3 tool.
 
