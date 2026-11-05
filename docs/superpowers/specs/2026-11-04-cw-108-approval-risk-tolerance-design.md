@@ -59,12 +59,11 @@ The same rule applies to a spec and to a merge. Each decision reads the setting 
 
 ### The approval path
 
-Under any setting, a merge is never auto-approved if the PR adds, edits or deletes a file on the approval path. The script holds the list, matched with or without a leading `agent-team/`:
+Under any setting, a merge is never auto-approved if the PR adds, edits or deletes a file on the approval path. The script holds the list, matched with or without a leading `agent-team/` and ignoring case:
 
-- `docs/agents/project.md` and `templates/project.md`
-- `docs/agents/code-review.md`, `docs/agents/security-review.md`, `AGENTS.md` and `CLAUDE.md`
-- everything under `scripts/` and `.claude/`
-- `.github/`
+- everything under `docs/agents/` (`project.md`, the review rules and every other role doc, trackers included), and `templates/project.md`
+- `AGENTS.md` and `CLAUDE.md`
+- everything under `scripts/`, `.claude/`, `.agents/` and `.github/`, and the bare names of those root links
 
 Without this, `permissive` would let a Medium PR (Medium covers "changes how the team itself works") rewrite the gate that let it through. A spec has no diff yet, so approvals.md adds the same rule in prose: the Chief of Staff doesn't auto-approve a spec whose Builds change a file on this list. If it gets that wrong, the merge check still stops the PR.
 
@@ -82,7 +81,7 @@ It reads the ticket from the state file (stage must be `awaiting-spec`), takes t
 - exit 1: `approval: ask <PREFIX>-N (<why>)`, for example `strict`, `High`, `not rated`
 - exit 2: `approval: cannot <what>`. Treated as ask.
 
-On exit 0, the Chief of Staff posts the full spec block as a notice, with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` Then it runs § Send or queue as for `approve N` (Models switch included) with this relay:
+On exit 0, the Chief of Staff posts the full spec block as a notice, with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` (`the build starts when a slot frees` when the relay is queued) Then it runs § Send or queue as for `approve N` (Models switch included) with this relay:
 
 ```
 CHIEF OF STAFF: auto-approved the spec under `<tolerance>` (Risk: <Level> (<reason>)). Continue to the build stage.
@@ -90,7 +89,7 @@ CHIEF OF STAFF: auto-approved the spec under `<tolerance>` (Risk: <Level> (<reas
 
 It comments on the ticket: `auto-approved the spec at <time> under <tolerance> (Risk: <Level> (<reason>)).` On exit 1 or 2, it asks the user as today.
 
-The child can't read the Chief of Staff's state, so ship-loop § Relays gets a second accepted form. For a relay that starts `CHIEF OF STAFF: auto-approved the spec`, the child runs `python3 scripts/approval_policy.py check <Level>` from its worktree. That reads the setting from `origin/main` and applies the rule to the relayed level. On exit 0 it builds. Otherwise it stops with `BLOCKED:` and the script's last line. It also stops with `BLOCKED:` if its own spec changes a file on the approval path. The proof is the setting on `main`,.
+The child can't read the Chief of Staff's state, so ship-loop § Relays gets a second accepted form. For a relay that starts `CHIEF OF STAFF: auto-approved the spec`, the child runs `python3 scripts/approval_policy.py check <Level>` from its worktree. That reads the setting from `origin/main` and applies the rule to the relayed level. On exit 0 it builds. Otherwise it stops with `BLOCKED:` and the script's last line. It also stops with `BLOCKED:` if its own spec changes a file on the approval path. The proof is the setting on `main`.
 
 ### Merge auto-approval
 
@@ -142,7 +141,7 @@ merge-pr § Team mode accepts that relay like a user approval: its proof is that
 
 ## Calls I made
 
-- ⚠ Under `permissive`, most agent-team changes are Medium and would merge without you. I carved out the approval path: any PR touching `project.md`, the review rules, any script, skill or agent file, or `.github/` always waits for you, at every level.
+- ⚠ Under `permissive`, most agent-team changes are Medium and would merge without you. I carved out the approval path: any PR touching `project.md`, any role doc under `docs/agents/`, any script, skill or agent file, or `.github/` always waits for you, at every level.
 - ⚠ This repo's own row is set to `strict`, so nothing changes here until you change it.
 - The setting counts only as committed on `origin/main`. An edit in the root checkout that isn't committed and pushed does nothing.
 - Spec and merge use the same rule. There is no "auto-approve specs but always ask before merge" mode.

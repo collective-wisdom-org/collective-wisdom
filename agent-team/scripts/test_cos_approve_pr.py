@@ -114,7 +114,7 @@ def test_cos_approve_auto(tmp_path, monkeypatch, capsys, changes, code, line):
     monkeypatch.setattr(cap.cos_state, "DEFAULT_FILE", state)
     monkeypatch.setattr(cap.cos_user_check, "DEFAULT_DB", tmp_path / "no-such.sqlite")  # --auto must not open it
     pr = {"state": "OPEN", "isDraft": False, "baseRefName": "main", "isCrossRepository": False, "headRefOid": HEAD,
-          "files": changes.get("files", F("agent-team/docs/agents/approvals.md")), **changes.get("pr", {})}
+          "files": changes.get("files", F("agent-team/docs/superpowers/specs/x.md")), **changes.get("pr", {})}
     calls = []
 
     def run(cmd):

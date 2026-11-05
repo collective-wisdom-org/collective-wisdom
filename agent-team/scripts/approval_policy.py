@@ -35,18 +35,12 @@ LEVELS = ("Low", "Medium", "High")
 AUTO_RELAY = "CHIEF OF STAFF: auto-approved"  # a queued auto approval is re-checked just before it is sent
 RISK_TAIL = re.compile(r"Risk: (\w+) \(.*\)\.?\s*$")
 
-# Files a PR may not change and still be auto-approved: the setting, the review rules, and everything that
-# enforces them (all scripts and all skills, agents and settings under .claude/). Matched with or without a
-# leading `agent-team/`.
-PATH_FILES = {
-    "docs/agents/project.md",
-    "templates/project.md",
-    "docs/agents/code-review.md",
-    "docs/agents/security-review.md",
-    "AGENTS.md",
-    "CLAUDE.md",
-}
-PATH_DIRS = ("scripts/", ".claude/", ".github/")
+# Files a PR may not change and still be auto-approved: the setting, the review rules and every other role doc
+# (all of docs/agents/), and everything that enforces them (all scripts and all skills, agents and settings under
+# .claude/). Matched with or without a leading `agent-team/`, ignoring case, and also by the bare name of a root
+# link (`scripts`, `.claude`, `.github`, `.agents`), which `gh` can list as a file.
+PATH_FILES = {"templates/project.md", "agents.md", "claude.md", "scripts", ".claude", ".github", ".agents"}
+PATH_DIRS = ("docs/agents/", "scripts/", ".claude/", ".github/", ".agents/")
 
 
 def risk_level(status):
@@ -72,7 +66,7 @@ def decide(tolerance, level):
 
 
 def on_approval_path(path):
-    p = path.removeprefix("./").removeprefix("agent-team/")
+    p = path.lower().removeprefix("./").removeprefix("agent-team/")
     return p in PATH_FILES or p.startswith(PATH_DIRS)
 
 

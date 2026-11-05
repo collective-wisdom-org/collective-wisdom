@@ -18,3 +18,5 @@
 - For `CHIEF OF STAFF: auto-approved the spec`, the ship-loop child also reads the Chief of Staff thread and needs an assistant notice for the ticket saying `Auto-approved under <tolerance>`, else `BLOCKED:`.
 - `agent_usage.py` also files the cost after `CHIEF OF STAFF: auto-approved the spec` under build.
 - `approval_policy.py check` ends with `approval: auto spec under <tolerance> (Risk: <Level>)` or `approval: ask (<why>)`; the spec gave no format.
+- The approval path is all of `docs/agents/` (trackers included), not just `project.md` and the two review docs, plus `.agents/`. Paths are compared in lower case, and the bare names of the root links (`scripts`, `.claude`, `.github`, `.agents`) match too.
+- A queued auto spec relay sent from a thread other than the one that posted the notice (after a thread rotation) gets a one-line `Auto-approved under <tolerance>` notice in the sending thread first. The notice says `the build starts when a slot frees` when the ticket is queued. The ship-loop child needs the notice to come after its latest `SPEC READY`.
