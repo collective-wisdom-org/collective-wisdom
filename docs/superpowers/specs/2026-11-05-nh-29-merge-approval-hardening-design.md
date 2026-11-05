@@ -2,7 +2,7 @@
 
 **Ticket:** [NH-29 (noahstotland/nohands#29)](https://github.com/noahstotland/nohands/issues/29)
 **Status:** Shipped
-**Shipped:** in PR #PRNUM, as specified
+**Shipped:** in PR #123, as specified
 
 ## Goal
 
