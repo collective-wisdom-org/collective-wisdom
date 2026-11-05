@@ -62,8 +62,9 @@ The same rule applies to a spec and to a merge. Each decision reads the setting 
 Under any setting, a merge is never auto-approved if the PR adds, edits or deletes a file on the approval path. The script holds the list, matched with or without a leading `agent-team/` and ignoring case:
 
 - everything under `docs/agents/` (`project.md`, the review rules and every other role doc, trackers included), and `templates/project.md`
-- `AGENTS.md` and `CLAUDE.md`
-- everything under `scripts/`, `.claude/`, `.agents/` and `.github/`, and the bare names of those root links
+- dot-directories and dot-files at the root (`.claude`, `.github`, `.agents`, `.cursor`, `.codex`, `.vscode`, `.mcp.json`, `.gitignore` and the like)
+- everything under `scripts/`, and the bare name of that root link
+- `templates/AGENTS.md`, and any file at any depth named `AGENTS.md` or `CLAUDE.md` or like `AGENTS.override.md` and `CLAUDE.local.md`
 
 Without this, `permissive` would let a Medium PR (Medium covers "changes how the team itself works") rewrite the gate that let it through. A spec has no diff yet, so approvals.md adds the same rule in prose: the Chief of Staff doesn't auto-approve a spec whose Builds change a file on this list. If it gets that wrong, the merge check still stops the PR.
 
@@ -141,7 +142,7 @@ merge-pr § Team mode accepts that relay like a user approval: its proof is that
 
 ## Calls I made
 
-- ⚠ Under `permissive`, most agent-team changes are Medium and would merge without you. I carved out the approval path: any PR touching `project.md`, any role doc under `docs/agents/`, any script, skill or agent file, or `.github/` always waits for you, at every level.
+- ⚠ Under `permissive`, most agent-team changes are Medium and would merge without you. I carved out the approval path: any PR touching `project.md`, any role doc under `docs/agents/`, any script, any dot-directory or dot-file at the root, or any `AGENTS.md` or `CLAUDE.md` file always waits for you, at every level.
 - ⚠ This repo's own row is set to `strict`, so nothing changes here until you change it.
 - The setting counts only as committed on `origin/main`. An edit in the root checkout that isn't committed and pushed does nothing.
 - Spec and merge use the same rule. There is no "auto-approve specs but always ask before merge" mode.

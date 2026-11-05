@@ -78,6 +78,15 @@ PATHS = [
     ("src/docs/agents/project.md", False),
     ("src/scripts/x.py", False),
     ("README.md", False),
+    (".cursor/hooks.json", True),
+    (".codex/config.toml", True),
+    ("AGENTS.override.md", True),
+    ("CLAUDE.local.md", True),
+    (".mcp.json", True),
+    (".vscode/tasks.json", True),
+    ("docs/superpowers/specs/CLAUDE.md", True),
+    ("agent-team/templates/AGENTS.md", True),
+    ("agent-team/templates/other.md", False),
 ]
 
 
