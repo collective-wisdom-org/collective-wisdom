@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-127](https://github.com/collective-wisdom-org/collective-wisdom/issues/127)
 **Status:** Shipped
-**Shipped:** in PR #136, as specified
+**Shipped:** in PR #136, with differences: [as-built](../as-built/2026-11-05-cw-127-teammate-approval-as-built.md)
 
 ## Goal
 
