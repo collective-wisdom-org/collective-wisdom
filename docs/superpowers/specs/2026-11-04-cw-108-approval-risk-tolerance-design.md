@@ -90,7 +90,7 @@ CHIEF OF STAFF: auto-approved the spec under `<tolerance>` (Risk: <Level> (<reas
 
 It comments on the ticket: `auto-approved the spec at <time> under <tolerance> (Risk: <Level> (<reason>)).` On exit 1 or 2, it asks the user as today.
 
-The child can't read the Chief of Staff's state, so ship-loop § Relays gets a second accepted form. For a relay that starts `CHIEF OF STAFF: auto-approved the spec`, the child runs `python3 scripts/approval_policy.py check <Level>` from its worktree. That reads the setting from `origin/main` and applies the rule to the relayed level. On exit 0 it builds. Otherwise it stops with `BLOCKED:` and the script's last line. It also stops with `BLOCKED:` if its own spec changes a file on the approval path. The proof is the setting on `main`, and (as built) the Chief of Staff's `Auto-approved under` notice in its thread.
+The child can't read the Chief of Staff's state, so ship-loop § Relays gets a second accepted form. For a relay that starts `CHIEF OF STAFF: auto-approved the spec`, the child runs `python3 scripts/approval_policy.py check <Level>` from its worktree. That reads the setting from `origin/main` and applies the rule to the relayed level. On exit 0 it builds. Otherwise it stops with `BLOCKED:` and the script's last line. It also stops with `BLOCKED:` if its own spec changes a file on the approval path. The proof is the setting on `main`,.
 
 ### Merge auto-approval
 

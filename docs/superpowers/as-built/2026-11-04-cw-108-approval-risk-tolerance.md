@@ -12,7 +12,6 @@
 - `approval_policy.py` accepts `-h` and `--help` (exit 0).
 - `project_config.py` also has `approval_setting()`, which returns the level and the reason for a fallback to `strict`.
 - The `Risk:` tail needs a valid level followed by a parenthesised reason. A status line with more than one `Risk: ` reads as not rated, so a title or reason cannot carry a second rating.
-- The approval path is wider than the spec: everything under `scripts/` and `.claude/`, plus `.github/`, `docs/agents/code-review.md`, `docs/agents/security-review.md`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/project.md` and `templates/project.md`, with or without `agent-team/`.
 - The setting is read as `refs/remotes/origin/main:docs/agents/project.md`, so a local branch or tag named `origin/main` cannot win.
 - A ticket queued with an auto-approved relay (`build-queued` for a spec, `merge-queued` for a merge) is re-checked by `approval_policy.py auto` and `cos_approve_pr.py --auto` just before the relay is sent.
 - `cos_approve_pr.py --auto` stops when any PR file is renamed, because `gh` gives only the new path.
