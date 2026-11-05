@@ -36,7 +36,7 @@ case "$REF" in -*) echo "bad ref: $REF" >&2; usage ;; esac
 [ -z "$FROM" ] || [ -z "$REF" ] || { echo "--from and --to cannot be used together" >&2; usage; }
 # Release tags are v0.N only, the shape the pin records; this also rules out a name that starts with "-".
 [ -z "$FROM" ] || [[ "$FROM" =~ ^v0\.[0-9]+$ ]] || { echo "bad tag: $FROM (expected v0.N)" >&2; usage; }
-if [ "$CHECK" -eq 1 ]; then [ -z "$REF" ] && [ -z "$FROM" ] && [ "$UPDATE$FORCE" = "00" ] || usage; fi
+if [ "$CHECK" -eq 1 ] && { [ -n "$REF" ] || [ -n "$FROM" ] || [ "$UPDATE$FORCE" != "00" ]; }; then usage; fi
 [ "$FORCE" -eq 0 ] || [ "$UPDATE" -eq 1 ] || { echo "--force only goes with --update" >&2; usage; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
