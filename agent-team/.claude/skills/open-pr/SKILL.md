@@ -106,10 +106,10 @@ During later fix commits (phase 3 or 4): if a fix changes what ships, update the
 
 A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `docs/agents/documenter.md`. You apply the fixes.
 
-1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body.
+1. After the closeout commit is pushed, run the documenter on `origin/<target>...HEAD` (`<target>` is the merge target branch, the `Merge target branch` row of `project.md`, default `main`). Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body.
 2. Check the documenter changed nothing (`git status --porcelain` is empty and `HEAD` is the SHA you passed); if it did, stop with `BLOCKED:`. Fix each finding that is right. Commit `docs: bring docs in line with <PREFIX>-N` and push. Note any finding you reject, and why; it goes in the review brief.
-3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a `main` merge that `scripts/pr_diff_delta.py` calls `same`.
-4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in `main` isn't read as part of the change.
+3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a merge of the merge target branch that `scripts/pr_diff_delta.py` calls `same`.
+4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in target branch isn't read as part of the change.
 
 After the PR exists, continue immediately to **Feedback loop**. Never merge or approve it (see Forbidden below).
 
@@ -121,12 +121,12 @@ If the **autopilot** skill is available (Cursor), read and follow it in full. **
 
 Otherwise (Claude Code), run this loop yourself until checks are green and every review comment is answered, or you are blocked:
 
-1. `./scripts/gh.sh pr view <N> --json mergeable,mergeStateStatus,headRefName`. If the branch conflicts with `main`, merge `origin/main` into the branch in the worktree, resolve conflicts that have one clear answer, and push. Ask the user about the rest.
+1. `./scripts/gh.sh pr view <N> --json mergeable,mergeStateStatus,headRefName`. If the branch conflicts with the merge target branch, merge `origin/<target>` into the branch in the worktree, resolve conflicts that have one clear answer, and push. Ask the user about the rest.
 2. `./scripts/gh.sh pr checks <N> --watch`. For each failing check, read `./scripts/gh.sh run view <run-id> --log-failed`, find the cause, fix it, run the matching local check, commit, and push.
 3. Read new review comments: `./scripts/gh.sh api repos/<owner>/<repo>/pulls/<N>/comments` and `./scripts/gh.sh pr view <N> --comments`. Fix what is clearly right and reply in thread per § Inline review replies. When a suggestion is wrong, reply in thread with the reason. Ask the user when a comment needs a product decision.
 4. After every push, start again at step 1.
 
-Edit only in the PR's worktree when one exists (root checkout stays on `main`).
+Edit only in the PR's worktree when one exists (root checkout stays on the merge target branch).
 
 ### Review scope
 

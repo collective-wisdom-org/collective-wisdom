@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward root main.
+"""Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward the root checkout (on the merge target branch).
 
 Usage:
     scripts/merge_pr.py <PR number> <approved head SHA>
@@ -108,7 +108,7 @@ def read_facts(pr, approved, run):
 
 
 def real_delta(f, reviewed):
-    """Fetch main and the PR head into the root checkout, then compare the PR's diff at both heads."""
+    """Fetch the merge target branch and the PR head into the root checkout, then compare the PR's diff at both heads."""
     pr_diff_delta.fetch(f["pr"], pr_diff_delta.run)
     return pr_diff_delta.delta(reviewed, f["headRefOid"], pr_diff_delta.run)
 
@@ -183,8 +183,9 @@ def gate(f, delta=real_delta):
         return "PR is a draft"
     if f["isCrossRepository"]:
         return "PR is from a fork"
-    if f["baseRefName"] != "main":
-        return f"base is {f['baseRefName']}, not main"
+    target = project_config.target_branch()
+    if f["baseRefName"] != target:
+        return f"base is {f['baseRefName']}, not {target}"
     if not f["headRefOid"].startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
     if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != "CLEAN":
@@ -226,17 +227,17 @@ def gate(f, delta=real_delta):
         return 'proof missing: no "## Proof" section in the PR body'
     if not re.search(r"^Not proven", proof, re.M):
         return 'proof missing: the "## Proof" section has no "Not proven" line'
-    if f["root_branch"] != "main":
-        return f"root checkout is on {f['root_branch']}, not main; cannot fast-forward"
+    if f["root_branch"] != target:
+        return f"root checkout is on {f['root_branch']}, not {target}; cannot fast-forward"
     if f["root_dirty"]:
         return "root checkout has tracked changes; cannot fast-forward"
     if f["root_ahead"] is None or f["root_ahead"] > 0:
-        return "root main has local commits / no upstream; cannot fast-forward"
+        return f"root {target} has local commits / no upstream; cannot fast-forward"
     return None
 
 
 def cleanup(f, run):
-    """Delete the remote branch if it is still the PR head, then fast-forward root main.
+    """Delete the remote branch if it is still the PR head, then fast-forward the root checkout (on the merge target branch).
 
     Raises CmdError(what). A fork PR's branch is not ours to delete.
     """
@@ -254,12 +255,13 @@ def cleanup(f, run):
             except CmdError as e:
                 if not re.search(r"HTTP 4(04|22)", str(e)):
                     raise CmdError(f"delete branch: {e}")
-    if f["root_branch"] != "main":
-        raise CmdError(f"fast-forward root main: root checkout is on {f['root_branch']}")
+    target = project_config.target_branch()
+    if f["root_branch"] != target:
+        raise CmdError(f"fast-forward root {target}: root checkout is on {f['root_branch']}")
     try:
         run(["git", "-C", f["root"], "pull", "--ff-only"])
     except CmdError as e:
-        raise CmdError(f"fast-forward root main: {e}")
+        raise CmdError(f"fast-forward root {target}: {e}")
 
 
 class Skip(Exception):
@@ -272,8 +274,8 @@ def blob_sha(data):
 
 
 def note_files(run):
-    """(file name, text) for each regular `.md` blob directly in the release notes folder of origin/main."""
-    out = run(["git", "ls-tree", "-z", "refs/remotes/origin/main", "--", NOTES_DIR])
+    """(file name, text) for each regular `.md` blob directly in the release notes folder of origin/<merge target branch>."""
+    out = run(["git", "ls-tree", "-z", project_config.target_ref(), "--", NOTES_DIR])
     files = []
     for entry in out.split("\0"):
         meta, _, path = entry.partition("\t")
@@ -290,13 +292,14 @@ def post(run, kind, body, method="POST"):
 
 
 def publish_notes(pr, sha, run):
+    target = project_config.target_branch()
     try:
-        prs = json.loads(run([GH, "pr", "list", "--state", "merged", "--base", "main",
+        prs = json.loads(run([GH, "pr", "list", "--state", "merged", "--base", target,
                               "--json", "number,title,body,mergedAt", "--limit", "500"]))
     except Exception:
         raise Skip("cannot read merged PRs; release notes not published")
     try:
-        run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"])
+        run(["git", "merge-base", "--is-ancestor", sha, project_config.target_ref()])
         text = release_notes.render(note_files(run), prs, release_notes.file_merge_times()) + "\n"
     except Exception as e:
         raise Skip(f"cannot build the release notes: {type(e).__name__} {e}")

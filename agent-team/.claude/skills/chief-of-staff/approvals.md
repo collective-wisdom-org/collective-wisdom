@@ -14,9 +14,9 @@ On `SPEC READY`:
 
 On `MERGE READY`:
 
-1. Run `python3 scripts/cos_brief.py pr <N> --head <reported head SHA>`. It prints the URL, head, checks, the latest code review and security review lines, a `head moved by merging main since <short SHA>; reviews stand <comment URL>` line when the head moved by a main merge, a `cost:` line (what the ticket's child threads have cost so far, or `cost: unknown`), file counts, `flag:` lines and `migrations:`. Exit 2 (`cannot read PR`): tell the user the PR can't be read.
+1. Run `python3 scripts/cos_brief.py pr <N> --head <reported head SHA>`. It prints the URL, head, checks, the latest code review and security review lines, a `head moved by merging <target> since <short SHA>; reviews stand <comment URL>` line when the head moved by a merge of the merge target branch (`<target>`), a `cost:` line (what the ticket's child threads have cost so far, or `cost: unknown`), file counts, `flag:` lines and `migrations:`. Exit 2 (`cannot read PR`): tell the user the PR can't be read.
 2. Check that `head:` says it matches the reported SHA, and that the two PASS links in the review lines are the ones the child reported. If either is off or a review says `not posted`, send the child back with `t3_thread_send`: `CHIEF OF STAFF: <the mismatch>. Fix it and report MERGE READY again.` Set the stage back to `build`. Don't ask the user yet.
-3. Build the block from the child's `MERGE READY` report and that output. When the `head moved by merging main` line is there, the merge block's Reviews line ends with `(head moved by a main merge only since <short SHA>; PR diff unchanged)`. Name each `migrations:` clash and `flag:` line under Risks; flags are hints, so still name anything else you know touches data, money, auth, user email or migrations.
+3. Build the block from the child's `MERGE READY` report and that output. When the `head moved by merging <target>` line is there, the merge block's Reviews line ends with `(head moved by a <target> merge only since <short SHA>; PR diff unchanged)`. Name each `migrations:` clash and `flag:` line under Risks; flags are hints, so still name anything else you know touches data, money, auth, user email or migrations.
 
 Spec block:
 
@@ -90,7 +90,7 @@ Keep the rating in the ticket's `status` line. End the line you write with the `
 
 ### Auto-approval
 
-The risk level never skips or shortens a gate or a review, and nothing but the setting below, and § Observation tickets, changes who may approve. The `Approval risk tolerance` row of `docs/agents/project.md` (`strict`, `balanced` or `permissive`) decides which approvals the team takes without the user's `approve N`. A script reads it from `origin/main` as committed, never from a working tree. A missing row, an unknown value and any failed read count as `strict`.
+The risk level never skips or shortens a gate or a review, and nothing but the setting below, and § Observation tickets, changes who may approve. The `Approval risk tolerance` row of `docs/agents/project.md` (`strict`, `balanced` or `permissive`) decides which approvals the team takes without the user's `approve N`. A script reads it from `origin/<target>` (the merge target branch) as committed, never from a working tree. A missing row, an unknown value and any failed read count as `strict`.
 
 | Tolerance | Low | Medium | High | Not rated |
 |---|---|---|---|---|
@@ -104,7 +104,7 @@ Spec and merge use the same rule, and each decision reads the setting again. Tic
 
 **Observation tickets.** The team's own filings keep a person approving every step. Before you run either auto check below, `get-ticket` with `id, description`. If the body contains `Filed by the Chief of Staff from its own observation` anywhere, ignoring case (ticket-helper.md § Observation tickets), or the read fails, the ticket is never auto-approved, at spec or merge, under any setting: don't run the check, ask the user. Ticket text can only make you ask, never auto-approve.
 
-**A spec.** After you write the `awaiting-spec` status line with its `Risk:` tail, run `python3 scripts/approval_policy.py auto <PREFIX>-N spec` from the root checkout. It reads the level from that status line and the setting from `origin/main`.
+**A spec.** After you write the `awaiting-spec` status line with its `Risk:` tail, run `python3 scripts/approval_policy.py auto <PREFIX>-N spec` from the root checkout. It reads the level from that status line and the setting from `origin/<target>`.
 
 - Exit 0 (`approval: auto spec …`): post the full spec block as a notice with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` If § Send or queue will queue the relay, write `the build starts when a slot frees` in place of `the build has started`. Then run SKILL.md § Send or queue to the build lane with the auto spec relay, the § Models switch included. When a queued auto spec relay is later sent, always post `<PREFIX>-N: Auto-approved under <tolerance>; the build has started.` in the sending thread first, so the child finds a notice that is newer than anything else the Chief of Staff said about the ticket.
 - Exit 1 or 2 (`approval: ask …`, `approval: cannot …`): ask the user as above.

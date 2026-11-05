@@ -99,9 +99,35 @@ def tracker():
     return t
 
 
+DEFAULT_TARGET = "main"
+
+
+def _plain_branch(t):
+    """t when it is a plain branch name; SystemExit for anything else."""
+    bad = (
+        not re.fullmatch(r"[A-Za-z0-9._/-]+", t)
+        or t[0] in "-/."
+        or t[-1] in "/."
+        or t.endswith(".lock")
+        or ".." in t
+        or "//" in t
+    )
+    if bad:
+        raise SystemExit(f"project.md: 'Merge target branch' row has no usable branch name, got `{t}`")
+    return t
+
+
+def target_branch():
+    """The branch every PR merges into: the `Merge target branch` row, `main` when unset."""
+    return _plain_branch(value("Merge target branch") or DEFAULT_TARGET)
+
+
+def target_ref():
+    """The merge target branch as a full remote-tracking ref name, so a tag named origin/<branch> cannot win."""
+    return f"refs/remotes/origin/{target_branch()}"
+
+
 TOLERANCES = ("strict", "balanced", "permissive")
-# Fully qualified so a local branch or tag named `origin/main` cannot win.
-MAIN_PROJECT_MD = "refs/remotes/origin/main:docs/agents/project.md"
 
 
 def _git(cmd):
@@ -116,19 +142,32 @@ def _git(cmd):
 
 
 def approval_setting(run=_git):
-    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/main (read as refs/remotes/origin/main).
+    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/<target>.
 
-    Never reads the working tree, so a branch or an uncommitted edit cannot change it. Every failure to read
-    (git, file, row) and every unknown value gives ("strict", why). note is "" when the row set the level.
+    <target> is the merge target branch, read as refs/remotes/origin/<target>. Never reads the working tree for the
+    level, so a branch or an uncommitted edit cannot change it. Every failure to read (git, file, row) and every unknown
+    value gives ("strict", why), and so does a target that starts with the branch pattern head (an agent can push
+    it) or a committed project.md that names another target. note is "" when the row set the level.
     """
     try:
-        run(["git", "fetch", "origin", "main"])
-        text = run(["git", "show", MAIN_PROJECT_MD])
+        target = target_branch()
+    except SystemExit as e:
+        return "strict", str(e)
+    if target.startswith(branch_head()):
+        return "strict", f"merge target branch `{target}` is a ticket branch"
+    try:
+        run(["git", "fetch", "origin", target])
+        text = run(["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"])
+        committed = _plain_branch(value("Merge target branch", _parse(text)) or DEFAULT_TARGET)
     except OSError as e:
-        return "strict", f"could not read project.md on origin/main: {e}"
+        return "strict", f"could not read project.md on origin/{target}: {e}"
+    except SystemExit as e:
+        return "strict", str(e)
+    if committed != target:
+        return "strict", f"project.md on origin/{target} names merge target branch `{committed}`, not `{target}`"
     v = value("Approval risk tolerance", _parse(text))
     if v is None:
-        return "strict", "no Approval risk tolerance value on origin/main"
+        return "strict", f"no Approval risk tolerance value on origin/{target}"
     if v.lower() not in TOLERANCES:
         return "strict", f"unknown Approval risk tolerance `{v}`"
     return v.lower(), ""

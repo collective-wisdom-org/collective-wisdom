@@ -13,7 +13,7 @@ Before acting, read **ship-loop** § Repo invariants.
 
 ## Preconditions
 
-1. Confirm **cwd** is the feature worktree, not root on `main`.
+1. Confirm **cwd** is the feature worktree, not root on the merge target branch.
 2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user).
 3. Stay within `AGENTS.md` scope.
 
@@ -43,7 +43,7 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 ## Git
 
 - **Do not commit** unless the user explicitly asks.
-- No force-push to `main`.
+- No force-push to the merge target branch.
 
 ## When all tasks pass
 
@@ -53,5 +53,5 @@ Read and follow **finishing-a-development-branch**, or prompt: *"make a pr"* →
 
 When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 
-- Commit and push as tasks finish. The "Do not commit unless the user asks" rule is lifted. Never push to `main`. Push only this ticket's `feat/<prefix>-N-*` branch.
+- Commit and push as tasks finish. The "Do not commit unless the user asks" rule is lifted. Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
 - Don't offer a choice at the end. Go straight to **open-pr**.

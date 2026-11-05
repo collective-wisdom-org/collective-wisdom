@@ -6,7 +6,7 @@ Read on a new ticket, a ticket edit, "place / link these tickets", a change to h
 
 A one-shot thread that writes a ticket for the user so this thread reads no code and writes nothing to the tracker for it. It holds no lane slot, has no stage, and is not in state.
 
-1. `delegate_task` with `isolation: "shared"` (the root checkout on `main`, read only), `mode: "async"`, `role: "general"`, `title: "Ticket: <3 to 6 words from the user's message>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "high"}}`, and the template below.
+1. `delegate_task` with `isolation: "shared"` (the root checkout on the merge target branch, read only), `mode: "async"`, `role: "general"`, `title: "Ticket: <3 to 6 words from the user's message>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "high"}}`, and the template below.
 2. Save nothing to state. Don't call `task_status`.
 3. Reply `On it: <link>.` using the thread's `link` from the `delegate_task` response.
 
@@ -22,7 +22,7 @@ Ignore write-ticket § Team mode.
 
 Rules:
 - Write nothing outside the tracker. Don't edit, create or delete files, switch
-  branches, commit or push. You run in the root checkout on main: read only.
+  branches, commit or push. You run in the root checkout on the merge target branch: read only.
 - GitHub and Slack are read only for you: no merge, push, file writes or
   messages. The tracker is the only thing you write.
 - Never call t3_thread_send, t3_thread_transfer, t3_thread_launch,

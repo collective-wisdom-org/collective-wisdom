@@ -226,7 +226,7 @@ def moved_line(oid, comments, login):
     m = found and MOVED_RE.match(found["body"])
     if not m or not oid.startswith(m.group(1).lower()):
         return None
-    return f"head moved by merging main since {m.group(2)[:7].lower()}; reviews stand {found.get('url', '')}"
+    return f"head moved by merging {project_config.target_branch()} since {m.group(2)[:7].lower()}; reviews stand {found.get('url', '')}"
 
 
 def flags_for(paths):
@@ -263,10 +263,11 @@ def migration_numbers(paths):
 def migrations_line(n, nums):
     if not nums:
         return "migrations: none"
+    target = project_config.target_branch()
     try:
         others = gh_json("pr", "list", "--repo", REPO, "--state", "open", "--limit", "100",
                          "--json", "number,files")
-        main_files = gh_json("api", f"repos/{REPO}/contents/{MIGRATIONS_DIR}?ref=main")
+        target_files = gh_json("api", f"repos/{REPO}/contents/{MIGRATIONS_DIR}?ref={target}")
     except ReadError:
         die(f"cannot read PR #{n}")
     clashes = []
@@ -277,12 +278,12 @@ def migrations_line(n, nums):
         for num in nums:
             if num in theirs:
                 clashes.append(f"#{o['number']} also adds {num}")
-    on_main = [int(m.group(1)) for f in main_files
+    on_target = [int(m.group(1)) for f in target_files
                if (m := re.match(r"(\d+)_", f.get("name", "")))]
-    highest = max(on_main) if on_main else None
+    highest = max(on_target) if on_target else None
     low = [num for num in nums if highest is not None and int(num) <= highest]
     line = f"migrations: {', '.join(nums)}; open PRs: " + ("; ".join(clashes) if clashes else "none")
-    line += f"; main highest: {highest:03d}" if highest is not None else "; main highest: ?"
+    line += f"; {target} highest: {highest:03d}" if highest is not None else f"; {target} highest: ?"
     if low:
         line += f" (AT OR BELOW: {', '.join(low)})"
     return line

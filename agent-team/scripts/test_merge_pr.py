@@ -114,6 +114,26 @@ def test_gate(change, cause):
         assert cause in reason
 
 
+@pytest.mark.parametrize(
+    "row, base, root_branch, cause",
+    [
+        ("| Merge target branch | `dev` |\n", "dev", "dev", None),
+        ("| Merge target branch | `dev` |\n", "main", "dev", "base is main, not dev"),
+        ("| Merge target branch | `dev` |\n", "dev", "main", "root checkout is on main, not dev"),
+        ("", "main", "main", None),
+        ("", "dev", "main", "base is dev, not main"),
+        ("", "main", "dev", "root checkout is on dev, not main"),
+    ],
+)
+def test_gate_uses_the_merge_target_branch(tmp_path, monkeypatch, row, base, root_branch, cause):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + row)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    f = {**green(), "baseRefName": base, "root_branch": root_branch}
+    reason = merge_pr.gate(f)
+    assert reason is None if cause is None else cause in reason
+
+
 def fake(f):
     """A runner that serves reads from facts f and records every call."""
     calls = []

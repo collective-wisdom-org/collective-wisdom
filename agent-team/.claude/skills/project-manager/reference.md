@@ -71,7 +71,7 @@ Task:
 PROJECT MANAGER HYGIENE. One-shot.
 
 Read .claude/skills/project-manager/SKILL.md and run § Hygiene pass for team
-<TEAM>, from the root checkout on main.
+<TEAM>, from the root checkout on the merge target branch.
 
 Rules:
 - Tracker writes: only what that skill's § Guardrails allows the hygiene pass

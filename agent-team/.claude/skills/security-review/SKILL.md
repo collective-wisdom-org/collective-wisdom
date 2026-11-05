@@ -22,11 +22,11 @@ When `scripts/review_scope.py` prints `docs-only` for the head, this review is s
 
 **Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 
-- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on `main` unless the branch lives there.
+- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
 - **Diff:** `branch changes` (default).
 - **Custom Instructions:** the list below.
 
-**Claude Code:** from the PR worktree on the head branch, run the built-in `/security-review` command. It does not take custom instructions, so then review `git diff origin/main...HEAD` yourself against the list below. If `/security-review` is unavailable in the session, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below instead. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. In team mode, use that subagent path instead of `/security-review`, which runs on the child's own model.
+**Claude Code:** from the PR worktree on the head branch, run the built-in `/security-review` command. It does not take custom instructions, so then review `git diff origin/<target>...HEAD` (`<target>` is the merge target branch) yourself against the list below. If `/security-review` is unavailable in the session, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below instead. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. In team mode, use that subagent path instead of `/security-review`, which runs on the child's own model.
 
 **Custom Instructions** (always apply):
 

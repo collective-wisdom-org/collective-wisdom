@@ -29,6 +29,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Key | Value |
 |---|---|
 | Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is the issue prefix in lower case) |
+| Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
 | Owner login (trusted review-comment author) | `<github-login>` |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
@@ -53,8 +54,8 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 
 Skills and the Chief of Staff restate these in every child task.
 
-- The root checkout stays on `main`. Branch work happens in a worktree: `.worktrees/<short-name>/`, or the one T3 Code created under `~/.t3/worktrees/`.
-- Never push to `main`; push only the ticket's own `feat/<prefix>-N-*` branch.
+- The root checkout stays on the merge target branch. Branch work happens in a worktree: `.worktrees/<short-name>/`, or the one T3 Code created under `~/.t3/worktrees/`.
+- Never push to the merge target branch; push only the ticket's own `feat/<prefix>-N-*` branch.
 - Exception: the publish step in `scripts/merge_pr.py` writes `RELEASE_NOTES.md` on the `release-notes` branch through the GitHub API after a merge. No agent, skill or other script writes that branch, by push or by API.
 - Never commit `.env`, API keys or tokens.
 - <Name the local data directories that must never be deleted, and the docker rules (for example, no `docker compose up` from a worktree, no `down -v`). Add any other repo-specific rules.>
