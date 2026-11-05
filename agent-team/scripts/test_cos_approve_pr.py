@@ -90,7 +90,7 @@ AUTO_ROWS = [
     ("approval path file", {"files": F("README.md", "agent-team/scripts/merge_pr.py")}, 1, "approval path (agent-team/scripts/merge_pr.py)"),
     ("project.md", {"files": F("docs/agents/project.md")}, 1, "approval path"),
     ("renamed file", {"files": [{"path": "docs/x.md", "changeType": "RENAMED"}]}, 1, "renames a file (docs/x.md)"),
-    ("file entry without changeType", {"files": [{"path": "docs/x.md"}]}, 2, "cannot read the state file or PR facts: KeyError"),
+    ("file entry without changeType", {"files": [{"path": "docs/x.md"}]}, 2, "gh gave no changeType"),
     ("merge-queued auto relay", {"stage": "merge-queued", "relay": "CHIEF OF STAFF: auto-approved the merge of PR #7"}, 0, "auto-approved"),
     ("merge-queued user relay", {"stage": "merge-queued", "relay": "CHIEF OF STAFF: the user approved the merge"}, 1, "not in awaiting-merge"),
     ("flag path", {"files": F("src/auth/login.py")}, 1, "flag: src/auth/login.py"),

@@ -5,8 +5,8 @@ Usage:
     scripts/cos_approve_pr.py <PREFIX>-N
     scripts/cos_approve_pr.py <PREFIX>-N --auto
 
-The caller picks only the ticket ID (and the optional `--auto` flag): it cannot pick the message store or the state file. The PR, its head, the thread, the cut-off time and the words
-(`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
+The caller picks only the ticket ID (and the optional `--auto` flag): it cannot pick the message store or the state
+file. The PR, its head, the thread, the cut-off time and the words (`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
 Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
 
 Gates, in order; the first failure stops: root checkout, state, the user's message (scripts/cos_user_check.py latest),
@@ -125,6 +125,9 @@ def auto_gate(status, files):
     if not auto:
         raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
     paths = [x["path"] for x in files]
+    for x in files:
+        if "changeType" not in x:
+            raise Cannot(f"read the PR files: gh gave no changeType for {x['path']}; needs a newer gh")
     renamed = [x["path"] for x in files if x["changeType"] == "RENAMED"]
     if renamed:  # gh gives only the new path, so the old one could be on the approval path
         raise Stop(f"PR renames a file ({renamed[0]}), too hard to check")
