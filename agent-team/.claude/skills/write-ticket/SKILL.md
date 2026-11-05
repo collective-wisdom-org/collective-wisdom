@@ -70,6 +70,7 @@ When the request is terse, fill only the gaps needed to make the ticket actionab
 - Never add `agent` or `agent-skip`. Those belong to the Chief of Staff and the user.
 - Priority: set it only when the user gives one or the request makes it plain (a bug that breaks sign-in). Otherwise leave it empty; the project manager hygiene child fills it.
 - Status: Backlog for new tickets. Never move a ticket to Todo; that is the user's call.
+- A ship-loop child changes only its own ticket, and this skill doesn't widen that.
 
 ## Editing
 
@@ -94,7 +95,3 @@ After saving, tell the user:
 - its links (blocked-by, related),
 - the labels and priority set,
 - every assumption you made and every fact you couldn't check.
-
-## Team mode
-
-A team-mode child follows `ship-loop` § Team mode: it changes only its own ticket, and this skill doesn't widen that.

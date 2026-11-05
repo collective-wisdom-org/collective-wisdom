@@ -1,6 +1,6 @@
 # Security review
 
-Before merge, the ship loop runs **security-review** (phase 4). On Cursor that skill uses the **review-security** subagent; on Claude Code, the built-in `/security-review` command plus a manual pass against the OWASP list. Either way it runs on the PR branch worktree.
+Before merge, the ship loop runs **security-review** (phase 4). On Cursor that skill uses the **review-security** subagent; on Claude Code, the `security-reviewer` subagent (Opus) against the OWASP list. Either way it runs on the PR branch worktree.
 
 ## OWASP references
 

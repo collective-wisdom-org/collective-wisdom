@@ -1,6 +1,6 @@
 # Project config (<product name>)
 
-The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value not decided yet; an agent that needs one must not guess (in team mode, stop with `BLOCKED:`).
+The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value not decided yet; an agent that needs one must not guess (stop with `BLOCKED:`).
 
 Scripts read the first backticked token in each Value cell. Keep the backticks around the real value, and keep notes free of extra backticks in the cells marked below.
 
