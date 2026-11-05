@@ -10,6 +10,7 @@ FIXTURE = """| Key | Value |
 | Repo (`<owner>/<repo>`) | `example/app` |
 | Branch pattern | `feat/<prefix>-N-short-title` |
 | Migrations directory | none |
+| Owner login (trusted review-comment author) | `me` |
 """
 
 _dir = tempfile.mkdtemp(prefix="agent-team-tests-")

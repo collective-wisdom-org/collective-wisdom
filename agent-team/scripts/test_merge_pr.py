@@ -43,7 +43,7 @@ def green():
             {"__typename": "CheckRun", "name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"},
             {"__typename": "StatusContext", "context": "ext", "state": "SUCCESS"},
         ],
-        "login": "me",
+        "login": "me", "owner": "me",
         "comments": [review("## Code review (pass 2)"), review("## Security review (pass 1)")],
         "commits": [{"oid": HEAD, "committedDate": "2026-11-02T09:00:00Z"}],
         "pr": "7",
@@ -63,6 +63,10 @@ def reviews(**kw):
     [
         (lambda f: None, None),
         (lambda f: f.update(approved="bbbbbbb"), "is not approved head"),
+        (lambda f: f.update(owner="ME"), None),
+        (lambda f: f.update(login="agent"), "gh is signed in as agent, not the owner me"),
+        (lambda f: f.update(login="agent", state="MERGED"), "not the owner"),
+        (lambda f: f.update(owner=None), "no Owner login"),
         (lambda f: f.update(state="CLOSED"), "closed"),
         (lambda f: f.update(statusCheckRollup=[]), "no checks"),
         (lambda f: f.update(statusCheckRollup=[], noCi=True), None),
@@ -118,7 +122,7 @@ def fake(f):
         calls.append(cmd)
         text = " ".join(cmd)
         if "pr view" in text:
-            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
+            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "owner", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
         if "api user" in text:
             return f["login"]
         if "/contents/" in text:
@@ -146,6 +150,7 @@ def writes(calls):
     "change, code, wrote",
     [
         (lambda f: f.update(approved="bbbbbbb"), 1, 0),
+        (lambda f: f.update(login="agent"), 1, 0),
         (lambda f: f.update(root="/elsewhere"), 1, 0),  # run from a worktree: read_facts flags it, gate refuses
         (lambda f: f.update(root="/elsewhere", state="MERGED", mergeCommit={"oid": "m" * 40}), 1, 0),
         (lambda f: f["statusCheckRollup"][0].update(conclusion="FAILURE"), 1, 0),

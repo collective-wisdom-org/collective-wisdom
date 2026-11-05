@@ -81,6 +81,23 @@ def test_relay_and_child_start_stamp_lastRelayAt(ops, stamped):
     assert ("lastRelayAt" in new) == stamped
 
 
+OLD_SEEN = "2020-01-01T00:00:00Z"
+
+
+@pytest.mark.parametrize("stage, op, restamped", [
+    ("awaiting-merge", {"op": "set", "set": {"headSha": "b" * 40}}, True),
+    ("awaiting-merge", {"op": "stage", "stage": "awaiting-merge", "status": "s", "set": {"headSha": "b" * 40}}, True),
+    ("awaiting-merge", {"op": "set", "set": {"headSha": "a" * 40}}, False),
+    ("awaiting-merge", {"op": "stage", "stage": "awaiting-merge", "status": "s"}, False),
+    ("awaiting-merge", {"op": "set", "set": {"pr": "7"}}, False),
+    ("build", {"op": "set", "set": {"headSha": "b" * 40}}, False),
+])
+def test_new_head_in_a_stamped_stage_restamps_lastSeenAt(stage, op, restamped):
+    state = {**STATE, "tickets": {"ABC-1": ticket(stage, headSha="a" * 40, lastSeenAt=OLD_SEEN)}}
+    new, _, _ = cos_state.apply_ops(state, [{"ticket": "ABC-1", **op}])
+    assert (new["tickets"]["ABC-1"]["lastSeenAt"] != OLD_SEEN) == restamped
+
+
 @pytest.mark.parametrize("bad", [
     {"op": "set", "ticket": "ABC-1", "set": {"bogus": 1}},
     {"op": "set", "ticket": "ABC-1", "set": {"stage": "merge"}},

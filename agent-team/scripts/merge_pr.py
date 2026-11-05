@@ -5,7 +5,7 @@ Usage:
     scripts/merge_pr.py <PR number> <approved head SHA>
 
 Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
-the checks list of the merge-pr skill must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
+the checks list of the merge-pr skill (gh signed in as project.md's Owner login among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
 After the fast-forward it publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. A failed publish prints
@@ -75,6 +75,7 @@ def read_facts(pr, approved, run):
     f["approved"] = approved
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
+    f["owner"] = project_config.value("Owner login")
     f["noCi"] = project_config.no_ci()
     f["docs"] = {}
     if f["state"] == "OPEN":
@@ -168,6 +169,10 @@ def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
     if f.get("not_root_checkout"):
         return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
+    if not f.get("owner"):
+        return "project.md has no Owner login; cannot tell whose gh login this is"
+    if f["login"].lower() != f["owner"].lower():
+        return f"gh is signed in as {f['login']}, not the owner {f['owner']}"
     if f["state"] == "MERGED":
         return None
     if f["state"] == "CLOSED":
