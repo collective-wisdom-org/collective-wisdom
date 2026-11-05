@@ -14,7 +14,7 @@ threads as <id>><successor>, oldest first, with "(archived)" on archived ones). 
 one ticket (or the pm block) as JSON. apply reads a JSON list of operations on stdin and
 applies all of them or none: it prints "unchanged", or "saved" and one line per changed
 ticket, and writes through a temp file, fsync and os.replace under a flock on state.lock
-next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries and unknown top-level keys.
+next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch
@@ -27,6 +27,8 @@ Operations (each {"op": NAME, ...}):
     retire    threadId; optional successor (the thread id that took over)
     archive   threadId, archivedAt (a time, or null to undo)
     unretire  threadId
+    observe   kind; optional ticket. Records a sighting and prints a note: file (start an
+              observation ticket helper) or hold. The only op that writes "observed".
     prune
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
@@ -53,7 +55,7 @@ DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
     "retiredThreads", "rotation", "rotationHeldUntil", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
-    "merged", "tickets", "pm",
+    "merged", "tickets", "pm", "observed",
 }
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
@@ -71,6 +73,12 @@ PM = {
 }
 ID = project_config.ticket_re(anchored=True)
 DAY = timedelta(hours=24)
+WEEK = timedelta(days=7)
+KINDS = (
+    "lost-notice", "handoff-unavailable", "wait-check-unreadable", "stall", "rotation-failed",
+    "helper-no-report", "script-unavailable",
+)
+SLUG = re.compile(r"[a-z0-9-]{1,40}")
 
 
 class Reject(Exception):
@@ -91,6 +99,11 @@ def parse(s):
 def older_than_day(s):
     t = parse(s)
     return t is not None and datetime.now(timezone.utc) - t > DAY
+
+
+def within(s, delta):
+    t = parse(s)
+    return t is not None and datetime.now(timezone.utc) - t <= delta
 
 
 # ---- operations ----------------------------------------------------------------------
@@ -124,7 +137,7 @@ def merge_set(t, sets):
 
 def ticket_of(s, op):
     tid = op.get("ticket")
-    if not isinstance(tid, str) or not ID.match(tid):
+    if not isinstance(tid, str) or not ID.fullmatch(tid):
         raise Reject(f"bad ticket id {tid!r}")
     return tid, s["tickets"].get(tid)
 
@@ -219,7 +232,7 @@ def op_drop(s, op):
 
 def op_top(s, op):
     need(op, "set")
-    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt"}, "top-level")
+    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed"}, "top-level")
     s.update(op["set"])
 
 
@@ -259,6 +272,50 @@ def op_unretire(s, op):
     s["retiredThreads"] = [r for r in s["retiredThreads"] if r.get("threadId") != op["threadId"]]
 
 
+def dicts(v):
+    """A list's dict entries; [] when v is not a list (a hand-edited bad shape)."""
+    return [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+
+
+def op_observe(s, op, notes, filed_now, ticketless):
+    """Record a sighting and decide in the same write whether to file a ticket for the kind."""
+    need(op, "kind", optional=("ticket",))
+    kind, ticket = op["kind"], op.get("ticket")
+    if not (kind in KINDS or (isinstance(kind, str) and kind.startswith("other:") and SLUG.fullmatch(kind[6:]))):
+        raise Reject(f"unknown observation kind {kind!r}")
+    if ticket is not None and not (isinstance(ticket, str) and ID.fullmatch(ticket)):
+        raise Reject(f"bad ticket id {ticket!r}")
+    if not isinstance(s.get("observed"), dict):
+        s["observed"] = {}
+    seen = s["observed"]["sightings"] = dicts(s["observed"].get("sightings"))
+    filed = s["observed"]["filed"] = dicts(s["observed"].get("filed"))
+    if ticket is None:
+        new = kind not in ticketless  # one ticketless sighting per kind per apply call
+        ticketless.add(kind)
+    else:
+        new = not any(x.get("kind") == kind and x.get("ticket") == ticket and within(x.get("at"), WEEK) for x in seen)
+    if new:
+        seen.append({"kind": kind, "ticket": ticket, "at": now()})
+    hits = [x for x in seen if x.get("kind") == kind and within(x.get("at"), WEEK)]
+    need_n = 1 if kind.startswith("other:") else 2
+    last = max((f["at"] for f in filed if f.get("kind") == kind and within(f.get("at"), WEEK)), default=None)
+    if len(hits) < need_n:
+        why = f"{len(hits)} of {need_n} sightings"
+    elif last:
+        why = f"filed {last[:10]}"
+    elif sum(within(f.get("at"), DAY) for f in filed) >= 3:
+        why = "3 filed today"
+    elif filed_now[0]:
+        why = "one per turn"
+    else:
+        filed.append({"kind": kind, "at": now()})
+        filed_now[0] = True
+        counted = ", ".join(f"{x.get('ticket') or '-'} {t(x['at'])}" for x in hits)
+        notes.append(f"observe {kind}: file ({counted})")
+        return
+    notes.append(f"observe {kind}: hold ({why})")
+
+
 def op_prune(s, op, notes=None):
     need(op)
     for k in [k for k in s if k not in TOP]:
@@ -270,6 +327,9 @@ def op_prune(s, op, notes=None):
             m = s["merged"][tid] = {"pr": m, "at": now()}
         elif older_than_day(m.get("at")):
             del s["merged"][tid]
+    if isinstance(s.get("observed"), dict):
+        for k in ("sightings", "filed"):
+            s["observed"][k] = [x for x in dicts(s["observed"].get(k)) if within(x.get("at"), WEEK)]
     s["retiredThreads"] = [
         {k: v for k, v in r.items() if k != "scheduledTaskId"}
         for r in s["retiredThreads"]
@@ -280,7 +340,7 @@ def op_prune(s, op, notes=None):
 OPS = {
     "start": op_start, "stage": op_stage, "set": op_set, "merged": op_merged, "drop": op_drop,
     "top": op_top, "pm": op_pm, "retire": op_retire, "archive": op_archive,
-    "unretire": op_unretire, "prune": op_prune,
+    "unretire": op_unretire, "prune": op_prune, "observe": op_observe,
 }
 
 
@@ -289,7 +349,7 @@ def apply_ops(state, ops):
     s = copy.deepcopy(state)
     for k, empty in (("tickets", {}), ("merged", {}), ("retiredThreads", [])):
         s.setdefault(k, empty)
-    notes = []
+    notes, filed_now, ticketless = [], [False], set()  # filed_now: an observe op already said file in this call
     if not isinstance(ops, list):
         raise Reject("op 0: expected a JSON list of operations")
     for i, op in enumerate(ops):
@@ -298,6 +358,8 @@ def apply_ops(state, ops):
                 raise Reject(f"unknown op {op.get('op') if isinstance(op, dict) else op!r}")
             if op["op"] == "prune":
                 op_prune(s, op, notes)
+            elif op["op"] == "observe":
+                op_observe(s, op, notes, filed_now, ticketless)
             else:
                 OPS[op["op"]](s, op)
         except Reject as e:

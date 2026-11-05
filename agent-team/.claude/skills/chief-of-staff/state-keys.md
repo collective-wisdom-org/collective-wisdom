@@ -20,6 +20,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 - **`rotationHeldUntil`**: set by a failed handoff; no rotation before this time.
 - **`wakeTaskId`, `wakeAt`**: the pending rate-limit wake (SKILL.md § Full pass step 4) and the time it is set to fire. `wakeTaskId` is `null` when no wake is pending. `wakeAt` stays set until `rateLimitedAt` clears, so a lost wake can be made again.
 - **`merged`**: tickets whose child reported `MERGED #N`, as `{"pr": N, "at": "<time>"}`. The project manager hygiene child uses it to move them to Done if the tracker lags. `prune` drops entries older than 24 hours and rewrites a bare number as merged now.
+- **`observed`**: `{"sightings": [{"kind", "ticket", "at"}], "filed": [{"kind", "at"}]}`, the Chief of Staff's own process sightings and the observation tickets it has filed (SKILL.md § Full pass step 6a). Only the `observe` op writes it (a `top` op is rejected). `observe` decides `file` or `hold` from it and prints a note; `prune` drops entries older than 7 days. A state file without it works: the first `observe` adds it.
 - **`pm`**: owned by `project-manager` § State (`apply` `pm` ops). Don't edit it here.
 
 ## Unknown keys and prune
