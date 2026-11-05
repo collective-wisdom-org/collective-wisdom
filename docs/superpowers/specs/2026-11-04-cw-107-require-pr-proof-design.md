@@ -63,7 +63,6 @@ Rules:
 - `gate()`, right after the release note check: read `section(f["body"], "Proof")`.
   - Empty or absent: `proof missing: no "## Proof" section in the PR body`.
   - No line starting `Not proven` in it: `proof missing: the "## Proof" section has no "Not proven" line`.
-- The module docstring's list of what the gate checks gets the proof line.
 - `merge-pr` SKILL § Closeout in PR names the `## Proof` section next to the release note.
 
 Test: new rows in `test_gate`, next to the release note rows. `green()`'s body gains a `## Proof` section with `Not proven: nothing`. Rows: no section; a heading with nothing under it before the next `## `; a section with no `Not proven` line; CRLF line endings pass.
