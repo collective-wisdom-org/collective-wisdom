@@ -18,7 +18,7 @@ TICKET HELPER. Chief of Staff thread: <this thread's id>[ Request from <sender t
 Run /write-ticket for the user's request below, then stop.
 
 You are not a team-mode child. You have no ticket, branch, stage or slot.
-Ignore write-ticket § Team mode.
+The ship-loop child rule in write-ticket doesn't apply to you.
 
 Rules:
 - Write nothing outside the tracker. Don't edit, create or delete files, switch

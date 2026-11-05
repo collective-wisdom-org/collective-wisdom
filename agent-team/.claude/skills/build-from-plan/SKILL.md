@@ -42,16 +42,10 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 
 ## Git
 
-- **Do not commit** unless the user explicitly asks.
+- Commit and push as tasks finish.
+- Never push to `main`. Push only this ticket's `feat/<prefix>-N-*` branch.
 - No force-push to `main`.
 
 ## When all tasks pass
 
-Read and follow **finishing-a-development-branch**, or prompt: *"make a pr"* → **open-pr** (open + feedback loop).
-
-## Team mode
-
-When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
-
-- Commit and push as tasks finish. The "Do not commit unless the user asks" rule is lifted. Never push to `main`. Push only this ticket's `feat/<prefix>-N-*` branch.
-- Don't offer a choice at the end. Go straight to **open-pr**.
+Go straight to **open-pr** (open + feedback loop). Don't offer a choice.
