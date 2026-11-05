@@ -123,6 +123,7 @@ def test_gate(change, cause):
         ("", "main", "main", None),
         ("", "dev", "main", "base is dev, not main"),
         ("", "main", "dev", "root checkout is on dev, not main"),
+        ("| Merge target branch | `-x` |\n", "main", "main", "'Merge target branch' row has no usable branch name"),
     ],
 )
 def test_gate_uses_the_merge_target_branch(tmp_path, monkeypatch, row, base, root_branch, cause):
@@ -208,6 +209,34 @@ def test_cleanup_deletes_only_our_unmoved_branch(tip, cross, deleted):
     merge_pr.cleanup(f, runner)
     assert any("DELETE" in c for c in calls) == deleted
     assert any("pull" in c for c in calls)
+
+
+@pytest.mark.parametrize(
+    "row, root_branch, pulled",
+    [
+        ("| Merge target branch | `dev` |\n", "dev", True),
+        ("| Merge target branch | `dev` |\n", "main", False),
+        ("", "main", True),
+        ("", "dev", False),
+    ],
+)
+def test_cleanup_fast_forwards_only_a_root_on_the_merge_target_branch(tmp_path, monkeypatch, row, root_branch, pulled):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + row)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    calls = []
+
+    def runner(cmd):
+        calls.append(cmd)
+        return ""
+
+    f = {"isCrossRepository": True, "headRefName": "feat/x", "headRefOid": HEAD, "root": "/root", "root_branch": root_branch}
+    if pulled:
+        merge_pr.cleanup(f, runner)
+    else:
+        with pytest.raises(merge_pr.CmdError, match="fast-forward root"):
+            merge_pr.cleanup(f, runner)
+    assert [c for c in calls if "pull" in c] == ([["git", "-C", "/root", "pull", "--ff-only"]] if pulled else [])
 
 
 OLD = "c" * 40

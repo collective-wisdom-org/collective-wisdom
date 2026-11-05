@@ -70,9 +70,9 @@ def repo():
     return r if r and re.fullmatch(r"[\w.-]+/[\w.-]+", r) else None
 
 
-def branch_head():
+def branch_head(rows=None):
     """Text before `<prefix>` in the branch pattern (e.g. `feat/`)."""
-    pat = value("Branch pattern") or ""
+    pat = value("Branch pattern", rows) or ""
     head = pat.split("<prefix>")[0] if "<prefix>" in pat else ""
     return head or FALLBACK_BRANCH_HEAD
 
@@ -141,19 +141,34 @@ def _git(cmd):
     return p.stdout
 
 
+def _root_rows(run):
+    """Rows of project.md in the root checkout, the first entry of `git worktree list`. Raises OSError."""
+    first = run(["git", "worktree", "list", "--porcelain"]).strip().split("\n\n")[0].splitlines()
+    if not first or not first[0].startswith("worktree "):
+        raise OSError("no root checkout in git worktree list")
+    try:
+        return _parse((Path(first[0].removeprefix("worktree ")) / "docs" / "agents" / "project.md").read_text())
+    except ValueError as e:  # undecodable bytes
+        raise OSError(type(e).__name__)
+
+
 def approval_setting(run=_git):
     """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/<target>.
 
-    <target> is the merge target branch, read as refs/remotes/origin/<target>. Never reads the working tree for the
-    level, so a branch or an uncommitted edit cannot change it. Every failure to read (git, file, row) and every unknown
-    value gives ("strict", why), and so does a target that starts with the branch pattern head (an agent can push
-    it) or a committed project.md that names another target. note is "" when the row set the level.
+    <target> is the `Merge target branch` row of the root checkout's project.md (the first entry of `git worktree list`,
+    so a feature worktree's own edit of that row changes nothing), read as refs/remotes/origin/<target>. The level is
+    never read from a working tree. Every failure to read (git, file, row) and every unknown value gives ("strict", why),
+    and so does a target that starts with the branch pattern head (from the root checkout's project.md too; an agent can
+    push such a branch) or a committed project.md that names another target. note is "" when the row set the level.
     """
     try:
-        target = target_branch()
+        rows = _root_rows(run)
+        target = _plain_branch(value("Merge target branch", rows) or DEFAULT_TARGET)
+    except OSError as e:
+        return "strict", f"could not read project.md in the root checkout: {e}"
     except SystemExit as e:
         return "strict", str(e)
-    if target.startswith(branch_head()):
+    if target.startswith(branch_head(rows)):
         return "strict", f"merge target branch `{target}` is a ticket branch"
     try:
         run(["git", "fetch", "origin", target])

@@ -159,7 +159,10 @@ def approve(tid, run, auto=False):
         raise Stop("PR is a draft")
     if f["isCrossRepository"]:
         raise Stop("PR is from a fork")
-    target = project_config.target_branch()
+    try:
+        target = project_config.target_branch()
+    except SystemExit:
+        raise Cannot("read the Merge target branch row of project.md")
     if f["baseRefName"] != target:
         raise Stop(f"base is {f['baseRefName']}, not {target}")
     if f["headRefOid"] != sha:

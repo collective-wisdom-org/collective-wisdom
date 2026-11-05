@@ -183,7 +183,10 @@ def gate(f, delta=real_delta):
         return "PR is a draft"
     if f["isCrossRepository"]:
         return "PR is from a fork"
-    target = project_config.target_branch()
+    try:
+        target = project_config.target_branch()
+    except SystemExit as e:
+        return str(e)
     if f["baseRefName"] != target:
         return f"base is {f['baseRefName']}, not {target}"
     if not f["headRefOid"].startswith(f["approved"]):

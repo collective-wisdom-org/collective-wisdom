@@ -8,7 +8,7 @@ Usage:
 
 Reads the thread's context size (agent_usage.py --context), the skill commit and the
 branch (git), and the state file. Exit 0 for "ok" and "rotate"; exit 2 with
-"rotation-check: cannot read <what>" when the context, git or state is unreadable.
+"rotation-check: cannot read <what>" when the context, git or state is unreadable, or the `Merge target branch` row of project.md is invalid.
 Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) and,
 with --record-takeover, takeoverContext, through cos_state.py. It never rotates anything.
 --hook is silent unless the session is the Chief of Staff's (session_id equals

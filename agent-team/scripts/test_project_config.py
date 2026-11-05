@@ -119,30 +119,42 @@ def _file(target, tolerance="permissive"):
     return f"{row}| Approval risk tolerance | `{tolerance}` |\n"
 
 
-@pytest.mark.parametrize("target,committed,want", [
-    ("dev", _file("dev"), ("permissive", "")),
-    ("main", _file(None, "balanced"), ("balanced", "")),
-    ("feat/next", _file("feat/next"), "strict"),
-    ("dev", _file("main"), "strict"),
-    ("dev", _file(None), "strict"),
-    ("main", _file("dev"), "strict"),
-    ("dev", _file("-x"), "strict"),
-    ("-x", _file("-x"), "strict"),
+# target: what the root checkout's project.md names. tree: what the current worktree's project.md names (None: the same).
+@pytest.mark.parametrize("target,committed,want,tree", [
+    ("dev", _file("dev"), ("permissive", ""), None),
+    ("main", _file(None, "balanced"), ("balanced", ""), None),
+    ("feat/next", _file("feat/next"), "strict", None),
+    ("dev", _file("main"), "strict", None),
+    ("dev", _file(None), "strict", None),
+    ("main", _file("dev"), "strict", None),
+    ("dev", _file("-x"), "strict", None),
+    ("-x", _file("-x"), "strict", None),
+    # a worktree that names another target changes nothing: the root's row decides
+    ("main", _file("x"), "strict", "x"),
+    ("dev", _file("dev"), ("permissive", ""), "main"),
+    ("feat/next", _file("dev"), "strict", "dev"),
 ])
-def test_approval_setting_follows_the_target(tmp_path, monkeypatch, target, committed, want):
-    _set_project_md(tmp_path, monkeypatch, f"| Merge target branch | `{target}` |\n")
+def test_approval_setting_follows_the_target(tmp_path, monkeypatch, target, committed, want, tree):
+    _set_project_md(tmp_path, monkeypatch, f"| Merge target branch | `{tree or target}` |\n")
+    root = tmp_path / "root" / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text(f"| Branch pattern | `feat/<prefix>-N-x` |\n| Merge target branch | `{target}` |\n")
     calls = []
 
     def fake(cmd):
         calls.append(cmd)
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path / 'root'}\nHEAD x\n\nworktree {tmp_path}\nHEAD y\n"
         return committed
 
     got = project_config.approval_setting(fake)
     assert (got if isinstance(want, tuple) else got[0]) == want
+    listing = ["git", "worktree", "list", "--porcelain"]
     if want != "strict":
         assert calls == [
+            listing,
             ["git", "fetch", "origin", target],
             ["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"],
         ]
-    if target.startswith("feat/"):
-        assert calls == []
+    if target.startswith(("feat/", "-")):
+        assert calls == [listing]

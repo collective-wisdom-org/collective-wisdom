@@ -10,11 +10,13 @@ ROW = "| Approval risk tolerance (`strict`, `balanced` or `permissive`) | {} |\n
 HEADER = "| Key | Value |\n|---|---|\n"
 
 
-def reader(text=None, fail=None):
-    """A git runner that serves `text` for the git show, or fails the named command."""
+def reader(root, text=None, fail=None):
+    """A git runner whose root checkout is `root`; it serves `text` for the git show, or fails the named command."""
     def run(cmd):
         if fail and fail in cmd:
             raise OSError("boom")
+        if cmd[1] == "worktree":
+            return f"worktree {root}\nHEAD x\n"
         return text if cmd[1] == "show" else ""
     return run
 
@@ -35,9 +37,11 @@ SETTINGS = [
 
 
 @pytest.mark.parametrize("text, tolerance", SETTINGS)
-def test_setting_reads_origin_main_and_fails_closed(text, tolerance):
+def test_setting_reads_origin_main_and_fails_closed(tmp_path, text, tolerance):
     fail = {None: "fetch", "show fails": "show"}.get(text)
-    run = reader("" if fail else text, fail)
+    run = reader(tmp_path, "" if fail else text, fail)
+    (tmp_path / "docs" / "agents").mkdir(parents=True)
+    (tmp_path / "docs" / "agents" / "project.md").write_text("| Repo | `a/b` |\n")
     assert project_config.approval_tolerance(run) == tolerance
 
 

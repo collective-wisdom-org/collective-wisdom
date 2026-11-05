@@ -5,8 +5,8 @@ Usage:
     scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-spec status line
     scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
 
-The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting), never from a
-working tree. A missing row, an unknown value or a failed read is `strict`. The rule:
+The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting); the level is never read
+from a working tree, and the merge target branch is read from the root checkout. A missing row, an unknown value or a failed read is `strict`. The rule:
 
     strict      asks for everything
     balanced    auto for Low

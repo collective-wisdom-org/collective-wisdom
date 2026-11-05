@@ -35,13 +35,14 @@ An app can merge its PRs into a branch other than `main`, such as `dev`. A new `
 
 Every app-side `main` reads `target_branch()`:
 
+- `merge_pr.py` and `cos_approve_pr.py`: an invalid `Merge target branch` row stops the script with its message (`merge-pr: stop #N: ...`, exit 1; `cos-approve: cannot read the Merge target branch row of project.md`, exit 2) instead of escaping as a traceback.
 - `merge_pr.py`: the base check (`base is X, not <target>`), the root checkout check and the fast-forward in `cleanup()`, the fetch before the diff compare, and `publish_notes()` (`--base <target>`, `refs/remotes/origin/<target>`). Messages name the target.
 - `pr_diff_delta.py`, `review_scope.py`, `release_notes.py`: the ref becomes `refs/remotes/origin/<target>` and the fetch refspec `+refs/heads/<target>:refs/remotes/origin/<target>`. Docstrings say "the merge target branch".
 - `cos_approve_pr.py`: the base check uses the target.
 - `cos_brief.py`: `?ref=<target>` for the migrations folder, and the moved line says "merging <target>". The `Head moved to` regexes don't mention `main`, so they stay.
 - `cos_rotation_check.py`: rotate on a skill change when the root checkout is on the target.
-- `project_config.approval_setting()` reads `refs/remotes/origin/<target>:docs/agents/project.md`, with two extra guards so a branch an agent can push cannot become the trusted source (see Calls I made):
-  - the target read from the working tree must not start with the branch pattern head (`feat/` by default), and
+- `project_config.approval_setting()` reads `refs/remotes/origin/<target>:docs/agents/project.md`, with two extra guards so a branch an agent can push cannot become the trusted source (see Calls I made). The target and the branch pattern head come from the root checkout's `project.md` (the first entry of `git worktree list`, as `merge_pr.read_facts` finds it), never from the worktree the script runs in, so a PR cannot edit the `Merge target branch` row to redirect it. Failing to find or read that file gives `strict`:
+  - the target must not start with the branch pattern head (`feat/` by default), and
   - the committed file on `origin/<target>` must name the same target (or no target, when the target is `main`).
 
   Either guard failing, like any other failed read, gives `strict` with the reason.
@@ -72,7 +73,7 @@ Where a skill, `agent-team/docs/agents/*.md` or the template means the merge bra
 
 ## Calls I made
 
-- **The approval setting follows the target, with guards.** The ticket doesn't say where the `Approval risk tolerance` is read once the target isn't `main`. Reading it from `origin/main` would leave a `dev` app reading a stale or missing row. Reading it from `origin/<target>` with the target taken from the working tree would let a branch point the target at a branch an agent can push. So the target must not be a `feat/` branch, and the committed file on that branch must name itself as the target. Any doubt reads as `strict`. This repo is `strict` either way.
+- **The approval setting follows the target, with guards.** The ticket doesn't say where the `Approval risk tolerance` is read once the target isn't `main`. Reading it from `origin/main` would leave a `dev` app reading a stale or missing row. Reading it from `origin/<target>` with the target taken from a feature worktree would let a branch point the target at a branch an agent can push. So the target comes from the root checkout's `project.md`, it must not be a `feat/` branch, and the committed file on that branch must name itself as the target. Any doubt reads as `strict`. This repo is `strict` either way.
 - **An invalid value stops the script.** It does not fall back to `main`, because merging into the wrong branch is worse than stopping.
 - **The head-moved note names the target** ("by merging dev"). The parsers only match `Head moved to ... unchanged since ...`, so old notes that say "main" still count.
 - **`cos_rotation_check.py` uses the target too.** It isn't in the ticket's list of scripts, but it checks the root checkout's branch, which is now the target.
