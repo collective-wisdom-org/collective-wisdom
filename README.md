@@ -38,7 +38,7 @@ This repo runs its own Chief of Staff. The root links into `agent-team/` so the 
 - A ticket tracker: Linear (the Linear MCP), GitHub Issues (no extra tool) or Jira (the Atlassian Rovo MCP). See Choosing a tracker
 - GitHub CLI (`gh`), used through `scripts/gh.sh`; see `agent-team/docs/agents/github-auth.md`
 - Python 3 and `pytest` (for example `uvx pytest`) to run the script tests
-- Superpowers skills used by the ship loop: `brainstorming`, `writing-plans`, `using-git-worktrees`, `executing-plans`, `subagent-driven-development`, `verification-before-completion` and `finishing-a-development-branch`
+- Superpowers skills used by the ship loop: `brainstorming`, `writing-plans`, `using-git-worktrees`, `executing-plans`, `subagent-driven-development` and `verification-before-completion`
 
 ## Install
 
@@ -147,7 +147,7 @@ Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTI
 - T3 Code thread tools are named directly in the Chief of Staff, project manager and ship-loop skills. Tracker tools are named only in the adapter docs under `agent-team/docs/agents/trackers/`.
 - Every app's `scripts/agent-team-update.sh` calls the tag's `install.sh --update --from <tag> [--dry-run] [--force] <app>`, so a future installer must keep accepting that call.
 - Plans, specs and as-built notes follow the superpowers docs layout under `docs/superpowers/`.
-- The security review skill refers to Cursor's review-security subagent and Claude Code's `/security-review`.
+- The security review skill refers to Cursor's review-security subagent and Claude Code's `security-reviewer` subagent.
 - Role docs for app areas (backend, frontend and so on) are not shared; each app adds its own.
 
 ## License
