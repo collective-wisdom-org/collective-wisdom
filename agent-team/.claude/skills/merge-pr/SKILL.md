@@ -68,6 +68,6 @@ The script has deleted the remote branch and run `git pull --ff-only` on root `m
 - Merge without a merge approval.
 - Submit a GitHub review.
 - Merge with red or pending required checks.
-- Merge without code review **PASS** and security review **PASS** on PR comments.
+- Merge without code review **PASS** and security review **PASS** on PR comments (in `ci` mode: without green checks and every bot thread resolved).
 - Force-push `main`.
 - Commit closeout docs on root `main` after merge (they belong in the feature PR only).
