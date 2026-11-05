@@ -6,7 +6,7 @@
 
 ## Goal
 
-A repo can turn on a rule that `scripts/merge_pr.py` merges only after a teammate (any GitHub user other than the PR author) approved the PR on its current head. Whatever the setting, when GitHub itself says the PR still needs a required review, the gate says who it is waiting on instead of a generic `not mergeable` line.
+A repo can turn on a rule that `scripts/merge_pr.py` merges only after a teammate (any owner, member or collaborator other than the PR author) approved the PR on its current head. Whatever the setting, when GitHub itself says the PR still needs a required review, the gate says who it is waiting on instead of a generic `not mergeable` line.
 
 The user's `approve N` stays required. A teammate's approval adds to it and never replaces it. No agent or script submits a review.
 
@@ -28,7 +28,7 @@ Facts from `main` at `d3df944`, checked 2026-11-05.
 `agent-team/templates/project.md` § Git and GitHub gets a row after `Owner login`:
 
 ```
-| Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from someone other than the PR author. A missing row means off |
+| Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from an owner, member or collaborator other than the PR author. A missing row means off |
 ```
 
 `read_facts` stores `project_config.setting("Require teammate approval")` in `f["teammate"]`. A value without backticks reads as its bare text. Missing or `off` is off; `on` is on (case-insensitive); anything else stops: `project.md's Require teammate approval is <value>; use on or off`.
@@ -95,7 +95,7 @@ This branch starts from `origin/main` and stays out of #132's lines where it can
 - `CHANGES_REQUESTED` as a `reviewDecision` gets no new line of its own; with the row `off` it falls through to the mergeability check as today.
 - The `Reviews needed:` line shows only pending review requests, not whether a teammate already approved.
 - This repo's own `docs/agents/project.md` doesn't get the row (so it stays `off`); the ticket only asks for the template.
-- Teams print as `@<org>/<slug>`, built from the `reviewRequests` entry's organization and slug fields; the plan checks the exact gh shape for a team request.
+- Teams print as `@<slug>`; GitHub's slug already includes the org (gh's source, `LoginOrSlug`).
 
 ## Out of scope
 
