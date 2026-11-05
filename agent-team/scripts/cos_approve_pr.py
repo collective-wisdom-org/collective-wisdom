@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
-"""Post the owner's approving review on a PR after the user's own "approve N" in the Chief of Staff thread.
+"""Verify the user's own "approve N" in the Chief of Staff thread before a merge approval is relayed.
 
 Usage:
     scripts/cos_approve_pr.py <PREFIX>-N
 
 The only argument is the ticket ID: the caller cannot pick the message store or the state file. The PR, its head, the thread, the cut-off time and the words
-(`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, with no AGENT_GH_ROLE
-(it is removed from the environment), signed in to gh as the Owner login.
+(`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
+Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
 
-Gates, in order; the first failure stops with nothing posted: root checkout, state, the user's message
-(scripts/cos_user_check.py latest), gh login, PR facts, head. If the owner already has an approving review on the head,
-nothing is posted.
+Gates, in order; the first failure stops: root checkout, state, the user's message (scripts/cos_user_check.py latest),
+gh login, PR facts, head.
 
-Exit 0: posted, or already approved. Last line:
-  cos-approve: approved #N at <SHA>
-  cos-approve: #N already approved by <owner> at <SHA>; nothing posted
-Exit 1: a gate failed, nothing posted. Last line: cos-approve: stop <PREFIX>-N: <reason>
-Exit 2: bad arguments, or state, the message store, gh or the POST failed, or one of them had an unexpected shape.
+Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA>
+Exit 1: a gate failed. Last line: cos-approve: stop <PREFIX>-N: <reason>
+Exit 2: bad arguments, or state, the message store or gh failed, or one of them had an unexpected shape.
 Last line: cos-approve: cannot <what>
 """
 
@@ -25,7 +22,6 @@ import contextlib
 import importlib.util
 import io
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -45,15 +41,15 @@ merge_pr = _load("merge_pr")
 cos_state = _load("cos_state")
 cos_user_check = _load("cos_user_check")
 ROOT, GH = merge_pr.ROOT, merge_pr.GH
-PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid,reviews"
+PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid"
 
 
 class Stop(Exception):
-    """A gate failed: exit 1, nothing posted."""
+    """A gate failed: exit 1."""
 
 
 class Cannot(Exception):
-    """A read or the POST failed: exit 2, nothing posted."""
+    """A read failed: exit 2."""
 
 
 def check_root(run):
@@ -112,16 +108,10 @@ def approve(tid, run):
     check_root(run)
     pr, sha, seen, thread = read_state(tid)
     snippet = user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
-    try:
-        owner = project_config.value("Owner login")
-        agents = {l.lower() for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))}
-    except SystemExit as e:
-        raise Cannot(f"read project.md: {e}")
+    owner = project_config.value("Owner login")
     if not owner:
         raise Cannot("read the Owner login from project.md")
     login, f = read_gh(run, pr)
-    if login.lower() in agents:
-        raise Stop(f"gh is signed in as the agent user {login}, not the owner")
     if login.lower() != owner.lower():
         raise Stop(f"gh is signed in as {login}, not the owner")
     if f["state"] != "OPEN":
@@ -134,18 +124,7 @@ def approve(tid, run):
         raise Stop(f"base is {f['baseRefName']}, not main")
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
-    if merge_pr.owner_approval({**f, "owner": owner}) is None:
-        return f"cos-approve: #{pr} already approved by {owner} at {sha}; nothing posted"
-    body = (
-        f'Approved from the Chief of Staff thread on the user\'s message "{snippet}" '
-        f"for {tid} at head {sha[:7]}. Posted by scripts/cos_approve_pr.py."
-    )
-    try:
-        run([GH, "api", "-X", "POST", f"repos/{{owner}}/{{repo}}/pulls/{pr}/reviews",
-             "-f", "event=APPROVE", "-f", f"commit_id={sha}", "-f", f"body={body}"])
-    except merge_pr.CmdError as e:
-        raise Cannot(f"post the review on #{pr}: {e}")
-    return f"cos-approve: approved #{pr} at {sha}"
+    return f"cos-approve: verified approve {n} for #{pr} at {sha}"
 
 
 def main(argv, run=merge_pr.run):
@@ -161,7 +140,6 @@ def main(argv, run=merge_pr.run):
     if not tid:
         print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N")
         return 2
-    os.environ.pop("AGENT_GH_ROLE", None)  # the review is the owner's, never a role's
     try:
         print(approve(tid, run))
         return 0

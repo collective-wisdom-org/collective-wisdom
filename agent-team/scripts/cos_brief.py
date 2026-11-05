@@ -22,7 +22,6 @@ Exits 2 with a one-line "cos_brief: ..." message when a read fails.
 import argparse
 import base64
 import json
-import os
 import re
 import subprocess
 import sys
@@ -71,12 +70,10 @@ def die(msg):
     sys.exit(2)
 
 
-def gh(*args, active=False):
-    """Run gh.sh, return stdout. Raises ReadError on any failure. active=True drops AGENT_GH_ROLE, so the
-    call runs as the active gh account."""
-    env = {k: v for k, v in os.environ.items() if k != "AGENT_GH_ROLE"} if active else None
+def gh(*args):
+    """Run gh.sh, return stdout. Raises ReadError on any failure."""
     try:
-        r = subprocess.run([GH, *args], capture_output=True, text=True, timeout=60, env=env)
+        r = subprocess.run([GH, *args], capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise ReadError(str(e))
     if r.returncode != 0:
@@ -84,10 +81,9 @@ def gh(*args, active=False):
     return r.stdout
 
 
-def role_author(role):
-    """Login whose comments count for role: its project.md login, else the account a role-less call
-    posts as (the active gh account). Not `gh api user` under the caller's own role."""
-    return project_config.role_login(role) or gh("api", "user", "-q", ".login", active=True).strip()
+def own_login():
+    """The account running gh: the only login whose PR comments count as the team's."""
+    return gh("api", "user", "-q", ".login").strip()
 
 
 def gh_json(*args):
@@ -328,11 +324,9 @@ def cmd_pr(args):
     by_count = sorted(areas.items(), key=lambda kv: (-kv[1], kv[0]))
     comments = pr.get("comments") or []
     try:
-        moved = moved_line(oid, comments, role_author("builder"))
+        moved = moved_line(oid, comments, own_login())
     except ReadError:
         die(f"cannot read PR #{n}")
-    except SystemExit as e:  # a bad login row in project.md
-        die(str(e))
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",
