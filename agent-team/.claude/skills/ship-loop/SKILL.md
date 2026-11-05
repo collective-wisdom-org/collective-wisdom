@@ -110,12 +110,13 @@ Applies only when the task text or a relayed message says `TEAM MODE`. A Chief o
   Left open or deferred: <bullets with ticket IDs, or "nothing">
   Migrations: <file names and revision numbers, or "none">
   After deploy: <what users see change, or "nothing visible">
-  Checks that didn't really run: <bullets, or "none">
+  Proof: <PR URL>#proof
+  Not proven: <the PR's Not proven list, copied as is, or "nothing">
   ```
 
   "Docs checked" comes from the `Docs checked:` line of the latest code review comment.
 
-  "Checks that didn't really run" means CI jobs that were skipped, tests marked skip, and manual checks the plan listed that you couldn't do (for example, a visual check without a browser).
+  "Proof" links the PR body's `## Proof` section (`open-pr` § Proof), and "Not proven" is that section's `Not proven` list, copied word for word: it must match the PR body.
 - **Run endings.** A run ends only with a marker: `SPEC READY`, `MERGE READY`, `BLOCKED:` or `MERGED #N`. Anything else ("waiting on CI", "I'll post the review once CI finishes") is a progress note. Write it if useful, then keep going. After `t3_background_wait`, ending your turn is fine and is not a run ending: you are woken when the command exits. Don't write a closing message then. T3 shows the run as `completed`, and the Chief of Staff tells a waiting child from a stalled one by that call. Make the wait one of the last few tool calls before ending the turn, because the Chief of Staff reads only the last 10 items. Start the background command with the tool's background option, never with `&` in the command. If `t3_background_wait` lists the ID under `unmatched`, nothing will wake you: start the command again and wait again, and never end a turn on an unmatched wait.
   - While CI, a review subagent or any background command is pending, keep the run going and wait on it. For a background command, call `t3_background_wait` with its task ID right after you start it. Run subagents in the foreground (`Agent` with `run_in_background: false`).
   - Never use `ScheduleWakeup`, `Monitor`, `sleep` loops or `watch_pull_request` to wait.

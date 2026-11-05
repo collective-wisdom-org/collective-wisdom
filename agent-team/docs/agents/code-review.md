@@ -8,7 +8,8 @@ You review a PR diff and return findings. You do not post, approve or edit. The 
 2. In the PR worktree, on the PR head branch, review `git diff origin/main...HEAD`.
 3. Use the docs check result in your brief (the `DOCS CHECK` output, the fixes the child made, and any finding it rejected with the reason). A re-run that should have happened and didn't, or a rejected finding with no reason, is a Must fix.
 4. Missing tests are a Must fix only for the areas in `AGENTS.md` § Testing. Flag excess tests too.
-5. Return findings, each with a severity and a `file:line` location, then your verdict: `CHANGES NEEDED` or `PASS`.
+5. Check the PR body's `## Proof` section (in your brief) against the ticket's Acceptance list (or its Scope bullets when there is none). It is a Must fix when an item has neither evidence nor a `Not proven` entry, when evidence doesn't show what it claims (output that doesn't contain the result, a link to a run on another SHA, a command that doesn't exercise the item), or when something listed as proven is plainly not.
+6. Return findings, each with a severity and a `file:line` location, then your verdict: `CHANGES NEEDED` or `PASS`.
 
 ## Small diffs
 
