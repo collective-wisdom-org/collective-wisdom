@@ -3,7 +3,7 @@ name: build-from-plan
 description: >-
   Implements an approved plan from the feature worktree with scoped tests
   and verification. Use when the user says implement the plan, execute tasks,
-  yes after plan approval, or build the feature.
+  or build the feature.
 user-invocable: true
 ---
 
