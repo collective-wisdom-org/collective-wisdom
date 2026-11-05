@@ -30,7 +30,7 @@ ci-scope: tests=run|skip shellcheck=run|skip
 ```
 
 - `tests=skip` only when at least one file changed and every changed file passes `is_docs`. Anything else, skill and role-doc edits included, runs the tests.
-- `shellcheck=run` when any changed path ends in `.sh` or sits under `.github/`. `install.sh` and `tag-release.sh` are covered by the `.sh` rule.
+- `shellcheck=run` when any changed path ends in `.sh`, sits under `.github/`, or is named `.shellcheckrc` or `shellcheckrc` (shellcheck reads those). `install.sh` and `tag-release.sh` are covered by the `.sh` rule.
 - A bad argument or a failed git call: exit 2 with `ci-scope: cannot <what>`. The workflow then runs both.
 
 The docs rule lives in `is_docs` only, so review scope and CI agree on what docs-only means.

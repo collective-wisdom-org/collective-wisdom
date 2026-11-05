@@ -84,6 +84,7 @@ def test_classify(tmp_path, files, expected):
         ({"agent-team/scripts/x.py": CODE(1)}, ("run", "skip")),
         ({".github/workflows/ci.yml": CODE(1)}, ("run", "run")),
         ({"sub/.shellcheckrc": "disable=SC2086\n"}, ("run", "run")),
+        ({"shellcheckrc": "disable=SC2086\n"}, ("run", "run")),
     ],
 )
 def test_ci_scope(tmp_path, files, expected, capsys):

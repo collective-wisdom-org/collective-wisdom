@@ -22,7 +22,7 @@ jobs:
           tests=run
           shellcheck=run
           if [ "$EVENT" = pull_request ]; then
-            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || out=
+            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
             echo "$out"
             line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
             if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
@@ -54,7 +54,7 @@ jobs:
           tests=run
           shellcheck=run
           if [ "$EVENT" = pull_request ]; then
-            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || out=
+            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
             echo "$out"
             line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
             if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
