@@ -190,8 +190,9 @@ def op_stage(s, op):
         t["resumeStage"] = None
     if not new.endswith("-queued"):
         t.update(pendingRelay=None, approvalItemId=None, queuedAt=None)
+    old_head = t.get("headSha")
     merge_set(t, sets)
-    if new != old and new in STAMPED:
+    if new in STAMPED and (new != old or t.get("headSha") != old_head):  # a new head voids an approval cut-off
         t["lastSeenAt"] = now()
     t.update(stage=new, status=op["status"])
     if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
@@ -211,7 +212,10 @@ def op_set(s, op):
         raise Reject(f"lastSeenAt is stamped by the script in {t['stage']}")
     if t["stage"] in ACTIVE and op["set"].get("childThreadId") not in (None, t.get("childThreadId")):
         s["lastRelayAt"] = now()
+    old_head = t.get("headSha")
     merge_set(t, op["set"])
+    if t["stage"] in STAMPED and t.get("headSha") != old_head:  # a new head voids an approval cut-off
+        t["lastSeenAt"] = now()
     check(t)
 
 

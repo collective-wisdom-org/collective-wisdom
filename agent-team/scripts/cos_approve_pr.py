@@ -16,7 +16,8 @@ With --auto the user's message is not read. Every other gate runs, and the scrip
 auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/main; see
 scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (scripts/cos_brief.py).
 
-Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA>
+Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
+  The snippet is the start of the user's message on one line (80 characters at most), so the Chief of Staff can show the user what was verified.
 With --auto the last line is: cos-approve: auto-approved #N at <SHA> under <tolerance> (Risk: <Level>)
 Exit 1: a gate failed. Last line: cos-approve: stop <PREFIX>-N: <reason>
 Exit 2: bad arguments, or state, the message store or gh failed, or one of them had an unexpected shape.
@@ -142,8 +143,7 @@ def approve(tid, run, auto=False):
     n = str(int(tid.rsplit("-", 1)[1]))
     check_root(run)
     pr, sha, seen, thread, status = read_state(tid, auto)
-    if not auto:
-        user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
+    snippet = "" if auto else user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
     owner = project_config.value("Owner login")
     if not owner:
         raise Cannot("read the Owner login from project.md")
@@ -163,7 +163,7 @@ def approve(tid, run, auto=False):
     if auto:
         tolerance, level = auto_gate(status, f["files"])
         return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level})"
-    return f"cos-approve: verified approve {n} for #{pr} at {sha}"
+    return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 
 
 def main(argv, run=merge_pr.run):

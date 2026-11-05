@@ -19,7 +19,8 @@ def msg(mid="m1", by="user", text="approve 87", created="2026-11-02T02:00:00Z"):
 
 # Each row changes one thing from the happy path: (id, changes, exit code, last-line part).
 ROWS = [
-    ("happy", {}, 0, f"verified approve 87 for #7 at {HEAD}"),
+    ("happy", {}, 0, f'verified approve 87 for #7 at {HEAD} (user wrote: "approve 87")'),
+    ("snippet is one line, cut at 80", {"msgs": [msg(text="approve 87\n" + "x" * 90)]}, 0, f'at {HEAD} (user wrote: "approve 87 {"x" * 69}")'),
     ("agent message", {"msgs": [msg(by="agent")]}, 1, "no verified"),
     ("message before lastSeenAt", {"msgs": [msg(created="2026-11-02T00:30:00Z")]}, 1, "no verified"),
     ("wrong number", {"msgs": [msg(text="approve 870")]}, 1, "no verified"),
