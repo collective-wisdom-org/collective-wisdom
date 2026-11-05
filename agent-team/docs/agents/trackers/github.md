@@ -1,6 +1,6 @@
 # GitHub Issues adapter
 
-**Verified** 2026-11-03 against `dbeallor/collective-wisdom` with `gh` 2.98.0. Every command ran for real unless a line says it did not. The throwaway issues and labels were deleted afterwards.
+**Verified** 2026-11-03 against `collective-wisdom-org/collective-wisdom` with `gh` 2.98.0. Every command ran for real unless a line says it did not. The throwaway issues and labels were deleted afterwards.
 
 How each operation in [README.md](README.md) runs on GitHub Issues. Every call goes through `./scripts/gh.sh` (`ship-loop` § Repo invariants; setup in [../github-auth.md](../github-auth.md)). `<owner>/<repo>` is the `Repo` row in `project.md` § Git and GitHub. The scope `<TEAM>` is that repo.
 
@@ -185,7 +185,7 @@ Names: `status:todo`, `status:in-progress`, `status:in-review`, `priority:urgent
 
 ## Setup
 
-**Public repos.** On a public repo anyone can open an issue, and the agent team acts on tickets without a human in the loop. The author permission check in Conventions is what stops a stranger's text reaching a tool-using agent. Do not skip it, and prefer a private repo when you can.
+**Public repos.** On a public repo anyone can open an issue, and the agent team acts on tickets without a human in the loop. The author permission check in Conventions is what stops a stranger's text reaching a tool-using agent. Do not skip it, and prefer a private repo when you can. On a public repo also require approval for Actions runs from outside collaborators (Settings, Actions, Fork pull request workflows), so a fork's PR does not run CI before someone looks at it.
 
 1. `./scripts/gh.sh auth status` shows a keyring login with `repo` scope.
 2. `project.md` § Identity has `Tracker` set to `github` and an `Issue identifier prefix`; § Git and GitHub has `Repo`.
