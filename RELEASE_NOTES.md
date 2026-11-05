@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-05 Chief of Staff files agent-team tickets from repeated failures (CW-39) (#117)
+
+Merged 2026-11-05 03:32 UTC.
+
+The Chief of Staff now files an agent-team improvement ticket on its own when it sees the same kind of process failure repeat in a week (a lost notice or a stalled child on two tickets, say), or notices another problem worth fixing. The ticket goes to the Backlog marked as filed from its own observation, and the project manager ranks it like any other. Specs and merges still need your approval.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-05 open-source readiness sweep (CW-104) (#120)
 
 Merged 2026-11-05 03:05 UTC.
