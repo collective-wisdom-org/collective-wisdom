@@ -64,6 +64,7 @@ Under any setting, a merge is never auto-approved if the PR adds, edits or delet
 - everything under `docs/agents/` (`project.md`, the review rules and every other role doc, trackers included), and `templates/project.md`
 - dot-directories and dot-files at any depth (`.claude`, `.github`, `.agents`, `.cursor`, `.codex`, `.vscode`, `.mcp.json`, `.gitignore` and the like)
 - everything under `scripts/`, and the bare name of that root link
+- the root `install.sh` and `tag-release.sh`, which decide what ships to every app
 - `templates/AGENTS.md`, and any file at any depth named `AGENTS.md` or `CLAUDE.md` or like `AGENTS.override.md` and `CLAUDE.local.md`
 
 Without this, `permissive` would let a Medium PR (Medium covers "changes how the team itself works") rewrite the gate that let it through. A spec has no diff yet, so approvals.md adds the same rule in prose: the Chief of Staff doesn't auto-approve a spec whose Builds change a file on this list. If it gets that wrong, the merge check still stops the PR.
