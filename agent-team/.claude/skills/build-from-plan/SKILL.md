@@ -14,7 +14,7 @@ Before acting, read **ship-loop** § Repo invariants.
 ## Preconditions
 
 1. Confirm **cwd** is the feature worktree, not root on `main`.
-2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user).
+2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user). A ticket that changes only markdown files has no plan; build from the spec.
 3. Stay within `AGENTS.md` scope.
 
 ## Execution
