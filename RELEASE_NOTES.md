@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-05 make team mode the only mode in the shipped skills (CW-58) (#131)
+
+Merged 2026-11-05 23:35 UTC.
+
+A hand-run `/ship-loop` now follows the same rules as a Chief of Staff child: it writes the spec without asking you questions first (choices go under `## Calls I made`), stops at `SPEC READY` for your approval, always commits and pushes, uses the `security-reviewer` subagent instead of the built-in `/security-review`, and no longer offers worktree cleanup after the merge. A merge approval counts only when you send it after the `MERGE READY` report, so "merge if reviewed" sent earlier no longer merges. Tasks that name a `Chief of Staff thread:` behave as before.
+
 ## 2026-11-05 approval risk tolerance setting (CW-108) (#119)
 
 Merged 2026-11-05 21:02 UTC.
