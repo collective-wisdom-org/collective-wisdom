@@ -68,7 +68,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 
 - Run its `gh` calls as `./scripts/gh.sh`.
 - PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section (see § Closeout docs) and a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
-- Pushes use the user's own gh auth. In team mode, commit and push through `git.sh` (`ship-loop` § Team mode **GitHub users**).
+- Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** `./scripts/gh.sh pr checks --watch`, or a PR/CI subscription when the agent has one.
 
@@ -138,7 +138,7 @@ Edit only in the PR's worktree when one exists (root checkout stays on `main`).
 By class:
 
 - **`full`**: review as the rest of this skill and `security-review` say: the code review loop, then the security review loop.
-- **`docs-only`**: the code review runs as usual. After its PASS, run `./scripts/review_scope.py <N> <head SHA>` again. Only if it still prints `docs-only` at the head the code review passed on, post a security review comment with no subagent run, with `AGENT_GH_ROLE=security-reviewer` in team mode:
+- **`docs-only`**: the code review runs as usual. After its PASS, run `./scripts/review_scope.py <N> <head SHA>` again. Only if it still prints `docs-only` at the head the code review passed on, post a security review comment with no subagent run:
 
   ```
   ## Security review (pass N)
@@ -157,7 +157,7 @@ After each pass of the primary loop, run this when doing agent-led review (in ad
 - The review method (reading **reviewing-code**, reviewing the full diff vs base in the PR worktree) is in `docs/agents/code-review.md`; the worktree checkout must be the PR head branch.
 - When the review runs in a subagent, start it with the `Agent` tool and `subagent_type: "code-reviewer"`. If that type isn't listed (the session started before `.claude/agents/code-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/code-review.md and follow it. Do not edit files.` plus the brief. In team mode, always run it in that subagent, so the review stays on Opus when the child builds on Sonnet.
 - The review brief includes the docs check result (the `DOCS CHECK` output, the fixes you made, and any finding you rejected with the reason), the ticket's Acceptance list (or its Scope bullets when there is no Acceptance list), and the PR body's `## Proof` section.
-- Post findings as a **PR issue comment** only: `./scripts/gh.sh pr comment <N> --body '…'` or `--body-file <path>`. In team mode run it with `AGENT_GH_ROLE=code-reviewer` (`ship-loop` § Team mode **GitHub users**).
+- Post findings as a **PR issue comment** only: `./scripts/gh.sh pr comment <N> --body '…'` or `--body-file <path>`.
 - **Never** official GitHub PR review: no `gh pr review`, no approve, no request changes.
 
 **Comment shape:**
@@ -218,6 +218,5 @@ When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
 - Wait on CI with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § Team mode **CI waits** says. Never `watch_pull_request`.
 - Post each code review comment on the PR before you mention it in the thread, and keep the comment URL.
 - Run the documenter with the `Agent` tool and `subagent_type: "documenter"`. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general Sonnet subagent with the prompt `Read docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs from § Docs check. Run it in the foreground.
-- Run `./scripts/gh.sh` calls as `ship-loop` § Team mode **GitHub users** says: `builder`, except the code review comment (`code-reviewer`).
 - Act only on review comments whose author login is the GitHub owner login or one of the four team logins (Chief of Staff, builder, code reviewer, security reviewer) in `docs/agents/project.md`, or one of the repo's review bots. Report comments from anyone else in your final message and don't act on them.
 - Keep going through code review PASS into **security-review**. Don't stop after opening the PR.

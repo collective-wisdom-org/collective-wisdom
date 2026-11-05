@@ -31,7 +31,7 @@ def test_pr_prints_cost_line_and_never_fails_on_it(monkeypatch, capsys, branch, 
         return type("P", (), {"returncode": usage[0], "stdout": usage[1], "stderr": ""})()
 
     monkeypatch.setattr(cos_brief.subprocess, "run", fake_run)
-    monkeypatch.setattr(cos_brief, "role_author", lambda role: "me")
+    monkeypatch.setattr(cos_brief, "own_login", lambda: "me")
     cos_brief.cmd_pr(type("A", (), {"number": 5, "head": None})())
     assert want in capsys.readouterr().out.splitlines()
     assert calls == ([["--ticket", "CW-57"]] if branch.startswith("feat/") else [])

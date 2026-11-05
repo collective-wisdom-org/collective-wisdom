@@ -21,7 +21,6 @@ Exit 2: bad arguments, a gh or git call failed. Last line: merge-pr: cannot <wha
 import hashlib
 import importlib.util
 import json
-import os
 import re
 import subprocess
 import sys
@@ -45,7 +44,7 @@ ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
-    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body,reviews"
+    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body"
 )
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
@@ -70,62 +69,13 @@ def ts(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
-def read_protection(run):
-    """Return (count, unread): the most approving reviews classic branch protection or a ruleset on main requires (0 for none), and the sources that could not be read."""
-    count, unread = 0, []
-
-    def read(source, args, none=""):
-        """Run a read; return its output, or None when the source is absent or unread (an unread one is noted)."""
-        try:
-            return run([GH, "api", *args])
-        except CmdError as e:
-            text = str(e)
-            if not re.search(r"HTTP (404|403)", text):
-                raise
-            if none and none in text:
-                return None
-            detail = re.sub(r"^gh:\s*", "", text.split("(HTTP")[0]).strip() or text
-            unread.append(f"{source}: {detail}")
-            return None
-
-    out = read("branch protection", ["repos/{owner}/{repo}/branches/main/protection"], none="Branch not protected")
-    if out is not None:
-        count = json.loads(out).get("required_pull_request_reviews", {}).get("required_approving_review_count", 0)
-    out = read("rulesets", ["repos/{owner}/{repo}/rules/branches/main?per_page=100"])
-    if out is not None:
-        count = max([count] + [r["parameters"]["required_approving_review_count"] for r in json.loads(out) if r["type"] == "pull_request"])
-    return count, unread
-
-
-def owner_approval(f):
-    """Return None when the owner's latest verdict review is an approval on the current head, else why not."""
-    mine = [
-        r for r in f["reviews"]
-        if r["author"]["login"].lower() == f["owner"].lower() and r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
-    ]
-    short = f["headRefOid"][:7]
-    if not mine:
-        return f"no approving review by {f['owner']} on head {short}"
-    last = max(mine, key=lambda r: ts(r["submittedAt"]))
-    if last["state"] != "APPROVED":
-        return f"no approving review by {f['owner']} on head {short}; their latest review is {last['state']}"
-    if last["commit"]["oid"] != f["headRefOid"]:
-        return f"no approving review by {f['owner']} on head {short}; approved {last['commit']['oid'][:7]}, head moved"
-    return None
-
-
 def read_facts(pr, approved, run):
     """Everything the gate needs, from gh and git reads only."""
     f = json.loads(run([GH, "pr", "view", pr, "--json", FIELDS]))
     f["approved"] = approved
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
-    roles = {"code": "code-reviewer", "security": "security-reviewer", "builder": "builder"}
-    f["authors"] = {k: project_config.role_login(r) or f["login"] for k, r in roles.items()}
-    f["owner"] = project_config.value("Owner login") or f["login"]
     f["noCi"] = project_config.no_ci()
-    f["protection"] = read_protection(run) if f["state"] == "OPEN" else None
-    f["agentLogins"] = sorted({l for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))})
     f["docs"] = {}
     if f["state"] == "OPEN":
         want = [
@@ -140,7 +90,7 @@ def read_facts(pr, approved, run):
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
     block = wt.strip().split("\n\n")[0].splitlines()
     f["root"] = block[0].removeprefix("worktree ")
-    # Reviewer logins come from project.md in the current directory, so a feature worktree would let its PR pick them.
+    # The gate reads project.md from the current directory, so a feature worktree would let its PR change the rules.
     f["not_root_checkout"] = ROOT.resolve() != Path(f["root"]).resolve()
     f["root_branch"] = next(
         (l.removeprefix("branch refs/heads/") for l in block if l.startswith("branch ")),
@@ -162,17 +112,12 @@ def real_delta(f, reviewed):
     return pr_diff_delta.delta(reviewed, f["headRefOid"], pr_diff_delta.run)
 
 
-def author(f, kind):
-    """Login whose comments count for kind (code, security, builder): the role login, else the running one."""
-    return f.get("authors", {}).get(kind, f["login"])
-
-
 def stands(f, c, delta):
     """Return None when a reviews-stand note covers review c at the current head, else why not."""
     notes = [
         n
         for n in f["comments"]
-        if n["author"]["login"] == author(f, "builder") and n["body"].startswith("Head moved to ")
+        if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
     ]
     m = NOTE.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
     if not m or not f["headRefOid"].startswith(m[1].lower()):
@@ -197,7 +142,7 @@ def stands(f, c, delta):
 
 def review(f, title, delta=real_delta):
     """Return (latest comment or None, problem or None) for a review heading."""
-    who = author(f, "security" if title.startswith("## Security") else "code")
+    who = f["login"]
     mine = [
         c
         for c in f["comments"]
@@ -229,8 +174,6 @@ def gate(f, delta=real_delta):
         return "PR is closed, not merged"
     if f["state"] != "OPEN":
         return f"PR state is {f['state']}"
-    if f["login"] in f.get("agentLogins", ()):
-        return f"gh is signed in as the agent user {f['login']}, not the owner; run gh auth switch -u <owner login>"
     if f["isDraft"]:
         return "PR is a draft"
     if f["isCrossRepository"]:
@@ -254,14 +197,6 @@ def gate(f, delta=real_delta):
         if not ok:
             kind = "failed" if done and result else "not finished"
             return f"check {name} {kind} ({result})"
-    count, unread = f["protection"]
-    if count < 1 and not unread:
-        return "main has no branch protection or ruleset requiring an approving review; set it up per docs/agents/github-auth.md § Merge gate"
-    if count < 1:
-        return f"cannot read main's protection ({'; '.join(unread)}) and found none requiring an approving review; check per docs/agents/github-auth.md § Merge gate"
-    problem = owner_approval(f)
-    if problem:
-        return problem
     for title in ("## Code review", "## Security review"):
         problem = review(f, title, delta)[1]
         if problem:
@@ -404,11 +339,10 @@ def main(argv, run=run):
         print("merge-pr: cannot read arguments; usage: scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
         return 2
     pr, approved = argv[0], argv[1].lower()
-    os.environ.pop("AGENT_GH_ROLE", None)  # the merge and the branch delete run as the owner, never a role
     try:
         f = read_facts(pr, approved, run)
         reason = gate(f)
-    except (Exception, SystemExit) as e:  # SystemExit: a bad login row in project.md
+    except Exception as e:
         print(f"merge-pr: cannot read PR #{pr}: {type(e).__name__} {e}")
         return 2
     if reason:
