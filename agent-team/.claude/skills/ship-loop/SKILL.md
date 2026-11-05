@@ -89,6 +89,7 @@ PR: <URL>
 Head: <full SHA>
 Code review PASS: <comment URL>
 Security review PASS: <comment URL>
+Reviews needed: <requested reviewers, or "none">
 Changes:
 - <plain bullet>
 Differs from spec: <bullets, or "nothing">
@@ -103,6 +104,8 @@ Not proven: <the PR's Not proven list, copied as is, or "nothing">
 ```
 
 "Docs checked" comes from the `Docs checked:` line of the latest code review comment.
+
+"Reviews needed" comes from `./scripts/gh.sh pr view <N> --json reviewRequests`: each requested user as their login and each requested team as `@<owner>/<slug>`, comma-separated, or "none" when the list is empty. It tells the user who GitHub is waiting on. It does not say whether a teammate already approved, and `scripts/merge_pr.py` reads the reviews again at merge.
 
 "Proof" links the PR body's `## Proof` section (`open-pr` § Proof), and "Not proven" is that section's `Not proven` list, copied word for word: it must match the PR body.
 
