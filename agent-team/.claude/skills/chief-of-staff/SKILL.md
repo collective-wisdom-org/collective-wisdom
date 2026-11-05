@@ -326,7 +326,7 @@ Reads:
 
 - The efficiency rules in `docs/agents/trackers/README.md` apply on every tracker, and the adapter lists the tracker-only ones.
 - `list-tickets` always asks for only the fields the step uses.
-- `get-ticket` names its fields. Ask for `description` only in the readiness check, in the project manager's duplicate check, and in the Backlog pick's step 2.
+- `get-ticket` names its fields. Ask for `description` only in the readiness check, in the project manager's duplicate check, in the Backlog pick's step 2, and before an auto-approval check (`approvals.md` § Observation tickets).
 - `t3_thread_read` on a child: `afterPosition` from state, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`. If a marker block is cut off, read just that item with `itemId` and `textOffset`.
 - Other thread reads are the ones named in their own sections (the Moved-to check as the legacy successor fallback, the size check, the rebuild reads, and the exit-2 fallbacks of the queued approval re-read and the `createdBy: "user"` command check) and use the limits given there.
 - `t3_thread_list` only for the state rebuild. Never as a look around.

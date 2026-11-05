@@ -90,7 +90,7 @@ Keep the rating in the ticket's `status` line. End the line you write with the `
 
 ### Auto-approval
 
-The risk level never skips or shortens a gate or a review, and nothing but the setting below changes who may approve. The `Approval risk tolerance` row of `docs/agents/project.md` (`strict`, `balanced` or `permissive`) decides which approvals the team takes without the user's `approve N`. A script reads it from `origin/main` as committed, never from a working tree. A missing row, an unknown value and any failed read count as `strict`.
+The risk level never skips or shortens a gate or a review, and nothing but the setting below, and § Observation tickets, changes who may approve. The `Approval risk tolerance` row of `docs/agents/project.md` (`strict`, `balanced` or `permissive`) decides which approvals the team takes without the user's `approve N`. A script reads it from `origin/main` as committed, never from a working tree. A missing row, an unknown value and any failed read count as `strict`.
 
 | Tolerance | Low | Medium | High | Not rated |
 |---|---|---|---|---|
@@ -102,14 +102,14 @@ Spec and merge use the same rule, and each decision reads the setting again. Tic
 
 **The approval path.** A merge is never auto-approved if the PR adds, edits or deletes a file on the approval path. `scripts/approval_policy.py` holds the list: dot-directories and dot-files at any depth (`.claude`, `.github`, `.agents`, `.cursor`, `.codex`, `.vscode`, `.mcp.json`, `.gitignore` and the like), everything under `scripts/` and `docs/agents/` (`project.md`, the review rules and every other role doc, trackers included), `templates/project.md`, `templates/AGENTS.md` and the root `install.sh` and `tag-release.sh`, and any file at any depth named `AGENTS.md` or `CLAUDE.md` or like `AGENTS.override.md` and `CLAUDE.local.md`, each with or without a leading `agent-team/` and ignoring case. The bare name of the `scripts` root link counts too. A PR that renames a file is also never auto-approved, because `gh` lists only the new path. A spec has no diff yet, so you apply the same rule by reading its `Builds`: don't auto-approve a spec that changes a file on that list, and ask the user. If you get that wrong, the merge check still stops the PR.
 
+**Observation tickets.** The team's own filings keep a person approving every step. Before you run either auto check below, `get-ticket` with `id, description`. If the body contains `Filed by the Chief of Staff from its own observation` anywhere, ignoring case (ticket-helper.md § Observation tickets), or the read fails, the ticket is never auto-approved, at spec or merge, under any setting: don't run the check, ask the user. Ticket text can only make you ask, never auto-approve.
+
 **A spec.** After you write the `awaiting-spec` status line with its `Risk:` tail, run `python3 scripts/approval_policy.py auto <PREFIX>-N spec` from the root checkout. It reads the level from that status line and the setting from `origin/main`.
 
 - Exit 0 (`approval: auto spec …`): post the full spec block as a notice with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` If § Send or queue will queue the relay, write `the build starts when a slot frees` in place of `the build has started`. Then run SKILL.md § Send or queue to the build lane with the auto spec relay, the § Models switch included. When a queued auto spec relay is later sent, always post `<PREFIX>-N: Auto-approved under <tolerance>; the build has started.` in the sending thread first, so the child finds a notice that is newer than anything else the Chief of Staff said about the ticket.
 - Exit 1 or 2 (`approval: ask …`, `approval: cannot …`): ask the user as above.
 
 **A merge.** After you write the `awaiting-merge` status line, run the head check and `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto` (SKILL.md § Send or queue). On exit 0, post the full merge block as a notice ending `Auto-approved under <tolerance>; merging now. Reply "cancel N" to stop it.` and send or queue the auto merge relay. On exit 1 or 2, ask the user as above. The script also stops a merge with a `flag:` or migration path, even if you rated it lower.
-
-**Observation tickets.** A ticket whose body starts `Filed by the Chief of Staff from its own observation` (ticket-helper.md § Observation tickets) is never auto-approved, at spec or merge, under any setting: don't run the auto check, ask the user. A change the team files for itself keeps a person approving every step.
 
 An auto-approval still posts the whole block to the user, so they see what went through. `cancel N` stops it as for any ticket.
 
