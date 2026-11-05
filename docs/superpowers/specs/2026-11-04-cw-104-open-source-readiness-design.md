@@ -14,7 +14,6 @@ Make the repo ready to be made public: nothing personal or secret in the tree or
 - The README's update section says the repo is private and the clone needs credentials.
 - `agent-team/docs/agents/trackers/github.md` names the old personal repo path in its verified line.
 - `agent-team/scripts/test_cos_peer.py` uses another private project's name and repo as fixtures.
-- The CW-92 spec quotes a real hostname email address.
 - No secret shape, key file or home path appears in the tree or in the history of any branch (checked with pattern scans over `git log -p --all`).
 
 ## Change
@@ -22,7 +21,7 @@ Make the repo ready to be made public: nothing personal or secret in the tree or
 - Add `LICENSE` (MIT), `SECURITY.md` (private vulnerability reporting through GitHub, what counts) and `CONTRIBUTING.md` (the PR checklist).
 - README: drop the private-repo sentence, link the checklist from Propose changes, add a License section.
 - GitHub adapter doc: point the verified line at the org repo; tell public repos to require approval for Actions runs from outside collaborators.
-- Replace the fixture names in `test_cos_peer.py` with `acme/mail` and `Acme Mail`; replace the hostname email in the CW-92 spec with a placeholder.
+- Replace the fixture names in `test_cos_peer.py` with `acme/mail` and `Acme Mail`.
 - Record the sweep results and the steps left for the approver on the ticket.
 
 ## Acceptance
@@ -34,4 +33,4 @@ Make the repo ready to be made public: nothing personal or secret in the tree or
 
 ## Out of scope
 
-- Flipping the repo to public, GitHub settings, and the history rewrite of commit metadata (handled outside this PR and recorded on the ticket).
+- Flipping the repo to public, GitHub settings, and the history rewrite that removed personal commit emails and the hostname email in the CW-92 spec (done outside this PR and recorded on the ticket).
