@@ -1,7 +1,8 @@
 # CW-102: Skip the test and lint steps on docs-only changes
 
 **Ticket:** [CW-102](https://github.com/collective-wisdom-org/collective-wisdom/issues/102)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #121, as specified
 
 ## Goal
 
