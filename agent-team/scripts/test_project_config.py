@@ -1,3 +1,5 @@
+import subprocess
+
 import pytest
 
 import project_config
@@ -59,3 +61,24 @@ def test_tracker_rejects_unknown_value(tmp_path, monkeypatch):
 def test_tracker_missing_file_is_linear(tmp_path, monkeypatch):
     monkeypatch.setenv("PROJECT_MD", str(tmp_path / "nope.md"))
     assert project_config.tracker() == "linear"
+
+
+def test_approval_setting_ignores_a_local_branch_named_origin_main(tmp_path, monkeypatch):
+    def git(*args, cwd=tmp_path / "work"):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd, check=True, capture_output=True)
+
+    def commit(tolerance, msg):
+        (tmp_path / "work" / "docs" / "agents").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "work" / "docs" / "agents" / "project.md").write_text(f"| Approval risk tolerance | `{tolerance}` |\n")
+        git("add", "-A")
+        git("commit", "-m", msg)
+
+    git("init", "--bare", "-b", "main", str(tmp_path / "origin.git"), cwd=tmp_path)
+    git("init", "-b", "main", str(tmp_path / "work"), cwd=tmp_path)
+    git("remote", "add", "origin", str(tmp_path / "origin.git"))
+    commit("strict", "strict")
+    git("push", "origin", "main")
+    git("checkout", "-b", "origin/main")  # a local branch that shadows the remote-tracking ref
+    commit("permissive", "permissive")
+    monkeypatch.setattr(project_config, "root", lambda: tmp_path / "work")
+    assert project_config.approval_setting() == ("strict", "")

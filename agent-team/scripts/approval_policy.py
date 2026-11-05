@@ -5,13 +5,15 @@ Usage:
     scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-spec status line
     scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
 
-The setting is read from project.md as committed on origin/main (project_config.approval_setting), never from a
+The setting is read from project.md as committed on refs/remotes/origin/main (project_config.approval_setting), never from a
 working tree. A missing row, an unknown value or a failed read is `strict`. The rule:
 
     strict      asks for everything
     balanced    auto for Low
     permissive  auto for Low and Medium
     High, or a ticket that is not rated, always asks
+
+A spec queued for the build lane with an auto-approved relay (`build-queued`) is checked again the same way.
 
 Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Risk: <Level>)
 Exit 1: ask.  Last line: approval: ask [<PREFIX>-N] (<why>)
@@ -30,28 +32,31 @@ import project_config  # noqa: E402
 
 AUTO_UP_TO = {"strict": (), "balanced": ("Low",), "permissive": ("Low", "Medium")}
 LEVELS = ("Low", "Medium", "High")
+AUTO_RELAY = "CHIEF OF STAFF: auto-approved"  # a queued auto approval is re-checked just before it is sent
 RISK_TAIL = re.compile(r"Risk: (\w+) \(.*\)\.?\s*$")
 
-# Files a PR may not change and still be auto-approved: the setting and the code and skills that enforce it.
-# Matched with or without a leading `agent-team/`.
+# Files a PR may not change and still be auto-approved: the setting, the review rules, and everything that
+# enforces them (all scripts and all skills, agents and settings under .claude/). Matched with or without a
+# leading `agent-team/`.
 PATH_FILES = {
     "docs/agents/project.md",
     "templates/project.md",
-    *(f"scripts/{n}" for n in (
-        "approval_policy.py", "cos_approve_pr.py", "merge_pr.py", "cos_user_check.py", "cos_state.py",
-        "project_config.py", "cos_brief.py", "pr_diff_delta.py", "gh.sh",
-    )),
+    "docs/agents/code-review.md",
+    "docs/agents/security-review.md",
+    "AGENTS.md",
+    "CLAUDE.md",
 }
-PATH_DIRS = (".claude/skills/chief-of-staff/", ".claude/skills/ship-loop/", ".claude/skills/merge-pr/", ".github/")
+PATH_DIRS = ("scripts/", ".claude/", ".github/")
 
 
 def risk_level(status):
     """Level from the `Risk: <Level> (<reason>).` tail of a status line, or None when absent or unknown.
 
-    Reads the first `Risk: ` so a later one inside the reason cannot lower the level.
+    More than one `Risk: ` is ambiguous (a title or reason could carry a fake rating), so it is not rated.
     """
-    i = (status or "").find("Risk: ")
-    m = RISK_TAIL.match(status[i:]) if i >= 0 else None
+    status = status or ""
+    i = status.find("Risk: ")
+    m = RISK_TAIL.match(status[i:]) if i >= 0 and status.count("Risk: ") == 1 else None
     return m.group(1) if m and m.group(1) in LEVELS else None
 
 
@@ -88,7 +93,8 @@ def cmd_auto(tid, kind, setting):
         return 2, "approval: cannot read arguments; usage: scripts/approval_policy.py auto <PREFIX>-N spec"
     try:
         t = cos_state.load(cos_state.DEFAULT_FILE).get("tickets", {}).get(tid)
-        if not isinstance(t, dict) or t.get("stage") != "awaiting-spec":
+        queued = isinstance(t, dict) and t.get("stage") == "build-queued" and str(t.get("pendingRelay") or "").startswith(AUTO_RELAY)
+        if not isinstance(t, dict) or (t.get("stage") != "awaiting-spec" and not queued):
             return 1, f"approval: ask {tid} (not in awaiting-spec)"
         status = t.get("status")
         if not isinstance(status, str):

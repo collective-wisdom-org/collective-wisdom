@@ -62,8 +62,8 @@ The same rule applies to a spec and to a merge. Each decision reads the setting 
 Under any setting, a merge is never auto-approved if the PR adds, edits or deletes a file on the approval path. The script holds the list, matched with or without a leading `agent-team/`:
 
 - `docs/agents/project.md` and `templates/project.md`
-- `scripts/approval_policy.py`, `scripts/cos_approve_pr.py`, `scripts/merge_pr.py`, `scripts/cos_user_check.py`, `scripts/cos_state.py`, `scripts/project_config.py`, `scripts/cos_brief.py`, `scripts/pr_diff_delta.py`, `scripts/gh.sh`
-- `.claude/skills/chief-of-staff/`, `.claude/skills/ship-loop/`, `.claude/skills/merge-pr/`
+- `docs/agents/code-review.md`, `docs/agents/security-review.md`, `AGENTS.md` and `CLAUDE.md`
+- everything under `scripts/` and `.claude/`
 - `.github/`
 
 Without this, `permissive` would let a Medium PR (Medium covers "changes how the team itself works") rewrite the gate that let it through. A spec has no diff yet, so approvals.md adds the same rule in prose: the Chief of Staff doesn't auto-approve a spec whose Builds change a file on this list. If it gets that wrong, the merge check still stops the PR.
@@ -90,7 +90,7 @@ CHIEF OF STAFF: auto-approved the spec under `<tolerance>` (Risk: <Level> (<reas
 
 It comments on the ticket: `auto-approved the spec at <time> under <tolerance> (Risk: <Level> (<reason>)).` On exit 1 or 2, it asks the user as today.
 
-The child can't read the Chief of Staff's state, so ship-loop § Relays gets a second accepted form. For a relay that starts `CHIEF OF STAFF: auto-approved the spec`, the child runs `python3 scripts/approval_policy.py check <Level>` from its worktree. That reads the setting from `origin/main` and applies the rule to the relayed level. On exit 0 it builds. Otherwise it stops with `BLOCKED:` and the script's last line. It also stops with `BLOCKED:` if its own spec changes a file on the approval path. No thread read is needed: the proof is the setting on `main`, not a message.
+The child can't read the Chief of Staff's state, so ship-loop § Relays gets a second accepted form. For a relay that starts `CHIEF OF STAFF: auto-approved the spec`, the child runs `python3 scripts/approval_policy.py check <Level>` from its worktree. That reads the setting from `origin/main` and applies the rule to the relayed level. On exit 0 it builds. Otherwise it stops with `BLOCKED:` and the script's last line. It also stops with `BLOCKED:` if its own spec changes a file on the approval path. The proof is the setting on `main`, and (as built) the Chief of Staff's `Auto-approved under` notice in its thread.
 
 ### Merge auto-approval
 
@@ -142,7 +142,7 @@ merge-pr § Team mode accepts that relay like a user approval: its proof is that
 
 ## Calls I made
 
-- ⚠ Under `permissive`, most agent-team changes are Medium and would merge without you. I carved out the approval path: any PR touching `project.md`, the approval and merge scripts, the chief-of-staff, ship-loop or merge-pr skills, or `.github/` always waits for you, at every level.
+- ⚠ Under `permissive`, most agent-team changes are Medium and would merge without you. I carved out the approval path: any PR touching `project.md`, the review rules, any script, skill or agent file, or `.github/` always waits for you, at every level.
 - ⚠ This repo's own row is set to `strict`, so nothing changes here until you change it.
 - The setting counts only as committed on `origin/main`. An edit in the root checkout that isn't committed and pushed does nothing.
 - Spec and merge use the same rule. There is no "auto-approve specs but always ask before merge" mode.

@@ -100,7 +100,8 @@ def tracker():
 
 
 TOLERANCES = ("strict", "balanced", "permissive")
-MAIN_PROJECT_MD = "origin/main:docs/agents/project.md"
+# Fully qualified so a local branch or tag named `origin/main` cannot win.
+MAIN_PROJECT_MD = "refs/remotes/origin/main:docs/agents/project.md"
 
 
 def _git(cmd):
@@ -115,7 +116,7 @@ def _git(cmd):
 
 
 def approval_setting(run=_git):
-    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/main.
+    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/main (read as refs/remotes/origin/main).
 
     Never reads the working tree, so a branch or an uncommitted edit cannot change it. Every failure to read
     (git, file, row) and every unknown value gives ("strict", why). note is "" when the row set the level.

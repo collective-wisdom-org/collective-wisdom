@@ -30,14 +30,15 @@ SETTINGS = [
     (HEADER + "| Repo | `a/b` |\n", "strict"),
     ("", "strict"),
     (None, "strict"),
+    ("show fails", "strict"),
 ]
 
 
 @pytest.mark.parametrize("text, tolerance", SETTINGS)
 def test_setting_reads_origin_main_and_fails_closed(text, tolerance):
-    run = reader(text) if text is not None else reader(fail="fetch")
+    fail = {None: "fetch", "show fails": "show"}.get(text)
+    run = reader("" if fail else text, fail)
     assert project_config.approval_tolerance(run) == tolerance
-    assert project_config.approval_tolerance(reader("", fail="show")) == "strict"
 
 
 # tolerance x level -> auto. Anything not in the table asks.
@@ -58,17 +59,21 @@ PATHS = [
     ("templates/project.md", True),
     ("scripts/cos_approve_pr.py", True),
     ("agent-team/scripts/approval_policy.py", True),
-    ("agent-team/scripts/gh.sh", True),
+    ("agent-team/scripts/cos_rank.py", True),
+    ("scripts/test_cos.py", True),
     ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
-    (".claude/skills/chief-of-staff/references/x.md", True),
+    (".claude/skills/write-ticket/SKILL.md", True),
+    ("agent-team/.claude/agents/code-reviewer.md", True),
     ("agent-team/.github/workflows/ci.yml", True),
     (".github/CODEOWNERS", True),
-    ("agent-team/scripts/cos_rank.py", False),
-    ("agent-team/.claude/skills/write-ticket/SKILL.md", False),
+    ("docs/agents/code-review.md", True),
+    ("agent-team/docs/agents/security-review.md", True),
+    ("AGENTS.md", True),
+    ("agent-team/CLAUDE.md", True),
     ("agent-team/docs/agents/approvals.md", False),
     ("docs/agents/project.md.bak", False),
     ("src/docs/agents/project.md", False),
-    ("scripts/merge_pr.pyc", False),
+    ("src/scripts/x.py", False),
     ("README.md", False),
 ]
 
@@ -80,9 +85,10 @@ def test_approval_path(path, on):
 
 TAILS = [
     ("Spec ready. Risk: Low (copy only).", "Low"),
+    ("Title Risk: Low (copy). Spec ready. Risk: High (auth).", None),
     ("Risk: Medium (changes how the team works)", "Medium"),
     ("PR #4 ready. Risk: High (auth (login) path).", "High"),
-    ("Risk: High (see Risk: Low (a)).", "High"),
+    ("Risk: High (see Risk: Low (a)).", None),
     ("Risk: Low (x). More text after", None),
     ("Risk: Severe (x).", None),
     ("Risk: low (x).", None),
@@ -98,8 +104,11 @@ def test_risk_level(status, level):
 
 
 # CLI: (state ticket or None, argv, setting, exit code, last-line part)
-def ticket(stage="awaiting-spec", status="Spec ready. Risk: Medium (x)."):
-    return {"stage": stage, "status": status}
+def ticket(stage="awaiting-spec", status="Spec ready. Risk: Medium (x).", **more):
+    return {"stage": stage, "status": status, **more}
+
+
+AUTO_TEXT = "CHIEF OF STAFF: auto-approved the spec under `permissive`."
 
 
 CLI = [
@@ -109,6 +118,8 @@ CLI = [
     (ticket(status="Spec ready."), ["auto", "ABC-1", "spec"], "permissive", 1, "(not rated)"),
     (ticket(stage="build"), ["auto", "ABC-1", "spec"], "permissive", 1, "not in awaiting-spec"),
     (None, ["auto", "ABC-1", "spec"], "permissive", 1, "not in awaiting-spec"),
+    (ticket(stage="build-queued", pendingRelay=AUTO_TEXT), ["auto", "ABC-1", "spec"], "permissive", 0, "auto spec ABC-1"),
+    (ticket(stage="build-queued", pendingRelay="CHIEF OF STAFF: the user approved"), ["auto", "ABC-1", "spec"], "permissive", 1, "not in awaiting-spec"),
     (ticket(), ["auto", "XYZ-1", "spec"], "permissive", 2, "cannot read arguments"),
     (ticket(), ["auto", "ABC-1", "merge"], "permissive", 2, "cannot decide a merge"),
     (ticket(), ["check", "Low"], "balanced", 0, "auto spec under balanced (Risk: Low)"),

@@ -81,7 +81,7 @@ Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The 
 
 ## Approval risk tolerance
 
-The `Approval risk tolerance` row in `docs/agents/project.md` § Identity sets which approvals the team takes without asking you: `strict` (none), `balanced` (Low risk only) or `permissive` (Low and Medium). High risk always waits for your `approve N`. The default is `strict`, and a missing row, an unknown value or a failed read counts as `strict`, so existing installs keep asking. The setting counts only as committed on `origin/main`. CI, both review PASS comments and every other merge gate apply at every level, and a PR that touches the setting or the approval and merge code itself always waits for you. `install.sh --update` never edits an existing `project.md`, so add the row by hand to turn it on. Details: `agent-team/.claude/skills/chief-of-staff/approvals.md` § Auto-approval.
+The `Approval risk tolerance` row in `docs/agents/project.md` § Identity sets which approvals the team takes without asking you: `strict` (none), `balanced` (Low risk only) or `permissive` (Low and Medium). High risk always waits for your `approve N`. The default is `strict`, and a missing row, an unknown value or a failed read counts as `strict`, so existing installs keep asking. The setting counts only as committed on `origin/main`. CI, both review PASS comments and every other merge gate apply at every level, and a PR that touches the setting, the review rules, or any script, skill or agent file always waits for you. `install.sh --update` never edits an existing `project.md`, so add the row by hand to turn it on. Details: `agent-team/.claude/skills/chief-of-staff/approvals.md` § Auto-approval.
 
 ## Choosing a tracker
 

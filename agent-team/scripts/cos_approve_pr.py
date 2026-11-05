@@ -14,7 +14,7 @@ gh login, PR facts, head.
 
 With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
 auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/main; see
-scripts/approval_policy.py), no PR file on the approval path, and no `flag:` or migration file (scripts/cos_brief.py).
+scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (scripts/cos_brief.py).
 
 Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA>
 With --auto the last line is: cos-approve: auto-approved #N at <SHA> under <tolerance> (Risk: <Level>)
@@ -50,6 +50,7 @@ cos_brief = _load("cos_brief")
 approval_policy = _load("approval_policy")
 ROOT, GH = merge_pr.ROOT, merge_pr.GH
 PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid"
+AUTO_RELAY = approval_policy.AUTO_RELAY
 FILES_CAP = 100  # gh returns at most this many files; a PR this big can't be checked in full
 
 
@@ -77,7 +78,9 @@ def read_state(tid, auto=False):
     except SystemExit:
         raise Cannot("read the state file")
     t = state.get("tickets", {}).get(tid)
-    if not isinstance(t, dict) or t.get("stage") != "awaiting-merge":
+    # --auto also re-checks a merge approval queued by an earlier --auto pass, just before it is sent.
+    queued = auto and isinstance(t, dict) and t.get("stage") == "merge-queued" and str(t.get("pendingRelay") or "").startswith(AUTO_RELAY)
+    if not isinstance(t, dict) or (t.get("stage") != "awaiting-merge" and not queued):
         raise Stop("ticket not in awaiting-merge")
     pr, sha, seen, thread = str(t.get("pr") or ""), t.get("headSha") or "", t.get("lastSeenAt"), state.get("chiefThreadId")
     status = t.get("status")
@@ -121,6 +124,9 @@ def auto_gate(status, files):
     if not auto:
         raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
     paths = [x["path"] for x in files]
+    renamed = [x["path"] for x in files if x.get("changeType") == "RENAMED"]
+    if renamed:  # gh gives only the new path, so the old one could be on the approval path
+        raise Stop(f"PR renames a file ({renamed[0]}), too hard to check")
     if len(paths) >= FILES_CAP:
         raise Stop(f"PR has {len(paths)} or more files, too many to check")
     on_path = [p for p in paths if approval_policy.on_approval_path(p)]

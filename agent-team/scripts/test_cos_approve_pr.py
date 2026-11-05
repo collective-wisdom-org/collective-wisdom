@@ -88,6 +88,9 @@ AUTO_ROWS = [
     ("not rated", {"status": "PR #7 ready."}, 1, "the user decides: not rated"),
     ("approval path file", {"files": F("README.md", "agent-team/scripts/merge_pr.py")}, 1, "approval path (agent-team/scripts/merge_pr.py)"),
     ("project.md", {"files": F("docs/agents/project.md")}, 1, "approval path"),
+    ("renamed file", {"files": [{"path": "docs/x.md", "changeType": "RENAMED"}]}, 1, "renames a file (docs/x.md)"),
+    ("merge-queued auto relay", {"stage": "merge-queued", "relay": "CHIEF OF STAFF: auto-approved the merge of PR #7"}, 0, "auto-approved"),
+    ("merge-queued user relay", {"stage": "merge-queued", "relay": "CHIEF OF STAFF: the user approved the merge"}, 1, "not in awaiting-merge"),
     ("flag path", {"files": F("src/auth/login.py")}, 1, "flag: src/auth/login.py"),
     ("too many files", {"files": F(*[f"f{i}.md" for i in range(100)])}, 1, "too many to check"),
     ("not the owner", {"login": "someone"}, 1, "not the owner"),
@@ -106,12 +109,12 @@ def test_cos_approve_auto(tmp_path, monkeypatch, capsys, changes, code, line):
     monkeypatch.setattr(cap.project_config, "approval_setting", lambda: setting)
     state = tmp_path / "state.json"
     ticket = {"stage": changes.get("stage", "awaiting-merge"), "pr": 7, "headSha": HEAD, "lastSeenAt": changes.get("seen", SEEN),
-              "status": changes.get("status", STATUS)}
+              "status": changes.get("status", STATUS), "pendingRelay": changes.get("relay")}
     state.write_text(json.dumps({"tickets": {"ABC-87": ticket}}))
     monkeypatch.setattr(cap.cos_state, "DEFAULT_FILE", state)
     monkeypatch.setattr(cap.cos_user_check, "DEFAULT_DB", tmp_path / "no-such.sqlite")  # --auto must not open it
     pr = {"state": "OPEN", "isDraft": False, "baseRefName": "main", "isCrossRepository": False, "headRefOid": HEAD,
-          "files": changes.get("files", F("agent-team/scripts/cos_rank.py")), **changes.get("pr", {})}
+          "files": changes.get("files", F("agent-team/docs/agents/approvals.md")), **changes.get("pr", {})}
     calls = []
 
     def run(cmd):
