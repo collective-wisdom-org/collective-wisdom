@@ -99,7 +99,7 @@ def main(argv=None):
     if started is None or started > cos_state.parse(cos_state.now()):
         print("cos_rank: bad --started")
         return 2
-    if a.backlog_count is not None and not re.fullmatch(r"[0-9]+", a.backlog_count):
+    if a.backlog_count is not None and not re.fullmatch(r"[0-9]{1,4}", a.backlog_count):
         print("cos_rank: bad --backlog-count")
         return 2
     try:
@@ -111,8 +111,9 @@ def main(argv=None):
         if a.backlog_count is None:
             print("cos_rank: empty ranking, count the Backlog and run again with --backlog-count N")
             return 3
-        if int(a.backlog_count):
-            print(f"cos_rank: empty ranking but the Backlog has {int(a.backlog_count)} rankable tickets")
+        n = int(a.backlog_count)
+        if n:
+            print(f"cos_rank: empty ranking but the Backlog has at least {n} rankable {'ticket' if n == 1 else 'tickets'}")
             return 2
     op = {"op": "pm", "set": {
         "ranked": ranked, "rankedAt": a.started,

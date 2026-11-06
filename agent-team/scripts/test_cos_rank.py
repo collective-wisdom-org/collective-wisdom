@@ -68,10 +68,10 @@ def test_ranking_shape_check(tmp_path, monkeypatch, capsys, body, started, code)
 @pytest.mark.parametrize("body,extra,code,msg", [
     ("[]", [], 3, "cos_rank: empty ranking, count the Backlog"),
     ("[]", ["--backlog-count", "0"], 0, ""),
-    ("[]", ["--backlog-count", "3"], 2, "3 rankable tickets"),
+    ("[]", ["--backlog-count", "3"], 2, "at least 3 rankable tickets"),
     (json.dumps([entry()]), ["--backlog-count", "0"], 0, ""),
     ("[]", ["--backlog-count", "-1"], 2, "cos_rank: bad --backlog-count"),
-    ("[]", ["--backlog-count", "abc"], 2, "cos_rank: bad --backlog-count"),
+    ("[]", ["--backlog-count", "99999"], 2, "cos_rank: bad --backlog-count"),
 ])
 def test_empty_ranking_needs_backlog_count(tmp_path, monkeypatch, capsys, body, extra, code, msg):
     got, before, path = run(tmp_path, monkeypatch, body, extra=extra)
