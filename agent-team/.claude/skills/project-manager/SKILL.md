@@ -20,7 +20,7 @@ You keep the Backlog ranked, start the next ready ranked ticket when a spec slot
 
 Tools:
 
-- Tracker: the operations in `docs/agents/trackers/README.md`.
+- Tracker: the operations in `~/.collective-wisdom/docs/agents/trackers/README.md`.
 - GitHub, read only: `~/.collective-wisdom/scripts/gh.sh pr list` and `~/.collective-wisdom/scripts/gh.sh api` with GET requests.
 - T3, Chief of Staff only: `delegate_task` (`mode: "wait"`) for the hygiene and ranking children, and `task_cancel` for their timeouts. The children call no T3 tool.
 

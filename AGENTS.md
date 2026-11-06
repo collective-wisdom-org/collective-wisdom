@@ -4,10 +4,10 @@ All agents working on this repo must follow these rules.
 
 ## Product
 
-**collective-wisdom** is the shared agent team: skills, scripts and role docs that move tickets from spec to merge, plus the `install.sh` that copies, updates and checks them in apps. With no target path, `install.sh` installs the clone for the machine by linking into `$HOME`. The product is the agent team itself, plus one per-machine Claude Code mod, `agent-gantt` (`mods/agent-gantt/`), that `install.sh` does not copy. There is no app stack.
+**collective-wisdom** is the shared agent team: skills, scripts and role docs that move tickets from spec to merge, plus the `install.sh` that installs the clone for the machine by linking into `$HOME`. `install.sh` touches no app: an app commits only `docs/agents/project.md`. The product is the agent team itself, plus one per-machine Claude Code mod, `agent-gantt` (`mods/agent-gantt/`), that `install.sh` does not install. There is no app stack.
 
 - Shared files live in `agent-team/`, which mirrors a consuming repo. The root links into it so a Chief of Staff can run here against one copy. Edit under `agent-team/`, never through the root links.
-- The `agent-gantt` mod and `.claude-plugin/marketplace.json` live outside `agent-team/` and are edited in place. People install the mod with `/plugin install`; it is never copied into apps. The marketplace also lists `status-pane`, which lives in `agent-team/.claude/mods/status-pane/` (edit it there) and which `install.sh` does copy into apps.
+- The `agent-gantt` mod and `.claude-plugin/marketplace.json` live outside `agent-team/` and are edited in place. People install the mod with `/plugin install`; it is never copied into apps. The marketplace also lists `status-pane`, which lives in `agent-team/.claude/mods/status-pane/` (edit it there) and which installs from the marketplace like the mod; `install.sh` does not copy it into apps.
 - Repo-specific facts (tracker, its scope and prefix, commands, repo invariants): `docs/agents/project.md`. That file is local to this repo and is never shipped.
 
 ## Required reading
