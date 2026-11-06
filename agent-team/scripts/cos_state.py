@@ -20,7 +20,7 @@ Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch
     stage     ticket, stage, status; optional set (a stage change needs a status line)
               awaiting-spec, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
-              user's approve N) on entry and on a new headSha. One exception: awaiting-review to awaiting-merge
+              user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
               with headSha unchanged keeps it. awaiting-review holds no lane slot.
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
@@ -35,7 +35,7 @@ Operations (each {"op": NAME, ...}):
     prune
 
 heldApproval ({"head", "itemId", "at"}: the user's approve N, held until a teammate approves) is allowed only
-in awaiting-review, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
+in awaiting-review, must carry a full head, an itemId and an at, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
 stage clear it; setting it in another stage is rejected.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
