@@ -16,6 +16,7 @@ Scripts read the first backticked token in each Value cell. Keep the backticks a
 | Linear project (Linear only) | <project name, or none (the team is the scope)> |
 | Approver | <name>. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
+| Claude subscription API-equivalent usage (dollars) | `none`. Set it to the API-equivalent dollars the Claude plan shows (a number such as 12000); ticket costs then show a share of it |
 
 ### Choosing a tracker
 

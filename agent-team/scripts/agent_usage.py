@@ -44,6 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
+import project_config  # noqa: E402
 
 
 def project_name(root=None):
@@ -214,8 +215,19 @@ def stage_at(relays, ts, stage="spec"):
     return stage
 
 
-def ticket_line(projects, ticket):
-    """The --ticket line for a ticket like CW-57, or None when no worktree session ran its branch."""
+def share(cost, usage):
+    """` (P% of the subscription)` for a cost against the subscription's API-equivalent usage, or "" when usage is unset."""
+    if not usage:
+        return ""
+    pct = cost / usage * 100
+    return f" ({'<0.01' if 0 < pct < 0.005 else f'{pct:.2f}'}% of the subscription)"
+
+
+def ticket_line(projects, ticket, usage=None):
+    """The --ticket line for a ticket like CW-57, or None when no worktree session ran its branch.
+
+    usage is the subscription's API-equivalent dollars; when set, the cost part also shows the share of it.
+    """
     own = re.compile(r'"gitBranch":"feat/' + re.escape(ticket.lower()) + r'[-"]')
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
     tokens, runs, times = 0, 0, []
@@ -246,8 +258,9 @@ def ticket_line(projects, ticket):
         return None
     times = [t for t in times if t]
     wall = int((max(times) - min(times)).total_seconds() // 60) if times else 0
+    total = sum(spent.values())
     return (
-        f"cost ${sum(spent.values()):.2f} API-equivalent, {tokens / 1e6:.1f}M tokens, "
+        f"cost ${total:.2f} API-equivalent{share(total, usage)}, {tokens / 1e6:.1f}M tokens, "
         f"spec ${spent['spec']:.2f} / build ${spent['build']:.2f} / merge ${spent['merge']:.2f}, "
         f"{runs} child run{'s' * (runs != 1)}, wall {wall // 60}h {wall % 60:02d}m"
     )
@@ -287,7 +300,11 @@ def main():
         print(context_line(args.projects))
         return
     if args.ticket:
-        found = ticket_line(args.projects, args.ticket)
+        try:
+            usage = project_config.subscription_usage("Claude")
+        except Exception:  # an unreadable project.md reads as unset
+            usage = None
+        found = ticket_line(args.projects, args.ticket, usage)
         if not found:
             print(f"agent_usage: no transcripts for {args.ticket}", file=sys.stderr)
             raise SystemExit(2)

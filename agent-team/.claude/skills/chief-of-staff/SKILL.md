@@ -526,7 +526,7 @@ Running
 - <PREFIX>-240 Example feature: <thread link>
 
 Done since last report
-- <PREFIX>-190 merged (#178), cost $14.20 (spec $2.10 / build $11.66 / merge $0.44)
+- <PREFIX>-190 merged (#178), cost $14.20 (0.12% of the subscription; spec $2.10 / build $11.66 / merge $0.44)
 
 Tickets
 - <PREFIX>-281 filed: CSV export. Epic: Exports. frontend, Feature. Assumed: CSV only. <helper link>
@@ -543,7 +543,7 @@ Cleanup
 
 The `Running` section lists the idle check's `ok` children that are still in `spec`, `build` or `merge` when the message is written, each with the link from its read. It shows on every report that ran the idle check, not only when it changed, so it is exempt from the "only lines that changed" rule in § Lean turns Reports. A `status` or `where's` answer doesn't add it: the status layout already has a row and a link for each of those children.
 
-On `MERGED #N`, run `python3 scripts/agent_usage.py --ticket <PREFIX>-N` for the cost on the `Done since last report` line. Run it fresh, not from the merge block, because the merge stage has run since. On exit 2, write `cost unknown`.
+On `MERGED #N`, run `python3 scripts/agent_usage.py --ticket <PREFIX>-N` for the cost on the `Done since last report` line. When the line has a share (`N% of the subscription`), copy it after the dollar figure as in the example. Run it fresh, not from the merge block, because the merge stage has run since. On exit 2, write `cost unknown`.
 
 The `Tickets` section carries a ticket helper's report (§ Lean turns Notice turns) and the reply lines from cross-repo.md § Cross-repo requests (`<ID> filed in <project title>: ...`, `Refused by <project title> (...): ...`, `Reply had other text; ignored.`). An observation helper's ticket reads `- <PREFIX>-N filed from my own observation (not your request): <title>. ... <helper link>` (ticket-helper.md § Helper test). The `On it:` reply, the `Passed to ...` reply and the `Request from ...: ticket helper started ...` post are each their own short message, not a report.
 
