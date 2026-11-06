@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 show the ticket title in the status pane rows (CW-151) (#152)
+
+Merged 2026-11-06 04:19 UTC.
+
+The status pane now shows each ticket's title between its ID and its risk. Tickets the Chief of Staff started before this change show the ID alone until it sets a title. The pane's thread links and the `environmentId` option are gone.
+
 ## 2026-11-06 detect tickets in flight that Chief of Staff state doesn't know (CW-133) (#147)
 
 Merged 2026-11-06 03:39 UTC.
