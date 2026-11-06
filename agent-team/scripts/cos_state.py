@@ -17,7 +17,7 @@ ticket, and writes through a temp file, fsync and os.replace under a flock on st
 next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
-    start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch
+    start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch, title
     stage     ticket, stage, status; optional set (a stage change needs a status line)
               awaiting-spec, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
               user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
@@ -71,7 +71,7 @@ TOP = {
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
-    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed",
+    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
 }
 STAGES = (
     "spec", "awaiting-spec", "spec-queued", "build-queued", "build",
@@ -140,6 +140,8 @@ def keys_ok(d, allowed, what):
 def merge_set(t, sets):
     """t.update(sets), but a dict value for restarts merges into the existing counts."""
     for k, val in sets.items():
+        if k == "title" and not isinstance(val, str):
+            raise Reject("title must be a string")
         if k == "restarts" and isinstance(val, dict) and isinstance(t.get(k), dict):
             t[k] = {**t[k], **val}
         else:
@@ -179,7 +181,10 @@ def check(t):
 
 
 def op_start(s, op):
-    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", optional=("branch",))
+    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", optional=("branch", "title"))
+    title = op.get("title", "")
+    if not isinstance(title, str):
+        raise Reject("title must be a string")
     tid, t = ticket_of(s, op)
     if t:
         if t.get("childThreadId") != op["childThreadId"]:
@@ -188,7 +193,7 @@ def op_start(s, op):
     s["tickets"][tid] = {
         "stage": "spec", "firstTaskId": op["firstTaskId"], "childThreadId": op["childThreadId"],
         "parentThreadId": op["parentThreadId"], "status": op["status"],
-        "branch": op.get("branch"), "specPath": None, "specSha": None, "pr": None,
+        "branch": op.get("branch"), "title": title.strip(), "specPath": None, "specSha": None, "pr": None,
         "headSha": None, "rateLimitResumes": 0, "lastSeenAt": now(), "lastPosition": 0,
         "resumeStage": None, "pendingRelay": None, "approvalItemId": None, "queuedAt": None,
         "restarts": {"spec": 0}, "note": "",
