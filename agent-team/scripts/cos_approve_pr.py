@@ -151,7 +151,7 @@ def approve(tid, run, auto=False):
     if not owner:
         raise Cannot("read the Owner login from project.md")
     login, f = read_gh(run, pr, auto)
-    if login.lower() != owner.lower():
+    if login.lower() not in [owner.lower(), *merge_pr.codeowners(run)]:
         raise Stop(f"gh is signed in as {login}, not the owner")
     if f["state"] != "OPEN":
         raise Stop(f"PR is {'closed' if f['state'] == 'CLOSED' else f['state'].lower()}")

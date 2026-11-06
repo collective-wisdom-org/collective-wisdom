@@ -406,6 +406,40 @@ def test_required_reviews(decision, requests, expect):
 
 
 @pytest.mark.parametrize(
+    "login, owners, state, decision, expect",
+    [
+        ("noah", ["david", "noah"], "BLOCKED", "REVIEW_REQUIRED", None),
+        ("noah", ["david", "noah"], "BLOCKED", "", "state BLOCKED"),
+        ("me", [], "BLOCKED", "REVIEW_REQUIRED", "required reviews missing"),
+        ("eve", ["david", "noah"], "BLOCKED", "REVIEW_REQUIRED", "not the owner me"),
+    ],
+)
+def test_codeowner_bypasses_missing_review_only(login, owners, state, decision, expect):
+    f = green()
+    f.update(login=login, codeowners=owners, mergeStateStatus=state, reviewDecision=decision)
+    f["comments"] = [review("## Code review", who=login), review("## Security review", who=login)]
+    reason = merge_pr.gate(f)
+    assert reason is None if expect is None else expect in reason
+
+
+@pytest.mark.parametrize(
+    "text, expect",
+    [
+        ("* @David @noah\n", ["david", "noah"]),
+        ("# c\n*  @a  @org/team # x\n/docs @b\n", ["a"]),
+        (None, []),
+    ],
+)
+def test_codeowners(text, expect):
+    def run(cmd, input=None):
+        if text is None:
+            raise merge_pr.CmdError("missing")
+        return text
+
+    assert merge_pr.codeowners(run) == expect
+
+
+@pytest.mark.parametrize(
     "cell, cause",
     [
         ("`on`", "no approving review by a user other than me"),
