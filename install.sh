@@ -59,7 +59,7 @@ mlink() {
 mprune() {
   local l
   for l in "$1"/*; do
-    [ -L "$l" ] && [ ! -e "$l" ] || continue
+    { [ -L "$l" ] && [ ! -e "$l" ]; } || continue
     case "$(readlink "$l")" in
       "$MCLONE"/*)
         msay "remove  $(tilde "$l") (its target is gone)"; MCHANGED=$((MCHANGED + 1))
@@ -71,7 +71,7 @@ mprune() {
 # mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command) or the instruction block
 # (mode block, arg = template file) into a user file. Prints one status word; writes through a temp file and rename.
 mpython() {
-  python3 - "$1" "$2" "$3" "$DRY" <<'PY'
+  python3 -I - "$1" "$2" "$3" "$DRY" <<'PY'
 import json, os, sys, tempfile
 
 mode, path, arg, dry = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1"
@@ -83,7 +83,7 @@ def write(text):
     os.makedirs(os.path.dirname(real), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(real), prefix=".cw-install-")
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
         if os.path.exists(real):
             os.chmod(tmp, os.stat(real).st_mode & 0o777)
@@ -98,7 +98,7 @@ def hook():
     data = {}
     if existed:
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (ValueError, OSError):
             return "invalid"
@@ -112,17 +112,17 @@ def hook():
         return "invalid"
     stop.append({"hooks": [{"type": "command", "command": arg}]})
     if not dry:
-        write(json.dumps(data, indent=2) + "\n")
+        write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return "added" if existed else "created"
 
 
 def block():
-    with open(arg) as f:
+    with open(arg, encoding="utf-8") as f:
         block = BEGIN + "\n" + f.read().rstrip("\n") + "\n" + END
     existed = os.path.exists(path)
     old = ""
     if existed:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             old = f.read()
     b, e = old.find(BEGIN), old.find(END)
     if b < 0 and e < 0:
@@ -149,7 +149,7 @@ machine_install() {
   local ROOT TOP gitdir common sha tag s a p status f
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   MCLONE="$ROOT"
-  [ -n "${HOME:-}" ] && [ -d "$HOME" ] || { echo "Refusing: HOME is not set to a folder." >&2; exit 1; }
+  { [ -n "${HOME:-}" ] && [ -d "$HOME" ]; } || { echo "Refusing: HOME is not set to a folder." >&2; exit 1; }
   git -C "$ROOT" rev-parse --show-toplevel >/dev/null 2>&1 || { echo "Refusing: $ROOT is not a git repo." >&2; exit 1; }
   TOP="$(cd "$(git -C "$ROOT" rev-parse --show-toplevel)" && pwd -P)"
   [ "$TOP" = "$ROOT" ] || { echo "Refusing: $ROOT is inside the git repo at $TOP, not its own repo root." >&2; exit 1; }
@@ -204,7 +204,7 @@ $(sed '/./s/^/      /' "$ROOT/agent-team/templates/machine-instruction.md")")
 }
 
 if [ -z "$TARGET" ]; then
-  [ "$UPDATE$CHECK$FORCE" = "000" ] && [ -z "$REF" ] && [ -z "$FROM" ] || usage
+  { [ "$UPDATE$CHECK$FORCE" = "000" ] && [ -z "$REF" ] && [ -z "$FROM" ]; } || usage
   machine_install
   exit 0
 fi

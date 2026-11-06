@@ -90,6 +90,13 @@ The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and a
 - A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` with only one of the two marker comments. It is left alone; fix the markers.
 - The instruction text for Cursor. Its user rules have no file to write, so paste the text into Cursor Settings, Rules.
 
+A `~/.claude/settings.json`, `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that is itself a link (dotfiles) is written at its target, so the link stays.
+
+Apps that already carry the copied files:
+
+- From this release on, the copied skills call `~/.collective-wisdom/scripts/`. An app that still has the copied files, including one updated with `agent-team-update.sh`, needs the machine install too.
+- An app with the older project-level Stop hook in `.claude/settings.json` should get this release's copy of the scripts, or remove that hook. Otherwise its old copy reads the app's own history, disagrees with the clone, and can keep proposing a rotation.
+
 The installer refuses a clone that is not its own git repo root, and a linked worktree. `## Install` and `## Update` below describe the older route of copying the team into each app. They stay until CW-161 removes that route.
 
 ## Install

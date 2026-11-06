@@ -76,6 +76,7 @@ def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, rea
     if state is not None:
         path.write_text(json.dumps(state))
     monkeypatch.setenv("COS_STATE_FILE", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # no machine copy unless a test adds one
     monkeypatch.setattr(sys, "stdin", io.StringIO(hook_in if isinstance(hook_in, str) else json.dumps(hook_in)))
 
     def read_context(sid=None):
@@ -242,6 +243,23 @@ def test_hook_is_silent_in_a_repo_without_project_md(monkeypatch, capsys, tmp_pa
         (app / "docs" / "agents" / "project.md").write_text("| Key | Value |\n")
     monkeypatch.setattr(crc, "ROOT", app)
     out = run_hook(monkeypatch, capsys, tmp_path, {"session_id": "S1"}, STATE)  # would block: context over the cap
+    assert ("rotate: size" in out) == blocks and (out == "") == (not blocks)
+
+
+@pytest.mark.parametrize("machine_copy, blocks", [(None, True), ("other", False), ("link", True)])
+def test_hook_defers_to_the_machine_copy(monkeypatch, capsys, tmp_path, machine_copy, blocks):
+    # An app's older-style copy of this script must not disagree with the machine install's copy.
+    app = tmp_path / "app"
+    (app / "docs" / "agents").mkdir(parents=True)
+    (app / "docs" / "agents" / "project.md").write_text("| Key | Value |\n")
+    monkeypatch.setattr(crc, "ROOT", app)
+    scripts = tmp_path / "home" / ".collective-wisdom" / "scripts"
+    scripts.mkdir(parents=True)
+    if machine_copy == "other":
+        (scripts / "cos_rotation_check.py").write_text("# another file\n")
+    elif machine_copy == "link":
+        (scripts / "cos_rotation_check.py").symlink_to(crc.__file__)
+    out = run_hook(monkeypatch, capsys, tmp_path, {"session_id": "S1"}, STATE)
     assert ("rotate: size" in out) == blocks and (out == "") == (not blocks)
 
 

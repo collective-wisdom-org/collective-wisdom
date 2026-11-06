@@ -11,7 +11,7 @@ of the clone this script sits in), the app's branch (git), and the state file. E
 "rotation-check: cannot read <what>" when the context, git or state is unreadable, or the `Merge target branch` row of project.md is invalid.
 Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) and,
 with --record-takeover, takeoverContext, through cos_state.py. It never rotates anything.
---hook is silent in a repo with no docs/agents/project.md, and unless the session is the Chief of Staff's (session_id equals
+--hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's (session_id equals
 chiefSessionId) and stop_hook_active is false; then it blocks the stop on "rotate:" or
 exit 2. It never writes and any error exits 0 silently.
 COS_STATE_FILE and COS_PROJECTS_DIR override the state file and the transcripts directory.
@@ -235,6 +235,9 @@ def run_hook(path):
     try:
         if not (ROOT / "docs" / "agents" / "project.md").is_file():
             return 0  # not a repo the agent team serves
+        machine = Path.home() / ".collective-wisdom" / "scripts" / "cos_rotation_check.py"
+        if machine.exists() and os.path.realpath(machine) != os.path.realpath(__file__):
+            return 0  # an app's own copy: the user-level hook runs the machine copy, which reads the clone's history
         if not path.exists():
             return 0
         data = json.loads(sys.stdin.read())
