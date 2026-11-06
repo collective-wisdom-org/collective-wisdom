@@ -1,7 +1,8 @@
 # CW-135: Show the share of a subscription used next to the dollar cost of a ticket
 
 **Ticket:** [CW-135](https://github.com/collective-wisdom-org/collective-wisdom/issues/135)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #143, with differences: [as-built](../as-built/2026-11-05-cw-135-subscription-usage-percent-as-built.md)
 **Related:** #96, #57
 
 ## Goal
