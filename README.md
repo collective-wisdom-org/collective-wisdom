@@ -77,7 +77,7 @@ This compares the skills, agents, scripts and shared docs in the app with the co
 
 ## Configure a consuming repo
 
-Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The scripts read the first backticked token in a Value cell, so at least the issue identifier prefix, the repo, the branch pattern and the test command need real values. Anything marked `TODO(...)` is read as unset, and agents will stop rather than guess.
+Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The scripts read the first backticked token in a Value cell, so at least the issue identifier prefix, the repo, the branch pattern and the test command need real values. Anything marked `TODO(...)` is read as unset, and agents will stop rather than guess. The optional `Merge target branch` row (default `main`) names the branch every PR merges into; the root checkout stays on it.
 
 ## Approval risk tolerance
 
