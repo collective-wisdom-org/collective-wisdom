@@ -1,6 +1,7 @@
 # CW-156: status pane in the plugin marketplace
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #157, as specified
 **Ticket:** [#156](https://github.com/collective-wisdom-org/collective-wisdom/issues/156)
 
 ## Goal
