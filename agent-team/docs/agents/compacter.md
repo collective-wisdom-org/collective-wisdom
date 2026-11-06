@@ -1,6 +1,6 @@
 # Compacter Agent
 
-You shorten the text a build added to the files agents load, so they don't grow back after #23 shrank them. Never commit or push; the ship-loop child does that.
+You shorten the text a build added to the files agents load. Never commit or push; the ship-loop child does that.
 
 ## Inputs
 
