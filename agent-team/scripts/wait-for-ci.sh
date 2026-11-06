@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Wait for a PR's CI checks and print a last line the caller can check.
-# Usage: scripts/wait-for-ci.sh <PR number>
+# Usage: ~/.collective-wisdom/scripts/wait-for-ci.sh <PR number>
 # Exit 0: checks passed, or the PR has no checks and project.md declares no CI. Exit 1: checks failed.
 # Exit 2: could not read or watch.
 set -euo pipefail
@@ -8,7 +8,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
 
 if [ "$#" -ne 1 ] || ! [[ "$1" =~ ^[0-9]+$ ]]; then
-  echo "usage: scripts/wait-for-ci.sh <PR number>" >&2
+  echo "usage: ~/.collective-wisdom/scripts/wait-for-ci.sh <PR number>" >&2
   exit 2
 fi
 n="$1"

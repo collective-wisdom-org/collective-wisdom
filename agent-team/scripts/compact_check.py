@@ -2,7 +2,7 @@
 """Say whether the compaction pass should run, and print the sizes it reports.
 
 Usage:
-    scripts/compact_check.py [--base <ref>]
+    ~/.collective-wisdom/scripts/compact_check.py [--base <ref>]
 
 Counts the markdown files agents load, under agent-team/: skills (not the vendored agent-security and
 owasp-security), agents/*.md, docs/agents/**/*.md and templates/AGENTS.md. The change set is the counted files
@@ -72,7 +72,7 @@ def sizes(base):
 
 def main(argv):
     if argv and (argv[0] != "--base" or len(argv) != 2 or argv[1].startswith("-")):
-        print("compact: cannot read arguments; usage: scripts/compact_check.py [--base <ref>]")
+        print("compact: cannot read arguments; usage: ~/.collective-wisdom/scripts/compact_check.py [--base <ref>]")
         return 2
     if not (ROOT / "install.sh").exists():
         print("compact: skip (not collective-wisdom)")

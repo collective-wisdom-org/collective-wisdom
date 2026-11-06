@@ -2,16 +2,16 @@
 """Does the Chief of Staff thread need to rotate? One line: "ok ..." or "rotate: <reason>".
 
 Usage:
-    scripts/cos_rotation_check.py [--record-takeover]   # the model's call, every working turn
-    scripts/cos_rotation_check.py --skill-commit        # print the current skill commit only
-    scripts/cos_rotation_check.py --hook                # the Stop hook's call (hook JSON on stdin)
+    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover]   # the model's call, every working turn
+    ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit        # print the current skill commit only
+    ~/.collective-wisdom/scripts/cos_rotation_check.py --hook                # the Stop hook's call (hook JSON on stdin)
 
-Reads the thread's context size (agent_usage.py --context), the skill commit and the
-branch (git), and the state file. Exit 0 for "ok" and "rotate"; exit 2 with
+Reads the thread's context size (agent_usage.py --context), the skill commit (git history
+of the clone this script sits in), the app's branch (git), and the state file. Exit 0 for "ok" and "rotate"; exit 2 with
 "rotation-check: cannot read <what>" when the context, git or state is unreadable, or the `Merge target branch` row of project.md is invalid.
 Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) and,
 with --record-takeover, takeoverContext, through cos_state.py. It never rotates anything.
---hook is silent unless the session is the Chief of Staff's (session_id equals
+--hook is silent in a repo with no docs/agents/project.md, and unless the session is the Chief of Staff's (session_id equals
 chiefSessionId) and stop_hook_active is false; then it blocks the stop on "rotate:" or
 exit 2. It never writes and any error exits 0 silently.
 COS_STATE_FILE and COS_PROJECTS_DIR override the state file and the transcripts directory.
@@ -34,6 +34,8 @@ sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
 
 HERE = Path(__file__).absolute().parent
+# The clone's agent-team/ folder, through any ~/.collective-wisdom link. SKILL_PATHS and their history live here, not in the app.
+TEAM = Path(os.path.realpath(HERE)).parent
 
 
 def _root():
@@ -144,9 +146,9 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
     return f"ok context={k(context)}"
 
 
-def git(*args):
+def git(*args, cwd=None):
     try:
-        r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=10)
+        r = subprocess.run(["git", *args], cwd=cwd or ROOT, capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         raise Unreadable("git")
     if r.returncode:
@@ -155,11 +157,11 @@ def git(*args):
 
 
 def skill_paths():
-    """SKILL_PATHS resolved through symlinks, relative to the git top level; missing entries are skipped."""
-    top = os.path.realpath(git("rev-parse", "--show-toplevel"))
+    """SKILL_PATHS resolved through symlinks, relative to the clone's git top level; missing entries are skipped."""
+    top = os.path.realpath(git("rev-parse", "--show-toplevel", cwd=TEAM))
     out = []
     for p in SKILL_PATHS:
-        real = os.path.realpath(ROOT / p)
+        real = os.path.realpath(TEAM / p)
         if os.path.exists(real):
             out.append(os.path.relpath(real, top))
     return out
@@ -169,7 +171,7 @@ def skill_commit():
     paths = skill_paths()
     if not paths:
         raise Unreadable("git")
-    commit = git("log", "-1", "--format=%H", "--", *[f":(top){p}" for p in paths])
+    commit = git("log", "-1", "--format=%H", "--", *[f":(top){p}" for p in paths], cwd=TEAM)
     if not commit:
         raise Unreadable("git")
     return commit
@@ -231,6 +233,8 @@ def check(state, record=False, sid=None):
 
 def run_hook(path):
     try:
+        if not (ROOT / "docs" / "agents" / "project.md").is_file():
+            return 0  # not a repo the agent team serves
         if not path.exists():
             return 0
         data = json.loads(sys.stdin.read())

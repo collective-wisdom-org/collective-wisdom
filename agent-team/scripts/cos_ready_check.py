@@ -2,13 +2,13 @@
 """Which Chief of Staff children may have reported MERGE READY or SPEC READY.
 
 Usage:
-    scripts/cos_ready_check.py [--file STATE] [--prs FILE] [--refs FILE]
+    ~/.collective-wisdom/scripts/cos_ready_check.py [--file STATE] [--prs FILE] [--refs FILE]
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and GitHub.
-Build lane: tickets in `build`, matched to an open PR by branch (one `./scripts/gh.sh
+Build lane: tickets in `build`, matched to an open PR by branch (one `~/.collective-wisdom/scripts/gh.sh
 pr list --state open --limit 50 --json number,headRefName,headRefOid,comments`, plus
 statusCheckRollup in Review mode ci; --prs FILE reads that JSON instead). Spec lane: tickets in
-`spec`, one `./scripts/gh.sh
+`spec`, one `~/.collective-wisdom/scripts/gh.sh
 api --paginate repos/<owner>/<repo>/git/matching-refs/heads/<branch head><prefix>-<N>-`
 each (--refs FILE reads {"<PREFIX>-N": <that response>} instead). Prints one line each:
     ready ABC-N #PR head <short sha>     (latest code and security reviews both PASS; in Review mode ci:

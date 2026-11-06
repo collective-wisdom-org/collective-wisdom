@@ -2,8 +2,8 @@
 """Decide whether a spec or merge needs the user's approval, from the `Approval risk tolerance` setting.
 
 Usage:
-    scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-spec status line
-    scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
+    ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-spec status line
+    ~/.collective-wisdom/scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
 
 The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting); the level is never read
 from a working tree, and the merge target branch is read from the root checkout. A missing row, an unknown value or a failed read is `strict`. The rule:
@@ -19,7 +19,7 @@ Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Ris
 Exit 1: ask.  Last line: approval: ask [<PREFIX>-N] (<why>)
 Exit 2: bad arguments, or the state file failed. Last line: approval: cannot <what>. Treat as ask.
 
-scripts/cos_approve_pr.py --auto imports the rule, the Risk tail reader and the approval path list from here.
+~/.collective-wisdom/scripts/cos_approve_pr.py --auto imports the rule, the Risk tail reader and the approval path list from here.
 """
 
 import re
@@ -86,9 +86,9 @@ def _verdict(kind, who, level, setting):
 
 def cmd_auto(tid, kind, setting):
     if kind != "spec":
-        return 2, "approval: cannot decide a merge here; run scripts/cos_approve_pr.py <PREFIX>-N --auto"
+        return 2, "approval: cannot decide a merge here; run ~/.collective-wisdom/scripts/cos_approve_pr.py <PREFIX>-N --auto"
     if not project_config.ticket_re(anchored=True).match(tid):
-        return 2, "approval: cannot read arguments; usage: scripts/approval_policy.py auto <PREFIX>-N spec"
+        return 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec"
     try:
         t = cos_state.load(cos_state.DEFAULT_FILE).get("tickets", {}).get(tid)
         queued = isinstance(t, dict) and t.get("stage") == "build-queued" and str(t.get("pendingRelay") or "").startswith(AUTO_RELAY)
@@ -104,7 +104,7 @@ def cmd_auto(tid, kind, setting):
 
 def cmd_check(level, setting):
     if level not in LEVELS:
-        return 2, "approval: cannot read arguments; usage: scripts/approval_policy.py check Low|Medium|High"
+        return 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py check Low|Medium|High"
     return _verdict("spec", "", level, setting())
 
 
@@ -117,7 +117,7 @@ def main(argv, setting=project_config.approval_setting):
     elif len(argv) == 2 and argv[0] == "check":
         code, line = cmd_check(argv[1], setting)
     else:
-        code, line = 2, "approval: cannot read arguments; usage: scripts/approval_policy.py auto <PREFIX>-N spec | check <Level>"
+        code, line = 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec | check <Level>"
     print(line)
     return code
 

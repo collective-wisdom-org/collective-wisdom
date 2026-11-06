@@ -2,8 +2,8 @@
 """Did the user write it? Reads T3's local message store, read-only, and prints one line.
 
 Usage:
-    scripts/cos_user_check.py [--db PATH] latest <threadId> [--after ISO] < words
-    scripts/cos_user_check.py [--db PATH] item <threadId> <itemId> < words
+    ~/.collective-wisdom/scripts/cos_user_check.py [--db PATH] latest <threadId> [--after ISO] < words
+    ~/.collective-wisdom/scripts/cos_user_check.py [--db PATH] item <threadId> <itemId> < words
 
 The command's own words are always on stdin. Matching folds case and collapses whitespace on
 both sides (after NFKC and dropping zero-width characters), and the words must match on token boundaries (word characters on neither side), so

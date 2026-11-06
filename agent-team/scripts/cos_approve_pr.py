@@ -2,19 +2,19 @@
 """Verify the user's own "approve N" in the Chief of Staff thread before a merge approval is relayed.
 
 Usage:
-    scripts/cos_approve_pr.py <PREFIX>-N
-    scripts/cos_approve_pr.py <PREFIX>-N --auto
+    ~/.collective-wisdom/scripts/cos_approve_pr.py <PREFIX>-N
+    ~/.collective-wisdom/scripts/cos_approve_pr.py <PREFIX>-N --auto
 
 The caller picks only the ticket ID (and the optional `--auto` flag): it cannot pick the message store or the state
 file. The PR, its head, the thread, the cut-off time and the words (`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
 Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
 
-Gates, in order; the first failure stops: root checkout, state, the user's message (scripts/cos_user_check.py latest),
+Gates, in order; the first failure stops: root checkout, state, the user's message (~/.collective-wisdom/scripts/cos_user_check.py latest),
 gh login, PR facts, head.
 
 With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
 auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/<merge target branch>; see
-scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (scripts/cos_brief.py).
+~/.collective-wisdom/scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (~/.collective-wisdom/scripts/cos_brief.py).
 
 Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
   The snippet is the start of the user's message on one line (80 characters at most), so the Chief of Staff can show the user what was verified.
@@ -188,7 +188,7 @@ def main(argv, run=merge_pr.run):
             return 0
         tid = None
     if not tid:
-        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N [--auto]")
+        print("cos-approve: cannot read arguments; usage: ~/.collective-wisdom/scripts/cos_approve_pr.py <PREFIX>-N [--auto]")
         return 2
     try:
         print(approve(tid, run, args.auto))
