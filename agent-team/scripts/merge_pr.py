@@ -173,7 +173,7 @@ def resolved_note(f):
 def resolved_head(f):
     """The reviewed head when the current head is a resolved head of the approved head, else None.
 
-    All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
+    The approval must name this head or the reviewed head (the first parent); the gate checks that. All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
     commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must
     agree: the head is the only commit not in the approved head or origin/main.
     """
@@ -182,7 +182,7 @@ def resolved_head(f):
     if not m or f.get("conflictReview") != "off" or len(parents) != 2 or f.get("headNew") != [f["headRefOid"]]:
         return None
     first = parents[0].lower()
-    if first != m[2].lower() or not first.startswith(f["approved"]):
+    if first != m[2].lower():
         return None
     tail = [x["oid"] for x in f["commits"][-2:]]
     return first if tail == [first, f["headRefOid"]] else None
@@ -318,7 +318,7 @@ def gate(f, delta=real_delta):
         return "PR is from a fork"
     if f["baseRefName"] != "main":
         return f"base is {f['baseRefName']}, not main"
-    if not f["headRefOid"].startswith(f["approved"]) and not resolved_head(f):
+    if not f["headRefOid"].startswith(f["approved"]) and not (resolved_head(f) or "").startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
     for check in (required_reviews, teammate_approval):
         problem = check(f)

@@ -316,6 +316,7 @@ def resolved(f, note=RES_NOTE, who="me", head=HEAD, setting="off", parents=(OLD,
         (lambda f: resolved(f, parents=("d" * 40, OLD)), "is not approved head"),
         (lambda f: resolved(f, note="Head moved to {h} by merging main; PR diff unchanged since {o}."), "is not approved head"),
         (lambda f: resolved(f, approved="b" * 40), "is not approved head"),
+        (lambda f: resolved(f, approved=HEAD), None),  # the user approved the resolved head itself after MERGE READY
     ],
 )
 def test_resolved_head_is_covered_by_the_approval_of_its_first_parent(change, cause):
