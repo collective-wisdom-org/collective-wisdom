@@ -159,7 +159,12 @@ def check(t):
     if held:
         if t["stage"] != "awaiting-review":
             raise Reject(f"heldApproval only belongs to awaiting-review, not {t['stage']}")
-        if not isinstance(held, dict) or held.get("head") != t.get("headSha"):
+        if not (
+            isinstance(held, dict) and isinstance(held.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", held["head"])
+            and held.get("itemId") and held.get("at")
+        ):
+            raise Reject("heldApproval needs an object with a full head, itemId and at")
+        if held["head"] != t.get("headSha"):
             raise Reject("heldApproval head must equal the ticket's headSha")
 
 
@@ -203,6 +208,7 @@ def op_stage(s, op):
         t["resumeStage"] = None
     if not new.endswith("-queued"):
         t.update(pendingRelay=None, approvalItemId=None, queuedAt=None)
+    had_held = bool(t.get("heldApproval"))
     if new != "awaiting-review":
         t.pop("heldApproval", None)
     old_head = t.get("headSha")
@@ -212,7 +218,8 @@ def op_stage(s, op):
     head_same = t.get("headSha") == old_head
     # awaiting-review to awaiting-merge on the same head keeps the cut-off: the user saw that head's merge block on entry.
     kept = old == "awaiting-review" and new == "awaiting-merge" and head_same
-    if new in STAMPED and (new != old or not head_same) and not kept:  # a new head voids an approval cut-off
+    withdrawn = new == "awaiting-review" and had_held and not t.get("heldApproval")  # the user's approve N no longer counts
+    if new in STAMPED and (new != old or not head_same or withdrawn) and not kept:  # a new head voids an approval cut-off
         t["lastSeenAt"] = now()
     t.update(stage=new, status=op["status"])
     if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
@@ -232,11 +239,12 @@ def op_set(s, op):
         raise Reject(f"lastSeenAt is stamped by the script in {t['stage']}")
     if t["stage"] in ACTIVE and op["set"].get("childThreadId") not in (None, t.get("childThreadId")):
         s["lastRelayAt"] = now()
-    old_head = t.get("headSha")
+    old_head, had_held = t.get("headSha"), bool(t.get("heldApproval"))
     merge_set(t, op["set"])
     if t.get("headSha") != old_head and "heldApproval" not in op["set"]:
         t.pop("heldApproval", None)
-    if t["stage"] in STAMPED and t.get("headSha") != old_head:  # a new head voids an approval cut-off
+    withdrawn = had_held and not t.get("heldApproval")  # the user's approve N no longer counts
+    if t["stage"] in STAMPED and (t.get("headSha") != old_head or withdrawn):  # a new head voids an approval cut-off
         t["lastSeenAt"] = now()
     check(t)
 

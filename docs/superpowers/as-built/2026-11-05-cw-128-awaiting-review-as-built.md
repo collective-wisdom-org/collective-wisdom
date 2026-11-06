@@ -13,3 +13,7 @@
 - Only reviews from an owner, member or collaborator of the repo count, as in the merge gate.
 - `cos_sweep.py` takes a `--review-prs FILE` flag, so the review part can be tested with fixtures.
 - The `ship-loop` relay bullet sits under § Changes requested, because #131 removed the Team mode heading. `state-keys.md` carries the same-head cut-off exception in the `lastSeenAt` entry.
+- A child that disagrees with every comment on a changes request and pushes nothing stops with `BLOCKED:` instead of reporting `MERGE READY` again on the same head, since a standing request would send it back every sweep.
+- `approved ... by <x>` names the approvers on the head whatever the row says. `x` is `github` when only GitHub's decision approved, `codeowner` when the codeowner bypass passed the required review, and `none` when nothing was required and nobody approved.
+- Withdrawing a held approval (`hold N`) restamps `lastSeenAt`, so the withdrawn `approve N` no longer verifies. `heldApproval` must carry a full `head`, `itemId` and `at`.
+- A ticket with no `pr` or full `headSha` prints `unreadable`, and a merged PR prints no line (the merged check owns it).

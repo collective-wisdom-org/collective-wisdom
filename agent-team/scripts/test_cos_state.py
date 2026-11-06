@@ -32,6 +32,9 @@ def set_(**sets):
         # heldApproval: set only in awaiting-review on the ticket's head
         ("awaiting-review", None, set_(heldApproval=HELD), "kept", HELD),
         ("awaiting-review", None, set_(heldApproval={**HELD, "head": B}), "reject: head must equal", None),
+        ("awaiting-review", None, set_(heldApproval={k: v for k, v in HELD.items() if k != "itemId"}), "reject: needs an object", None),
+        ("awaiting-review", None, set_(heldApproval="yes"), "reject: needs an object", None),
+        ("build", None, stage("awaiting-review", headSha="abc", heldApproval={**HELD, "head": "abc"}), "reject: needs an object", None),
         ("awaiting-merge", None, set_(heldApproval=HELD), "reject: only belongs to awaiting-review", None),
         ("awaiting-merge", None, stage("awaiting-merge", heldApproval=HELD), "reject: only belongs to awaiting-review", None),
         # cleared by a head change, by a stage op to any other stage, and by the user's hold
@@ -39,7 +42,7 @@ def set_(**sets):
         ("awaiting-review", HELD, stage("awaiting-review", headSha=B), "new", None),
         ("awaiting-review", HELD, stage("awaiting-merge", headSha=A), "kept", None),
         ("awaiting-review", HELD, stage("build"), "kept", None),
-        ("awaiting-review", HELD, set_(heldApproval=None), "kept", None),
+        ("awaiting-review", HELD, set_(heldApproval=None), "new", None),
         ("awaiting-review", HELD, set_(note="n"), "kept", HELD),
     ],
 )

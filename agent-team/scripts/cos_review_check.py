@@ -21,16 +21,19 @@ back to build again while the reviewer has yet to re-review.
     route moved head <short>               (the PR head is not --head)
     route awaiting-merge (unreadable: <what>)   (merge_pr.py still gates at merge)
 
-With no --route it checks every ticket in awaiting-review that has a pr and a full headSha. One line each,
+With no --route it checks every ticket in awaiting-review. One line each,
 in state order; the first rule that fits wins:
     closed CW-N #PR                        (the PR was closed, not merged)
     moved CW-N #PR head <short>            (the PR head is not the ticket's headSha)
     changes CW-N #PR by <logins>           (a reviewer's newest verdict is CHANGES_REQUESTED on the ticket's head,
                                            and the row is on or GitHub's decision is CHANGES_REQUESTED)
-    approved CW-N #PR head <short> by <logins>   (review_stop() passes; `github` when its decision alone did)
+    approved CW-N #PR head <short> by <logins>   (review_stop() passes; the non-author approvers on the head, else
+                                           `github` when its decision is APPROVED, `codeowner` when merge_pr's
+                                           codeowner bypass let a missing review pass, else `none`)
     waiting CW-N #PR needs <names>         (a changes request on an older head waits here, naming who must
                                            re-review; so does a bare GitHub decision with no such review)
-    unreadable CW-N #PR
+    unreadable CW-N #PR                    (`#?` when the ticket has no pr; also a missing or short headSha)
+A merged PR prints no line (the merged check owns it) but counts as checked.
 then "review-check: <C> checked, <A> to act on" (closed, moved, changes and approved count). Logins and team
 names print only in GitHub's shape, else as `?`; review text never reaches the output.
 Exit 0 when nothing is to act on, 1 when something is, 2 when the check did not run (state or --prs unreadable,
@@ -159,6 +162,8 @@ def verdict(f, head):
     """(word, text after the PR number) for a ticket at head; the first rule that fits wins. May raise on bad review data."""
     if f["state"] == "CLOSED":
         return "closed", ""
+    if f["state"] == "MERGED":
+        return "merged", ""
     if f["headRefOid"] != head:
         return "moved", f" head {f['headRefOid'][:7]}"
     on_head = changers(f)[1]
@@ -166,7 +171,8 @@ def verdict(f, head):
         return "changes", f" by {names(on_head)}"
     if f["reviewDecision"] != "CHANGES_REQUESTED" and merge_pr.review_stop(f) is None:
         ok = [login for login, r in merge_pr.latest_verdicts(f).values() if r["state"] == "APPROVED" and (r.get("commit") or {}).get("oid") == head]
-        return "approved", f" head {head[:7]} by {names(ok) if f['teammate'] == 'on' and ok else 'github'}"
+        who = names(ok) if ok else "github" if f["reviewDecision"] == "APPROVED" else "codeowner" if f.get("bypass") else "none"
+        return "approved", f" head {head[:7]} by {who}"
     return "waiting", f" needs {needs(f)}"
 
 
@@ -209,17 +215,13 @@ def load_prs(path):
 
 
 def tickets(state):
-    """(ticket, pr number, headSha) for each awaiting-review ticket that has both."""
+    """(ticket, pr number or None, headSha or None) for each awaiting-review ticket; None marks a field that can't be used."""
     for tid, info in sorted(state["tickets"].items()):
         if not (isinstance(info, dict) and TICKET.fullmatch(tid) and info.get("stage") == "awaiting-review"):
             continue
-        pr = info.get("pr")
+        pr, head = info.get("pr"), info.get("headSha")
         pr = int(pr) if isinstance(pr, str) and pr.isdigit() else pr
-        if (
-            type(pr) is int
-            and isinstance(info.get("headSha"), str) and FULL_SHA.fullmatch(info["headSha"])
-        ):
-            yield tid, pr, info["headSha"]
+        yield tid, pr if type(pr) is int else None, head if isinstance(head, str) and FULL_SHA.fullmatch(head) else None
 
 
 def check(state, prs=None, run=run_gh):
@@ -233,11 +235,13 @@ def check(state, prs=None, run=run_gh):
             pass
     for tid, n, head in items:
         try:
-            if shared is None:
-                raise Unreadable("shared read failed")
+            if shared is None or n is None or head is None:
+                raise Unreadable("nothing to check")
             word, rest = verdict(facts(n, read_pr(n, prs, run), *shared), head)
         except (Unreadable, KeyError, TypeError, ValueError, AttributeError):
-            lines.append(f"unreadable {tid} #{n}")
+            lines.append(f"unreadable {tid} #{'?' if n is None else n}")
+            continue
+        if word == "merged":
             continue
         lines.append(f"{word} {tid} #{n}{rest}")
         if word in ACT:
