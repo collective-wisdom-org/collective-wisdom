@@ -38,7 +38,8 @@ async function open($: EngineInterface) {
   try {
     const { exitCode, stdout } = await $.process.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'])
     const common = stdout.trim()
-    if (exitCode === 0 && common) file = `${common.slice(0, common.lastIndexOf('/'))}/${STATE}`
+    // Only the plain `<root>/.git` layout: bare repos, submodules and old git keep the relative path.
+    if (exitCode === 0 && /^\/[^\n]*\/\.git$/.test(common)) file = `${common.slice(0, common.lastIndexOf('/'))}/${STATE}`
   } catch {
     // not a git checkout: keep the relative path
   }

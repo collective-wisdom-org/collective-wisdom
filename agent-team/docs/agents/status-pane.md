@@ -8,7 +8,7 @@ The install copies the mod to `.claude/mods/status-pane/`. Load it as a mod in C
 
 Two options, set in the config menu:
 
-- `autoOpen`: open the pane when a session starts. Off by default. A pane left open reopens at the next session start even when this is off.
+- `autoOpen`: open the pane when a session starts. Off by default. A pane left open reopens after the mod reloads even when this is off.
 - `environmentId`: the T3 environment ID, which the thread links need.
 
 ## Find the environment ID
