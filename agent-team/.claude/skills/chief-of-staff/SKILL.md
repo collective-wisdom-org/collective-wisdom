@@ -148,6 +148,7 @@ Nothing goes past a lane's limit or the overall cap. Other sections say "the spe
       "childThreadId": "…",
       "parentThreadId": "…",
       "status": "spec since 14:05: child started; no SPEC READY yet.",
+      "title": "Example feature",
       "branch": "feat/<prefix>-210-example-feature",
       "specPath": null,
       "specSha": null,
@@ -451,7 +452,7 @@ Otherwise:
 
 1. `set-state` In Progress and `add-label` `agent`, in one write.
 2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-opus-5-5", options: {effort: "medium"}}`, and the template below.
-3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), stage `spec` and its `status` line.
+3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), `title` (the ticket title you read for the readiness check), stage `spec` and its `status` line.
 
 The child has none of your history. The task text must stand alone.
 

@@ -27,7 +27,6 @@ function row(id: string, t: Record<string, unknown>): Row {
     title: text(t.title),
     risk: risk || NO_RISK,
     next,
-    childThreadId: text(t.childThreadId) || null,
   }
 }
 
