@@ -95,13 +95,14 @@ def test_check_covers_every_awaiting_review_ticket(setup, capsys):
         "ABC-5": {"stage": "awaiting-review", "pr": 9, "headSha": HEAD},  # review missing, but the login is a codeowner
         "ABC-6": {"stage": "awaiting-review", "pr": 10, "headSha": HEAD},  # merged: the merged check owns it
         "ABC-7": {"stage": "awaiting-review", "headSha": HEAD},  # no pr
+        "ABC-8": {"stage": "awaiting-review", "pr": "\u00b2", "headSha": HEAD},  # a Unicode digit is not a PR number
     }
     prs = {"5": pr(reviewDecision="APPROVED"), "9": pr(reviewDecision="REVIEW_REQUIRED"), "10": pr(state="MERGED")}
     argv = setup("off", prs, tickets, owners=["agent"])
     assert cos_review_check.main(argv) == 1
     assert capsys.readouterr().out.splitlines() == [
         "approved ABC-1 #5 head aaaaaaa by github", "unreadable ABC-2 #6", "unreadable ABC-3 #7",
-        "approved ABC-5 #9 head aaaaaaa by codeowner", "unreadable ABC-7 #?", "review-check: 6 checked, 2 to act on",
+        "approved ABC-5 #9 head aaaaaaa by codeowner", "unreadable ABC-7 #?", "unreadable ABC-8 #?", "review-check: 7 checked, 2 to act on",
     ]
 
 

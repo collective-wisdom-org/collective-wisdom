@@ -227,7 +227,7 @@ def tickets(state):
         if not (isinstance(info, dict) and TICKET.fullmatch(tid) and info.get("stage") == "awaiting-review"):
             continue
         pr, head = info.get("pr"), info.get("headSha")
-        pr = int(pr) if isinstance(pr, str) and pr.isdigit() else pr
+        pr = int(pr) if isinstance(pr, str) and re.fullmatch(r"[0-9]+", pr) else pr
         yield tid, pr if type(pr) is int else None, head if isinstance(head, str) and FULL_SHA.fullmatch(head) else None, info.get("changesRelayed")
 
 
