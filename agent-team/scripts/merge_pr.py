@@ -124,12 +124,14 @@ def read_facts(pr, approved, run):
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
             f["docs"][path] = run([GH, "api", url, "-H", "Accept: application/vnd.github.raw+json"])
-    f["conflictReview"] = f["headParents"] = None
+    f["conflictReview"] = f["headParents"] = f["headNew"] = None
     if f["state"] == "OPEN" and resolved_note(f):  # only a head with the conflict note needs the setting and the parents
         f["conflictReview"] = project_config.review_after_conflict()
         try:
             pr_diff_delta.fetch(pr, run)
             f["headParents"] = run(["git", "rev-list", "--parents", "-n", "1", f["headRefOid"]]).split()[1:]
+            if len(f["headParents"]) == 2:  # what the head adds beyond the approved head and main must be the merge commit alone
+                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", "^origin/main"]).split()
         except CmdError:
             pass
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
@@ -172,11 +174,11 @@ def resolved_head(f):
     """The reviewed head when the current head is a resolved head of the approved head, else None.
 
     All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
-    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head.
+    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must agree: the head is the only commit not in the approved head or origin/main.
     """
     m = resolved_note(f)
     parents = f.get("headParents") or []
-    if not m or f.get("conflictReview") != "off" or len(parents) != 2:
+    if not m or f.get("conflictReview") != "off" or len(parents) != 2 or f.get("headNew") != [f["headRefOid"]]:
         return None
     first = parents[0].lower()
     if first != m[2].lower() or not first.startswith(f["approved"]):

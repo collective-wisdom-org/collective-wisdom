@@ -291,11 +291,11 @@ RES_NOTE = "Head moved to {h} by resolving conflicts with main; reviews from {o}
 STALE = "2026-11-02T08:00:00Z"
 
 
-def resolved(f, note=RES_NOTE, who="me", head=HEAD, setting="off", parents=(OLD, "d" * 40), extra=False, approved=OLD):
+def resolved(f, note=RES_NOTE, who="me", head=HEAD, setting="off", parents=(OLD, "d" * 40), extra=False, approved=OLD, new=None, old_date=STALE):
     """Head HEAD is a merge commit on the approved head OLD; reviews were posted on OLD."""
     f["approved"] = approved[:7]
-    f["conflictReview"], f["headParents"] = setting, list(parents)
-    f["commits"] = [{"oid": OLD, "committedDate": STALE}, {"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}]
+    f["conflictReview"], f["headParents"], f["headNew"] = setting, list(parents), [HEAD] if new is None else new
+    f["commits"] = [{"oid": OLD, "committedDate": old_date}, {"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}]
     if extra:
         f["commits"].insert(1, {"oid": "e" * 40, "committedDate": "2026-11-02T09:00:00Z"})
     f["comments"].append({"author": {"login": who}, "body": note.format(h=head, o=OLD), "createdAt": "2026-11-02T10:40:00Z"})
@@ -310,6 +310,8 @@ def resolved(f, note=RES_NOTE, who="me", head=HEAD, setting="off", parents=(OLD,
         (lambda f: resolved(f, who="other"), "is not approved head"),
         (lambda f: resolved(f, head="d" * 40), "is not approved head"),
         (lambda f: resolved(f, extra=True), "is not approved head"),
+        (lambda f: resolved(f, new=[HEAD, "f" * 40]), "is not approved head"),  # second parent brings commits not on main
+        (lambda f: resolved(f, old_date="2026-11-03T00:00:00Z"), "is older than head commit"),  # review predates the approved head
         (lambda f: resolved(f, parents=(OLD,)), "is not approved head"),
         (lambda f: resolved(f, parents=("d" * 40, OLD)), "is not approved head"),
         (lambda f: resolved(f, note="Head moved to {h} by merging main; PR diff unchanged since {o}."), "is not approved head"),

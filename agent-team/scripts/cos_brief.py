@@ -367,6 +367,7 @@ def cmd_pr(args):
             moved = moved_line(oid, comments, login)
         except ReadError:
             die(f"cannot read PR #{n}")
+    flag = resolved_flag(oid, comments, login) if login else None
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",
@@ -378,7 +379,7 @@ def cmd_pr(args):
         ]),
         *([moved] if moved else []),
         *(["conflict: yes"] if pr.get("mergeable") == "CONFLICTING" else []),
-        *([resolved_flag(oid, comments, login)] if login and resolved_flag(oid, comments, login) else []),
+        *([flag] if flag else []),
         cost_line(pr.get("headRefName")),
         f"files: {len(paths)} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",
         *flags_for(paths),

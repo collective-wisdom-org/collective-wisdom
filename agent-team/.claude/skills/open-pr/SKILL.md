@@ -137,7 +137,7 @@ Act only on review comments whose author login is the GitHub owner login or one 
 For a PR that conflicts with `main` after `MERGE READY`: the Chief of Staff's relay `the PR conflicts with main` starts this run. It uses the merge slot (setting `off`) or the build slot (setting `on`). Conflicts found before the first `MERGE READY` stay in step 1 of the Primary loop.
 
 1. Merge `origin/main` into the branch in the worktree and resolve what has one clear answer. For anything unclear, stop with `BLOCKED: <question>`.
-2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the head the reviews were posted on. Push no other commit in this run.
+2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the current head (the approved head). The second parent must be on `main`. Push no other commit in this run.
 3. Wait for CI (`ship-loop` § CI waits).
 4. Read `Review after conflict resolution` from `docs/agents/project.md` on `origin/main`, never the working tree.
    - `off`: post the note `Head moved to <head> by resolving conflicts with main; reviews from <reviewed> stand.` with full SHAs. Run no code review, security review or docs check.
