@@ -65,12 +65,12 @@ def project_name(root=None):
 # Claude Code names a transcript dir after the checkout path, so the main checkout's directory name matches it.
 PROJECT = project_name()
 
-# $/MTok: input, output, cache read, cache write 1h, cache write 5m
+# $/MTok: input, output, cache read, cache write 1h, cache write 5m. The numbers live in prices.json,
+# which the agent-gantt mod reads too.
+_RATES = ("input", "output", "read", "write_1h", "write_5m")
 PRICES = {
-    "opus": (4, 20, 0.20, 8, 5),
-    "sonnet": (2, 10, 0.20, 4, 2.5),
-    "haiku": (0.10, 0.50, 0.01, 0.20, 0.125),
-    "fable": (10, 50, 0.25, 20, 12.5),
+    fam: tuple(rates[k] for k in _RATES)
+    for fam, rates in json.loads(Path(__file__).with_name("prices.json").read_text()).items()
 }
 KINDS = ("input", "output", "read", "write")
 ROOT = "root "  # prefix of root-checkout session rows
