@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 write thread links as markdown links (CW-134) (#145)
+
+Merged 2026-11-06 03:01 UTC.
+
+The Chief of Staff now writes thread links as titled markdown links so they show as a name you can click instead of a raw `t3-thread://` string. Apps pick it up on the next install update.
+
 ## 2026-11-06 merge target branch setting (CW-125) (#132)
 
 Merged 2026-11-06 02:55 UTC.
