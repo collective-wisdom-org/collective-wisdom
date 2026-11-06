@@ -61,7 +61,7 @@ extract() {
 # shipped <dir>: sorted paths of the files the installer syncs from an extracted agent-team/ (the same paths in the app).
 shipped() {
   local p
-  for p in .claude/skills .claude/agents scripts docs/agents; do
+  for p in .claude/skills .claude/agents .claude/mods scripts docs/agents; do
     [ -d "$1/$p" ] && (cd "$1" && find "$p" -type f)
   done | awk '$0 !~ /(^|\/)__pycache__\// && $0 !~ /\.pyc$/ && $0 !~ /\.DS_Store$/' | LC_ALL=C sort
   return 0
@@ -194,6 +194,7 @@ seed_file() {
 
 sync_dir "$SRC/.claude/skills" "$TARGET/.claude/skills"
 sync_dir "$SRC/.claude/agents" "$TARGET/.claude/agents"
+sync_dir "$SRC/.claude/mods" "$TARGET/.claude/mods"
 
 # Skill folders the installer did not ship, named like a shipped skill with a prefix (for example
 # acme-ship-loop next to ship-loop), are old copies. Warn; never delete.

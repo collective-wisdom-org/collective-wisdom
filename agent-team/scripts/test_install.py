@@ -10,6 +10,7 @@ pytestmark = pytest.mark.skipif(not (TOP / "install.sh").exists(), reason="only 
 
 PIN = "docs/agents/installed-from.txt"
 SKILL = ".claude/skills/x/SKILL.md"
+MOD = ".claude/mods/status-pane/hooks/register.tsx"
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"]
 
 
@@ -40,12 +41,12 @@ def world(tmp_path):
     git(cw, "remote", "add", "origin", str(tmp_path / "origin.git"))
     at = cw / "agent-team"
     put(at, {
-        SKILL: "v1\n", ".claude/agents/r.md": "r\n", ".claude/settings.json": "{}\n", "scripts/a.py": "a\n",
+        SKILL: "v1\n", MOD: "m1\n", ".claude/agents/r.md": "r\n", ".claude/settings.json": "{}\n", "scripts/a.py": "a\n",
         "scripts/old.py": "old\n", "docs/agents/a.md": "a\n", "docs/superpowers/README.md": "readme\n",
         "templates/project.md": "p\n", "templates/AGENTS.md": "agents\n", "templates/gitignore": ".env\n",
     })
     sha = {"A": commit(cw, "feat: first")}
-    put(at, {SKILL: "v2\n", "scripts/new.py": "new\n"})
+    put(at, {SKILL: "v2\n", MOD: "m2\n", "scripts/new.py": "new\n"})
     (at / "scripts/old.py").unlink()
     sha["B"] = commit(cw, "feat: second")
     git(cw, "push", "-q", "origin", "main")
@@ -83,14 +84,14 @@ EDIT = [(SKILL, "mine\n")]
 
 # name, steps after installing A (None: no install), args, exit code, output substrings, pin after, files after
 INSTALL = [
-    ("fresh install at A", None, ["--to", "{A}"], 0, ["add     " + SKILL], "A", {SKILL: "v1\n", "scripts/old.py": "old\n"}),
+    ("fresh install at A", None, ["--to", "{A}"], 0, ["add     " + SKILL], "A", {SKILL: "v1\n", MOD: "m1\n", "scripts/old.py": "old\n"}),
     ("dry run writes nothing", None, ["--dry-run", "--to", "{A}"], 0, ["[dry-run] add     " + SKILL], None, {SKILL: None}),
     ("a commit off origin/main is refused", None, ["--to", "{S}"], 1, ["not on origin/main"], None, {SKILL: None}),
     (
         "update moves to origin/main and lists deletions", [], ["--update"], 0,
         ["{A12} -> {B12} (1 commit)", "feat: second", "update  " + SKILL, "add     scripts/new.py",
          "Delete scripts/old.py: collective-wisdom no longer ships it"],
-        "B", {SKILL: "v2\n", "scripts/new.py": "new\n", "scripts/old.py": "old\n"},
+        "B", {SKILL: "v2\n", MOD: "m2\n", "scripts/new.py": "new\n", "scripts/old.py": "old\n"},
     ),
     ("update dry run", [], ["--dry-run", "--update"], 0, ["[dry-run] update  " + SKILL], "A", {SKILL: "v1\n"}),
     ("update at the same commit", [], ["--update", "--to", "{A}"], 0, ["already at {A}"], "A", {SKILL: "v1\n"}),
