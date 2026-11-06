@@ -137,11 +137,21 @@ def keys_ok(d, allowed, what):
             raise Reject(f"unknown {what} key {k}")
 
 
+BAD_TITLE = re.compile("[\x00-\x1f\x7f-\x9f\u2028\u2029]+")
+
+
+def clean_title(val):
+    """A ticket title is untrusted and drawn in a terminal pane: control characters become spaces, 200 characters at most."""
+    if not isinstance(val, str):
+        raise Reject("title must be a string")
+    return BAD_TITLE.sub(" ", val).strip()[:200]
+
+
 def merge_set(t, sets):
     """t.update(sets), but a dict value for restarts merges into the existing counts."""
     for k, val in sets.items():
-        if k == "title" and not isinstance(val, str):
-            raise Reject("title must be a string")
+        if k == "title":
+            val = clean_title(val)
         if k == "restarts" and isinstance(val, dict) and isinstance(t.get(k), dict):
             t[k] = {**t[k], **val}
         else:
@@ -182,9 +192,7 @@ def check(t):
 
 def op_start(s, op):
     need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", optional=("branch", "title"))
-    title = op.get("title", "")
-    if not isinstance(title, str):
-        raise Reject("title must be a string")
+    title = clean_title(op.get("title", ""))
     tid, t = ticket_of(s, op)
     if t:
         if t.get("childThreadId") != op["childThreadId"]:
@@ -193,7 +201,7 @@ def op_start(s, op):
     s["tickets"][tid] = {
         "stage": "spec", "firstTaskId": op["firstTaskId"], "childThreadId": op["childThreadId"],
         "parentThreadId": op["parentThreadId"], "status": op["status"],
-        "branch": op.get("branch"), "title": title.strip(), "specPath": None, "specSha": None, "pr": None,
+        "branch": op.get("branch"), "title": title, "specPath": None, "specSha": None, "pr": None,
         "headSha": None, "rateLimitResumes": 0, "lastSeenAt": now(), "lastPosition": 0,
         "resumeStage": None, "pendingRelay": None, "approvalItemId": None, "queuedAt": None,
         "restarts": {"spec": 0}, "note": "",

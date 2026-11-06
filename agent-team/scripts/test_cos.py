@@ -127,7 +127,9 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
 @pytest.mark.parametrize("ops, title, code", [
     ([{**START, "title": "  Add X  "}], "Add X", 0),
     ([START], "", 0),
-    ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": "Later"}}], "Later", 0),
+    ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": "  Later  "}}], "Later", 0),
+    ([{**START, "title": "A\x1b]8;;x\x07B\nC"}], "A ]8;;x B C", 0),
+    ([{**START, "title": "x" * 300}], "x" * 200, 0),
     ([{**START, "title": 5}], None, 1),
     ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": None}}], None, 1),
 ])
