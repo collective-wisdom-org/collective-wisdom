@@ -1,6 +1,7 @@
 # CW-144: status pane
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #146, as specified
 **Ticket:** [#144](https://github.com/collective-wisdom-org/collective-wisdom/issues/144)
 
 ## Goal
