@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward root main.
+"""Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward the root checkout (on the merge target branch).
 
 Usage:
     scripts/merge_pr.py <PR number> <approved head SHA>
@@ -60,7 +60,7 @@ API = "repos/{owner}/{repo}/git"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
 NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
 RESOLVED = re.compile(
-    r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with main; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S
+    r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with [A-Za-z0-9._/-]+; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S
 )
 
 
@@ -77,10 +77,10 @@ def ts(s):
 
 
 def codeowners(run):
-    """Lower-cased user logins on the `*` line of .github/CODEOWNERS on origin/main (the repo's trusted copy), or [] when there is none."""
+    """Lower-cased user logins on the `*` line of .github/CODEOWNERS on origin/<merge target branch> (the repo's trusted copy), or [] when there is none."""
     try:
-        text = run(["git", "-C", str(ROOT), "show", "refs/remotes/origin/main:.github/CODEOWNERS"])
-    except CmdError:
+        text = run(["git", "-C", str(ROOT), "show", f"{project_config.target_ref()}:.github/CODEOWNERS"])
+    except (CmdError, SystemExit):  # a bad Merge target branch row: gate() stops on it with its message
         return []
     owners = []
     for line in text.splitlines():
@@ -131,8 +131,8 @@ def read_facts(pr, approved, run):
         try:
             pr_diff_delta.fetch(pr, run)
             f["headParents"] = run(["git", "rev-list", "--parents", "-n", "1", f["headRefOid"]]).split()[1:]
-            if len(f["headParents"]) == 2:  # what the head adds beyond the approved head and main must be the merge commit alone
-                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", f"^{pr_diff_delta.MAIN}"]).split()
+            if len(f["headParents"]) == 2:  # what the head adds beyond the approved head and the merge target branch must be the merge commit alone
+                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", f"^{project_config.target_ref()}"]).split()
         except CmdError:
             pass
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
@@ -155,7 +155,7 @@ def read_facts(pr, approved, run):
 
 
 def real_delta(f, reviewed):
-    """Fetch main and the PR head into the root checkout, then compare the PR's diff at both heads."""
+    """Fetch the merge target branch and the PR head into the root checkout, then compare the PR's diff at both heads."""
     pr_diff_delta.fetch(f["pr"], pr_diff_delta.run)
     return pr_diff_delta.delta(reviewed, f["headRefOid"], pr_diff_delta.run)
 
@@ -176,7 +176,7 @@ def resolved_head(f):
 
     The approval must name this head or the reviewed head (the first parent); the gate checks that. All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
     commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must
-    agree: the head is the only commit not in the approved head or origin/main.
+    agree: the head is the only commit not in the approved head or origin/<target>.
     """
     m = resolved_note(f)
     parents = f.get("headParents") or []
@@ -338,8 +338,12 @@ def gate(f, delta=real_delta):
         return "PR is a draft"
     if f["isCrossRepository"]:
         return "PR is from a fork"
-    if f["baseRefName"] != "main":
-        return f"base is {f['baseRefName']}, not main"
+    try:
+        target = project_config.target_branch()
+    except SystemExit as e:
+        return str(e)
+    if f["baseRefName"] != target:
+        return f"base is {f['baseRefName']}, not {target}"
     if not f["headRefOid"].startswith(f["approved"]) and not (resolved_head(f) or "").startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
     problem = review_stop(f)
@@ -394,17 +398,17 @@ def gate(f, delta=real_delta):
         return 'proof missing: no "## Proof" section in the PR body'
     if not re.search(r"^Not proven", proof, re.M):
         return 'proof missing: the "## Proof" section has no "Not proven" line'
-    if f["root_branch"] != "main":
-        return f"root checkout is on {f['root_branch']}, not main; cannot fast-forward"
+    if f["root_branch"] != target:
+        return f"root checkout is on {f['root_branch']}, not {target}; cannot fast-forward"
     if f["root_dirty"]:
         return "root checkout has tracked changes; cannot fast-forward"
     if f["root_ahead"] is None or f["root_ahead"] > 0:
-        return "root main has local commits / no upstream; cannot fast-forward"
+        return f"root {target} has local commits / no upstream; cannot fast-forward"
     return None
 
 
 def cleanup(f, run):
-    """Delete the remote branch if it is still the PR head, then fast-forward root main.
+    """Delete the remote branch if it is still the PR head, then fast-forward the root checkout (on the merge target branch).
 
     Raises CmdError(what). A fork PR's branch is not ours to delete.
     """
@@ -422,12 +426,13 @@ def cleanup(f, run):
             except CmdError as e:
                 if not re.search(r"HTTP 4(04|22)", str(e)):
                     raise CmdError(f"delete branch: {e}")
-    if f["root_branch"] != "main":
-        raise CmdError(f"fast-forward root main: root checkout is on {f['root_branch']}")
+    target = project_config.target_branch()
+    if f["root_branch"] != target:
+        raise CmdError(f"fast-forward root {target}: root checkout is on {f['root_branch']}")
     try:
         run(["git", "-C", f["root"], "pull", "--ff-only"])
     except CmdError as e:
-        raise CmdError(f"fast-forward root main: {e}")
+        raise CmdError(f"fast-forward root {target}: {e}")
 
 
 class Skip(Exception):
@@ -440,8 +445,8 @@ def blob_sha(data):
 
 
 def note_files(run):
-    """(file name, text) for each regular `.md` blob directly in the release notes folder of origin/main."""
-    out = run(["git", "ls-tree", "-z", "refs/remotes/origin/main", "--", NOTES_DIR])
+    """(file name, text) for each regular `.md` blob directly in the release notes folder of origin/<merge target branch>."""
+    out = run(["git", "ls-tree", "-z", project_config.target_ref(), "--", NOTES_DIR])
     files = []
     for entry in out.split("\0"):
         meta, _, path = entry.partition("\t")
@@ -458,13 +463,14 @@ def post(run, kind, body, method="POST"):
 
 
 def publish_notes(pr, sha, run):
+    target = project_config.target_branch()
     try:
-        prs = json.loads(run([GH, "pr", "list", "--state", "merged", "--base", "main",
+        prs = json.loads(run([GH, "pr", "list", "--state", "merged", "--base", target,
                               "--json", "number,title,body,mergedAt", "--limit", "500"]))
     except Exception:
         raise Skip("cannot read merged PRs; release notes not published")
     try:
-        run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"])
+        run(["git", "merge-base", "--is-ancestor", sha, project_config.target_ref()])
         text = release_notes.render(note_files(run), prs, release_notes.file_merge_times()) + "\n"
     except Exception as e:
         raise Skip(f"cannot build the release notes: {type(e).__name__} {e}")

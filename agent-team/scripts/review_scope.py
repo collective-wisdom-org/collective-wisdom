@@ -6,7 +6,7 @@ Usage:
     scripts/review_scope.py --ci <base rev> <head rev>
 
 The head (40 hex) defaults to the PR's current headRefOid. The PR's diff is taken at the head against its merge base
-with origin/main (by its full ref name). A docs file is an ASCII-named .md file that is README.md at the repo top, or under docs/ but not
+with origin/<merge target branch> (by its full ref name). A docs file is an ASCII-named .md file that is README.md at the repo top, or under docs/ but not
 under docs/agents/ (compared without regard to case), has no path part starting with "." and is not named CLAUDE.md,
 CLAUDE.local.md or AGENTS.md (any case), and is a regular file (mode 100644, or absent) on both sides.
 Changed lines are added plus deleted lines over the files that are not docs files.
@@ -36,13 +36,16 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+import project_config  # noqa: E402
+
 _spec = importlib.util.spec_from_file_location(
     "pr_diff_delta", Path(__file__).with_name("pr_diff_delta.py")
 )
 pr_diff_delta = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pr_diff_delta)
-CmdError, MAIN, GH, fetch, run = (
-    pr_diff_delta.CmdError, pr_diff_delta.MAIN, pr_diff_delta.GH, pr_diff_delta.fetch, pr_diff_delta.run
+CmdError, GH, fetch, run = (
+    pr_diff_delta.CmdError, pr_diff_delta.GH, pr_diff_delta.fetch, pr_diff_delta.run
 )
 
 SMALL_MAX = 200  # changed lines outside docs files; the one constant to tune
@@ -85,12 +88,12 @@ def ci_scope(base, head, run):
 
 
 def classify(head, run):
-    """Return (kind, detail) for the PR's diff at head against its merge base with origin/main.
+    """Return (kind, detail) for the PR's diff at head against its merge base with origin/<merge target branch>.
 
-    Expects origin/main and head to be local already. Raises CmdError when it can't read the diff.
+    Expects origin/<target> and head to be local already. Raises CmdError when it can't read the diff.
     """
     head = run(["git", "rev-parse", "--verify", f"{head}^{{commit}}"]).strip()
-    base = run(["git", "merge-base", MAIN, head]).strip()
+    base = run(["git", "merge-base", project_config.target_ref(), head]).strip()
     modes = changed_modes(base, head, run)
     stat = run(["git", "diff", "--numstat", *DIFF_FLAGS, base, head]).split("\0")
     docs = {p for p, m in modes.items() if is_docs(p, m)}

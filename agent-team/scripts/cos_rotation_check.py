@@ -8,7 +8,7 @@ Usage:
 
 Reads the thread's context size (agent_usage.py --context), the skill commit and the
 branch (git), and the state file. Exit 0 for "ok" and "rotate"; exit 2 with
-"rotation-check: cannot read <what>" when the context, git or state is unreadable.
+"rotation-check: cannot read <what>" when the context, git or state is unreadable, or the `Merge target branch` row of project.md is invalid.
 Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) and,
 with --record-takeover, takeoverContext, through cos_state.py. It never rotates anything.
 --hook is silent unless the session is the Chief of Staff's (session_id equals
@@ -49,6 +49,7 @@ def _root():
 
 
 ROOT = _root()
+import project_config  # noqa: E402  (after _root(): it must find the same repo)
 SIZE_CAP = 220_000
 QUIET_RELAY_MIN = 10
 QUIET_ROTATED_MIN = 60
@@ -117,7 +118,7 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
         return "ok (held: rotationHeldUntil)"
     old = state.get("skillCommit")
     waits = None
-    if branch == "main" and old and commit != old:
+    if branch == project_config.target_branch() and old and commit != old:
         why = quiet_wait(state, now)
         if not why:
             return f"rotate: skill changed {old[:7]}..{commit[:7]}"
@@ -220,6 +221,10 @@ def check(state, record=False, sid=None):
         tk = {"threadId": state["chiefThreadId"], "tokens": context}
         state = {**state, "takeoverContext": tk}
     now = datetime.now(timezone.utc)
+    try:
+        project_config.target_branch()
+    except SystemExit:
+        raise Unreadable("the Merge target branch row of project.md")
     line = decide(state, context, now, skill_commit(), branch())
     return (f"{line}; take-over context={k(context)}" if record else line), tk
 

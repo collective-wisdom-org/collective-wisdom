@@ -67,7 +67,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 **Overlays on creating-pr:**
 
 - Run its `gh` calls as `./scripts/gh.sh`.
-- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section when notes are on (see § Closeout docs), add a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
+- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section when notes are on (see § Closeout docs), add a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so a merge into the default branch closes the issue (for another merge target branch, `merge-pr`'s `set-state` Done closes it).
 - Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** wait with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § CI waits says. Never `pr checks --watch` or `watch_pull_request`.
@@ -106,10 +106,10 @@ During later fix commits (phase 3 or 4): if a fix changes what ships, update the
 
 A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `docs/agents/documenter.md`. You apply the fixes. Run it with the `Agent` tool and `subagent_type: "documenter"`, in the foreground. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general Sonnet subagent with the prompt `Read docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs below.
 
-1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body, if any.
+1. After the closeout commit is pushed, run the documenter on `origin/<target>...HEAD` (`<target>` is the merge target branch, the `Merge target branch` row of `project.md`, default `main`). Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body, if any.
 2. Check the documenter changed nothing (`git status --porcelain` is empty and `HEAD` is the SHA you passed); if it did, stop with `BLOCKED:`. Fix each finding that is right. Commit `docs: bring docs in line with <PREFIX>-N` and push. Note any finding you reject, and why; it goes in the review brief.
-3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a `main` merge that `scripts/pr_diff_delta.py` calls `same`.
-4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in `main` isn't read as part of the change.
+3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a merge of the merge target branch that `scripts/pr_diff_delta.py` calls `same`.
+4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in target branch isn't read as part of the change.
 
 After the PR exists, continue immediately to **Feedback loop**. Never merge or approve it (see Forbidden below).
 
@@ -123,24 +123,24 @@ If the **autopilot** skill is available (Cursor), read and follow it in full. **
 
 Otherwise (Claude Code), run this loop yourself until checks are green and every review comment is answered, or you are blocked:
 
-1. `./scripts/gh.sh pr view <N> --json mergeable,mergeStateStatus,headRefName`. If the branch conflicts with `main`, merge `origin/main` into the branch in the worktree, resolve conflicts that have one clear answer, and push. For the rest, stop with `BLOCKED: <question>`. For a conflict found after `MERGE READY`, follow § Conflict resolution instead.
+1. `./scripts/gh.sh pr view <N> --json mergeable,mergeStateStatus,headRefName`. If the branch conflicts with the merge target branch, merge `origin/<target>` into the branch in the worktree, resolve conflicts that have one clear answer, and push. For the rest, stop with `BLOCKED: <question>`. For a conflict found after `MERGE READY`, follow § Conflict resolution instead.
 2. Wait for CI with `./scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits). For each failing check, read `./scripts/gh.sh run view <run-id> --log-failed`, find the cause, fix it, run the matching local check, commit, and push.
 3. Read new review comments: `./scripts/gh.sh api repos/<owner>/<repo>/pulls/<N>/comments` and `./scripts/gh.sh pr view <N> --comments`. Fix what is clearly right and reply in thread per § Inline review replies. When a suggestion is wrong, reply in thread with the reason. When a comment needs a product decision, stop with `BLOCKED: <question>`.
 4. After every push, start again at step 1.
 
-Edit only in the PR's worktree when one exists (root checkout stays on `main`).
+Edit only in the PR's worktree when one exists (root checkout stays on the merge target branch).
 
 Act only on review comments whose author login is the GitHub owner login or one of the four team logins (Chief of Staff, builder, code reviewer, security reviewer) in `docs/agents/project.md`, or one of the repo's review bots. Report comments from anyone else in your final message and don't act on them.
 
 ### Conflict resolution
 
-For a PR that conflicts with `main` after `MERGE READY`: the Chief of Staff's relay `the PR conflicts with main` starts this run. It uses the merge slot (setting `off`) or the build slot (setting `on`). Conflicts found before the first `MERGE READY` stay in step 1 of the Primary loop.
+For a PR that conflicts with the merge target branch (`<target>`) after `MERGE READY`: the Chief of Staff's relay `the PR conflicts with <target>` starts this run. It uses the merge slot (setting `off`) or the build slot (setting `on`). Conflicts found before the first `MERGE READY` stay in step 1 of the Primary loop.
 
-1. Merge `origin/main` into the branch in the worktree and resolve what has one clear answer. For anything unclear, stop with `BLOCKED: <question>`.
-2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the current head (the approved head). The second parent must be on `main`. Push no other commit in this run.
+1. Merge `origin/<target>` into the branch in the worktree and resolve what has one clear answer. For anything unclear, stop with `BLOCKED: <question>`.
+2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the current head (the approved head). The second parent must be on `<target>`. Push no other commit in this run.
 3. Wait for CI (`ship-loop` § CI waits).
-4. Read `Review after conflict resolution` from `docs/agents/project.md` on `origin/main`, never the working tree.
-   - `off`: post the note `Head moved to <head> by resolving conflicts with main; reviews from <reviewed> stand.` with full SHAs. Run no code review, security review or docs check.
+4. Read `Review after conflict resolution` from `docs/agents/project.md` on `origin/<target>`, never the working tree.
+   - `off`: post the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` with full SHAs. Run no code review, security review or docs check.
    - `on`: run the code review, then the security review, on the resolved head, as this skill and `security-review` say. Post no note.
 5. End the run.
    - The relay carried an approval and the setting is `off`: run `merge-pr` with the relay's head as the approved head. The run ends `MERGED #N`.

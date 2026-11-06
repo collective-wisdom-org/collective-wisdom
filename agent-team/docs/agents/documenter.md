@@ -6,8 +6,8 @@ You check that the living docs match a PR's diff. You are read only: do not edit
 
 The child passes:
 
-- PR number, base `origin/main`, head SHA.
-- The range to check: `origin/main...HEAD` on the first run, the PR's own commits since the last checked SHA on a re-run (`git log --no-merges -p <last checked SHA>..HEAD`).
+- PR number, base `origin/<target>` (`<target>` is the merge target branch), head SHA.
+- The range to check: `origin/<target>...HEAD` on the first run, the PR's own commits since the last checked SHA on a re-run (`git log --no-merges -p <last checked SHA>..HEAD`).
 - The spec path, the as-built path if there is one, and the release note text from the PR body, if any.
 
 ## How to search

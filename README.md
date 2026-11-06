@@ -41,6 +41,28 @@ This repo runs its own Chief of Staff. The root links into `agent-team/` so the 
 - Python 3 and `pytest` (for example `uvx pytest`) to run the script tests
 - Superpowers skills used by the ship loop: `brainstorming`, `writing-plans`, `using-git-worktrees`, `executing-plans`, `subagent-driven-development` and `verification-before-completion`
 
+## Adopt in a repo
+
+From an empty repo to a running Chief of Staff:
+
+1. Install the prerequisites listed under Requirements: T3 Code; `gh` signed in (`gh auth login`, see `agent-team/docs/agents/github-auth.md`); Python 3 and `pytest`; the superpowers skills, installed globally.
+2. Run the installer: `./install.sh --dry-run /path/to/app` to preview, then the same without `--dry-run`, or with `--from v0.N` to take a release. See Install.
+3. Fill in `docs/agents/project.md`. Replace every `<placeholder>`, then check each settings row. The default is in brackets.
+   - `Tracker` (`linear`): where tickets live. See Choosing a tracker.
+   - `Merge target branch` (`main`): the branch every PR merges into. See Configure a consuming repo.
+   - `Review mode` (`agents`): `ci` lets a review bot in CI replace the review agents. See Review mode.
+   - `Require teammate approval` (`off`): when `on`, a merge also needs an approving GitHub review from someone other than the PR author.
+   - `Publish release notes` (`off`): when `on`, each PR carries a release note and every merge publishes the notes to the `release-notes` branch.
+   - `Approval risk tolerance` (`strict`): which approvals the team takes without asking you. See Approval risk tolerance.
+   - `Review after conflict resolution` (`off`): whether a conflict resolution is reviewed again before it can merge.
+   - `Claude subscription API-equivalent usage` (`none`): the API-equivalent dollars of your Claude plan, so ticket costs show a share of it.
+4. If the repo had its own `AGENTS.md`, copy in the sections the installer's TODO names. If you use Claude Code, add a `CLAUDE.md` containing `@AGENTS.md`.
+5. If the repo had its own `.claude/settings.json`, merge in the Stop hook the TODO prints.
+6. If the repo had a real `.agents/skills`, replace it with the link as the TODO says.
+7. Set branch protection or a ruleset on the merge target branch that requires the checks listed in `Required CI checks` in `project.md`.
+8. Commit everything on a branch and merge it as the install PR.
+9. In T3 Code, start a Chief of Staff thread from the root checkout on the merge target branch and say `start the team`.
+
 ## Install
 
 From a clone of this repo:
@@ -52,7 +74,7 @@ From a clone of this repo:
 ./install.sh --from v0.4 /path/to/app # install a release tag (see Releases)
 ```
 
-The target must be a git repo with no uncommitted changes in the paths the installer touches. The files come from a commit of this repo, not from its working tree, so this clone can have uncommitted changes. The commit is this clone's `HEAD`, or `<ref>` (a SHA, a branch, anything `git rev-parse` takes), and it must be on `origin/main`: an app is never pinned to an unmerged branch. A clone with no fetched `origin/main` is refused until you run `git fetch origin` there. The installer copies the skills, mods, scripts and shared docs, links `.agents/skills` to `../.claude/skills`, and adds missing lines to `.gitignore`. It never overwrites an existing `docs/agents/project.md`, `AGENTS.md` or `.claude/settings.json`. If `project.md` or `AGENTS.md` is missing it seeds one from `agent-team/templates/` and prints what to fill in. Commit the result in the app.
+The target must be a git repo with no uncommitted changes in the paths the installer touches. The files come from a commit of this repo, not from its working tree, so this clone can have uncommitted changes. The commit is this clone's `HEAD`, or `<ref>` (a SHA, a branch, anything `git rev-parse` takes), and it must be on `origin/main`: an app is never pinned to an unmerged branch. A clone with no fetched `origin/main` is refused until you run `git fetch origin` there. The installer copies the skills, mods, scripts and shared docs, links `.agents/skills` to `../.claude/skills`, and adds missing lines to `.gitignore`. It never overwrites an existing `docs/agents/project.md`, `AGENTS.md` or `.claude/settings.json`. If `project.md` or `AGENTS.md` is missing it seeds one from `agent-team/templates/` and prints what to fill in. An existing `AGENTS.md` that lacks the `Required reading`, `GitHub`, `Workflow` or `Agent config` section, an existing `.agents/skills` that is not the link, and an existing `.claude/settings.json` without the Stop hook each get a TODO saying what to merge by hand; the installer never edits those files. Commit the result in the app.
 
 `--from <tag>` is `--to` for a release tag. It fetches `origin/main` and that one tag from `origin` first, so a stale local tag of the same name is replaced by the remote one, and it records the tag in the pin. The tag must be of the form `v0.N` and on `origin/main`. `--from` and `--to` can't be used together.
 
@@ -78,11 +100,11 @@ This compares the skills, agents, scripts and shared docs in the app with the co
 
 ## Configure a consuming repo
 
-Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The scripts read the first backticked token in a Value cell, so at least the issue identifier prefix, the repo, the branch pattern and the test command need real values. Anything marked `TODO(...)` is read as unset, and agents will stop rather than guess.
+Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The scripts read the first backticked token in a Value cell, so at least the issue identifier prefix, the repo, the branch pattern and the test command need real values. Anything marked `TODO(...)` is read as unset, and agents will stop rather than guess. The optional `Merge target branch` row (default `main`) names the branch every PR merges into; the root checkout stays on it.
 
 ## Approval risk tolerance
 
-The `Approval risk tolerance` row in `docs/agents/project.md` § Identity sets which approvals the team takes without asking you: `strict` (none), `balanced` (Low risk only) or `permissive` (Low and Medium). High risk always waits for your `approve N`. The default is `strict`, and a missing row, an unknown value or a failed read counts as `strict`, so existing installs keep asking. The setting counts only as committed on `origin/main`. CI, both review PASS comments (in `ci` review mode, no unresolved CI review thread instead) and every other merge gate apply at every level, and a PR that touches the setting, any role doc under `docs/agents/`, any script, the root `install.sh` or `tag-release.sh`, any dot-directory or dot-file at any depth (`.claude`, `.github`, `.cursor`, `.mcp.json` and the like) or any `AGENTS.md` or `CLAUDE.md` file always waits for you, and so does a ticket the Chief of Staff filed from its own observation. `install.sh --update` never edits an existing `project.md`, so add the row by hand to turn it on. Details: `agent-team/.claude/skills/chief-of-staff/approvals.md` § Auto-approval.
+The `Approval risk tolerance` row in `docs/agents/project.md` § Identity sets which approvals the team takes without asking you: `strict` (none), `balanced` (Low risk only) or `permissive` (Low and Medium). High risk always waits for your `approve N`. The default is `strict`, and a missing row, an unknown value or a failed read counts as `strict`, so existing installs keep asking. The setting counts only as committed on the merge target branch (the `Merge target branch` row of `project.md`, `main` when unset), read from `origin`. CI, both review PASS comments (in `ci` review mode, no unresolved CI review thread instead) and every other merge gate apply at every level, and a PR that touches the setting, any role doc under `docs/agents/`, any script, the root `install.sh` or `tag-release.sh`, any dot-directory or dot-file at any depth (`.claude`, `.github`, `.cursor`, `.mcp.json` and the like) or any `AGENTS.md` or `CLAUDE.md` file always waits for you, and so does a ticket the Chief of Staff filed from its own observation. `install.sh --update` never edits an existing `project.md`, so add the row by hand to turn it on. Details: `agent-team/.claude/skills/chief-of-staff/approvals.md` § Auto-approval.
 
 ## Review mode
 
@@ -132,7 +154,7 @@ TODO:
   - Delete scripts/old_thing.py: collective-wisdom no longer ships it (shipped at 1a2b3c4d5e6f, gone at 9f8e7d6c5b4a).
 ```
 
-A side with no tag shows the short SHA alone. The commit list covers `agent-team/` only. A `Delete` TODO names a file the old commit shipped and the new one doesn't. The installer never deletes, so removing it is the app's job. At the same commit with no drift it prints `already at <sha>, nothing to do`. Commit the update in the app as an install PR. If `.claude/settings.json` differs from the shipped one it is left alone and the script tells you to merge the hook by hand.
+A side with no tag shows the short SHA alone. The commit list covers `agent-team/` only. A `Delete` TODO names a file the old commit shipped and the new one doesn't. The installer never deletes, so removing it is the app's job. At the same commit with no drift it prints `already at <sha>, nothing to do`. Commit the update in the app as an install PR. If `.claude/settings.json` differs from the shipped one it is left alone, and the script prints the hook to merge by hand only when the file does not already have it.
 
 ## Releases
 

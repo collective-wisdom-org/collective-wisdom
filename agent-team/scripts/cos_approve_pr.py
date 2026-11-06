@@ -13,7 +13,7 @@ Gates, in order; the first failure stops: root checkout, state, the user's messa
 gh login, PR facts, head.
 
 With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
-auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/main; see
+auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/<merge target branch>; see
 scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (scripts/cos_brief.py).
 
 Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
@@ -153,6 +153,10 @@ def approve(tid, run, auto=False):
     owner = project_config.value("Owner login")
     if not owner:
         raise Cannot("read the Owner login from project.md")
+    try:
+        target = project_config.target_branch()
+    except SystemExit:
+        raise Cannot("read the Merge target branch row of project.md")
     login, f = read_gh(run, pr, auto)
     if login.lower() not in [owner.lower(), *merge_pr.codeowners(run)]:
         raise Stop(f"gh is signed in as {login}, not the owner")
@@ -162,8 +166,8 @@ def approve(tid, run, auto=False):
         raise Stop("PR is a draft")
     if f["isCrossRepository"]:
         raise Stop("PR is from a fork")
-    if f["baseRefName"] != "main":
-        raise Stop(f"base is {f['baseRefName']}, not main")
+    if f["baseRefName"] != target:
+        raise Stop(f"base is {f['baseRefName']}, not {target}")
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
     if auto:
