@@ -30,13 +30,13 @@ Read only. Usage: `cos_untracked_check.py [--file STATE] [--open-prs FILE] [--is
 Inputs:
 
 - State: `tickets` and `merged` keys. Missing or unreadable state is a `fail`, as in the other parts.
-- Trusted logins: our own login, read once per run with `cos_brief.own_login()` and cached, plus the `Owner login` from `project.md` when that row is set. Logins compare case-insensitively, as `merge_pr.py` does for the owner.
+- Trusted logins: our own login, read once per run with `cos_brief.own_login()`, plus the `Owner login` from `project.md` when that row is set. Logins compare case-insensitively, as `merge_pr.py` does for the owner.
 - Open PRs: one `./scripts/gh.sh pr list --repo <repo> --state open --limit 50 --json number,headRefName,author`. A PR counts when its branch starts with `<branch head><prefix lower>-N-` (the ready check's `branch_prefix` rule), which gives its ticket `<PREFIX>-N`.
 - Issues, only when `project_config.tracker()` is `github`: one `./scripts/gh.sh issue list --repo <repo> --state open --label agent --limit 100 --json number,labels,author` (the existing call, with `author` added).
 
 A ticket is untracked when it is not a key of `tickets` or `merged`, and:
 
-- GitHub tracker: its issue is in the open `agent` list, its `author.login` is a trusted login, it is not labelled `agent-skip`, and it has `status:in-progress` or `status:in-review` or an open PR on its branch. A PR whose issue is not in that list (closed, not `agent`) is ignored. An issue by any other author is skipped before anything else, so its PRs are ignored too. The PR's own author is not checked here; the issue author decides.
+- GitHub tracker: its issue is in the open `agent` list, its `author.login` is a trusted login, it is not labelled `agent-skip`, and it has `status:in-progress` or `status:in-review` or an open PR on its branch. A PR whose issue is not in that list (closed, not `agent`) is ignored. An issue by any other author is skipped before anything else, so its PRs are ignored too. Only PRs by a trusted login count toward a ticket, so an outsider's PR on a `feat/cw-N-*` branch neither flags a ticket nor puts its PR number in the output.
 - Linear or Jira tracker: it has an open PR on its branch whose `author.login` is a trusted login. The script can't read the ticket's author there, so the PR author stands in for it. A PR by any other author is skipped silently. The script can't read those trackers, so a ticket with no PR yet is not found (see Calls I made).
 
 Output, one line per untracked ticket in ticket order, then a summary:
@@ -56,7 +56,7 @@ On failure (no repo row, gh failed or timed out, `gh api user` failed or printed
 
 - A fourth part, `untracked`, after the parent check, through the existing `part()` wrapper. It reads the state as the merged check left it, so a ticket that just merged is in `merged` and is not listed.
 - It reuses `--open-prs FILE` and adds `--issues FILE` and `--login LOGIN`, passed through to the part.
-- Its lines print like the other parts. When it lists anything, the last line gains `; untracked: CW-125 #132, CW-126, CW-58 #131` before any `; didn't run:`. With nothing untracked the last line is unchanged, so its existing readers keep working.
+- Its lines print like the other parts. When it lists anything, the last line gains `; untracked: CW-125 #132, CW-126, CW-58 #131` before any `; review:` and `; didn't run:`. With nothing untracked the last line is unchanged, so its existing readers keep working.
 - Exit: untracked tickets count toward exit 1, the same as `read in full` and `merged`. A failed part still gives 2 and `didn't run: untracked`.
 
 ### `agent-team/.claude/skills/chief-of-staff/SKILL.md`
@@ -67,7 +67,7 @@ On failure (no repo row, gh failed or timed out, `gh api user` failed or printed
 - New § Adopt:
   1. Re-run `cos_untracked_check.py`; if the ticket is not listed (state has it now, or it left flight), say so and stop.
   2. `get-ticket` with the adapter's author check. An untrusted author: say so and stop. On Linear or Jira also apply the § Sweep drop (`agent-skip`, or not In Progress or In Review) and, if it drops the ticket, say so and stop. (The script already lists only own-login or owner tickets; this check still covers a Linear or Jira ticket, where the script only saw the PR author.)
-  3. `t3_thread_list` for its child as in § Sweep. Exactly one child thread: read it and set the stage as `startup.md` § State rebuild says (the same `SPEC READY` / `MERGE READY` / unsure-is-`blocked` rules), then write it with one `cos_state.py apply` (`start` with that thread's `parentThreadId`, then `stage`). The parent check then lists it as `old-parent` for a full read, as for any rebuilt ticket. More than one child thread: adopt the newest and say which.
+  3. `t3_thread_list` for its child as in § Sweep. Exactly one child thread: read it and set the stage as `startup.md` § State rebuild says (the same `SPEC READY` / `MERGE READY` / unsure-is-`blocked` rules), then write it with one `cos_state.py apply` (`start` with that thread's `parentThreadId`, then `stage`). The parent check then lists it as `old-parent` for a full read, as for any rebuilt ticket. The title match counts only when `<PREFIX>-N` is not followed by another digit (`CW-12` does not match `CW-120`). More than one child thread: list them and ask which; write nothing.
   4. No child thread on this machine: write nothing. Reply that it can't be adopted here, and that the user can run the team on the machine that owns it, or `cancel` it there and move it back to Todo to restart it.
   5. Report under Moving: `<PREFIX>-N adopted at <stage>`. The turn's § Slot fill runs; the ticket's stage may put the count over the cap, which `startup.md` § State rebuild already allows.
 - § Tools: add `cos_untracked_check.py` to the Bash list.
@@ -106,7 +106,7 @@ From the ticket:
 
 ## Calls I made
 
-- **On GitHub the issue author decides, not the PR author.** An own-login issue with a PR opened by someone else is still listed; an outside issue is skipped even if we opened its PR. The PR author is checked only on Linear and Jira, where the script can't read the ticket.
+- **On GitHub both the issue and the PR must be by a trusted login.** An outsider's PR on an agent-looking branch (a fork included) is ignored, so it can't flag a Todo ticket or put its own PR number on a Needs you line. A trusted issue with a PR by someone else, and no status label, is not listed. On Linear and Jira only the PR author can be checked.
 - **No `Owner login` row means our own login only**, not a failure. The part is read only, so a missing row narrows the list instead of hiding every ticket.
 - **Logins compare case-insensitively**, as `merge_pr.py` does for the owner.
 - **`## Goal` became `## Goals`** and now holds the author rule as its second goal.

@@ -20,7 +20,7 @@ or the parent check prints `full` for it. A part that cannot run prints its own
 "cos_<name>: <what>" line, the others still run, and the last line ends "; didn't run: <parts>".
 The `; untracked:` list shows only when the untracked check found something. The `; review:` tail appears only when the review check printed an approved, changes, moved or closed line.
 Exit 0 when nothing is listed, merged, untracked or to act on in review, 1 when something is, 2 when any part didn't run.
---merged-prs, --open-prs, --refs and --review-prs and --issues read the parts' GitHub data from files (tests do).
+--merged-prs, --open-prs, --refs, --review-prs and --issues read the parts' GitHub data from files (tests do).
 --login stands in for the untracked check's `gh api user` call.
 """
 

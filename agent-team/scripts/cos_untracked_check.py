@@ -8,13 +8,13 @@ Reads .agent-team/state.json (under the repo root unless --file is given) and Gi
 `./scripts/gh.sh pr list --state open --limit 50 --json number,headRefName,author` (--open-prs FILE
 reads that JSON instead). When project.md's tracker is github, also one `./scripts/gh.sh issue list
 --state open --label agent --limit 100 --json number,labels,author` (--issues FILE). --login stands in
-for the `gh api user` call that names our own account. Prints one line per untracked ticket, in
+for the `gh api user` call that names our own account (a test hook). Prints one line per untracked ticket, in
 ticket order:
     untracked ABC-N in-review #PR        (state word and #PR are left out when unknown)
 then "untracked-check: <U> not in state". A ticket is untracked when it is in neither `tickets` nor
 `merged` and
     github: its open `agent` issue is by a trusted login, is not labelled `agent-skip`, and has
-            `status:in-progress`, `status:in-review` or an open PR on its branch;
+            `status:in-progress`, `status:in-review` or an open PR on its branch by a trusted login;
     linear or jira: an open PR on its branch is by a trusted login (the ticket itself can't be read).
 Trusted logins are our own and project.md's `Owner login`, compared case-insensitively; anything by
 another author leaves no trace in the output. Exit 0 when nothing is untracked, 1 when something is,
@@ -150,7 +150,7 @@ def _run(state_file, prs_file, issues_file, login):
             issues_file, "issue list", "issue", "list", "--state", "open", "--label", "agent",
             "--limit", "100", "--json", "number,labels,author",
         )
-        pr_of = prs_by_ticket(raw_prs)
+        pr_of = prs_by_ticket([p for p in raw_prs if trusted(p, logins)])
         for issue in issues:
             tid = f"{project_config.prefix()}-{issue['number']}"
             names = label_names(issue)
