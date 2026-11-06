@@ -40,7 +40,7 @@ def test_compact_check(tmp_path, install, edits, base, code, last):
         write({"install.sh": "#!/bin/sh\n"})
     git("add", "-A")
     git("commit", "-m", "base")
-    write(edits)  # left uncommitted: a solo build doesn't commit
+    write(edits)  # left uncommitted, as the compacter's edits are when it re-runs the check
 
     p = subprocess.run(
         [sys.executable, "-I", str(SCRIPT), "--base", base],
