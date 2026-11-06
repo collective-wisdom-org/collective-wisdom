@@ -1,7 +1,8 @@
 # CW-133: Detect tickets in flight that local Chief of Staff state doesn't know about
 
 **Ticket:** [CW-133](https://github.com/collective-wisdom-org/collective-wisdom/issues/133)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #147, as specified
 
 ## Goals
 
