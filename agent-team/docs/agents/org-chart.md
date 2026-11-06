@@ -66,6 +66,9 @@ flowchart LR
     Spec -- "SPEC READY" --> AS["awaiting-spec<br/>the user approves the spec,<br/>unless the tolerance auto-approves"]
     AS -- "approved" --> Build["build<br/>plan, build, PR, docs check,<br/>code review, security review"]
     Build -- "MERGE READY" --> AM["awaiting-merge<br/>the user approves the merge,<br/>unless the tolerance auto-approves"]
+    Build -- "MERGE READY, teammate review still needed" --> AR["awaiting-review<br/>waits for a teammate's GitHub review"]
+    AR -- "teammate approved" --> AM
+    AR -. "teammate asked for changes" .-> Build
     AM -- "approved" --> Merge["merge<br/>child squash-merges"]
     AS -. "approved while the build lane is full" .-> BQ["build-queued"] --> Build
     AM -. "approved while the merge lane is full" .-> MQ["merge-queued"] --> Merge

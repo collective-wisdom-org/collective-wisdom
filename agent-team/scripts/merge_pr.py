@@ -185,6 +185,14 @@ def review(f, title, delta=real_delta):
     return c, None
 
 
+def requested_names(f):
+    """Who GitHub still waits on: logins, and @org/team for a team."""
+    names = []
+    for r in f.get("reviewRequests") or []:
+        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
+    return names
+
+
 def required_reviews(f):
     """Return why GitHub's required reviews still block the PR, or None.
 
@@ -196,10 +204,21 @@ def required_reviews(f):
     if f["login"].lower() in f.get("codeowners", []):
         f["bypass"] = True
         return None
-    names = []
-    for r in f.get("reviewRequests") or []:
-        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
-    return f"required reviews missing: waiting on {', '.join(names) or 'required reviewers'}"
+    return f"required reviews missing: waiting on {', '.join(requested_names(f)) or 'required reviewers'}"
+
+
+def latest_verdicts(f):
+    """{lower-cased reviewer: (login, their newest verdict review)} over team members' reviews, the author's own left out."""
+    author = f["author"]["login"]
+    latest = {}
+    others = [
+        r
+        for r in f.get("reviews") or []
+        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
+    ]
+    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
+        latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
+    return latest
 
 
 def teammate_approval(f):
@@ -211,14 +230,7 @@ def teammate_approval(f):
         return f"project.md's Require teammate approval is {rule}; use on or off"
     author = f["author"]["login"]
     head = f["headRefOid"]
-    latest = {}  # lower-cased reviewer -> (login, their newest verdict review)
-    others = [
-        r
-        for r in f.get("reviews") or []
-        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
-    ]
-    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
-        latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
+    latest = latest_verdicts(f)
     stuck = [who for who, r in latest.values() if r["state"] == "CHANGES_REQUESTED"]
     if stuck:
         return f"changes requested by {', '.join(stuck)} on PR #{f['pr']}"
@@ -237,6 +249,15 @@ def teammate_approval(f):
         for r in f.get("reviews") or []
     )
     return base + ("; the author's own approval does not count" if own else "")
+
+
+def review_stop(f):
+    """Return the first reason the review rules stop the merge (required reviews, then the teammate rule), or None."""
+    for check in (required_reviews, teammate_approval):
+        problem = check(f)
+        if problem:
+            return problem
+    return None
 
 
 def gate(f, delta=real_delta):
@@ -261,10 +282,9 @@ def gate(f, delta=real_delta):
         return f"base is {f['baseRefName']}, not main"
     if not f["headRefOid"].startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
-    for check in (required_reviews, teammate_approval):
-        problem = check(f)
-        if problem:
-            return problem
+    problem = review_stop(f)
+    if problem:
+        return problem
     if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != ("BLOCKED" if f.get("bypass") else "CLEAN"):
         return f"not mergeable: mergeable {f['mergeable']}, state {f['mergeStateStatus']}"
     if not f["statusCheckRollup"] and not f.get("noCi"):
