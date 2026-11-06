@@ -1,6 +1,7 @@
 # CW-100: shellcheck and pytest in one CI job
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #155, as specified
 **Ticket:** [#100](https://github.com/collective-wisdom-org/collective-wisdom/issues/100)
 
 ## Goal
