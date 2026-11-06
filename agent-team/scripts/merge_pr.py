@@ -72,6 +72,20 @@ def ts(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
+def codeowners(run):
+    """Lower-cased user logins on the `*` line of .github/CODEOWNERS on origin/main (the repo's trusted copy), or [] when there is none."""
+    try:
+        text = run(["git", "-C", str(ROOT), "show", "refs/remotes/origin/main:.github/CODEOWNERS"])
+    except CmdError:
+        return []
+    owners = []
+    for line in text.splitlines():
+        parts = line.split("#", 1)[0].split()
+        if parts[:1] == ["*"]:
+            owners += [o[1:].lower() for o in parts[1:] if o.startswith("@") and "/" not in o]
+    return owners
+
+
 def read_facts(pr, approved, run):
     """Everything the gate needs, from gh and git reads only."""
     f = json.loads(run([GH, "pr", "view", pr, "--json", FIELDS]))
@@ -79,6 +93,7 @@ def read_facts(pr, approved, run):
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     f["owner"] = project_config.value("Owner login")
+    f["codeowners"] = codeowners(run)
     teammate = project_config.setting("Require teammate approval")
     f["teammate"] = teammate.lower() if teammate else None
     f["noCi"] = project_config.no_ci()
@@ -171,8 +186,15 @@ def review(f, title, delta=real_delta):
 
 
 def required_reviews(f):
-    """Return why GitHub's required reviews still block the PR, or None."""
+    """Return why GitHub's required reviews still block the PR, or None.
+
+    A codeowner may merge past a missing review (the ruleset's bypass is for repo admins, who are the codeowners): the PR is then
+    allowed to be BLOCKED, and only for that reason, since every other gate still runs.
+    """
     if f.get("reviewDecision") != "REVIEW_REQUIRED":
+        return None
+    if f["login"].lower() in f.get("codeowners", []):
+        f["bypass"] = True
         return None
     names = []
     for r in f.get("reviewRequests") or []:
@@ -223,7 +245,7 @@ def gate(f, delta=real_delta):
         return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if not f.get("owner"):
         return "project.md has no Owner login; cannot tell whose gh login this is"
-    if f["login"].lower() != f["owner"].lower():
+    if f["login"].lower() not in [f["owner"].lower(), *f.get("codeowners", [])]:
         return f"gh is signed in as {f['login']}, not the owner {f['owner']}"
     if f["state"] == "MERGED":
         return None
@@ -243,7 +265,7 @@ def gate(f, delta=real_delta):
         problem = check(f)
         if problem:
             return problem
-    if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != "CLEAN":
+    if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != ("BLOCKED" if f.get("bypass") else "CLEAN"):
         return f"not mergeable: mergeable {f['mergeable']}, state {f['mergeStateStatus']}"
     if not f["statusCheckRollup"] and not f.get("noCi"):
         return "no checks (a repo with no CI says so in project.md's Required CI checks row)"
