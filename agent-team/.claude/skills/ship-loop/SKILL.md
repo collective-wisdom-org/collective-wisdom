@@ -91,6 +91,7 @@ PR: <URL>
 Head: <full SHA>
 Code review PASS: <comment URL>
 Security review PASS: <comment URL>
+Reviews needed: <requested reviewers, or "none">
 Changes:
 - <plain bullet>
 Differs from spec: <bullets, or "nothing">
@@ -105,6 +106,8 @@ Not proven: <the PR's Not proven list, copied as is, or "nothing">
 ```
 
 "Docs checked" comes from the `Docs checked:` line of the latest code review comment.
+
+"Reviews needed" comes from `./scripts/gh.sh pr view <N> --json reviewRequests`: each requested user as their login and each requested team as `@<slug>` (GitHub's slug already includes the org, like `acme/core`), comma-separated, or "none" when the list is empty. It tells the user who GitHub is waiting on. It does not say whether a teammate already approved, and `scripts/merge_pr.py` reads the reviews again at merge. With `Require teammate approval` `on`, only a review from an owner, member or collaborator of the repo counts there.
 
 In `ci` mode there are no review comments, so the review check above does not apply. Replace the two review link lines with these, using the last `wait-for-ci.sh` and `ci_review.py list <N>` results on the current head:
 
