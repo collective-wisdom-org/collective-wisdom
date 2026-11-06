@@ -79,7 +79,7 @@ const cases: {
     want: [{ id: 'main', tokens: 4 * M, cost: 4 + 20 + 0.2 + 5 }],
   },
   {
-    name: 'cost is null for an unknown model family, even beside a known one, and without prices',
+    name: 'cost is null for an unknown model family, even beside a known one',
     records: [
       rec('main', { usage: { 'claude-opus-5-5': { ...none, input: M }, 'mystery-1': { ...none, input: M } } }),
       rec('known', { usage: { 'claude-opus-5-5': { ...none, input: M } } }),

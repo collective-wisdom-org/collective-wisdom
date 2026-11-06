@@ -99,6 +99,7 @@ export const register: Register = on => {
     })
     await ensureMain($, await $.clock.now())
     await loadPrices($)
+    await refresh($)
     return next(e)
   })
 
@@ -136,13 +137,13 @@ export const register: Register = on => {
   })
 
   on('turn.complete', async ($, e, next) => {
-    const out = await next(e)
     const t = await $.clock.now()
+    const out = await next(e)
     const id = e.agentId ?? MAIN
     if (id === MAIN) await ensureMain($, t)
     const { usage } = e
     await update($, records, list =>
-      list.map(r => (r.id !== id ? r : { ...r, last: t, usage: usage ? addUsage(r.usage, usage) : r.usage })),
+      list.map(r => (r.id !== id ? r : { ...r, last: t, end: r.end === null ? null : t, usage: usage ? addUsage(r.usage, usage) : r.usage })),
     )
     await refresh($)
     return out
