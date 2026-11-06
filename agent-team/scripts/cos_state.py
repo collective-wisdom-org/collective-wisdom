@@ -39,7 +39,8 @@ in awaiting-review, must carry a full head, an itemId and an at, and its head mu
 stage clear it; setting it in another stage is rejected.
 
 changesRelayed ({"head", "at"}: the head and time a reviewer's changes request was sent back to the child) may be
-set in any stage and is never cleared by the script; null clears it.
+set in any stage and is never cleared by the script; null clears it. It must be an object with a full 40-hex
+head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
