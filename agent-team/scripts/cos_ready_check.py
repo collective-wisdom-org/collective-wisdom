@@ -6,11 +6,13 @@ Usage:
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and GitHub.
 Build lane: tickets in `build`, matched to an open PR by branch (one `./scripts/gh.sh
-pr list --state open --limit 50 --json number,headRefName,headRefOid,comments`;
---prs FILE reads that JSON instead). Spec lane: tickets in `spec`, one `./scripts/gh.sh
+pr list --state open --limit 50 --json number,headRefName,headRefOid,comments`, plus
+statusCheckRollup in Review mode ci; --prs FILE reads that JSON instead). Spec lane: tickets in
+`spec`, one `./scripts/gh.sh
 api --paginate repos/<owner>/<repo>/git/matching-refs/heads/<branch head><prefix>-<N>-`
 each (--refs FILE reads {"<PREFIX>-N": <that response>} instead). Prints one line each:
-    ready ABC-N #PR head <short sha>     (latest code and security reviews both PASS)
+    ready ABC-N #PR head <short sha>     (latest code and security reviews both PASS; in Review mode ci:
+                                         every PR check passed, no thread read)
     building ABC-N #PR (code review <verdict|not posted>, security <verdict|not posted>)
     no-pr ABC-N
     pushed ABC-N <branch> <short sha>    (a spec branch newer than specSha)
@@ -33,7 +35,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
 import project_config  # noqa: E402
-from cos_brief import latest_review  # noqa: E402
+from cos_brief import checks_green, latest_review  # noqa: E402
 
 ROOT = root()
 BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,100}")
@@ -92,13 +94,13 @@ def json_values(raw, what):
     return out
 
 
-def load_prs(path=None):
+def load_prs(path=None, mode="agents"):
     repo = project_config.repo()
     if repo is None:
         fail("project.md has no repo")
     raw = gh(
         path, "PR list", "pr", "list", "--repo", repo, "--state", "open", "--limit", "50",
-        "--json", "number,headRefName,headRefOid,comments",
+        "--json", "number,headRefName,headRefOid,comments" + (",statusCheckRollup" if mode == "ci" else ""),
     )
     prs = json_values(raw, "PR list")
     if len(prs) != 1 or not isinstance(prs[0], list):
@@ -149,7 +151,7 @@ def verdict_word(review):
     return {"PASS": "PASS", "CHANGES NEEDED": "CHANGES NEEDED"}.get(review[2].strip().upper(), "other")
 
 
-def build_line(tid, info, prs):
+def build_line(tid, info, prs, mode="agents"):
     branch = info.get("branch")
     if branch and not (isinstance(branch, str) and BRANCH.fullmatch(branch)):
         return f"unreadable {tid}", False
@@ -164,6 +166,11 @@ def build_line(tid, info, prs):
     oid = pr.get("headRefOid")
     if not (BRANCH.fullmatch(pr["headRefName"]) and isinstance(oid, str) and SHA.fullmatch(oid)):
         return f"unreadable {tid}", False
+    if mode == "ci":  # the bot's threads are read by cos_brief.py, not here
+        rollup = [c for c in pr.get("statusCheckRollup") or [] if isinstance(c, dict)]
+        if checks_green(rollup):
+            return f"ready {tid} #{pr['number']} head {oid[:7]}", True
+        return f"building {tid} #{pr['number']} (CI checks not green)", False
     comments = [c for c in pr.get("comments") or [] if isinstance(c, dict)]
     code = verdict_word(latest_review("## Code review", comments))
     sec = verdict_word(latest_review("## Security review", comments))
@@ -201,10 +208,16 @@ def check(state, prs=None, refs=None):
     GitHub when None. Calls fail() (exit 2) when something can't be read."""
     lines, flagged, checked = [], [], 0
     builds = list(tickets_in(state, "build"))
+    mode = "agents"
+    if builds:
+        try:
+            mode = project_config.review_mode()
+        except SystemExit as e:  # a bad value is a failed check, never `agents`
+            fail(str(e))
     if builds and prs is None:
-        prs = load_prs()
+        prs = load_prs(None, mode)
     for tid, info in builds:
-        line, hit = build_line(tid, info, prs)
+        line, hit = build_line(tid, info, prs, mode)
         lines.append(line)
         checked += 1
         if hit:

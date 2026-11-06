@@ -50,6 +50,14 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Migration heads check | none (or the command, e.g. a migration tool's heads listing) |
 | Migrations directory | none (or a path in backticks; scripts read the first backticked path, so keep any note free of backticks. Clash checks expect files named NNN_name.py there) |
 
+## Review
+
+| Key | Value |
+|---|---|
+| Review mode (`agents` or `ci`) | `agents`. `ci` uses the review bot in CI instead of the code and security reviewer agents. A missing row means `agents` |
+| CI review bot login (`ci` mode only) | none (or the bot's GitHub login in backticks; keep any note free of other backticks, since scripts read the first one) |
+| CI review skill (`ci` mode only, optional) | none (or the name of a globally installed skill to follow when replying to the bot's findings) |
+
 ## Repo invariants
 
 Skills and the Chief of Staff restate these in every child task.

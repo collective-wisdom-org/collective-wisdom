@@ -30,6 +30,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import ci_review  # noqa: E402
 import project_config  # noqa: E402
 import release_notes  # noqa: E402
 
@@ -98,6 +99,18 @@ def read_facts(pr, approved, run):
     f["teammate"] = teammate.lower() if teammate else None
     f["noCi"] = project_config.no_ci()
     f["notesOn"] = project_config.release_notes_enabled()
+    try:
+        f["reviewMode"] = project_config.review_mode()
+    except SystemExit as e:  # a bad value is a failed read (exit 2), never `agents`
+        raise CmdError(str(e))
+    if f["reviewMode"] == "ci":
+        f["ciBot"] = project_config.ci_bot()
+        if f["ciBot"] and f["state"] == "OPEN":
+            try:
+                threads = ci_review.fetch(pr, lambda *a: run([GH, *a]), repo=None)
+            except ci_review.CiError as e:
+                raise CmdError(f"read CI review threads: {e}")
+            f["ciThreads"] = ci_review.classify(threads, f["ciBot"])["unresolved"]
     f["docs"] = {}
     if f["state"] == "OPEN":
         want = [
@@ -281,10 +294,19 @@ def gate(f, delta=real_delta):
         if not ok:
             kind = "failed" if done and result else "not finished"
             return f"check {name} {kind} ({result})"
-    for title in ("## Code review", "## Security review"):
-        problem = review(f, title, delta)[1]
-        if problem:
-            return problem
+    if f.get("reviewMode") == "ci":
+        if not f.get("ciBot"):
+            return "project.md Review mode is ci but has no CI review bot login"
+        if "ciThreads" not in f:
+            return "CI review threads not read"
+        if f["ciThreads"]:
+            t = f["ciThreads"][0]
+            return f"unresolved CI review thread by {f['ciBot']}: {t['path']}:{t['line']} {t['url']}"
+    else:
+        for title in ("## Code review", "## Security review"):
+            problem = review(f, title, delta)[1]
+            if problem:
+                return problem
     paths = f["files"]
     specs = [p for p in f["docs"] if re.fullmatch(SPECS, p)]
     if not any(re.search(r"^\*\*Status:\*\*\s*Shipped\b", f["docs"][p], re.M) for p in specs):

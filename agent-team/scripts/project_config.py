@@ -118,6 +118,33 @@ def tracker():
     return t
 
 
+REVIEW_MODES = ("agents", "ci")
+
+
+def review_mode():
+    """`agents` or `ci` from the `Review mode` row. A missing or unset row reads as agents.
+
+    Any other value raises SystemExit, so a typo cannot quietly drop a review gate. Callers treat that as a failed read.
+    """
+    v = value("Review mode")
+    if v is None:
+        return "agents"
+    if v.lower() not in REVIEW_MODES:
+        raise SystemExit(f"project.md: 'Review mode' row must be one of {', '.join(REVIEW_MODES)}, got `{v}`")
+    return v.lower()
+
+
+def bot_name(login):
+    """A GitHub login without a `[bot]` suffix, lower case."""
+    return re.sub(r"\[bot\]$", "", login.strip(), flags=re.I).lower()
+
+
+def ci_bot():
+    """The `CI review bot login` row as bot_name() gives it, or None when unset."""
+    v = value("CI review bot login")
+    return (bot_name(v) or None) if v else None
+
+
 TOLERANCES = ("strict", "balanced", "permissive")
 # Fully qualified so a local branch or tag named `origin/main` cannot win.
 MAIN_PROJECT_MD = "refs/remotes/origin/main:docs/agents/project.md"
