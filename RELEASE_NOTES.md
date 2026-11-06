@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-06 live Gantt and cost pane for agents as a Claude Code mod (CW-96) (#149)
+
+Merged 2026-11-06 03:38 UTC.
+
+A new optional Claude Code mod, `agent-gantt`, shows this session's agents as a live Gantt chart with tokens, cost and child counts. Install it once per machine with `/plugin install agent-gantt --marketplace collective-wisdom-org/collective-wisdom`. Apps need no update to install it, but its cost column shows only once an app has taken the release that adds `scripts/prices.json`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-06 status pane that shows the Chief of Staff status report (CW-144) (#146)
 
 Merged 2026-11-06 03:33 UTC.
