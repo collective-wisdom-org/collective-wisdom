@@ -19,6 +19,9 @@ next to the file. init writes an empty state file if there is none. prune drops 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch
     stage     ticket, stage, status; optional set (a stage change needs a status line)
+              awaiting-spec, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
+              user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
+              with headSha unchanged keeps it. awaiting-review holds no lane slot.
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
@@ -30,6 +33,14 @@ Operations (each {"op": NAME, ...}):
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
               observation ticket helper) or hold. The only op that writes "observed".
     prune
+
+heldApproval ({"head", "itemId", "at"}: the user's approve N, held until a teammate approves) is allowed only
+in awaiting-review, must carry a full head, an itemId and an at, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
+stage clear it; setting it in another stage is rejected.
+
+changesRelayed ({"head", "at"}: the head and time a reviewer's changes request was sent back to the child) may be
+set in any stage and is never cleared by the script; null clears it. It must be an object with a full 40-hex
+head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
@@ -60,11 +71,11 @@ TOP = {
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
-    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note",
+    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed",
 }
 STAGES = (
     "spec", "awaiting-spec", "spec-queued", "build-queued", "build",
-    "awaiting-merge", "merge-queued", "merge", "blocked",
+    "awaiting-review", "awaiting-merge", "merge-queued", "merge", "blocked",
 )
 ACTIVE = ("spec", "build", "merge")
 PM = {
@@ -148,6 +159,23 @@ def check(t):
         raise Reject(f"stage {t['stage']} needs pendingRelay")
     if not queued and (t.get("pendingRelay") or t.get("queuedAt")):
         raise Reject(f"pendingRelay and queuedAt only belong to a queued stage, not {t['stage']}")
+    relayed = t.get("changesRelayed")
+    if relayed is not None and not (
+        isinstance(relayed, dict) and isinstance(relayed.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", relayed["head"])
+        and getattr(parse(relayed.get("at")), "tzinfo", None) is not None
+    ):
+        raise Reject("changesRelayed needs an object with a full head and an at time with a zone")
+    held = t.get("heldApproval")
+    if held:
+        if t["stage"] != "awaiting-review":
+            raise Reject(f"heldApproval only belongs to awaiting-review, not {t['stage']}")
+        if not (
+            isinstance(held, dict) and isinstance(held.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", held["head"])
+            and held.get("itemId") and held.get("at")
+        ):
+            raise Reject("heldApproval needs an object with a full head, itemId and at")
+        if held["head"] != t.get("headSha"):
+            raise Reject("heldApproval head must equal the ticket's headSha")
 
 
 def op_start(s, op):
@@ -168,7 +196,7 @@ def op_start(s, op):
     s["lastRelayAt"] = now()
 
 
-STAMPED = ("awaiting-spec", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
+STAMPED = ("awaiting-spec", "awaiting-review", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
 
 
 def op_stage(s, op):
@@ -190,9 +218,18 @@ def op_stage(s, op):
         t["resumeStage"] = None
     if not new.endswith("-queued"):
         t.update(pendingRelay=None, approvalItemId=None, queuedAt=None)
+    had_held = bool(t.get("heldApproval"))
+    if new != "awaiting-review":
+        t.pop("heldApproval", None)
     old_head = t.get("headSha")
     merge_set(t, sets)
-    if new in STAMPED and (new != old or t.get("headSha") != old_head):  # a new head voids an approval cut-off
+    if t.get("headSha") != old_head and "heldApproval" not in sets:
+        t.pop("heldApproval", None)
+    head_same = t.get("headSha") == old_head
+    # awaiting-review to awaiting-merge on the same head keeps the cut-off: the user saw that head's merge block on entry.
+    kept = old == "awaiting-review" and new == "awaiting-merge" and head_same
+    withdrawn = new == "awaiting-review" and had_held and not t.get("heldApproval")  # the user's approve N no longer counts
+    if new in STAMPED and (new != old or not head_same or withdrawn) and not kept:  # a new head voids an approval cut-off
         t["lastSeenAt"] = now()
     t.update(stage=new, status=op["status"])
     if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
@@ -212,9 +249,12 @@ def op_set(s, op):
         raise Reject(f"lastSeenAt is stamped by the script in {t['stage']}")
     if t["stage"] in ACTIVE and op["set"].get("childThreadId") not in (None, t.get("childThreadId")):
         s["lastRelayAt"] = now()
-    old_head = t.get("headSha")
+    old_head, had_held = t.get("headSha"), bool(t.get("heldApproval"))
     merge_set(t, op["set"])
-    if t["stage"] in STAMPED and t.get("headSha") != old_head:  # a new head voids an approval cut-off
+    if t.get("headSha") != old_head and "heldApproval" not in op["set"]:
+        t.pop("heldApproval", None)
+    withdrawn = had_held and not t.get("heldApproval")  # the user's approve N no longer counts
+    if t["stage"] in STAMPED and (t.get("headSha") != old_head or withdrawn):  # a new head voids an approval cut-off
         t["lastSeenAt"] = now()
     check(t)
 
@@ -466,7 +506,7 @@ def show(s):
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)
         + f" active={len(by(*ACTIVE))} awaiting-spec={len(by('awaiting-spec'))}"
-        f" awaiting-merge={len(by('awaiting-merge'))} blocked={len(by('blocked'))}",
+        f" awaiting-review={len(by('awaiting-review'))} awaiting-merge={len(by('awaiting-merge'))} blocked={len(by('blocked'))}",
     ]
     for lane in ("spec", "build", "merge"):
         q = sorted(by(f"{lane}-queued"), key=lambda p: p[1].get("queuedAt") or "")
