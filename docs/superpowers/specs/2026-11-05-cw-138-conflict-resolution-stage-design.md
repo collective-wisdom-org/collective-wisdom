@@ -1,7 +1,8 @@
 # CW-138: Resolve merge conflicts in the merge lane without restarting the review loop
 
 **Ticket:** [CW-138](https://github.com/collective-wisdom-org/collective-wisdom/issues/138)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #PRNUM, with differences: [as-built](../as-built/2026-11-05-cw-138-conflict-resolution-stage-as-built.md)
 **Related:** #46
 
 ## Goal
