@@ -57,7 +57,7 @@ def test_fresh_install_links_everything_and_a_rerun_changes_nothing(world):
             assert os.readlink(home / base / name) == str(cw / "agent-team/.claude/skills" / name)
     assert os.readlink(home / ".claude/agents/ag.md") == str(cw / "agent-team/.claude/agents/ag.md")
     hooks = json.loads((home / ".claude/settings.json").read_text())["hooks"]["Stop"]
-    assert [h["command"] for e in hooks for h in e["hooks"]] == ['python3 "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true']
+    assert [h["command"] for e in hooks for h in e["hooks"]] == ['python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true']
     for f in (".claude/CLAUDE.md", ".codex/AGENTS.md"):
         assert (home / f).read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"
     assert "installed collective-wisdom " + subprocess.run(["git", "rev-parse", "HEAD"], cwd=cw, capture_output=True, text=True).stdout.strip() in out
@@ -131,3 +131,33 @@ def test_machine_form_takes_no_other_flag(world):
     for args in (["--update"], ["--force"], ["--to", "HEAD"], ["--check"]):
         rc, out = install(cw, home, *args)
         assert rc == 2 and not list(home.iterdir()), args
+
+
+# name, what is at ~/.collective-wisdom before the run (a link to a folder, or a real folder)
+OCCUPIED = [("a link elsewhere", "link"), ("a real folder", "dir")]
+
+
+@pytest.mark.parametrize("name, kind", OCCUPIED, ids=[c[0] for c in OCCUPIED])
+@pytest.mark.parametrize("flags", [[], ["--dry-run"]], ids=["real", "dry-run"])
+def test_a_foreign_collective_wisdom_path_is_refused_before_any_write(world, name, kind, flags):
+    cw, home = world
+    (home / "elsewhere").mkdir()
+    if kind == "link":
+        (home / ".collective-wisdom").symlink_to(home / "elsewhere")
+    else:
+        (home / ".collective-wisdom").mkdir()
+    before = tree(home)
+    rc, out = install(cw, home, *flags)
+    assert rc == 1 and "Refusing: ~/.collective-wisdom" in out and "Remove it and run ./install.sh again." in out
+    assert tree(home) == before
+
+
+def test_an_unreadable_instruction_file_is_listed_and_the_rest_still_installs(world):
+    cw, home = world
+    (home / ".codex/AGENTS.md").mkdir(parents=True)  # a folder where the file should be
+    rc, out = install(cw, home)
+    assert rc == 0, out
+    assert (home / ".codex/AGENTS.md").is_dir()
+    assert "Fix ~/.codex/AGENTS.md by hand" in out and "Fix ~/.claude/CLAUDE.md" not in out
+    assert (home / ".claude/CLAUDE.md").read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"
+    assert os.readlink(home / ".collective-wisdom") == str(cw / "agent-team")

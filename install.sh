@@ -121,9 +121,16 @@ def block():
         block = BEGIN + "\n" + f.read().rstrip("\n") + "\n" + END
     existed = os.path.exists(path)
     old = ""
-    if existed:
-        with open(path, encoding="utf-8") as f:
-            old = f.read()
+    try:
+        if existed:
+            with open(path, encoding="utf-8") as f:
+                old = f.read()
+        return block_merge(block, old, existed)
+    except (OSError, ValueError):  # a folder or a file that is not UTF-8 text at the target
+        return "invalid"
+
+
+def block_merge(block, old, existed):
     b, e = old.find(BEGIN), old.find(END)
     if b < 0 and e < 0:
         new = old + ("\n" if old and not old.endswith("\n") else "") + ("\n" if old else "") + block + "\n"
@@ -163,6 +170,13 @@ machine_install() {
   sha="$(git -C "$ROOT" rev-parse HEAD)"
   tag="$(git -C "$ROOT" describe --tags --exact-match --match 'v0.*' HEAD 2>/dev/null || true)"
 
+  # Every call site reads scripts through this one path, so it must be this clone's. Refuse before any write.
+  if [ -L "$HOME/.collective-wisdom" ]; then
+    [ "$(readlink "$HOME/.collective-wisdom")" = "$ROOT/agent-team" ] || { echo "Refusing: ~/.collective-wisdom already points to $(readlink "$HOME/.collective-wisdom"), not to $ROOT/agent-team. Remove it and run ./install.sh again." >&2; exit 1; }
+  elif [ -e "$HOME/.collective-wisdom" ]; then
+    echo "Refusing: ~/.collective-wisdom already exists and is not a link to $ROOT/agent-team. Remove it and run ./install.sh again." >&2; exit 1
+  fi
+
   mlink "$ROOT/agent-team" "$HOME/.collective-wisdom"
   for s in "$ROOT/agent-team/.claude/skills"/*/; do
     [ -d "$s" ] || continue
@@ -180,17 +194,17 @@ machine_install() {
   done
 
   # shellcheck disable=SC2016  # $HOME is expanded when the hook runs, not now
-  status="$(mpython hook "$HOME/.claude/settings.json" 'python3 "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true')"
+  status="$(mpython hook "$HOME/.claude/settings.json" 'python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true')"
   case "$status" in
     added|created) msay "$status  ~/.claude/settings.json (Stop hook)"; MCHANGED=$((MCHANGED + 1)) ;;
-    invalid) MTODOS+=("Add the Chief of Staff Stop hook to ~/.claude/settings.json by hand (the file is not a JSON object with a list under hooks.Stop, so it was left alone): a Stop hook running  python3 \"\$HOME/.collective-wisdom/scripts/cos_rotation_check.py\" --hook || true") ;;
+    invalid) MTODOS+=("Add the Chief of Staff Stop hook to ~/.claude/settings.json by hand (the file is not a JSON object with a list under hooks.Stop, so it was left alone): a Stop hook running  python3 -I \"\$HOME/.collective-wisdom/scripts/cos_rotation_check.py\" --hook || true") ;;
   esac
 
   for f in .claude/CLAUDE.md .codex/AGENTS.md; do
     status="$(mpython block "$HOME/$f" "$ROOT/agent-team/templates/machine-instruction.md")"
     case "$status" in
       added|created|updated) msay "$status  ~/$f (agent team instruction)"; MCHANGED=$((MCHANGED + 1)) ;;
-      invalid) MTODOS+=("Fix ~/$f by hand: it has one collective-wisdom marker comment without the other, so it was left alone.") ;;
+      invalid) MTODOS+=("Fix ~/$f by hand: it could not be read as text, or it has one collective-wisdom marker comment without the other, so it was left alone.") ;;
     esac
   done
   MTODOS+=("Paste this into Cursor's user rules (Cursor Settings, Rules; it has no file to write):

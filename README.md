@@ -85,9 +85,9 @@ It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` (other ke
 
 The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and a `TODO:` list. What lands there:
 
-- A real file or folder, or a link to somewhere else, where a skill or agent link should go. The installer never replaces it; move or remove yours and run again.
+- A real file or folder, or a link to somewhere else, where a skill or agent link should go. (At `~/.collective-wisdom` itself this is not a TODO: the installer refuses and exits before writing anything, so remove it and run again.) The installer never replaces it; move or remove yours and run again.
 - A `~/.claude/settings.json` that is not valid JSON, or whose `hooks.Stop` is not a list. It is left alone; add the hook by hand.
-- A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` with only one of the two marker comments. It is left alone; fix the markers.
+- A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that cannot be read as text, or has only one of the two marker comments. It is left alone; fix the file.
 - The instruction text for Cursor. Its user rules have no file to write, so paste the text into Cursor Settings, Rules.
 
 A `~/.claude/settings.json`, `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that is itself a link (dotfiles) is written at its target, so the link stays.
