@@ -1,0 +1,12 @@
+# As-built: status pane
+
+**Shipped:** in PR #146
+**Ticket:** CW-144
+**Spec:** [2026-11-05-cw-144-status-pane-design.md](../specs/2026-11-05-cw-144-status-pane-design.md)
+
+## Differs from the spec
+
+- The install test is an extra row in the existing table in `agent-team/scripts/test_install.py`, not a new `test_status_pane.py`.
+- Queued groups sort by each ticket's `queuedAt`, because state has no `queue` key. That is the order `cos_state.py show` prints.
+- The subagent list is everything `$.agent.list()` returns; the mod adds no session filter of its own.
+- The root `docs/agents/status-pane.md` is a link to the shared doc, which `test_root_links.py` requires for every shared doc.

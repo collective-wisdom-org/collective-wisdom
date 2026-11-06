@@ -1,7 +1,7 @@
 # CW-144: status pane
 
 **Status:** Shipped
-**Shipped:** in PR #146, as specified
+**Shipped:** in PR #146, with differences: [as-built](../as-built/2026-11-05-cw-144-status-pane-as-built.md)
 **Ticket:** [#144](https://github.com/collective-wisdom-org/collective-wisdom/issues/144)
 
 ## Goal
