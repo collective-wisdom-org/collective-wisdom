@@ -17,3 +17,5 @@
 - `approved ... by <x>` names the approvers on the head whatever the row says. `x` is `github` when only GitHub's decision approved, `codeowner` when the codeowner bypass passed the required review, and `none` when nothing was required and nobody approved.
 - Withdrawing a held approval (`hold N`) restamps `lastSeenAt`, so the withdrawn `approve N` no longer verifies. `heldApproval` must carry a full `head`, `itemId` and `at`.
 - A ticket with no `pr` or full `headSha` prints `unreadable`, and a merged PR prints no line (the merged check owns it).
+- For an `approved` line whose `by` is `codeowner` or `none`, the Chief of Staff does not say a teammate approved: the reminder reads `ready to merge, waiting on you`, and a held approval's report line leaves the approvers out.
+- An `unreadable` line for a ticket with no `pr` or a short `headSha` moves the ticket to `blocked`, since that state defect never clears on a retry. A failed GitHub read still retries on the next sweep.
