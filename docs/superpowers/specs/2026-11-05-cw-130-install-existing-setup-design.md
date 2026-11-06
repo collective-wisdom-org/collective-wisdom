@@ -1,7 +1,8 @@
 # CW-130: Fit install.sh to repos with their own agent setup and add adoption steps
 
 **Ticket:** [CW-130](https://github.com/collective-wisdom-org/collective-wisdom/issues/130)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #148, as specified
 **Related:** #125, #126, #127, #129
 
 ## Goal
