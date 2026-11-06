@@ -191,6 +191,17 @@ def test_main_writes(change, code, wrote, capsys):
     assert any("PUT" in c for c in calls) == (f["state"] == "OPEN" and code == 0)
 
 
+def test_main_stops_with_a_merge_line_on_an_invalid_target_row(tmp_path, monkeypatch, capsys):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Merge target branch | `-x` |\n")
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    f = green()
+    runner, calls = fake(copy.deepcopy(f))
+    assert merge_pr.main(["7", f["approved"]], runner) == 1
+    assert capsys.readouterr().out.splitlines()[-1].startswith("merge-pr: stop #7: project.md: 'Merge target branch' row has no usable branch name")
+    assert not writes(calls)
+
+
 @pytest.mark.parametrize(
     "tip, cross, deleted",
     [("b" * 40, False, False), (HEAD, True, False), (HEAD, False, True), (None, False, False)],

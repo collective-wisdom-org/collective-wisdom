@@ -76,7 +76,7 @@ def codeowners(run):
     """Lower-cased user logins on the `*` line of .github/CODEOWNERS on origin/<merge target branch> (the repo's trusted copy), or [] when there is none."""
     try:
         text = run(["git", "-C", str(ROOT), "show", f"{project_config.target_ref()}:.github/CODEOWNERS"])
-    except CmdError:
+    except (CmdError, SystemExit):  # a bad Merge target branch row: gate() stops on it with its message
         return []
     owners = []
     for line in text.splitlines():
