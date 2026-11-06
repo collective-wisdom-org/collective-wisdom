@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 show subscription share next to ticket cost (CW-135) (#143)
+
+Merged 2026-11-06 02:50 UTC.
+
+When you type your Claude plan's API-equivalent dollars into `project.md`, a ticket's cost line also shows what share of that plan it used, for example `$14.20 API-equivalent (0.12% of the subscription)`. Leave the row at `none` and nothing changes.
+
 ## 2026-11-06 awaiting-review stage for PRs waiting on a teammate's review (CW-128) (#141)
 
 Merged 2026-11-06 02:47 UTC.
