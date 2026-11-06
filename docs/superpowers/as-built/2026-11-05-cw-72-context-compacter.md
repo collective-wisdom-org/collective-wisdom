@@ -10,4 +10,4 @@
 - The spec says a solo build leaves the compaction uncommitted. `build-from-plan` has no solo split, so the pass always commits `docs: compact agent text for <PREFIX>-N` and pushes.
 - Bad arguments to `compact_check.py` exit 2 with `compact: cannot read arguments`, so `test_symlinked_root.py` lists it with the other scripts that do.
 - The role file has a root link at `docs/agents/compacter.md`, which `test_root_links.py` requires.
-- `test_compact_check.py` has eight cases, not six: the spec's six plus net zero (skip) and an app without `install.sh` (skip).
+- `test_compact_check.py` has nine cases, not six: the spec's six plus net zero (skip), an app without `install.sh` (skip) and a base ref starting with a dash (exit 2).
