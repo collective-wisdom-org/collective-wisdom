@@ -10,7 +10,7 @@ The Gantt pane from #96 shows only this session's agents, from the moment the mo
 
 ## Today
 
-Facts from `main` at `58db4e8`, checked 2026-11-05.
+Facts from `main` at `e91b9a4`, checked 2026-11-06. Nothing under `mods/agent-gantt/` or `agent_usage.py` changed between `58db4e8` and `e91b9a4`.
 
 - `agent-team/scripts/agent_usage.py` reads every session under `~/.claude/projects` whose dir name contains the main checkout's name (`PROJECT`), plus the subagent transcripts in `<session>/subagents/agent-*.jsonl`. `read_session()` returns the branch, first user text, relays, priced requests and the session's first and last event times. `costs()` prices each request from `PRICES` (loaded from `prices.json`), with the 1h/5m cache split when the transcript has it.
 - `ticket_line()` gives the `--ticket CW-N` line: all-time cost, tokens, spec/build/merge split, child run count and wall time, over worktree sessions whose transcript has a line with `"gitBranch":"feat/cw-N-` (or `feat/cw-N"`), plus their subagents. `cos_brief.py` calls it through the command line. Output is text only.
@@ -81,7 +81,8 @@ Rules:
 - **Rows.** A new pure `historyRows(payload)` in `rows.ts` turns the payload into `Row[]` plus each top-level row's session id. Order: sessions newest first; each followed by its subagents by start. Depth 0 for sessions, 1 for subagents. The same drawing code draws them, with one change: in History the start column shows date and time (`11-05 14:02`), since the rows span days. The time axis runs from the earliest start to the latest end.
 - **Session id.** Under each top-level History row, a dim line with the full session id and a `Copy` Button that calls `$.ui.copy({ text: sessionId, surface: press.surface })` and shows `Copied` or the reason it didn't take via `$.ui.toast`.
 - **`/gantt`** is a new command: it sets the mode to History, opens the pane and starts a History run. `/agent-gantt` stays and opens the pane in whatever mode it was left in.
-- `plugin.json` version goes to `0.2.0`.
+- `plugin.json` version goes to `0.2.0`, or to `0.3.0` if #97 merges first (it also bumps to `0.2.0`).
+- The README's Agent pane section gets a short paragraph: the Live / History toggle, `/gantt`, the 7 day window, and that History needs `python3` and the agent team's `scripts/` in the repo.
 
 ### Tests
 
@@ -105,7 +106,7 @@ The PR's Proof section shows History in a real session: a screenshot with ticket
 ## Calls I made
 
 - ⚠️ **The mod runs `agent_usage.py --json` through `$.process.run`** instead of reading `~/.claude/projects` with `$.fs` and pricing in TypeScript. This keeps cost in one place, as the ticket asks, and gets the 1h/5m cache split the live pane can't. The cost: History needs `python3` and the agent team's `scripts/` in the session's repo, and it doesn't work where `$.process` doesn't (CLI only); there it shows the unavailable message.
-- ⚠️ **Overlap with #97.** Both tickets change the pane header and row drawing in `register.tsx`. #97 adds a back-to-main Button to the header and an `onPress` on rows; this adds the Live / History / Refresh Buttons, the History rows and the session id line. Whichever merges second rebases onto the other. #97's row press stays on Live rows only.
+- ⚠️ **Overlap with #97** (its spec is on `feat/cw-97-open-agent-from-gantt-row`, not yet built). Both change `mods/agent-gantt/hooks/register.tsx`, the `plugin.json` version and the README's Agent pane section. #97 makes each row's info columns a `plain` Button that calls `$.ui.view`, draws a `← main` Button as the pane's first line only while an agent is in view, and bolds the row in view; this adds the Live / History / Refresh Buttons, the History rows and the session id line. Whichever merges second rebases onto the other and takes the next version (`0.3.0`). #97's row press, `← main` line and bold row stay on Live rows only; History rows are plain text, since they are past sessions with no agent to view.
 - ⚠️ **History shows the last 7 days, fixed.** The ticket gives no window; all time would mean thousands of rows on a busy machine. Ticket totals are still all-time, so they match `--ticket`.
 - A session's row cost covers the whole session, even the part before the window.
 - A session row's cost excludes its subagents; the ticket line includes them.
