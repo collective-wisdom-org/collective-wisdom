@@ -150,14 +150,25 @@ def test_gate_review_mode(facts, cause):
 )
 def test_main_review_mode(tmp_path, monkeypatch, capsys, rows, threads, code, want):
     md = tmp_path / "project.md"
-    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n" + rows)
+    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Repo | `other/repo` |\n" + rows)
     monkeypatch.setenv("PROJECT_MD", str(md))
     f = green()
     f["comments"] = []
     runner, calls = fake(copy.deepcopy(f))
     gql = json.dumps({"data": {"repository": {"pullRequest": {"reviewThreads": {"pageInfo": {"hasNextPage": False}, "nodes": threads}}}}})
     monkeypatch.setattr(merge_pr, "publish", lambda *a: None)
-    assert merge_pr.main(["7", f["approved"]], lambda cmd, input=None: gql if "graphql" in cmd else runner(cmd)) == code
+    graphql = []
+
+    def run(cmd, input=None):
+        if "graphql" in cmd:
+            graphql.append(cmd)
+            return gql
+        return runner(cmd)
+
+    assert merge_pr.main(["7", f["approved"]], run) == code
+    # The gate reads threads from gh's own repo (the checkout's remote), never the project.md Repo row.
+    assert all("owner=:owner" in c and "name=:repo" in c for c in graphql)
+    assert bool(graphql) == ("`ci`" in rows and "bot login" in rows)
     assert want in capsys.readouterr().out
     assert any("PUT" in c for c in calls) == (code == 0)
 
