@@ -10,6 +10,8 @@ statusCheckRollup,comments` plus `gh api user` for the login (--pr FILE reads th
 with the login in its `login` field). Prints the block:
     HANDOFF (data from state and GitHub at <time>; check it against the PR before relying on it)
     Ticket, Branch, Spec, PR, Head, checks, code review, security review, Last status
+In Review mode `ci` the code review and security review lines become `ci: green|not green at <head>` and the
+`ci-review:` counts line (threads from GraphQL, or from the `reviewThreads` list in the --pr FILE).
 Only review comments by the role's login count: the code reviewer or security reviewer
 login from project.md, else that login. Each verdict prints as a fixed word (PASS, CHANGES
 NEEDED, other), never the comment text; check names are whitespace-cleaned and capped. With no
@@ -30,6 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import ci_review  # noqa: E402
 import cos_brief  # noqa: E402
 import cos_ready_check  # noqa: E402
 import project_config  # noqa: E402
@@ -113,7 +116,8 @@ def review_line(label, heading, comments):
     return f"{label}: {pass_n} {cos_ready_check.verdict_word(review)} {url} ({when})"
 
 
-def handoff(tid, info, pr, now):
+def handoff(tid, info, pr, now, ci=None):
+    """The block as lines. `ci` is (bot, ci_review.classify() result) in ci review mode, None otherwise."""
     spec = f"{info['specPath']} at {(info.get('specSha') or 'no sha')[:7]}" if info.get("specPath") else "none"
     status = " ".join(str(info.get("status") or "").split())[:STATUS_CAP]
     out = [
@@ -134,8 +138,17 @@ def handoff(tid, info, pr, now):
             f"PR: #{info['pr']} {pr['url']}",
             f"Head: {pr['headRefOid']} {head_note(pr['headRefOid'], info.get('headSha'))}",
             " ".join(cos_brief.check_summary(pr.get("statusCheckRollup")).split())[:CHECKS_CAP],
-            review_line("code review", "## Code review", own),
-            review_line("security review", "## Security review", own),
+            *(
+                [
+                    f"ci: {'green' if cos_brief.checks_green(pr.get('statusCheckRollup')) else 'not green'} at {pr['headRefOid']}",
+                    ci_review.summary(info["pr"], *ci),
+                ]
+                if ci
+                else [
+                    review_line("code review", "## Code review", own),
+                    review_line("security review", "## Security review", own),
+                ]
+            ),
         ]
     out.append(f'Last status: "{status}"')
     return out
@@ -165,8 +178,23 @@ def main(argv=None):
         print(f"reject: {bad[0]} {' '.join(str(bad[1]).split())[:100]}")
         return 1
     pr = load_pr(info["pr"], args.pr) if info.get("pr") is not None else None
+    ci = None
+    if pr is not None:
+        try:
+            mode = project_config.review_mode()
+        except SystemExit as e:
+            fail(str(e))
+        if mode == "ci":
+            try:
+                bot = ci_review.setup()
+                threads = pr.get("reviewThreads") if args.pr else ci_review.fetch(info["pr"], lambda *a: cos_brief.gh(*a))
+                ci = (bot, ci_review.classify(threads, bot))
+            except ci_review.CiError as e:
+                fail(f"cannot read PR #{info['pr']}: {e}")
+            except (cos_brief.ReadError, TypeError, AttributeError, ValueError):
+                fail(f"cannot read PR #{info['pr']}")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
-    print("\n".join(handoff(tid, info, pr, now)))
+    print("\n".join(handoff(tid, info, pr, now, ci)))
     return 0
 
 

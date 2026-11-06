@@ -25,6 +25,16 @@ def test_reads_values_and_treats_none_as_unset(tmp_path, monkeypatch):
     assert not project_config.ticket_re(anchored=True).match("XYZ-12")
 
 
+@pytest.mark.parametrize(
+    "cell, expect",
+    [("`on`", "on"), ("`on` (default)", "on"), ("on", "on"), ("  yes ", "yes"), ("", None), ("TODO(owner)", None)],
+)
+def test_setting_reads_a_cell_with_or_without_backticks(cell, expect):
+    rows = project_config._parse(f"| Key | Value |\n|---|---|\n| Flag (on or off) | {cell} |\n")
+    assert project_config.setting("Flag", rows) == expect
+    assert project_config.setting("Missing", rows) is None
+
+
 def _tracker(tmp_path, monkeypatch, row):
     md = tmp_path / "project.md"
     md.write_text("| Key | Value |\n|---|---|\n" + row)
@@ -82,3 +92,47 @@ def test_approval_setting_ignores_a_local_branch_named_origin_main(tmp_path, mon
     commit("permissive", "permissive")
     monkeypatch.setattr(project_config, "root", lambda: tmp_path / "work")
     assert project_config.approval_setting() == ("strict", "")
+
+
+@pytest.mark.parametrize(
+    "text, expect",
+    [
+        ("| Approver | x |\n", "off"),
+        ("| Review after conflict resolution (`off` or `on`) | `off`. text |\n", "off"),
+        ("| Review after conflict resolution (`off` or `on`) | `on`. text |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | `ON`. text |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | `maybe` |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | TODO(x) |\n", "on"),
+        (OSError("no git"), "on"),
+    ],
+)
+def test_review_after_conflict(text, expect):
+    def run(cmd):
+        if isinstance(text, OSError) and cmd[1] == "show":
+            raise text
+        return text if cmd[1] == "show" else ""
+
+    assert project_config.review_after_conflict(run) == expect
+
+
+@pytest.mark.parametrize(
+    "rows, mode, bot",
+    [
+        ("| Repo | `me/thing` |\n", "agents", None),
+        ("| Review mode (`agents` or `ci`) | TODO(owner) |\n", "agents", None),
+        ("| Review mode (`agents` or `ci`) | `agents`. `ci` uses the bot |\n", "agents", None),
+        ("| Review mode (`agents` or `ci`) | `CI` |\n| CI review bot login (`ci` mode only) | `Some-Bot[bot]` |\n", "ci", "some-bot"),
+        ("| Review mode | `ci` |\n| CI review bot login | none (or the login in backticks) |\n", "ci", None),
+        ("| Review mode | `ci,agents` |\n", SystemExit, None),
+    ],
+)
+def test_review_mode_and_bot(tmp_path, monkeypatch, rows, mode, bot):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + rows)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    assert project_config.ci_bot() == bot
+    if mode is SystemExit:
+        with pytest.raises(SystemExit, match="Review mode"):
+            project_config.review_mode()
+    else:
+        assert project_config.review_mode() == mode

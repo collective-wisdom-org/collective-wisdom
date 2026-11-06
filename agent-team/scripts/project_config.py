@@ -46,10 +46,29 @@ def value(key_prefix, rows=None):
     return None
 
 
+def setting(key_prefix, rows=None):
+    """Like value, but a Value cell without backticks reads as its bare text: `on` and "on" both give "on".
+
+    None when the row is missing, the cell is empty or the cell starts with TODO(.
+    """
+    for key, val in _rows() if rows is None else rows:
+        if key.startswith(key_prefix):
+            m = re.search(r"`([^`]+)`", val)
+            if m:
+                return m.group(1)
+            return None if not val or val.startswith("TODO(") else val
+    return None
+
+
 def no_ci():
     """True when the `Required CI checks` row declares no CI: the cell starts with `none`, in backticks or not."""
     cell = next((v for k, v in _rows() if k.startswith("Required CI checks")), "")
     return bool(re.match(r"`?none\b", cell, re.I))
+
+
+def release_notes_enabled():
+    """False only when the `Publish release notes` row says `off` (any case). A missing row or any other value is True."""
+    return (value("Publish release notes") or "").lower() != "off"
 
 
 def prefix():
@@ -113,6 +132,33 @@ def subscription_usage(provider):
     return n if math.isfinite(n) and n > 0 else None
 
 
+REVIEW_MODES = ("agents", "ci")
+
+
+def review_mode():
+    """`agents` or `ci` from the `Review mode` row. A missing or unset row reads as agents.
+
+    Any other value raises SystemExit, so a typo cannot quietly drop a review gate. Callers treat that as a failed read.
+    """
+    v = value("Review mode")
+    if v is None:
+        return "agents"
+    if v.lower() not in REVIEW_MODES:
+        raise SystemExit(f"project.md: 'Review mode' row must be one of {', '.join(REVIEW_MODES)}, got `{v}`")
+    return v.lower()
+
+
+def bot_name(login):
+    """A GitHub login without a `[bot]` suffix, lower case."""
+    return re.sub(r"\[bot\]$", "", login.strip(), flags=re.I).lower()
+
+
+def ci_bot():
+    """The `CI review bot login` row as bot_name() gives it, or None when unset."""
+    v = value("CI review bot login")
+    return (bot_name(v) or None) if v else None
+
+
 TOLERANCES = ("strict", "balanced", "permissive")
 # Fully qualified so a local branch or tag named `origin/main` cannot win.
 MAIN_PROJECT_MD = "refs/remotes/origin/main:docs/agents/project.md"
@@ -151,6 +197,23 @@ def approval_setting(run=_git):
 def approval_tolerance(run=_git):
     """`strict`, `balanced` or `permissive`; `strict` for anything missing, unknown or unreadable."""
     return approval_setting(run)[0]
+
+
+def review_after_conflict(run=_git):
+    """`off` or `on` from the `Review after conflict resolution` row of project.md as committed on origin/main.
+
+    A missing row is `off`. An unknown value, and any failure to read (git, file), is `on`: the safe side is to review.
+    """
+    try:
+        run(["git", "fetch", "origin", "main"])
+        text = run(["git", "show", MAIN_PROJECT_MD])
+    except OSError:
+        return "on"
+    rows = _parse(text)
+    if not any(k.startswith("Review after conflict resolution") for k, _ in rows):
+        return "off"
+    v = (value("Review after conflict resolution", rows) or "").lower()
+    return v if v in ("off", "on") else "on"
 
 
 if __name__ == "__main__":

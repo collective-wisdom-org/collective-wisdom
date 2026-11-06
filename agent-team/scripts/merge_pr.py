@@ -8,7 +8,7 @@ Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.p
 the checks list of the merge-pr skill (gh signed in as project.md's Owner login among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
-After the fast-forward it publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. A failed publish prints
+When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. With `off` it does neither. A failed publish prints
 `merge-pr: warn <reason>` before the last line and changes neither the exit code nor the last line.
 
 Exit 0: merged, or already merged (cleanup is repeated). Last line:
@@ -30,6 +30,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import ci_review  # noqa: E402
 import project_config  # noqa: E402
 import release_notes  # noqa: E402
 
@@ -44,8 +45,11 @@ ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
-    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body"
+    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body,"
+    "author,reviews,reviewDecision,reviewRequests"
 )
+VERDICTS = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
+TEAM_ASSOCIATIONS = ("OWNER", "MEMBER", "COLLABORATOR")  # a review from anyone else is ignored
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
 RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
@@ -55,6 +59,9 @@ NOTES_FILE = "RELEASE_NOTES.md"
 API = "repos/{owner}/{repo}/git"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
 NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+RESOLVED = re.compile(
+    r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with main; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S
+)
 
 
 def run(cmd, input=None):
@@ -69,6 +76,20 @@ def ts(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
+def codeowners(run):
+    """Lower-cased user logins on the `*` line of .github/CODEOWNERS on origin/main (the repo's trusted copy), or [] when there is none."""
+    try:
+        text = run(["git", "-C", str(ROOT), "show", "refs/remotes/origin/main:.github/CODEOWNERS"])
+    except CmdError:
+        return []
+    owners = []
+    for line in text.splitlines():
+        parts = line.split("#", 1)[0].split()
+        if parts[:1] == ["*"]:
+            owners += [o[1:].lower() for o in parts[1:] if o.startswith("@") and "/" not in o]
+    return owners
+
+
 def read_facts(pr, approved, run):
     """Everything the gate needs, from gh and git reads only."""
     f = json.loads(run([GH, "pr", "view", pr, "--json", FIELDS]))
@@ -76,18 +97,44 @@ def read_facts(pr, approved, run):
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     f["owner"] = project_config.value("Owner login")
+    f["codeowners"] = codeowners(run)
+    teammate = project_config.setting("Require teammate approval")
+    f["teammate"] = teammate.lower() if teammate else None
     f["noCi"] = project_config.no_ci()
+    f["notesOn"] = project_config.release_notes_enabled()
+    try:
+        f["reviewMode"] = project_config.review_mode()
+    except SystemExit as e:  # a bad value is a failed read (exit 2), never `agents`
+        raise CmdError(str(e))
+    if f["reviewMode"] == "ci":
+        f["ciBot"] = project_config.ci_bot()
+        if f["ciBot"] and f["state"] == "OPEN":
+            try:
+                threads = ci_review.fetch(pr, lambda *a: run([GH, *a]), repo=None)
+            except ci_review.CiError as e:
+                raise CmdError(f"read CI review threads: {e}")
+            f["ciThreads"] = ci_review.classify(threads, f["ciBot"])["unresolved"]
     f["docs"] = {}
     if f["state"] == "OPEN":
         want = [
             x["path"]
             for x in f["files"]
             if (re.fullmatch(SPECS, x["path"]) and x["changeType"] != "DELETED")
-            or (re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
+            or (f["notesOn"] and re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
         ]
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
             f["docs"][path] = run([GH, "api", url, "-H", "Accept: application/vnd.github.raw+json"])
+    f["conflictReview"] = f["headParents"] = f["headNew"] = None
+    if f["state"] == "OPEN" and resolved_note(f):  # only a head with the conflict note needs the setting and the parents
+        f["conflictReview"] = project_config.review_after_conflict()
+        try:
+            pr_diff_delta.fetch(pr, run)
+            f["headParents"] = run(["git", "rev-list", "--parents", "-n", "1", f["headRefOid"]]).split()[1:]
+            if len(f["headParents"]) == 2:  # what the head adds beyond the approved head and main must be the merge commit alone
+                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", f"^{pr_diff_delta.MAIN}"]).split()
+        except CmdError:
+            pass
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
     block = wt.strip().split("\n\n")[0].splitlines()
     f["root"] = block[0].removeprefix("worktree ")
@@ -113,6 +160,35 @@ def real_delta(f, reviewed):
     return pr_diff_delta.delta(reviewed, f["headRefOid"], pr_diff_delta.run)
 
 
+def resolved_note(f):
+    """The conflict-resolution note naming the current head by the gh login running the merge: its match, or None."""
+    notes = [
+        n
+        for n in f["comments"]
+        if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
+    ]
+    m = RESOLVED.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
+    return m if m and f["headRefOid"].startswith(m[1].lower()) else None
+
+
+def resolved_head(f):
+    """The reviewed head when the current head is a resolved head of the approved head, else None.
+
+    The approval must name this head or the reviewed head (the first parent); the gate checks that. All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
+    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must
+    agree: the head is the only commit not in the approved head or origin/main.
+    """
+    m = resolved_note(f)
+    parents = f.get("headParents") or []
+    if not m or f.get("conflictReview") != "off" or len(parents) != 2 or f.get("headNew") != [f["headRefOid"]]:
+        return None
+    first = parents[0].lower()
+    if first != m[2].lower():
+        return None
+    tail = [x["oid"] for x in f["commits"][-2:]]
+    return first if tail == [first, f["headRefOid"]] else None
+
+
 def stands(f, c, delta):
     """Return None when a reviews-stand note covers review c at the current head, else why not."""
     notes = [
@@ -121,6 +197,10 @@ def stands(f, c, delta):
         if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
     ]
     m = NOTE.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
+    if not m and resolved_head(f):
+        m = resolved_note(f)
+        if ts(c["createdAt"]) > ts(next(x for x in f["commits"] if x["oid"].startswith(m[2].lower()))["committedDate"]):
+            return None
     if not m or not f["headRefOid"].startswith(m[1].lower()):
         return "no reviews-stand note for this head"
     reviewed = next((x for x in f["commits"] if x["oid"].startswith(m[2].lower())), None)
@@ -165,13 +245,67 @@ def review(f, title, delta=real_delta):
     return c, None
 
 
+def required_reviews(f):
+    """Return why GitHub's required reviews still block the PR, or None.
+
+    A codeowner may merge past a missing review (the ruleset's bypass is for repo admins, who are the codeowners): the PR is then
+    allowed to be BLOCKED, and only for that reason, since every other gate still runs.
+    """
+    if f.get("reviewDecision") != "REVIEW_REQUIRED":
+        return None
+    if f["login"].lower() in f.get("codeowners", []):
+        f["bypass"] = True
+        return None
+    names = []
+    for r in f.get("reviewRequests") or []:
+        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
+    return f"required reviews missing: waiting on {', '.join(names) or 'required reviewers'}"
+
+
+def teammate_approval(f):
+    """Return why the teammate rule stops the merge, or None when it passes or is off."""
+    rule = f.get("teammate")
+    if rule in (None, "off"):
+        return None
+    if rule != "on":
+        return f"project.md's Require teammate approval is {rule}; use on or off"
+    author = f["author"]["login"]
+    head = f["headRefOid"]
+    latest = {}  # lower-cased reviewer -> (login, their newest verdict review)
+    others = [
+        r
+        for r in f.get("reviews") or []
+        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
+    ]
+    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
+        latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
+    stuck = [who for who, r in latest.values() if r["state"] == "CHANGES_REQUESTED"]
+    if stuck:
+        return f"changes requested by {', '.join(stuck)} on PR #{f['pr']}"
+    approved = [r for _, r in latest.values() if r["state"] == "APPROVED"]
+    if any((r.get("commit") or {}).get("oid") == head for r in approved):
+        return None
+    if approved:
+        old = (approved[0].get("commit") or {}).get("oid") or ""
+        return f"no approving review on head {head[:7]}; approved {old[:7]}, head moved"
+    base = f"no approving review by a user other than {author} on head {head[:7]}"
+    if latest:
+        seen = ", ".join(who + " " + r["state"] for who, r in latest.values())
+        return f"{base}; latest reviews are {seen}"
+    own = any(
+        r["state"] == "APPROVED" and r["author"]["login"].lower() == author.lower()
+        for r in f.get("reviews") or []
+    )
+    return base + ("; the author's own approval does not count" if own else "")
+
+
 def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
     if f.get("not_root_checkout"):
         return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if not f.get("owner"):
         return "project.md has no Owner login; cannot tell whose gh login this is"
-    if f["login"].lower() != f["owner"].lower():
+    if f["login"].lower() not in [f["owner"].lower(), *f.get("codeowners", [])]:
         return f"gh is signed in as {f['login']}, not the owner {f['owner']}"
     if f["state"] == "MERGED":
         return None
@@ -185,9 +319,13 @@ def gate(f, delta=real_delta):
         return "PR is from a fork"
     if f["baseRefName"] != "main":
         return f"base is {f['baseRefName']}, not main"
-    if not f["headRefOid"].startswith(f["approved"]):
+    if not f["headRefOid"].startswith(f["approved"]) and not (resolved_head(f) or "").startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
-    if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != "CLEAN":
+    for check in (required_reviews, teammate_approval):
+        problem = check(f)
+        if problem:
+            return problem
+    if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != ("BLOCKED" if f.get("bypass") else "CLEAN"):
         return f"not mergeable: mergeable {f['mergeable']}, state {f['mergeStateStatus']}"
     if not f["statusCheckRollup"] and not f.get("noCi"):
         return "no checks (a repo with no CI says so in project.md's Required CI checks row)"
@@ -202,10 +340,19 @@ def gate(f, delta=real_delta):
         if not ok:
             kind = "failed" if done and result else "not finished"
             return f"check {name} {kind} ({result})"
-    for title in ("## Code review", "## Security review"):
-        problem = review(f, title, delta)[1]
-        if problem:
-            return problem
+    if f.get("reviewMode") == "ci":
+        if not f.get("ciBot"):
+            return "project.md Review mode is ci but has no CI review bot login"
+        if "ciThreads" not in f:
+            return "CI review threads not read"
+        if f["ciThreads"]:
+            t = f["ciThreads"][0]
+            return f"unresolved CI review thread by {f['ciBot']}: {t['path']}:{t['line']} {t['url']}"
+    else:
+        for title in ("## Code review", "## Security review"):
+            problem = review(f, title, delta)[1]
+            if problem:
+                return problem
     paths = f["files"]
     specs = [p for p in f["docs"] if re.fullmatch(SPECS, p)]
     if not any(re.search(r"^\*\*Status:\*\*\s*Shipped\b", f["docs"][p], re.M) for p in specs):
@@ -214,13 +361,14 @@ def gate(f, delta=real_delta):
     as_specified = any(re.search(rf"^\*\*Shipped:\*\*\s*in PR #{pr}, as specified\s*$", f["docs"][p], re.M) for p in specs)
     if not as_specified and not any(x["changeType"] == "ADDED" and re.fullmatch(AS_BUILT, x["path"]) for x in paths):
         return f'closeout missing: no spec says "**Shipped:** in PR #{f["pr"]}, as specified" and no added docs/superpowers/as-built/*.md'
-    notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
-    if not notes and not release_notes.section(f["body"]):
-        return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
-    for p in notes:
-        first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
-        if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
-            return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
+    if f.get("notesOn", True):
+        notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
+        if not notes and not release_notes.section(f["body"]):
+            return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
+        for p in notes:
+            first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
+            if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
+                return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
     proof = release_notes.section(f["body"], "Proof")
     if not proof:
         return 'proof missing: no "## Proof" section in the PR body'
@@ -379,7 +527,8 @@ def main(argv, run=run):
     except Exception as e:
         print(f"merge-pr: merged #{pr} as {sha}; cannot {e}")
         return 2
-    publish(pr, sha, run)
+    if f.get("notesOn", True):
+        publish(pr, sha, run)
     print(tail)
     return 0
 

@@ -9,7 +9,8 @@ spec prints the spec's title, a blob link, its Goals, Non-goals and Calls I made
 sections (each capped at 40 lines) and the headings of its Design sections. The
 link uses --branch, or the commit when it is not given.
 pr prints the title, url, head SHA (checked against --head), check counts, the
-latest code review and security review verdicts, a line when a `Head moved to` note
+latest code review and security review verdicts, `conflict: yes` when GitHub says the PR conflicts with main,
+`flag: conflict resolution not reviewed` when the head carries a conflict-resolution note, a line when a `Head moved to` note
 names the head, a `cost:` line, file areas, flag lines and the migration number check.
 The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
 the ticket in the branch name (feat/<prefix>-N-...), or `cost: unknown` when the branch
@@ -28,6 +29,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+import ci_review  # noqa: E402
 import project_config  # noqa: E402
 
 REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md, None without a Repo row
@@ -40,6 +42,7 @@ FLAG_CAP = 10
 MIGRATIONS_DIR = project_config.migrations_dir()  # None when project.md says the repo has none
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 MOVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+RESOLVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with main; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S)
 PATH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 
@@ -167,7 +170,8 @@ def cmd_spec(args):
 # --- pr ---------------------------------------------------------------------
 
 
-def check_summary(rollup):
+def check_counts(rollup):
+    """(counts, skipped names) for a statusCheckRollup."""
     counts = {"pass": 0, "fail": 0, "pending": 0, "skipped": 0}
     skipped = []
     for c in rollup or []:
@@ -187,6 +191,17 @@ def check_summary(rollup):
             counts["fail"] += 1
         else:
             counts["pass"] += 1
+    return counts, skipped
+
+
+def checks_green(rollup):
+    """True when no check failed or is pending and there is at least one check (or project.md says the repo has no CI)."""
+    counts, _ = check_counts(rollup)
+    return counts["fail"] == 0 and counts["pending"] == 0 and (sum(counts.values()) > 0 or project_config.no_ci())
+
+
+def check_summary(rollup):
+    counts, skipped = check_counts(rollup)
     line = "checks: {pass} pass, {fail} fail, {pending} pending, {skipped} skipped".format(**counts)
     if skipped:
         line += " (skipped: " + ", ".join(skipped) + ")"
@@ -227,6 +242,15 @@ def moved_line(oid, comments, login):
     if not m or not oid.startswith(m.group(1).lower()):
         return None
     return f"head moved by merging main since {m.group(2)[:7].lower()}; reviews stand {found.get('url', '')}"
+
+
+def resolved_flag(oid, comments, login):
+    """`flag:` line when the latest `Head moved to` note by login is a conflict-resolution note naming the head."""
+    notes = [c for c in comments if (c.get("body") or "").startswith("Head moved to ") and (c.get("author") or {}).get("login") == login]
+    m = notes and RESOLVED_RE.match(notes[-1]["body"])
+    if m and oid.startswith(m.group(1).lower()):
+        return "flag: conflict resolution not reviewed"
+    return None
 
 
 def flags_for(paths):
@@ -302,11 +326,24 @@ def cost_line(branch):
     return "cost: unknown"
 
 
+def ci_lines(n, oid, rollup):
+    """The `ci:` and `ci-review:` lines that stand in for the two review lines in ci mode."""
+    try:
+        bot, result = ci_review.read(n, lambda *a: gh(*a))
+    except (ci_review.CiError, ReadError) as e:
+        die(f"cannot read CI review of PR #{n}: {e}")
+    return [f"ci: {'green' if checks_green(rollup) else 'not green'} at {oid}", ci_review.summary(n, bot, result)]
+
+
 def cmd_pr(args):
     n = args.number
     try:
+        mode = project_config.review_mode()
+    except SystemExit as e:
+        die(str(e))
+    try:
         pr = gh_json("pr", "view", str(n), "--repo", REPO, "--json",
-                     "url,title,headRefOid,headRefName,files,statusCheckRollup,comments")
+                     "url,title,headRefOid,headRefName,files,statusCheckRollup,comments,mergeable")
     except ReadError:
         die(f"cannot read PR #{n}")
     oid = pr.get("headRefOid") or ""
@@ -323,18 +360,26 @@ def cmd_pr(args):
         areas[area] = areas.get(area, 0) + 1
     by_count = sorted(areas.items(), key=lambda kv: (-kv[1], kv[0]))
     comments = pr.get("comments") or []
-    try:
-        moved = moved_line(oid, comments, own_login())
-    except ReadError:
-        die(f"cannot read PR #{n}")
+    moved = login = None
+    if mode == "agents":
+        try:
+            login = own_login()
+            moved = moved_line(oid, comments, login)
+        except ReadError:
+            die(f"cannot read PR #{n}")
+    flag = resolved_flag(oid, comments, login) if login else None
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",
         f"head: {head}",
         check_summary(pr.get("statusCheckRollup")),
-        review_line("code review", "## Code review", comments),
-        review_line("security review", "## Security review", comments),
+        *(ci_lines(n, oid, pr.get("statusCheckRollup")) if mode == "ci" else [
+            review_line("code review", "## Code review", comments),
+            review_line("security review", "## Security review", comments),
+        ]),
         *([moved] if moved else []),
+        *(["conflict: yes"] if pr.get("mergeable") == "CONFLICTING" else []),
+        *([flag] if flag else []),
         cost_line(pr.get("headRefName")),
         f"files: {len(paths)} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",
         *flags_for(paths),
