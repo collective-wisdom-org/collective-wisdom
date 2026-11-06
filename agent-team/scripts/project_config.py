@@ -5,6 +5,7 @@ the Value cell. `none`, an empty cell and `TODO(...)` text have no backticked to
 Set PROJECT_MD to read another file (tests do).
 """
 
+import math
 import os
 import re
 import subprocess
@@ -116,6 +117,19 @@ def tracker():
     if t not in TRACKERS:
         raise SystemExit(f"project.md: 'Tracker' row must be one of {', '.join(TRACKERS)}, got `{t}`")
     return t
+
+
+def subscription_usage(provider):
+    """API-equivalent dollars of a provider's subscription from its `<provider> subscription API-equivalent usage` row.
+
+    A positive finite number, else None: unset, `none`, 0, a negative, `12,000` and text all read as None.
+    """
+    v = value(f"{provider} subscription API-equivalent usage")
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return None
+    return n if math.isfinite(n) and n > 0 else None
 
 
 REVIEW_MODES = ("agents", "ci")

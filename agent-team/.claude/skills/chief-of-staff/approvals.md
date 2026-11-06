@@ -44,7 +44,7 @@ PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
 GitHub reviews: <the child's Reviews needed line>
 Proof: <the child's Proof link>
-Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent, 38.6M tokens, ...", or "unknown">
+Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent (0.12% of the subscription), 38.6M tokens, ...", or "unknown"; the share shows only when project.md sets the subscription usage>
 Docs: <the child's Docs checked line>
 Changes:
 - …
