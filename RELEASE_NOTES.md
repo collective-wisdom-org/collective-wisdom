@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 reject an empty Backlog ranking when the Backlog has tickets (CW-150) (#158)
+
+Merged 2026-11-06 20:58 UTC.
+
+A Backlog ranking that comes back empty while the Backlog has tickets is now rejected instead of saved, so the Chief of Staff keeps the old ranking and tries again on a later turn. Nothing to do: it takes effect with the next tagged release.
+
 ## 2026-11-06 context compacter agent in the build (CW-72) (#154)
 
 Merged 2026-11-06 04:50 UTC.
