@@ -8,6 +8,8 @@ Where SKILL.md § Backlog pick "Dry ranking" or `backlog` runs a ranking, the Ch
 2. `delegate_task` with `mode: "wait"`, `timeoutMs: 900000`, `isolation: "shared"`, `role: "research"`, `title: "Backlog ranking"`, `target: {providerInstanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}`, and the task below. Fill the two inputs from the state read at the top of the turn (`cos_state.py show`): the team tickets (id, stage, PR number if any) and the `merged` entries (PR number, time).
 3. Take the child's final message from the response and pipe it to `python3 scripts/cos_rank.py --started <started>` (add `--post` for `backlog`) on stdin, in a quoted heredoc whose delimiter (for example `<<'COS_RANK_END'`) doesn't appear in the message. The script checks the list, writes `pm.ranked`, `pm.rankedAt` (= `<started>`, so a Backlog edit made while the child ran trips the next Dry ranking check) and `pm.rankedReady`, and prints `<PREFIX>-N <readiness>` per entry, or with `--post` the post format in SKILL.md § Backlog ranking. Use those lines for `pm.needsReported` and the `not acted on` Cleanup line.
 
+   The script exits 3 when the list is empty and it has no Backlog count. Then make one `list-tickets` (scope <TEAM>, state Backlog, limit 250, fields `id, labels, parent`), count the tickets left after SKILL.md § Backlog ranking step 2 (not `agent-skip`, not the `parent` of another ticket in the list), and run `cos_rank.py` again on the same message with `--backlog-count <count>`. A count of 0 saves the empty list. A count of 1 or more exits 2.
+
 The child is not a ticket. It is not saved in `tickets`, does not count toward a lane or the overall cap, and gets no relay. Its run-finished notice is the exception in `chief-of-staff` § Lean turns: no slot fill (see the failure rules below).
 
 Task:
@@ -41,7 +43,7 @@ Rules:
 
 Failures count as the turn's one ranking, so the fill stops for this turn, and `pm.rankedAt` is not touched, so a later turn tries again under the same Dry ranking rules:
 
-- `cos_rank.py` exits 2: Cleanup line `Backlog ranking rejected: <its line>`. The old `pm.ranked` stays.
+- `cos_rank.py` exits 2: Cleanup line `Backlog ranking rejected: <its line>`. The old `pm.ranked` stays. This includes an empty list when the Backlog has rankable tickets.
 - `delegate_task` times out: Cleanup line `Backlog ranking timed out`.
 - `delegate_task` fails, the wait ends early, or the child returns no message: Cleanup line `Backlog ranking failed: <one line>`.
 
