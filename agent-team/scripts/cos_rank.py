@@ -18,7 +18,7 @@ On success it writes one pm op (ranked, rankedAt, rankedReady, true if any entry
 ready) through cos_state, and prints "GORP-N <readiness>" per entry, or with --post
 the Backlog ranking post. On a failed check it writes nothing, prints
 "cos_rank: <reason>" and exits 2. That includes an empty list when --backlog-count is 1 or
-more, and a --backlog-count that is not a whole number of 0 or more. An empty list without
+more, and a --backlog-count that is not a whole number of 0 to 9999. An empty list without
 --backlog-count writes nothing and exits 3, which means "count the Backlog and run again".
 """
 
