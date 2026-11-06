@@ -1,7 +1,8 @@
 # CW-96: A live Gantt and cost pane for agents, as a Claude Code mod
 
 **Ticket:** [CW-96](https://github.com/collective-wisdom-org/collective-wisdom/issues/96)
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #149, with differences: [as-built](../as-built/2026-11-05-cw-96-agent-gantt-pane-as-built.md)
 **Related:** #135
 
 ## Goal
