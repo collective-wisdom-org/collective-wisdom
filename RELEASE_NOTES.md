@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 install.sh fits repos with their own agent setup, adoption steps (CW-130) (#148)
+
+Merged 2026-11-06 03:11 UTC.
+
+`install.sh` now tells you what to merge by hand when your repo already has its own `AGENTS.md`, `.agents/skills` or `.claude/settings.json`, and the README has a step-by-step "Adopt in a repo" checklist. Nothing is changed in those files for you.
+
 ## 2026-11-06 write thread links as markdown links (CW-134) (#145)
 
 Merged 2026-11-06 03:01 UTC.
