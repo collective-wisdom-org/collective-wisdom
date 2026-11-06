@@ -48,7 +48,7 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 
 ## Compaction pass
 
-After the last task passes, run `python3 scripts/compact_check.py` and keep its totals for **open-pr**. After a compacter run, take them from a re-run once its edits are committed.
+After the last task passes, run `python3 ~/.collective-wisdom/scripts/compact_check.py` and keep its totals for **open-pr**. After a compacter run, take them from a re-run once its edits are committed.
 
 - `compact: skip`: go on. Exit 2: run it once more; a second exit 2 is `BLOCKED:` (`ship-loop` § Blocked).
 - `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`, foreground; if the type isn't listed, a general Sonnet subagent told `Read docs/agents/compacter.md and follow it.`) with the base `origin/<target>` and the output.

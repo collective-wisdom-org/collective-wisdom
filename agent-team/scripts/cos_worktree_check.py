@@ -2,7 +2,7 @@
 """Would a new worktree on origin/<branch> have everything an old child's worktree has?
 
 Usage:
-    scripts/cos_worktree_check.py <PREFIX>-N [--file STATE] [--root DIR] -- <worktree path>
+    ~/.collective-wisdom/scripts/cos_worktree_check.py <PREFIX>-N [--file STATE] [--root DIR] -- <worktree path>
 
 Reads the ticket's `branch` from .agent-team/state.json (under the repo root unless --file is
 given) and checks the worktree, in this order: the branch matches <branch head><prefix>-<N>-<words>;

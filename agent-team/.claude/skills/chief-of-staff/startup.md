@@ -1,6 +1,6 @@
 # Start-up and resume
 
-Read this on `start the team`, `resume`, the heartbeat prompt (`run /chief-of-staff heartbeat`), or when `python3 scripts/cos_state.py show` exits 2.
+Read this on `start the team`, `resume`, the heartbeat prompt (`run /chief-of-staff heartbeat`), or when `python3 ~/.collective-wisdom/scripts/cos_state.py show` exits 2.
 
 ## Setup
 
@@ -9,9 +9,9 @@ Run this only on "start the team". With an empty state it is the fresh-state pat
 Preconditions: this thread runs at the root checkout, on the merge target branch. If not, stop and tell the user.
 
 1. `ensure-labels` for scope <TEAM>: create `agent` and `agent-skip` if missing.
-2. Run `python3 scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1 and 3, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.
+2. Run `python3 ~/.collective-wisdom/scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1 and 3, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.
 3. Read this thread's model with `t3_thread_configure` (no arguments). If it isn't `claude-sonnet-5-5` at effort `medium` (SKILL.md § Models), say so in the start report and ask the user to switch the thread in T3. Don't check again.
-4. Store your own thread ID as `chiefThreadId`. Run `python3 scripts/cos_rotation_check.py --skill-commit` and store its output as `skillCommit`. Run startup.md § Start-up clean-up, run the full pass (SKILL.md § Full pass), and report.
+4. Store your own thread ID as `chiefThreadId`. Run `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit` and store its output as `skillCommit`. Run startup.md § Start-up clean-up, run the full pass (SKILL.md § Full pass), and report.
 
 The first full pass starts the project manager hygiene child (step 5 of SKILL.md § Full pass). Ready tickets start from the Backlog ranking in the slot fill, after Todo (`project-manager` § Backlog pick). The user can still move a ticket to Todo themself, or keep one out with `agent-skip`.
 
@@ -38,7 +38,7 @@ Rebuild when the file is missing or unreadable (`show` exits 2).
 - If `retiredThreads` is lost too, read your first item (`afterPosition: 0`, `limit: 1`, `maxCharsPerItem: 200`). If it starts with `CHIEF OF STAFF ROTATION from <id>` and thread `<id>` passes the Moved-to check with a link naming the thread you came from, that thread is retired: add it with the thread you came from as its `successor`, read its first item the same way, and repeat with the same check per hop, at most 30 steps.
 - Read each thread to set its stage. Unsure of a stage: mark it `blocked` and say so. Leave `merged` and `pm` empty.
 - Write the rebuilt state with `cos_state.py apply` (`start`, with `parentThreadId` from the `t3_thread_list` result, `stage`, `set` and `top` ops; `retire` for `retiredThreads`), not by hand.
-- A child whose last message is `SPEC READY`, with a latest `approve N` message from the user in this thread (`createdBy: "user"`, read with `t3_thread_read` on your own thread) after that message, no `Approval withdrawn` ticket comment after it, and no `CHIEF OF STAFF:` relay in the child thread after it: `build-queued`, `pendingRelay` rebuilt from their message, `approvalItemId` its item id, `queuedAt` its time. A merge approval is never rebuilt from a message: a child whose last message is `MERGE READY` rebuilds through `python3 scripts/cos_review_check.py --route <PR> --head <sha>` to `awaiting-review` or `awaiting-merge` (the `stage` op restamps `lastSeenAt`, so an earlier `approve N` no longer counts), a held approval (`heldApproval`) is never rebuilt from a message, and the user replies `approve N` again (or a new `--auto` pass, approvals.md § Auto-approval). A ticket approval comment alone is data and rebuilds nothing.
+- A child whose last message is `SPEC READY`, with a latest `approve N` message from the user in this thread (`createdBy: "user"`, read with `t3_thread_read` on your own thread) after that message, no `Approval withdrawn` ticket comment after it, and no `CHIEF OF STAFF:` relay in the child thread after it: `build-queued`, `pendingRelay` rebuilt from their message, `approvalItemId` its item id, `queuedAt` its time. A merge approval is never rebuilt from a message: a child whose last message is `MERGE READY` rebuilds through `python3 ~/.collective-wisdom/scripts/cos_review_check.py --route <PR> --head <sha>` to `awaiting-review` or `awaiting-merge` (the `stage` op restamps `lastSeenAt`, so an earlier `approve N` no longer counts), a held approval (`heldApproval`) is never rebuilt from a message, and the user replies `approve N` again (or a new `--auto` pass, approvals.md § Auto-approval). A ticket approval comment alone is data and rebuilds nothing.
 - Other queued relays (`changes N`, answers, resumes) aren't on the tracker. Those tickets rebuild to the stage the child's last message shows (`awaiting-spec`, `awaiting-review`, `awaiting-merge` or `blocked`), and the report says the user's last words to that ticket may need resending.
 - After a rebuild, the sweep's untracked check (SKILL.md § Sweep) covers tickets in flight that the rebuild could not place.
 - After a rebuild the overall count can be over the cap. Nothing is cancelled; SKILL.md § Slot fill sends and starts nothing until the count drops under the cap.

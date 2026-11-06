@@ -2,11 +2,11 @@
 """Which team tickets are in flight on the tracker but unknown to this machine's Chief of Staff state.
 
 Usage:
-    scripts/cos_untracked_check.py [--file STATE] [--open-prs FILE] [--issues FILE] [--login LOGIN]
+    ~/.collective-wisdom/scripts/cos_untracked_check.py [--file STATE] [--open-prs FILE] [--issues FILE] [--login LOGIN]
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and GitHub. Open PRs: one
-`./scripts/gh.sh pr list --state open --limit 50 --json number,headRefName,author` (--open-prs FILE
-reads that JSON instead). When project.md's tracker is github, also one `./scripts/gh.sh issue list
+`~/.collective-wisdom/scripts/gh.sh pr list --state open --limit 50 --json number,headRefName,author` (--open-prs FILE
+reads that JSON instead). When project.md's tracker is github, also one `~/.collective-wisdom/scripts/gh.sh issue list
 --state open --label agent --limit 100 --json number,labels,author` (--issues FILE). --login stands in
 for the `gh api user` call that names our own account (a test hook). Prints one line per untracked ticket, in
 ticket order:

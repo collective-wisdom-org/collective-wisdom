@@ -76,6 +76,8 @@ PATHS = [
     ("scripts", True),
     ("packages/foo/.claude/skills/x/SKILL.md", True),
     ("install.sh", True),
+    ("agent-team/templates/machine-instruction.md", True),
+    ("templates/machine-instruction.md", True),
     (".agents/skills", True),
     ("agent-team/Scripts/x.py", True),
     ("AGENTS.md", True),

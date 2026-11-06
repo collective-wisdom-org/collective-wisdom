@@ -2,8 +2,8 @@
 """Say how much review a PR head needs: docs-only, small or full.
 
 Usage:
-    scripts/review_scope.py <PR number> [<head SHA>]
-    scripts/review_scope.py --ci <base rev> <head rev>
+    ~/.collective-wisdom/scripts/review_scope.py <PR number> [<head SHA>]
+    ~/.collective-wisdom/scripts/review_scope.py --ci <base rev> <head rev>
 
 The head (40 hex) defaults to the PR's current headRefOid. The PR's diff is taken at the head against its merge base
 with origin/<merge target branch> (by its full ref name). A docs file is an ASCII-named .md file that is README.md at the repo top, or under docs/ but not
@@ -115,7 +115,7 @@ def classify(head, run):
 
 def main_ci(argv, run):
     if len(argv) != 2 or any(not a or a.startswith("-") for a in argv):
-        print("ci-scope: cannot read arguments; usage: scripts/review_scope.py --ci <base rev> <head rev>")
+        print("ci-scope: cannot read arguments; usage: ~/.collective-wisdom/scripts/review_scope.py --ci <base rev> <head rev>")
         return 2
     try:
         tests, shellcheck = ci_scope(*argv, run)
@@ -130,7 +130,7 @@ def main(argv, run=run):
     if argv[:1] == ["--ci"]:
         return main_ci(argv[1:], run)
     if not 1 <= len(argv) <= 2 or not re.fullmatch(r"[0-9]+", argv[0]) or not all(re.fullmatch(r"[0-9a-fA-F]{40}", a) for a in argv[1:]):
-        print("review-scope: cannot read arguments; usage: scripts/review_scope.py <PR number> [<head SHA, 40 hex>]")
+        print("review-scope: cannot read arguments; usage: ~/.collective-wisdom/scripts/review_scope.py <PR number> [<head SHA, 40 hex>]")
         return 2
     pr = argv[0]
     try:
