@@ -10,11 +10,12 @@ Click a row in the agent pane and the main view shows that agent's transcript. A
 
 ## Today
 
-Facts from `main` at `58db4e8`, checked 2026-11-05.
+Facts from `main` at `e91b9a4`, checked 2026-11-06.
 
 - `mods/agent-gantt/hooks/register.tsx` draws the pane in a `ui.render` hook on `{ component: 'Pane', requestId: 'agent-gantt' }`. Each row is a `Box` holding two `Text`s: the info columns and the bar. Nothing on it can be pressed.
 - The pane keeps one record per agent in `$.state` and never drops one, so a row stays after its agent ends. The `main` row is the main loop (id `main`, not a real agent id).
 - `mods/agent-gantt/.claude-plugin/plugin.json` is at version `0.1.0`.
+- The `status-pane` mod (`agent-team/.claude/mods/status-pane/hooks/register.tsx`) already lists subagents as `Button`s that call `$.ui.view({ agentId })`, with a `Back to main` button drawn at all times. It ignores a `{ deny }` result. This change follows the same calls; it does not touch the status pane.
 - What the Claude Code mod API offers, from the types for this build (2.1.314):
   - `$.ui.view({ agentId })` puts an agent's transcript in the main view, "as the person's own switch from the tasks list does". `$.ui.view({})` goes back to the main conversation. It works only while answering the person's own input, such as a press.
   - It returns `{}` when the view moved, or `{ deny }` with a reason: not the person's input, no agent holds the id or the tasks list shows none for it, a teammate was stopped or runs in its own pane, the view moved meanwhile, or the session draws none.
