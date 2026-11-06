@@ -102,7 +102,7 @@ An app installed the old way carries copies of the skills, agents, mods, scripts
 ~/.collective-wisdom/scripts/remove_app_copies.py             # remove
 ```
 
-It reads the pin, lists the files the team shipped at the pinned commit, and deletes the ones the app still has, then the pin, the folders left empty and the `.agents/skills` link. It never touches `docs/agents/project.md`, `AGENTS.md`, `.claude/settings.json` or `.gitignore`, and files the app owns (its own skills and scripts) stay. With no pin it prints `nothing to remove` and exits 0.
+It reads the pin, lists the files the team shipped at the pinned commit, and deletes the ones the app still has, then the folders left empty, then the pin last (so a failed delete leaves it), then the `.agents/skills` link. It never touches `docs/agents/project.md`, `AGENTS.md`, `.claude/settings.json` or `.gitignore`, and files the app owns (its own skills and scripts) stay. With no pin it prints `nothing to remove` and exits 0.
 
 It stops in these cases, and writes nothing:
 
