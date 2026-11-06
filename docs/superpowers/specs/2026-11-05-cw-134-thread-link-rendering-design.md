@@ -1,7 +1,8 @@
 # CW-134: Make Chief of Staff thread links render as clickable links
 
 **Ticket:** [CW-134 (#134)](https://github.com/collective-wisdom-org/collective-wisdom/issues/134)
-**Status:** Approved pending
+**Status:** Shipped
+**Shipped:** in PR #145, as specified
 
 ## Goal
 
