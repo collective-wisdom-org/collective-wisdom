@@ -161,9 +161,9 @@ def check(t):
     relayed = t.get("changesRelayed")
     if relayed is not None and not (
         isinstance(relayed, dict) and isinstance(relayed.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", relayed["head"])
-        and isinstance(relayed.get("at"), str) and relayed["at"]
+        and getattr(parse(relayed.get("at")), "tzinfo", None) is not None
     ):
-        raise Reject("changesRelayed needs an object with a full head and an at time")
+        raise Reject("changesRelayed needs an object with a full head and an at time with a zone")
     held = t.get("heldApproval")
     if held:
         if t["stage"] != "awaiting-review":

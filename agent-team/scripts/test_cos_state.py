@@ -77,6 +77,7 @@ RELAYED = {"head": A, "at": OLD}
         (set_(changesRelayed={**RELAYED, "head": "abc"}), "reject"),
         (set_(changesRelayed={"head": A}), "reject"),
         (set_(changesRelayed={**RELAYED, "at": ""}), "reject"),
+        (set_(changesRelayed={**RELAYED, "at": "2026-11-02T10:00:00"}), "reject"),  # no zone: the review check could not compare it
         (set_(changesRelayed="x"), "reject"),
     ],
 )
