@@ -67,7 +67,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 **Overlays on creating-pr:**
 
 - Run its `gh` calls as `./scripts/gh.sh`.
-- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section when notes are on (see § Closeout docs), add a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so a merge into the default branch closes the issue (for another merge target branch, `merge-pr`'s `set-state` Done closes it).
+- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section when notes are on (see § Closeout docs), add a `## Proof` section (§ Proof), add a `Context size: <before> to <after> characters (<net> from <target>)` line from the compaction pass totals (`Context size: pass skipped (<reason>)` when it skipped), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so a merge into the default branch closes the issue (for another merge target branch, `merge-pr`'s `set-state` Done closes it).
 - Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** wait with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § CI waits says. Never `pr checks --watch` or `watch_pull_request`.

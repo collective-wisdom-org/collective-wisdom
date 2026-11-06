@@ -46,6 +46,16 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 - Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
 - No force-push to the merge target branch.
 
+## Compaction pass
+
+After the last task passes, run `python3 scripts/compact_check.py` and keep its totals.
+
+- `compact: skip`: go on. Exit 2: run it once more; a second exit 2 is `BLOCKED:` (`ship-loop` § Blocked).
+- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`, foreground; if the type isn't listed, a general Sonnet subagent told `Read docs/agents/compacter.md and follow it.`) with the base `origin/<target>` and the output.
+- Then check that `git status` shows only files from the output, run the `project.md` test command, and revert any hunk that drops or changes a rule. Commit `docs: compact agent text for <PREFIX>-N` and push.
+
+**open-pr** puts the before and after totals in the PR body (`Context size:`).
+
 ## When all tasks pass
 
 Go straight to **open-pr** (open + feedback loop). Don't offer a choice.
