@@ -1,0 +1,20 @@
+{
+  "name": "status-pane",
+  "version": "0.1.0",
+  "description": "A pane beside the chat that shows the Chief of Staff status: tickets by group, with links to child threads and subagents.",
+  "userConfig": {
+    "environmentId": {
+      "type": "string",
+      "title": "T3 environment ID",
+      "description": "The middle part of a T3 thread link, t3-thread://v2/<environment id>/<thread id>. Without it the pane shows no thread links.",
+      "default": ""
+    },
+    "autoOpen": {
+      "type": "boolean",
+      "title": "Open on session start",
+      "description": "Open the pane when a session starts. Off by default; /status-pane opens it.",
+      "default": false
+    }
+  },
+  "types": "./types/index.d.ts"
+}
