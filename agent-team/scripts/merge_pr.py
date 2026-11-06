@@ -44,8 +44,11 @@ ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
-    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body"
+    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body,"
+    "author,reviews,reviewDecision,reviewRequests"
 )
+VERDICTS = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
+TEAM_ASSOCIATIONS = ("OWNER", "MEMBER", "COLLABORATOR")  # a review from anyone else is ignored
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
 RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
@@ -76,6 +79,8 @@ def read_facts(pr, approved, run):
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     f["owner"] = project_config.value("Owner login")
+    teammate = project_config.setting("Require teammate approval")
+    f["teammate"] = teammate.lower() if teammate else None
     f["noCi"] = project_config.no_ci()
     f["docs"] = {}
     if f["state"] == "OPEN":
@@ -165,6 +170,53 @@ def review(f, title, delta=real_delta):
     return c, None
 
 
+def required_reviews(f):
+    """Return why GitHub's required reviews still block the PR, or None."""
+    if f.get("reviewDecision") != "REVIEW_REQUIRED":
+        return None
+    names = []
+    for r in f.get("reviewRequests") or []:
+        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
+    return f"required reviews missing: waiting on {', '.join(names) or 'required reviewers'}"
+
+
+def teammate_approval(f):
+    """Return why the teammate rule stops the merge, or None when it passes or is off."""
+    rule = f.get("teammate")
+    if rule in (None, "off"):
+        return None
+    if rule != "on":
+        return f"project.md's Require teammate approval is {rule}; use on or off"
+    author = f["author"]["login"]
+    head = f["headRefOid"]
+    latest = {}  # lower-cased reviewer -> (login, their newest verdict review)
+    others = [
+        r
+        for r in f.get("reviews") or []
+        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
+    ]
+    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
+        latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
+    stuck = [who for who, r in latest.values() if r["state"] == "CHANGES_REQUESTED"]
+    if stuck:
+        return f"changes requested by {', '.join(stuck)} on PR #{f['pr']}"
+    approved = [r for _, r in latest.values() if r["state"] == "APPROVED"]
+    if any((r.get("commit") or {}).get("oid") == head for r in approved):
+        return None
+    if approved:
+        old = (approved[0].get("commit") or {}).get("oid") or ""
+        return f"no approving review on head {head[:7]}; approved {old[:7]}, head moved"
+    base = f"no approving review by a user other than {author} on head {head[:7]}"
+    if latest:
+        seen = ", ".join(who + " " + r["state"] for who, r in latest.values())
+        return f"{base}; latest reviews are {seen}"
+    own = any(
+        r["state"] == "APPROVED" and r["author"]["login"].lower() == author.lower()
+        for r in f.get("reviews") or []
+    )
+    return base + ("; the author's own approval does not count" if own else "")
+
+
 def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
     if f.get("not_root_checkout"):
@@ -187,6 +239,10 @@ def gate(f, delta=real_delta):
         return f"base is {f['baseRefName']}, not main"
     if not f["headRefOid"].startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
+    for check in (required_reviews, teammate_approval):
+        problem = check(f)
+        if problem:
+            return problem
     if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != "CLEAN":
         return f"not mergeable: mergeable {f['mergeable']}, state {f['mergeStateStatus']}"
     if not f["statusCheckRollup"] and not f.get("noCi"):
