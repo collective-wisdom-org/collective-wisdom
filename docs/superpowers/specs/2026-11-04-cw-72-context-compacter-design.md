@@ -1,7 +1,8 @@
 # CW-72: Add a context compacter agent to the ship loop
 
 **Ticket:** [CW-72](https://github.com/dbeallor/collective-wisdom/issues/72)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #154, with differences: [as-built](../as-built/2026-11-05-cw-72-context-compacter.md)
 
 ## Goal
 
