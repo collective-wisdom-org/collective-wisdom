@@ -19,3 +19,5 @@
 - A ticket with no `pr` or full `headSha` prints `unreadable`, and a merged PR prints no line (the merged check owns it).
 - For an `approved` line whose `by` is `codeowner` or `none`, the Chief of Staff does not say a teammate approved: the reminder reads `ready to merge, waiting on you`, and a held approval's report line leaves the approvers out.
 - An `unreadable` line for a ticket with no `pr` or a short `headSha` moves the ticket to `blocked`, since that state defect never clears on a retry. A failed GitHub read still retries on the next sweep.
+- The `awaiting-review` status line and the status table's Next cell say `reviews PASS (CI green and CI review clean in ci mode)`, so they fit the CI review mode that landed after the spec.
+- `cos_review_check.py` exits 2 for any crash as well as bad arguments, and prints `cos_review_check: crashed`; the Chief of Staff routes that case to `awaiting-merge`. A `--route` PR number that is not digits only is a usage error, and a state `pr` that is not digits only reads as unreadable.

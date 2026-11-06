@@ -77,6 +77,7 @@ flowchart LR
     AS -. "changes requested" .-> Spec
     AS -. "changes requested while the spec lane is full" .-> SQ["spec-queued"] --> Spec
     AM -. "changes requested" .-> Build
+    AR -. "user changes requested" .-> Build
     Spec -. "BLOCKED:" .-> Blocked["blocked<br/>the user says how to proceed"]
     Build -. "BLOCKED:" .-> Blocked
     Merge -. "BLOCKED:" .-> Blocked
@@ -85,7 +86,7 @@ flowchart LR
     class AS,AM gate
 ```
 
-The two yellow stages are the only approvals the user gives. They also act when a ticket is blocked. Everything else runs without them.
+The two yellow stages are the only approvals the user gives. In `awaiting-review` the user can reply `approve N` early: it is held until a teammate approves that head, and the merge is still approved from `awaiting-merge`. They also act when a ticket is blocked. Everything else runs without them.
 
 Tickets move in three lanes (spec, build, merge), each with its own limit, under one cap on active children. A relay that would put a child back to work while its lane or the cap is full waits in `spec-queued`, `build-queued` or `merge-queued`. Freed slots go to the merge lane first, then build, then spec. Limits and reasons: [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) § Lanes.
 

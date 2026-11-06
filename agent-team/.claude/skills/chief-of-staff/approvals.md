@@ -64,7 +64,7 @@ Rules:
 - A `MERGE READY` that `cos_review_check.py --route` sends to `awaiting-review` (SKILL.md § Full pass step 2) gets the same block, with these differences:
   - The auto-approval check doesn't run yet. It runs when the ticket reaches `awaiting-merge` (SKILL.md § Sweep, `approved` line).
   - The block gains `Waiting on: <names> (GitHub review)` under `Reviews:`, and its reply line reads `Reply "approve N" now and I'll merge once <names> approve this head, or "changes N: …".`
-  - The `awaiting-review` status line reads `awaiting-review since <time>: PR #N head <short>, reviews PASS (CI green and CI review clean in `ci` mode). Waiting on <names>. Risk: <Level> (<reason>).`
+  - The `awaiting-review` status line reads `awaiting-review since <time>: PR #N head <short>, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>. Risk: <Level> (<reason>).`
   - The block is not posted again when the teammate approves the same head; the sweep's reminder line is.
 - Post the full block once, in the first report after the marker. Post it again when the user asks (`status`, `where's <PREFIX>-N?`) and when a child re-reports after `changes N`. A new SHA means a new block.
 
