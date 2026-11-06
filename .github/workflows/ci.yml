@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  script-tests:
+  checks:
     runs-on: ubuntu-latest
     steps:
       # depth 2: on a pull_request the checkout is GitHub's merge commit, so HEAD^1 is the base tip
@@ -37,40 +37,21 @@ jobs:
           fi
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
           echo "shellcheck=$shellcheck" >> "$GITHUB_OUTPUT"
-      - if: steps.scope.outputs.tests == 'run'
+      - name: shellcheck
+        if: steps.scope.outputs.shellcheck == 'run'
+        run: shellcheck install.sh tag-release.sh agent-team/scripts/*.sh
+      # The test steps run even if shellcheck failed, so one run reports both.
+      - name: setup python
+        if: ${{ !cancelled() && steps.scope.outputs.tests == 'run' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - if: steps.scope.outputs.tests == 'run'
+      - name: install pytest
+        if: ${{ !cancelled() && steps.scope.outputs.tests == 'run' }}
         run: python3 -m pip install pytest
-      - if: steps.scope.outputs.tests == 'run'
+      - name: pytest
+        if: ${{ !cancelled() && steps.scope.outputs.tests == 'run' }}
         run: python3 -m pytest -q agent-team/scripts
-  shellcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: ci scope
-        id: scope
-        env:
-          EVENT: ${{ github.event_name }}
-        run: |
-          tests=run
-          shellcheck=run
-          if [ "$EVENT" = pull_request ]; then
-            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
-            echo "$out"
-            line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
-            if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
-              tests=${BASH_REMATCH[1]}
-              shellcheck=${BASH_REMATCH[2]}
-            fi
-          fi
-          echo "tests=$tests" >> "$GITHUB_OUTPUT"
-          echo "shellcheck=$shellcheck" >> "$GITHUB_OUTPUT"
-      - if: steps.scope.outputs.shellcheck == 'run'
-        run: shellcheck install.sh tag-release.sh agent-team/scripts/*.sh
   # Not a required check (see docs/agents/project.md). Node 24 strips the TypeScript types itself.
   mod-tests:
     runs-on: ubuntu-latest

@@ -11,6 +11,11 @@
       "name": "agent-gantt",
       "source": "./mods/agent-gantt",
       "description": "A pane beside the chat that shows this session's agents as a live Gantt chart with tokens and cost."
+    },
+    {
+      "name": "status-pane",
+      "source": "./agent-team/.claude/mods/status-pane",
+      "description": "A pane beside the chat that shows the Chief of Staff status: tickets by group, with their titles, and subagents."
     }
   ]
 }

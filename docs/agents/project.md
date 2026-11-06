@@ -39,7 +39,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Test | `python3 -I -m pytest -q agent-team/scripts` (needs `pytest`, e.g. `uvx pytest -q agent-team/scripts`) |
 | Lint | `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh` |
 | Typecheck | none |
-| Required CI checks | `script-tests` and `shellcheck` |
+| Required CI checks | `checks` |
 | Agent-team script tests | `python3 -I -m pytest -q agent-team/scripts` (the same suite; `scripts/` at the root is a link to `agent-team/scripts/`) |
 | Docs index listing | `python3 scripts/docs_index.py` (generates one table of every spec, plan and as-built under `docs/superpowers/`) |
 | Release notes listing | `python3 scripts/release_notes.py` (prints the `## Release note` sections of merged PRs and any `docs/superpowers/release-notes/*.md` notes, newest first) |
