@@ -1,6 +1,7 @@
 # CW-151: ticket title in the status pane rows
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #152, as specified
 **Ticket:** [#151](https://github.com/collective-wisdom-org/collective-wisdom/issues/151)
 
 ## Goal
