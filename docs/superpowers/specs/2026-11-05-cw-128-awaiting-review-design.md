@@ -1,7 +1,8 @@
 # CW-128: An awaiting-review stage for PRs waiting on a teammate's review
 
 **Ticket:** [CW-128](https://github.com/collective-wisdom-org/collective-wisdom/issues/128)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #141, with differences: [as-built](../as-built/2026-11-05-cw-128-awaiting-review-as-built.md)
 **Builds on:** CW-127 ([#127](https://github.com/collective-wisdom-org/collective-wisdom/issues/127)), spec `docs/superpowers/specs/2026-11-05-cw-127-teammate-approval-design.md` on `feat/cw-127-teammate-approval`
 
 ## Goal

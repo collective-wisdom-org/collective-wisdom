@@ -1,0 +1,15 @@
+# As-built: An awaiting-review stage for PRs waiting on a teammate's review
+
+**Shipped:** in PR #141
+**Ticket:** CW-128
+**Spec:** [2026-11-05-cw-128-awaiting-review-design.md](../specs/2026-11-05-cw-128-awaiting-review-design.md)
+
+## Differs from the spec
+
+- The spec named two helpers in `merge_pr.py`, `review_names` and `review_stop`. CW-127 and #140 landed the rule as `required_reviews(f)` and `teammate_approval(f)`, so the build adds `review_stop(f)`, `latest_verdicts(f)` and `requested_names(f)` around them. `gate()` behaves as before.
+- A codeowner login passes `REVIEW_REQUIRED` at the merge gate (#140), so for that login the review check does too. With `Require teammate approval` `on`, the teammate rule still holds the ticket.
+- `changes` fires only when the changes request is on the ticket's current head. The spec fired on any standing request, which would have sent the child back to build in a loop after every fix push. A request on an older head, or a `reviewDecision` of `CHANGES_REQUESTED` with no review on the head, reads as `waiting`, and `needs` names the reviewers who must look again.
+- `--route` sends a PR whose `reviewDecision` is `CHANGES_REQUESTED` to `awaiting-review` even with the row off, so it follows the standing request as the merge gate does.
+- Only reviews from an owner, member or collaborator of the repo count, as in the merge gate.
+- `cos_sweep.py` takes a `--review-prs FILE` flag, so the review part can be tested with fixtures.
+- The `ship-loop` relay bullet sits under § Changes requested, because #131 removed the Team mode heading. `state-keys.md` carries the same-head cut-off exception in the `lastSeenAt` entry.
