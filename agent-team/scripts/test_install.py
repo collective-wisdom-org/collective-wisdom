@@ -10,6 +10,8 @@ pytestmark = pytest.mark.skipif(not (TOP / "install.sh").exists(), reason="only 
 
 PIN = "docs/agents/installed-from.txt"
 SKILL = ".claude/skills/x/SKILL.md"
+HOOK = '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python3 scripts/cos_rotation_check.py --hook"}]}]}}\n'
+SECTIONS = "## Required reading\n## GitHub\n## Workflow\n## Agent config\n"
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"]
 
 
@@ -40,9 +42,9 @@ def world(tmp_path):
     git(cw, "remote", "add", "origin", str(tmp_path / "origin.git"))
     at = cw / "agent-team"
     put(at, {
-        SKILL: "v1\n", ".claude/agents/r.md": "r\n", ".claude/settings.json": "{}\n", "scripts/a.py": "a\n",
+        SKILL: "v1\n", ".claude/agents/r.md": "r\n", ".claude/settings.json": HOOK, "scripts/a.py": "a\n",
         "scripts/old.py": "old\n", "docs/agents/a.md": "a\n", "docs/superpowers/README.md": "readme\n",
-        "templates/project.md": "p\n", "templates/AGENTS.md": "agents\n", "templates/gitignore": ".env\n",
+        "templates/project.md": "p\n", "templates/AGENTS.md": SECTIONS, "templates/gitignore": ".env\n",
     })
     sha = {"A": commit(cw, "feat: first")}
     put(at, {SKILL: "v2\n", "scripts/new.py": "new\n"})
@@ -116,6 +118,37 @@ def test_install_and_update(world, name, steps, args, code, out, pin, files):
     assert (pin_file.read_text().strip() if pin_file.exists() else None) == (f"collective-wisdom {sha[pin]}" if pin else None)
     for rel, want in files.items():
         assert ((app / rel).read_text() if (app / rel).exists() else None) == want, rel
+
+
+# name, files planted in the app first, TODO substrings that must appear, TODO substrings that must not (None: any TODO beyond the two seeds)
+EXISTING = [
+    ("AGENTS.md with none of the sections", {"AGENTS.md": "# App\n"}, ["AGENTS.md has no Required reading, GitHub, Workflow, Agent config section(s)"], []),
+    ("AGENTS.md with all four", {"AGENTS.md": " ## required READING \n## GitHub\n## Workflow\n## Agent config\n"}, [], ["AGENTS.md has no"]),
+    (".agents/skills a real directory", {".agents/skills/mine/SKILL.md": "m\n"}, [".agents/skills is a real directory, not a link"], []),
+    ("settings.json without the hook", {".claude/settings.json": '{"model": "x"}\n'}, ["Add the Chief of Staff Stop hook", "cos_rotation_check.py"], []),
+    ("settings.json with the hook", {".claude/settings.json": '{"model": "x", "hooks": "cos_rotation_check.py"}\n'}, [], ["Stop hook", "cos_rotation_check.py"]),
+    ("fresh repo", {}, [], None),
+]
+
+
+@pytest.mark.parametrize("name, planted, want, not_want", EXISTING, ids=[c[0] for c in EXISTING])
+def test_existing_setup(world, name, planted, want, not_want):
+    cw, app, sha = world
+    put(app, planted)
+    if planted:
+        commit(app, "own setup")
+    rc, text = run(cw, app, sha, "--to", "{A}")
+    assert rc == 0, text
+    todos = text.partition("TODO:")[2]
+    for s in want:
+        assert s in todos
+    for s in not_want or []:
+        assert s not in todos
+    if not_want is None:  # today's two seed TODOs and nothing else
+        assert len([l for l in todos.splitlines() if l.startswith("  - ")]) == 2, todos
+    for rel, body in planted.items():
+        assert (app / rel).read_text() == body, rel
+    assert (app / ".agents/skills").is_symlink() == (".agents/skills/mine/SKILL.md" not in planted)
 
 
 def test_a_planted_tag_cannot_stand_in_for_a_missing_origin_main(world):

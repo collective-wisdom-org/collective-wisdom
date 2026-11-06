@@ -218,7 +218,11 @@ if [ ! -e "$SET" ]; then
   say "add     .claude/settings.json"; CHANGED=$((CHANGED + 1))
   run mkdir -p "$TARGET/.claude"; run cp "$SRC/.claude/settings.json" "$SET"
 elif ! cmp -s "$SRC/.claude/settings.json" "$SET"; then
-  TODOS+=("Merge the Stop hook from agent-team/.claude/settings.json into .claude/settings.json by hand (the file differs, so it was left alone).")
+  # A text search, not a JSON parse: a hook written by hand in another shape still counts.
+  if ! grep -qF -- cos_rotation_check.py "$SET"; then
+    TODOS+=("Add the Chief of Staff Stop hook to .claude/settings.json by hand (the file has its own settings, so it was left alone). Merge this into its \"hooks\" key:
+$(sed 's/^/      /' "$SRC/.claude/settings.json")")
+  fi
 fi
 
 sync_dir "$SRC/scripts" "$TARGET/scripts"
@@ -239,6 +243,10 @@ if [ ! -e "$TARGET/docs/superpowers/README.md" ]; then
   run mkdir -p "$TARGET/docs/superpowers"; run cp "$SRC/docs/superpowers/README.md" "$TARGET/docs/superpowers/README.md"
 fi
 
+# Decided before seed_file, so a dry run (which seeds nothing) still knows whether the file was already there.
+AGENTS_EXISTED=0
+[ ! -e "$TARGET/AGENTS.md" ] || AGENTS_EXISTED=1
+
 seed_file "$SRC/templates/project.md" "$TARGET/docs/agents/project.md" \
   "Fill in every <placeholder> in docs/agents/project.md (prefix, repo, commands, invariants), and pick an Approval risk tolerance (strict if you leave it as is). The scripts will not run until the prefix and repo rows are real."
 seed_file "$SRC/templates/AGENTS.md" "$TARGET/AGENTS.md" \
@@ -248,6 +256,31 @@ seed_file "$SRC/templates/AGENTS.md" "$TARGET/AGENTS.md" \
 if [ ! -e "$TARGET/.agents/skills" ] && [ ! -L "$TARGET/.agents/skills" ]; then
   say "link    .agents/skills -> ../.claude/skills"; CHANGED=$((CHANGED + 1))
   run mkdir -p "$TARGET/.agents"; run ln -s ../.claude/skills "$TARGET/.agents/skills"
+fi
+
+# These checks never write. An app's own AGENTS.md and .agents/skills are merged by hand.
+if [ "$AGENTS_EXISTED" -eq 1 ]; then
+  missing=""
+  for h in "Required reading" "GitHub" "Workflow" "Agent config"; do
+    grep -qiE -- "^[[:space:]]*##[[:space:]]+${h}[[:space:]]*\$" "$TARGET/AGENTS.md" || missing="${missing:+$missing, }$h"
+  done
+  if [ -n "$missing" ]; then
+    TODOS+=("AGENTS.md has no $missing section(s). Copy them from agent-team/templates/AGENTS.md in collective-wisdom (at ${SHA:0:12}) and fill them in for this repo.")
+  fi
+fi
+
+AS="$TARGET/.agents/skills"
+why=""
+if [ -L "$AS" ]; then
+  link="$(readlink "$AS")"
+  [ "$link" = "../.claude/skills" ] || why=".agents/skills links to $link, not to ../.claude/skills"
+elif [ -d "$AS" ]; then
+  why=".agents/skills is a real directory, not a link to ../.claude/skills"
+elif [ -e "$AS" ]; then
+  why=".agents/skills is a file"
+fi
+if [ -n "$why" ]; then
+  TODOS+=("$why, so Codex will not see the shipped skills. Move any skills of your own from it into .claude/skills/, then replace it: rm -r .agents/skills && ln -s ../.claude/skills .agents/skills")
 fi
 
 # Append only the gitignore lines that are missing.
