@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 merge target branch setting (CW-125) (#132)
+
+Merged 2026-11-06 02:55 UTC.
+
+An app can now merge its PRs into a branch other than `main`, such as `dev`, by setting the `Merge target branch` row in `docs/agents/project.md`. Apps without the row keep merging into `main`; add the row only if you want a different branch.
+
 ## 2026-11-06 show subscription share next to ticket cost (CW-135) (#143)
 
 Merged 2026-11-06 02:50 UTC.
