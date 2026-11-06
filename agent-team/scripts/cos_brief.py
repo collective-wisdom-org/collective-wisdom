@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+import ci_review  # noqa: E402
 import project_config  # noqa: E402
 
 REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md, None without a Repo row
@@ -167,7 +168,8 @@ def cmd_spec(args):
 # --- pr ---------------------------------------------------------------------
 
 
-def check_summary(rollup):
+def check_counts(rollup):
+    """(counts, skipped names) for a statusCheckRollup."""
     counts = {"pass": 0, "fail": 0, "pending": 0, "skipped": 0}
     skipped = []
     for c in rollup or []:
@@ -187,6 +189,17 @@ def check_summary(rollup):
             counts["fail"] += 1
         else:
             counts["pass"] += 1
+    return counts, skipped
+
+
+def checks_green(rollup):
+    """True when no check failed or is pending and there is at least one check (or project.md says the repo has no CI)."""
+    counts, _ = check_counts(rollup)
+    return counts["fail"] == 0 and counts["pending"] == 0 and (sum(counts.values()) > 0 or project_config.no_ci())
+
+
+def check_summary(rollup):
+    counts, skipped = check_counts(rollup)
     line = "checks: {pass} pass, {fail} fail, {pending} pending, {skipped} skipped".format(**counts)
     if skipped:
         line += " (skipped: " + ", ".join(skipped) + ")"
@@ -302,8 +315,21 @@ def cost_line(branch):
     return "cost: unknown"
 
 
+def ci_lines(n, oid, rollup):
+    """The `ci:` and `ci-review:` lines that stand in for the two review lines in ci mode."""
+    try:
+        bot, result = ci_review.read(n, lambda *a: gh(*a))
+    except (ci_review.CiError, ReadError) as e:
+        die(f"cannot read CI review of PR #{n}: {e}")
+    return [f"ci: {'green' if checks_green(rollup) else 'not green'} at {oid}", ci_review.summary(n, bot, result)]
+
+
 def cmd_pr(args):
     n = args.number
+    try:
+        mode = project_config.review_mode()
+    except SystemExit as e:
+        die(str(e))
     try:
         pr = gh_json("pr", "view", str(n), "--repo", REPO, "--json",
                      "url,title,headRefOid,headRefName,files,statusCheckRollup,comments")
@@ -323,17 +349,21 @@ def cmd_pr(args):
         areas[area] = areas.get(area, 0) + 1
     by_count = sorted(areas.items(), key=lambda kv: (-kv[1], kv[0]))
     comments = pr.get("comments") or []
-    try:
-        moved = moved_line(oid, comments, own_login())
-    except ReadError:
-        die(f"cannot read PR #{n}")
+    moved = None
+    if mode == "agents":
+        try:
+            moved = moved_line(oid, comments, own_login())
+        except ReadError:
+            die(f"cannot read PR #{n}")
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",
         f"head: {head}",
         check_summary(pr.get("statusCheckRollup")),
-        review_line("code review", "## Code review", comments),
-        review_line("security review", "## Security review", comments),
+        *(ci_lines(n, oid, pr.get("statusCheckRollup")) if mode == "ci" else [
+            review_line("code review", "## Code review", comments),
+            review_line("security review", "## Security review", comments),
+        ]),
         *([moved] if moved else []),
         cost_line(pr.get("headRefName")),
         f"files: {len(paths)} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",

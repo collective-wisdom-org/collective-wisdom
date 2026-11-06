@@ -31,6 +31,8 @@ The as-built holds only the differences: the dateless `**Shipped:** in PR #N`, `
 
 ## Release notes
 
+This applies only when `Publish release notes` in project.md § Docs is not `off`; a missing row counts as `on`. With `off`, PRs carry no release note, the merge gate does not ask for one and nothing is published.
+
 The PR body has a `## Release note` section, one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. No file lists or implementation detail. The text runs from the heading to the next `## ` heading or the end of the body.
 
 ```markdown
@@ -47,6 +49,6 @@ The PR body has a `## Release note` section, one to three sentences for a user o
 
 - a spec in the PR has `**Status:** Shipped`;
 - a spec has `**Shipped:** in PR #N, as specified`, or the PR adds a file under `as-built/`;
-- the PR body has a non-empty `## Release note` section, or the PR adds a `release-notes/` file; any added `release-notes/` file must start with a dated heading.
+- unless `Publish release notes` in project.md § Docs is `off`: the PR body has a non-empty `## Release note` section, or the PR adds a `release-notes/` file; any added `release-notes/` file must start with a dated heading.
 
 The file branches keep PRs opened under the old rules mergeable.

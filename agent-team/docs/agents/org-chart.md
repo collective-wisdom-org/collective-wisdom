@@ -105,6 +105,8 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 
 The child fixes what the documenter and the reviews find; they only report.
 
+When a repo sets `Review mode` to `ci` (`project.md` § Review), the code review and security review roles do not run: the child answers the CI review bot's threads (`open-pr` § CI review mode) and the merge gate checks that none are unresolved.
+
 Every role acts on GitHub as the account running `gh`, so PRs, review comments and tickets carry the user's own login.
 
 The Chief of Staff, the Project Manager, the ticket helper and the ship-loop child have no agent file: they are T3 threads or one-shot children, and `delegate_task` takes a provider, model and prompt, not an agent type.

@@ -16,6 +16,8 @@ Phase 3 (**open-pr**) complete: PR exists, CI green, and the **latest code revie
 
 Work from the PR's worktree, on the PR head branch.
 
+In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the CI review bot covers it (`open-pr` § CI review mode).
+
 ## Primary review path
 
 When `scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
@@ -68,7 +70,7 @@ Post as a PR issue comment only. Post each security review comment on the PR bef
 **Loop until PASS:**
 
 1. Run security review (per § Primary review path) → post comment (pass N).
-2. If **CHANGES NEEDED**, fix in worktree → commit → push. If a security fix changes what ships, update the `**Shipped:**` line or as-built, and the PR body's release note and `## Proof` section, in the same commit.
+2. If **CHANGES NEEDED**, fix in worktree → commit → push. If a security fix changes what ships, update the `**Shipped:**` line or as-built, and the PR body's release note (if any) and `## Proof` section, in the same commit.
 3. Wait for CI with `./scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits), not a bare `pr checks --watch`.
 4. Re-run security review (focus on changes since last pass) → next pass comment.
 5. Repeat until the **latest security review** PR comment verdict is **PASS**.
