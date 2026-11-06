@@ -51,6 +51,7 @@ cos_brief = _load("cos_brief")
 approval_policy = _load("approval_policy")
 ROOT, GH = merge_pr.ROOT, merge_pr.GH
 PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid"
+AUTO_FIELDS = ",files,comments"
 AUTO_RELAY = approval_policy.AUTO_RELAY
 FILES_CAP = 100  # gh returns at most this many files; a PR this big can't be checked in full
 
@@ -111,13 +112,13 @@ def user_said(db, thread, n, seen):
 def read_gh(run, pr, auto=False):
     try:
         login = run([GH, "api", "user", "-q", ".login"]).strip()
-        facts = json.loads(run([GH, "pr", "view", pr, "--json", PR_FIELDS + (",files" if auto else "")]))
+        facts = json.loads(run([GH, "pr", "view", pr, "--json", PR_FIELDS + (AUTO_FIELDS if auto else "")]))
     except (merge_pr.CmdError, ValueError) as e:
         raise Cannot(f"read PR #{pr}: {e}")
     return login, facts
 
 
-def auto_gate(status, files):
+def auto_gate(status, files, f=None, login=""):
     """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop."""
     level = approval_policy.risk_level(status)
     tolerance, note = project_config.approval_setting()
@@ -139,6 +140,8 @@ def auto_gate(status, files):
     flags = cos_brief.flags_for(paths)
     if flags or cos_brief.migration_numbers(paths):
         raise Stop(f"PR needs the user: {flags[0] if flags else 'migration file'}")
+    if f and cos_brief.resolved_flag(f["headRefOid"], f.get("comments") or [], login):
+        raise Stop("PR needs the user: conflict resolution not reviewed")
     return tolerance, level
 
 
@@ -164,7 +167,7 @@ def approve(tid, run, auto=False):
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
     if auto:
-        tolerance, level = auto_gate(status, f["files"])
+        tolerance, level = auto_gate(status, f["files"], f, login)
         return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level})"
     return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 

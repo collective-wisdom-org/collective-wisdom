@@ -58,6 +58,9 @@ NOTES_FILE = "RELEASE_NOTES.md"
 API = "repos/{owner}/{repo}/git"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
 NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+RESOLVED = re.compile(
+    r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with main; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S
+)
 
 
 def run(cmd, input=None):
@@ -108,6 +111,14 @@ def read_facts(pr, approved, run):
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
             f["docs"][path] = run([GH, "api", url, "-H", "Accept: application/vnd.github.raw+json"])
+    f["conflictReview"] = f["headParents"] = None
+    if f["state"] == "OPEN" and resolved_note(f):  # only a head with the conflict note needs the setting and the parents
+        f["conflictReview"] = project_config.review_after_conflict()
+        try:
+            pr_diff_delta.fetch(pr, run)
+            f["headParents"] = run(["git", "rev-list", "--parents", "-n", "1", f["headRefOid"]]).split()[1:]
+        except CmdError:
+            pass
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
     block = wt.strip().split("\n\n")[0].splitlines()
     f["root"] = block[0].removeprefix("worktree ")
@@ -133,6 +144,34 @@ def real_delta(f, reviewed):
     return pr_diff_delta.delta(reviewed, f["headRefOid"], pr_diff_delta.run)
 
 
+def resolved_note(f):
+    """The conflict-resolution note naming the current head by the gh login running the merge: its match, or None."""
+    notes = [
+        n
+        for n in f["comments"]
+        if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
+    ]
+    m = RESOLVED.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
+    return m if m and f["headRefOid"].startswith(m[1].lower()) else None
+
+
+def resolved_head(f):
+    """The reviewed head when the current head is a resolved head of the approved head, else None.
+
+    All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
+    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head.
+    """
+    m = resolved_note(f)
+    parents = f.get("headParents") or []
+    if not m or f.get("conflictReview") != "off" or len(parents) != 2:
+        return None
+    first = parents[0].lower()
+    if first != m[2].lower() or not first.startswith(f["approved"]):
+        return None
+    tail = [x["oid"] for x in f["commits"][-2:]]
+    return first if tail == [first, f["headRefOid"]] else None
+
+
 def stands(f, c, delta):
     """Return None when a reviews-stand note covers review c at the current head, else why not."""
     notes = [
@@ -141,6 +180,10 @@ def stands(f, c, delta):
         if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
     ]
     m = NOTE.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
+    if not m and resolved_head(f):
+        m = resolved_note(f)
+        if ts(c["createdAt"]) > ts(next(x for x in f["commits"] if x["oid"].startswith(m[2].lower()))["committedDate"]):
+            return None
     if not m or not f["headRefOid"].startswith(m[1].lower()):
         return "no reviews-stand note for this head"
     reviewed = next((x for x in f["commits"] if x["oid"].startswith(m[2].lower())), None)
@@ -259,7 +302,7 @@ def gate(f, delta=real_delta):
         return "PR is from a fork"
     if f["baseRefName"] != "main":
         return f"base is {f['baseRefName']}, not main"
-    if not f["headRefOid"].startswith(f["approved"]):
+    if not f["headRefOid"].startswith(f["approved"]) and not resolved_head(f):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
     for check in (required_reviews, teammate_approval):
         problem = check(f)
