@@ -104,10 +104,14 @@ An app installed the old way carries copies of the skills, agents, mods, scripts
 
 It reads the pin, lists the files the team shipped at the pinned commit, and deletes the ones the app still has, then the pin, the folders left empty and the `.agents/skills` link. It never touches `docs/agents/project.md`, `AGENTS.md`, `.claude/settings.json` or `.gitignore`, and files the app owns (its own skills and scripts) stay. With no pin it prints `nothing to remove` and exits 0.
 
-It stops in two cases:
+It stops in these cases, and writes nothing:
 
 - Exit 1, with a `changed <path>` line for each file. A copy was edited by hand, and deleting it loses the edit. Move the edit into this repo first, or run again with `--force` to remove it anyway.
 - Exit 2 with `run 'git fetch origin'`. The pinned commit is not in the machine clone. Fetch there and run again.
+- Exit 2 when `installed-from.txt` is malformed. It must read `collective-wisdom <40-character SHA>`, optionally followed by a `v0.N` tag. Fix the file or delete it by hand.
+- Exit 1 when run inside collective-wisdom itself. Run it in an app.
+
+A listed file that the app reaches through a link out of the app, such as a symlinked parent folder, is skipped with a `skip <path>` line and left alone, so the command never writes outside the app.
 
 Then read the TODOs it prints. If `.claude/settings.json` still has the old Stop hook for `cos_rotation_check.py`, remove it by hand: the machine install runs that hook now, and the old one reads the app's own history and can keep proposing a rotation. Check that `docs/agents/project.md` exists; if not, add it as in Adopt in a repo. Commit the removal as a PR in the app. It refuses to run inside this repo.
 

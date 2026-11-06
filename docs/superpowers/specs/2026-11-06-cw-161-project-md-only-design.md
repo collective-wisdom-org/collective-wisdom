@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-161](https://github.com/collective-wisdom-org/collective-wisdom/issues/161)
 **Status:** Shipped
-**Shipped:** in PR #166, as specified
+**Shipped:** in PR #166, with differences: [as-built](../as-built/2026-11-06-cw-161-project-md-only.md)
 **Follows:** CW-160 (install the team once per machine). This ticket builds on CW-160's merged `install.sh` and `~/.collective-wisdom` path, and merges after it.
 
 ## Goal

@@ -10,7 +10,7 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 
 | Key | Value |
 |---|---|
-| Product name | collective-wisdom: the shared agent team (skills, scripts, role docs) and the installer that copies it into apps |
+| Product name | collective-wisdom: the shared agent team (skills, scripts, role docs) and the `install.sh` that installs it for the machine |
 | Tracker (`linear`, `github` or `jira`) | `github` |
 | Tracker scope (`<TEAM>`) | `collective-wisdom-org/collective-wisdom` |
 | Issue identifier prefix (`<PREFIX>`) | `CW` |
@@ -68,7 +68,7 @@ Skills and the Chief of Staff restate these in every child task.
 
 - Brand in the interface: collective-wisdom.
 - Prose follows the `human-writing` skill: plain sentences, no em dashes.
-- A change to shared files must keep working in an installed app, where the files sit at the paths `agent-team/` mirrors.
+- A change to shared files must keep working in an app, where the machine install has the files at the paths `agent-team/` mirrors.
 
 ## Security overlays
 
