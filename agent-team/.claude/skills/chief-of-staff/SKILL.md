@@ -187,7 +187,7 @@ The `awaiting-spec` and `awaiting-merge` `status` lines end with `Risk: <Level> 
 2. **Read children.** Queued tickets and `awaiting-*` tickets are idle: skip them. For each ticket in `spec`, `build` or `merge`, read `recentRuns[0].status` and the thread's `updatedAt`, and call `t3_thread_read` on the child (`afterPosition` from state, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`). After each read, `apply` a `set` op with the returned `nextPosition` as `lastPosition` and `lastSeenAt` now (not on the stage op into `awaiting-*` or `blocked`: the script stamps `lastSeenAt` there, as the approval cut-off, and rejects a `set` of it). Look at the last assistant message of a finished run for `SPEC READY`, `MERGE READY`, `BLOCKED:` or `MERGED #`.
    - `SPEC READY`: `stage` op to `awaiting-spec`, with `specPath`, `specSha` and `branch` in `set`. Then run approvals.md § Approval requests.
    - `MERGE READY`: `stage` op to `awaiting-merge`, with `pr` and `headSha` in `set`. Then run approvals.md § Approval requests.
-   - `BLOCKED:`: `stage` op to `blocked`, with the line in `status`.
+   - `BLOCKED:`: for a child in `merge`, first read `./scripts/gh.sh pr view <N> --json mergeable`. On `CONFLICTING` with `Review after conflict resolution` `off`, the child still holds the merge slot: send it the conflict relay with its approval at once (no slot check, as the stuck-check restart), and leave the stage. On `CONFLICTING` with `on`, send the conflict relay without an approval to the build lane (§ Send or queue). Otherwise `stage` op to `blocked`, with the line in `status`.
    - `MERGED #N`: `merged` op (`ticket`, `pr`). The child already set the ticket to Done.
    - Also call `t3_pending_request` (action `list`) on the child thread. A pending question counts as blocked: `stage` op to `blocked`, report the question to the user. When they answer, relay it through § Send or queue as `CHIEF OF STAFF: the user answered: "<their words>"`. Never answer the request yourself. Children are told never to use AskUserQuestion, so this is a fallback.
    - After the last child read, run the sweep (§ Sweep). Child reads later in the turn skip a ticket the merged check removed.
@@ -264,7 +264,14 @@ T3 sends a finish notice only to the run's `parentThreadId`, and only when that 
 
 **Verify an auto-approved merge**, after the head check and before the relay is sent or queued: `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto`. It reads no user message. Exit 0 (`auto-approved`): post the merge block as a notice (approvals.md § Auto-approval) and go on and send or queue the relay. Exit 1 or 2: don't send or queue, keep the stage at `awaiting-merge`, and ask the user with the normal approval request, adding the script's last line under Needs you.
 
-**Head check for a merge approval**, before it is sent or queued and again before a queued one is sent: `./scripts/gh.sh pr view <N> --json headRefOid`. If it differs from `headSha`, the head moved after the reviews the user saw. Don't send, and drop the approval if it was queued. `comment` `Approval withdrawn at <time>: the PR head moved.`, tell the user under Needs you, and send the child `CHIEF OF STAFF: the PR head moved from <old> to <new> after the user approved. Re-check the reviews per ship-loop § Phases, 4. Security review (scripts/pr_diff_delta.py) and report MERGE READY again.` through this section to the build lane. The merge relay names the head:
+**Head check for a merge approval**, before it is sent or queued and again before a queued one is sent: `./scripts/gh.sh pr view <N> --json headRefOid,mergeable`. Read `Review after conflict resolution` from `docs/agents/project.md` on `origin/main` with `python3 -c "import sys; sys.path.insert(0, 'scripts'); import project_config; print(project_config.review_after_conflict())"`. If `headRefOid` differs from `headSha`, the head moved after the reviews the user saw. Don't send, and drop the approval if it was queued. `comment` `Approval withdrawn at <time>: the PR head moved.`, tell the user under Needs you, and send the child `CHIEF OF STAFF: the PR head moved from <old> to <new> after the user approved. Re-check the reviews per ship-loop § Phases, 4. Security review (scripts/pr_diff_delta.py) and report MERGE READY again.` through this section to the build lane. If the head is unchanged and `mergeable` is `CONFLICTING`, the PR conflicts with `main`:
+
+- Setting `off`: keep the approval (it was verified with `scripts/cos_approve_pr.py` at this head) and send the conflict relay with an approval, below, to the merge lane.
+- Setting `on`: withdraw it: `comment` `Approval withdrawn at <time>: the PR conflicts with main.`, tell the user under Needs you, and send the conflict relay without an approval to the build lane.
+
+Conflict relays. Without an approval to carry: `CHIEF OF STAFF: the PR conflicts with main. Resolve it per open-pr § Conflict resolution and report MERGE READY.` With an approval to carry (setting `off` only): `CHIEF OF STAFF: the PR conflicts with main. The user approved the merge at head <short SHA>. Resolve it per open-pr § Conflict resolution and merge.` It names the head the Chief of Staff verified and is never sent for any other head.
+
+The merge relay names the head:
 
 ```
 CHIEF OF STAFF: the user approved the merge of PR #X at head <short SHA>: "<their words>".
@@ -283,6 +290,8 @@ CHIEF OF STAFF: auto-approved the merge of PR #X at head <short SHA> under `<tol
 | `changes N` | `awaiting-spec` | spec |
 | `changes N` | `awaiting-merge` | build |
 | Head moved after a merge approval (head check above) | `awaiting-merge` or `merge-queued` | build |
+| Conflict with `main` found at the head check, with the approval kept (`off`) | `awaiting-merge` or `merge-queued` | merge |
+| Conflict with `main`, no approval to carry or setting `on` (head check, `conflict: yes` in an approval request, or a `BLOCKED:` merge child) | `awaiting-merge`, `merge-queued` or `merge` | build (`on`), merge (`off`) |
 | How to proceed on a blocked ticket, or an answer to a pending request | `blocked` | `resumeStage` |
 | `resume`, for tickets stopped by the user | `blocked` | `resumeStage` |
 | Rate limit cleared, for tickets blocked by it | `blocked` | `resumeStage` |
