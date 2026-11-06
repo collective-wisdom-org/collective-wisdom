@@ -1,7 +1,8 @@
 # CW-101: Cancel superseded CI runs on the same PR
 
 **Ticket:** [CW-101](https://github.com/collective-wisdom-org/collective-wisdom/issues/101)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #153, as specified
 
 ## Goal
 
