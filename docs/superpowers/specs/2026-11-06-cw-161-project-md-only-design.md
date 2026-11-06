@@ -1,98 +1,103 @@
 # CW-161: Leave only project.md from the team in a consuming repo
 
 **Ticket:** [CW-161](https://github.com/collective-wisdom-org/collective-wisdom/issues/161)
-**Status:** Spec
-**Follows:** CW-160 (install the team once per machine). This ticket builds on CW-160's install and merges after it.
+**Status:** Spec (revised for CW-160's one-script design)
+**Follows:** CW-160 (install the team once per machine). This ticket builds on CW-160's merged `install.sh` and `~/.collective-wisdom` path, and merges after it.
 
 ## Goal
 
-An app commits `docs/agents/project.md` and nothing else from the team. Skills, agents, mods, scripts and shared role docs come from the per-machine install (CW-160). `install.sh` on an app seeds `project.md` and the `.gitignore` lines, and on an app installed the old way it removes the copies and the pin.
+An app commits `docs/agents/project.md` and nothing else from the team. Skills, agents, scripts and shared role docs come from the machine install (CW-160). `install.sh` is only the machine install: it no longer copies into, seeds or updates an app. An app installed the old way has one command that removes its copies and its pin.
+
+## How the work divides
+
+- **CW-160:** `install.sh` with no target is the machine install. It links `~/.collective-wisdom` to `<clone>/agent-team`, links skills and agents, adds the user Stop hook, writes the user instruction and rewrites script call sites to `~/.collective-wisdom/scripts/<name>`. It leaves the old app-target forms of `install.sh` in place, unchanged.
+- **CW-161 (this ticket):** deletes those app-target forms and `agent-team-update.sh`; adds the removal command for old apps; moves role-doc reads to the machine install; moves the status pane to the marketplace route; updates the docs.
+- **The init step** (the later set-up command, CW-163 or the ticket the user puts it in): walks the user through a PR in the app that adds `docs/agents/project.md` and the `.agent-team/` line in `.gitignore`. It is not built here, and nothing here seeds `project.md` or edits `.gitignore`. It can call this ticket's removal command when it finds a pin.
 
 ## Non-goals
 
-- Building the per-machine install, its user-level instruction or its Stop hook (CW-160).
+- Anything CW-160 builds (the machine mode of `install.sh`, the links, the hook, the user instruction, script call sites).
+- Writing `project.md` or the `.gitignore` line, by script or by interview (the init step).
 - Removing the `Owner login` row (CW-162).
-- Rewriting an app's `AGENTS.md`, or stripping the old Stop hook out of an existing `.claude/settings.json`.
-- Filling `project.md` by interview (CW-163).
-- This repo's root links into `agent-team/`.
-- `agent-team-update.sh` itself. It still runs a tag's `install.sh --update --from <tag> [--dry-run] [--force] <app>`, and that call keeps working.
+- Rewriting an app's `AGENTS.md`, or stripping the old Stop hook out of an app's `.claude/settings.json`.
+- This repo's root links into `agent-team/`, and `mods/agent-gantt`.
 
 ## Today
 
-Facts from `main` at `b923e59`.
+Facts from `main` at `b923e59` and CW-160's spec (branch `feat/cw-160-per-machine-install` at `6ce4af2`).
 
-- `install.sh` `sync_dir` copies `agent-team/.claude/{skills,agents,mods}`, `agent-team/scripts` and `agent-team/docs/agents` into the app, overwriting. `shipped()` lists those same paths.
-- It writes `docs/agents/installed-from.txt` (`collective-wisdom <sha> [v0.N]`). `--update` and `--check` refuse without it. `--update` runs a drift check against the pinned commit and refuses on hand-edited copies unless `--force`; `--update --from` also refuses a tag older than the pin.
-- It adds `.claude/settings.json` (the Stop hook) when missing, or a TODO to merge the hook by hand. It adds `docs/superpowers/README.md` when missing. It seeds `project.md` and `AGENTS.md` when missing and checks an existing `AGENTS.md` for four sections. It creates the `.agents/skills -> ../.claude/skills` link when missing.
-- It appends the missing lines of `agent-team/templates/gitignore` (which has `.agent-team/`).
-- On `--update` it lists files the old pin shipped and the new commit does not, as "Delete" TODOs.
-- `status-pane` is copied under `.claude/mods/` and is also in `.claude-plugin/marketplace.json`.
-- Skills and agent files point at role docs as `docs/agents/<file>.md`, a path in the app (about 45 references, plus `trackers/`).
+- `install.sh <app>` (with `--update`, `--check`, `--to`, `--from`, `--force`, `--dry-run`) copies `agent-team/.claude/{skills,agents,mods}`, `agent-team/scripts` and `agent-team/docs/agents` into the app (`shipped()`, `sync_dir`), writes the pin `docs/agents/installed-from.txt`, seeds `project.md`, `AGENTS.md`, `settings.json` and `docs/superpowers/README.md` when missing, creates `.agents/skills -> ../.claude/skills`, and appends `templates/gitignore`. After CW-160 it also has the no-target machine mode.
+- `agent-team/scripts/agent-team-update.sh <tag>`, run in an app, clones this repo and runs the tag's `install.sh --update --from <tag> <app>`.
+- Skills, role docs, templates and the five `.claude/agents/*.md` pointers name role docs as `docs/agents/<file>.md`, a path in the app (about 45 references in 22 files, plus `trackers/`). CW-160 leaves these.
+- `status-pane` ships in `.claude/mods/` and is in `.claude-plugin/marketplace.json`.
 - `cos_state.DEFAULT_FILE` is `.agent-team/state.json` under `app_root.root()`, the app's git toplevel. Nothing here changes it.
 
 ## Design
 
-### Install (plain or `--update`)
+### 1. `install.sh` is the machine install only
 
-One flow. `--update` is still accepted and does the same as a plain install, so the `agent-team-update.sh` call keeps working.
+Delete the app-target code: the target path argument, `--update`, `--check`, `--to`, `--from`, `--force`, the pin, `extract`, `shipped`, `drift`, `sync_dir`, `seed_file`, the dirty check, the seeding of `project.md`, `AGENTS.md`, `settings.json` and `docs/superpowers/README.md`, the `.agents/skills` link and the `.gitignore` append. What CW-160 built stays as it merged.
 
-1. Resolve the commit as today (`--to`, `--from`, HEAD, or `origin/main` for `--update`; must be on `origin/main`). It now only supplies the templates.
-2. Refuse on uncommitted changes in the paths it touches (`.claude`, `scripts`, `docs/agents`, `.agents`, `.gitignore`), as today.
-3. **Remove the old copies** when `docs/agents/installed-from.txt` exists:
-   - Extract the pinned commit, as today, and take its `shipped()` list.
-   - Drift check against that commit, as today. A copy that differs from the pin (edited by hand) stops the run with the list, unless `--force`. A shipped file already missing is fine.
-   - Delete every file in the list except `docs/agents/project.md` (never in `shipped()` today, but excluded by name too). Then delete the pin. Each deletion prints `remove  <path>`.
-   - Remove directories left empty under `.claude/skills`, `.claude/agents`, `.claude/mods`, `scripts` and `docs/agents`. A directory with the app's own files stays.
-   - Remove `.agents/skills` when it is the link `../.claude/skills` and `.claude/skills` is gone. Remove `.agents` if that leaves it empty.
-   - A malformed pin, or a pinned commit this clone lacks, exits 2 as today, before anything is written.
-4. Seed `docs/agents/project.md` from `templates/project.md` when missing. Never touch an existing one.
-5. Append the missing lines of `templates/gitignore`, as today.
-6. If `.claude/settings.json` mentions `cos_rotation_check.py`, add a TODO: the machine install runs that hook now, so remove it from this file by hand. The file is never written.
+A leftover target path or app flag exits 2 with: `install.sh no longer installs into an app. Run ./install.sh with no path to install on this machine. To remove an old copy from an app, run ~/.collective-wisdom/scripts/remove_app_copies.py in it.` That covers old apps whose `agent-team-update.sh` calls `install.sh --update --from <tag> <app>`.
 
-Gone from the installer: copying skills, agents, mods, scripts and role docs; the old-copy skill-folder warning; adding `settings.json`; adding `docs/superpowers/README.md`; seeding `AGENTS.md` and its section check; creating or checking `.agents/skills`; writing the pin; the "Delete" TODOs; `--update --from` refusing an older tag (there is nothing to move backwards). `--force` is allowed with or without `--update`.
+Delete `agent-team/scripts/agent-team-update.sh`. Its only job was the app-target update.
 
-`--dry-run` prints what it would remove, seed and ignore, and writes nothing.
+### 2. Removal command for old apps
 
-### Check
+New `agent-team/scripts/remove_app_copies.py [--dry-run] [--force]`, run with cwd in the app (`app_root.root()`). It writes nothing outside the app and never commits.
 
-`install.sh --check <app>` writes nothing and answers "is this app down to project.md?". It prints `left  <path>` for each leftover: the pin, and any file in this clone's HEAD `shipped()` list that exists in the app. It also prints `missing  docs/agents/project.md` when that is absent. Exit 0 with `check: only project.md` when there is nothing to print, else exit 1 with `check: N leftover file(s)`.
+- No `docs/agents/installed-from.txt`: print `nothing to remove: no installed-from.txt` and exit 0.
+- Parse the pin as today (`collective-wisdom <40-hex SHA> [v0.N]`); a malformed pin exits 2.
+- The pinned commit must be in the clone (the repo above the script's own `agent-team/scripts/`, symlinks resolved). If not, exit 2 with `run 'git fetch origin' in <clone>`.
+- List the files the pinned commit's `agent-team/` has under `.claude/skills`, `.claude/agents`, `.claude/mods`, `scripts` and `docs/agents` (today's `shipped()` rule, read with `git ls-tree` at that commit), minus `docs/agents/project.md`.
+- A listed file in the app that differs from the pinned copy (edited by hand) stops the run with the list and exit 1, unless `--force`. A listed file already missing is fine.
+- Delete each listed file that exists, then the pin, printing `remove  <path>` for each. Remove directories left empty under those five roots; a directory with the app's own files stays. Remove `.agents/skills` when it is a link to `../.claude/skills` and `.claude/skills` is gone, and `.agents` if that leaves it empty.
+- If `.claude/settings.json` mentions `cos_rotation_check.py`, print a TODO: the machine install runs that hook now, so remove it from this file by hand. Also a TODO to commit the removal as a PR in the app.
+- `--dry-run` prints the same lines and writes nothing.
+- Refuse (exit 1) when run in collective-wisdom itself (`install.sh` and `agent-team/` at the top), as `agent-team-update.sh` does today.
 
-### Role docs
+### 3. Role docs from the machine install
 
-The rule: in a skill or agent file, `docs/agents/project.md` is the app's file, and every other `docs/agents/<path>` is the team install's `agent-team/docs/agents/<path>`, at the location CW-160 sets. It is stated once in `ship-loop` § Repo invariants (every skill defers there) and once in each `.claude/agents/*.md` pointer, next to its role-doc path. The ~45 references stay as written. In this repo the two readings are the same file, through the root links.
+In `agent-team/.claude/skills/`, `agent-team/.claude/agents/`, `agent-team/docs/agents/` and `agent-team/templates/`, every reference that tells an agent to read a shared role doc, `docs/agents/<path>` other than `project.md`, becomes `~/.collective-wisdom/docs/agents/<path>`, the same way CW-160 moved script call sites. `docs/agents/project.md` stays: it is the app's file. Prose that names `docs/agents/` as a place (the approval path list, "any role doc under `docs/agents/`", review scope) stays.
 
-### Status pane
+CW-160's layout check (no `./scripts/<name>` call sites) gains a row: no shared role doc read as a bare `docs/agents/<file>.md` other than `project.md`. One table, not a new test.
 
-The app no longer gets a copy. `README.md` and `agent-team/docs/agents/status-pane.md` say to install it from the marketplace (`claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`). The mod's own files and the marketplace entry don't change.
+### 4. Status pane from the marketplace
 
-### Docs
+`README.md` and `agent-team/docs/agents/status-pane.md` say to install it with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`, and drop the copied route. The mod's files and the marketplace entry don't change. The removal command takes out an old copy (it is under `.claude/mods`).
 
-- `README.md`: Install, Check, Update and the layout bullets describe the new flow, drop the pin, and say an app commits only `project.md`. The note that a future installer must keep accepting the wrapper's call stays.
-- `ship-loop` § Workflow files: the app install PR no longer bumps `installed-from.txt`. If CW-160 has already reworded that paragraph, edit its version.
-- `agent-team/docs/superpowers/README.md`: the line about `install.sh --update` moving an app to the newest commit.
+### 5. Docs
+
+- `README.md`: delete the app-target `## Install`, `## Update` and check sections, the pin text, `agent-team-update.sh` and the "a future installer must keep accepting that call" note. Add `## Moving an app off the copied team` (run the removal command, open a PR; the init step adds `project.md` if it is missing). The layout bullets say an app commits only `project.md`.
+- `ship-loop` § Workflow files: a workflow change ships through a PR here, then a newer checkout in the machine clone. No app install PR, no `installed-from.txt`. Edit the paragraph as CW-160 left it.
+- `agent-team/docs/superpowers/README.md`: drop the `install.sh --update <app>` line.
 
 ## Acceptance
 
-- Install on a fresh repo: the app shows `docs/agents/project.md` and `.gitignore` with `.agent-team/`, and no `.claude/skills`, `.claude/agents`, `.claude/mods`, `scripts`, other `docs/agents/` files, pin, `settings.json`, `AGENTS.md` or `.agents/skills`.
-- `--update` on an app installed the old way (pin plus copies): the copies, the pin and the `.agents/skills` link are gone; `project.md`, `AGENTS.md`, `settings.json` and an app-owned file under `.claude/skills/` are byte for byte unchanged; `.gitignore` has `.agent-team/`.
-- `--update` with a hand-edited copy refuses and writes nothing; with `--force` it removes it.
-- `agent-team-update.sh <tag>` on an old app does the same as `--update --from <tag>`.
-- `--check` exits 1 with `left` lines on an old app and 0 after the update.
-- `.agent-team/state.json` still resolves under the app: `cos_state.DEFAULT_FILE` and `app_root.root()` are unchanged, and their existing tests pass.
+Re-scoped from the ticket now that `install.sh` touches no app (see Calls):
+
+- After the removal command, an old app shows no copied skills, scripts, agents, mods or role docs, no pin and no `.agents/skills` link; `project.md`, `AGENTS.md`, `settings.json`, `.gitignore` and an app-owned file under `.claude/skills/` are byte for byte unchanged.
+- A hand-edited copy stops the removal and nothing is written; `--force` removes it. `--dry-run` writes nothing.
+- `install.sh <app>` and `install.sh --update --from v0.N <app>` exit 2 with the message above and write nothing.
+- No skill, agent file, role doc or template reads a shared role doc from the app.
+- `.agent-team/state.json` still resolves under the app: `cos_state.DEFAULT_FILE` and `app_root.root()` are unchanged, and their tests pass.
+- The `.agent-team/` line in `.gitignore` and the `project.md` stub come from the init step, not from this ticket.
 
 ## Testing
 
-`agent-team/scripts/test_install.py` is rewritten around the new rules, one table-driven test each: install and update outcomes (fresh app, old app, drift with and without `--force`, existing `project.md` untouched, app-owned files kept, dry run writes nothing), `--check`, and the wrapper. `test_tag_release` stays. Cases that only covered copying, the pin or `AGENTS.md` sections go. Run `python3 -I -m pytest -q agent-team/scripts` and `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh`.
+- `test_install.py`: drop the app-target cases (install and update, existing setup, check, from tag, wrapper). Keep `test_tag_release`. Add one row to CW-160's `install.sh` tests: a target path exits 2 and writes nothing.
+- New `test_remove_app_copies.py`, one table-driven test: no pin; clean old app; app-owned files kept; hand edit with and without `--force`; dry run; malformed pin; pinned commit missing from the clone; run inside collective-wisdom.
+- The layout check row from § 3.
+- Run `python3 -I -m pytest -q agent-team/scripts` and `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh`.
 
 ## Calls I made
 
-- **Merge after CW-160, and build on top of it.** Both change `install.sh`, `README.md` and `ship-loop`. This ticket touches only the per-app path of `install.sh` (copy, pin, seed, check), not anything CW-160 adds for the machine. The role-doc rule names CW-160's install location, which does not exist yet. So the build starts by rebasing on `main` after CW-160 merges; if CW-160 is not merged when the spec is approved, the build waits and says so.
-- **`install.sh` stops seeding `AGENTS.md`.** The ticket says only `project.md` is committed from the team. An existing `AGENTS.md` is never touched. `templates/AGENTS.md` stays in this repo for anyone who wants to copy it by hand.
-- **Hand-edited copies stop the update unless `--force`,** the same rule as today's drift check, so a removal never loses local edits silently.
-- **`--update` and a plain install do the same thing.** Removal runs whenever a pin is present. `--update` is kept so old apps' `agent-team-update.sh` calls work.
-- **Role docs are mapped by one rule, not by rewriting ~45 paths.** Less churn and fewer conflicts with CW-160, which edits the same skills for script paths.
-- **`--check` is kept, with a new meaning:** leftover team files, not drift against a pin.
-- **`.agents/skills` is removed** when it is the old link and `.claude/skills` is gone, since it would point at nothing.
-- **`docs/superpowers/README.md` is no longer added, but an existing one stays.** It describes the app's own spec folders and is not in `shipped()`.
-- **The old Stop hook gets a TODO, not an edit.** Stripping it is out of scope; it is harmless (`|| true`) but runs a script that is now gone.
-- **`.gitignore` keeps the whole template,** not just `.agent-team/`: it only appends missing lines, as today.
+- **Must merge after CW-160, and the build starts after it merges.** CW-161 deletes the app-target half of `install.sh` that CW-160 leaves in place, and uses CW-160's `~/.collective-wisdom` path for role docs and the removal command. The two don't edit the same lines: CW-160 adds the no-target machine mode, CW-161 removes the code around it. The build starts by rebasing on `main` after CW-160 merges, and stops with `BLOCKED:` if it hasn't.
+- **The ticket's "`install.sh` still seeds `project.md` and the `.gitignore` line" no longer holds.** Under the new design `install.sh` touches no app, so that moves to the init step's PR. This ticket builds none of it. Its acceptance lines about `project.md` and `.gitignore` are met by the init step.
+- **Removing old copies is a separate script, not part of `install.sh`,** because `install.sh` is machine only. The init step can call it when it finds a pin; until then the README tells people to run it.
+- **Old apps' `agent-team-update.sh` gets a clear error, not a silent removal.** Their copy calls the new tag's `install.sh --update`; doing the removal there would put app writes back into `install.sh`.
+- **`agent-team-update.sh` is deleted,** since there is no app-target install left to call.
+- **Role-doc paths are rewritten, not mapped by a rule.** This matches how CW-160 moves script calls, and an agent follows a concrete path more reliably. It earlier looked like a conflict risk; building after CW-160 merges removes it.
+- **Hand-edited copies stop the removal unless `--force`,** so local edits are never lost silently.
+- **The removal command lists files from `git ls-tree` at the pinned commit,** not an extracted copy, and compares blob content. Same rule as `shipped()`, less disk churn.
+- **`AGENTS.md`, `settings.json` and `docs/superpowers/README.md` in an app are never touched.** The old Stop hook gets a TODO only.
