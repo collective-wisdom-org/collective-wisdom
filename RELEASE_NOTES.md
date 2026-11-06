@@ -1,5 +1,17 @@
 # Release notes
 
+## 2026-11-06 run shellcheck and pytest in one CI job (CW-100) (#155)
+
+Merged 2026-11-06 04:41 UTC.
+
+CI now runs shellcheck and pytest in one job named `checks`, which saves one billed job minute per run. If you require CI on `main`, add `checks` as the required status check after this merges (see the spec).
+
+## 2026-11-06 cancel superseded CI runs on the same PR (CW-101) (#153)
+
+Merged 2026-11-06 04:20 UTC.
+
+CI on this repo now cancels the run for an older commit when a newer push arrives on the same PR. Runs on `main` are not cancelled.
+
 ## 2026-11-06 show the ticket title in the status pane rows (CW-151) (#152)
 
 Merged 2026-11-06 04:19 UTC.
