@@ -2,11 +2,11 @@
 """Read and edit the Chief of Staff state file, so nobody prints or rewrites it by hand.
 
 Usage:
-    scripts/cos_state.py [--file PATH] show
-    scripts/cos_state.py [--file PATH] get GORP-N | --pm
-    scripts/cos_state.py [--file PATH] apply < ops.json
-    scripts/cos_state.py [--file PATH] prune
-    scripts/cos_state.py [--file PATH] init
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] show
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] get GORP-N | --pm
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] apply < ops.json
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] prune
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] init
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket, and the retired

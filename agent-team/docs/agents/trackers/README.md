@@ -4,7 +4,7 @@ The agent team keeps its tickets in one tracker: Linear, GitHub Issues or Jira. 
 
 ## Finding the adapter
 
-Read the `Tracker` row in `docs/agents/project.md` § Identity. Its first backticked value is `linear`, `github` or `jira`; a missing row, an empty cell or `TODO(...)` text means `linear`. `python3 -c "import project_config; print(project_config.tracker())"` from `scripts/` prints the answer.
+Read the `Tracker` row in `docs/agents/project.md` § Identity. Its first backticked value is `linear`, `github` or `jira`; a missing row, an empty cell or `TODO(...)` text means `linear`. `python3 -c "import project_config; print(project_config.tracker())"` from `~/.collective-wisdom/scripts/` prints the answer.
 
 | Tracker | Adapter |
 |---|---|

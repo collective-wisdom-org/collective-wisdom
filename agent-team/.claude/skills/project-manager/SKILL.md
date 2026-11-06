@@ -21,7 +21,7 @@ You keep the Backlog ranked, start the next ready ranked ticket when a spec slot
 Tools:
 
 - Tracker: the operations in `docs/agents/trackers/README.md`.
-- GitHub, read only: `./scripts/gh.sh pr list` and `./scripts/gh.sh api` with GET requests.
+- GitHub, read only: `~/.collective-wisdom/scripts/gh.sh pr list` and `~/.collective-wisdom/scripts/gh.sh api` with GET requests.
 - T3, Chief of Staff only: `delegate_task` (`mode: "wait"`) for the hygiene and ranking children, and `task_cancel` for their timeouts. The children call no T3 tool.
 
 ## Hygiene pass
@@ -39,7 +39,7 @@ The hygiene child runs this, never the Chief of Staff thread.
 Two calls:
 
 - `list-tickets`, scope <TEAM>, updated since <pm.lastCheckAt>, limit 250, fields `id, title, state, labels, priority, createdAt, updatedAt`. If there is another page, fetch it.
-- `./scripts/gh.sh pr list --state all --limit 100 --search "updated:>=<pm.lastCheckAt>" --json number,state,headRefName,title,createdAt,mergedAt,updatedAt`.
+- `~/.collective-wisdom/scripts/gh.sh pr list --state all --limit 100 --search "updated:>=<pm.lastCheckAt>" --json number,state,headRefName,title,createdAt,mergedAt,updatedAt`.
 
 Nothing returned from either: skip § Cleanup.
 
@@ -96,7 +96,7 @@ Steps 1 to 4 and building the list are the ranking child's work (§ Ranking chil
 
    A ticket is held when either holds:
    - Its description says it waits on another ticket or PR ("after <PREFIX>-248 merges", "hold until …") that isn't Done or merged. An open blocker still drops it, as above; this covers waits written only in text.
-   - It names a file that open work changes. Open work is each open PR's changed files, from one `./scripts/gh.sh pr list --state open --limit 100 --json number,headRefName,files` per ranking (that covers every team ticket with a PR, including the `awaiting-merge` ones), and each ticket in the Chief of Staff's `tickets` with no open PR yet (`spec`, `awaiting-spec`, `spec-queued`, or `build` before its PR). Compare titles first. Read its description (`get-ticket`, fields `id, description`, once per ranking) only when the title suggests the same area.
+   - It names a file that open work changes. Open work is each open PR's changed files, from one `~/.collective-wisdom/scripts/gh.sh pr list --state open --limit 100 --json number,headRefName,files` per ranking (that covers every team ticket with a PR, including the `awaiting-merge` ones), and each ticket in the Chief of Staff's `tickets` with no open PR yet (`spec`, `awaiting-spec`, `spec-queued`, or `build` before its PR). Compare titles first. Read its description (`get-ticket`, fields `id, description`, once per ranking) only when the title suggests the same area.
 
    `held` is decided fresh at each ranking and never carried over.
 5. The child returns the top 5 `ready` and `needs:` entries (`id`, `title`, `reason`, `readiness`, `priority`, `createdAt`), and `held` entries too, in rank order with the others. Held entries don't count toward the 5, so a held ticket can't push a `ready` one out. The Chief of Staff saves the list as `pm.ranked` with `cos_rank.py` (§ Ranking child), which sets `pm.rankedAt` and `pm.rankedReady` (true if any saved entry is `ready`; `held` doesn't count).
@@ -118,7 +118,7 @@ When § Backlog pick "Dry ranking" or `backlog` runs a ranking, or its child fai
 
 1. `list-tickets`, scope <TEAM>, state In Progress, then In Review, fields `id, title, state, updatedAt`.
 2. Skip tickets in the Chief of Staff's `tickets`. Its stuck check covers them.
-3. A ticket whose `updatedAt` is older than 3 days is a candidate. For each candidate, find its PR (`./scripts/gh.sh pr list --state all --search "<PREFIX>-N" --json number,updatedAt,headRefName`) and its branch's last commit (`./scripts/gh.sh api -X GET repos/<owner>/<repo>/commits -f sha='<headRefName>' -f per_page=1`). Use a `headRefName` only if it matches `^[A-Za-z0-9._/-]+$`, and keep it in single quotes. Otherwise skip the branch check. The newest of the three times is its last activity.
+3. A ticket whose `updatedAt` is older than 3 days is a candidate. For each candidate, find its PR (`~/.collective-wisdom/scripts/gh.sh pr list --state all --search "<PREFIX>-N" --json number,updatedAt,headRefName`) and its branch's last commit (`~/.collective-wisdom/scripts/gh.sh api -X GET repos/<owner>/<repo>/commits -f sha='<headRefName>' -f per_page=1`). Use a `headRefName` only if it matches `^[A-Za-z0-9._/-]+$`, and keep it in single quotes. Otherwise skip the branch check. The newest of the three times is its last activity.
 4. Last activity older than 3 days, and different from `pm.flaggedStale[<PREFIX>-N]`: report it and save the time in `pm.flaggedStale`. Don't change its state.
 
 Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
@@ -136,7 +136,7 @@ Run by `chief-of-staff` § Slot fill when a spec slot is free, nothing is `spec-
 - `pm.rankedReady` is true: the last ranking found `ready` tickets and they are used up.
 - Step 2 found a ranked ticket out of date in this turn (moved, labelled `agent-skip`, newly blocked, or held).
 - `merged` in state has an entry whose `at` is after `pm.rankedAt`. A merge can release a held ticket and frees the files it touched.
-- `pm.ranked` has a `held` entry and `./scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number` returns a PR (use `pm.rankedAt` only if it matches `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`; otherwise treat it as null). This catches merges outside the team, merges the user makes by hand, and PRs closed without merging, which `merged` and the change check can miss once their windows pass.
+- `pm.ranked` has a `held` entry and `~/.collective-wisdom/scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number` returns a PR (use `pm.rankedAt` only if it matches `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`; otherwise treat it as null). This catches merges outside the team, merges the user makes by hand, and PRs closed without merging, which `merged` and the change check can miss once their windows pass.
 - The Backlog changed since `pm.rankedAt`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <pm.rankedAt>, limit 1, fields `id`) returns a ticket. A ticket the user wrote, edited, answered or moved back to Backlog counts.
 
 Otherwise the Backlog counts as dry: nothing in it has changed since a ranking that found nothing to start, so a new ranking would find the same. The pick stops. At most one ranking per turn.
@@ -149,7 +149,7 @@ Report lines: a start is a Moving line, `<PREFIX>-N started: <title>. From the B
 
 ## State
 
-The project manager owns `pm` in `.agent-team/state.json`. It writes `pm` with `python3 scripts/cos_state.py apply` `pm` ops (`set` holds the `pm` keys) and reads it with `cos_state.py get --pm`; never edit the file by hand:
+The project manager owns `pm` in `.agent-team/state.json`. It writes `pm` with `python3 ~/.collective-wisdom/scripts/cos_state.py apply` `pm` ops (`set` holds the `pm` keys) and reads it with `cos_state.py get --pm`; never edit the file by hand:
 
 ```json
 {

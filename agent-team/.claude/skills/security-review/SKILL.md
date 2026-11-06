@@ -20,7 +20,7 @@ In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the C
 
 ## Primary review path
 
-When `scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
+When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
 
 **Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 
@@ -56,7 +56,7 @@ Mirror **open-pr** agent review, but as a **separate** security thread (never mi
 Post as a PR issue comment only. Post each security review comment on the PR before you mention it in the thread, and keep the comment URL:
 
 ```bash
-./scripts/gh.sh pr comment <N> --body-file <path>
+~/.collective-wisdom/scripts/gh.sh pr comment <N> --body-file <path>
 ```
 
 **Comment shape:**
@@ -71,7 +71,7 @@ Post as a PR issue comment only. Post each security review comment on the PR bef
 
 1. Run security review (per § Primary review path) → post comment (pass N).
 2. If **CHANGES NEEDED**, fix in worktree → commit → push. If a security fix changes what ships, update the `**Shipped:**` line or as-built, and the PR body's release note (if any) and `## Proof` section, in the same commit.
-3. Wait for CI with `./scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits), not a bare `pr checks --watch`.
+3. Wait for CI with `~/.collective-wisdom/scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits), not a bare `pr checks --watch`.
 4. Re-run security review (focus on changes since last pass) → next pass comment.
 5. Repeat until the **latest security review** PR comment verdict is **PASS**.
 
@@ -79,8 +79,8 @@ Be honest: if nothing exploitable remains, post **PASS**. Do not invent issues.
 
 ### Forbidden
 
-- `./scripts/gh.sh pr review --approve`
-- Merging is **merge-pr**'s job (`scripts/merge_pr.py`), only on a merge approval (`ship-loop` § Approvals)
+- `~/.collective-wisdom/scripts/gh.sh pr review --approve`
+- Merging is **merge-pr**'s job (`~/.collective-wisdom/scripts/merge_pr.py`), only on a merge approval (`ship-loop` § Approvals)
 
 ## Done when
 

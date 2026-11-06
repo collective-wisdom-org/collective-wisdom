@@ -22,7 +22,7 @@ Nothing here is specific to one app. Each app keeps its own facts (ticket prefix
 - Release notes, all in one file: <https://github.com/collective-wisdom-org/collective-wisdom/blob/release-notes/RELEASE_NOTES.md>
 - `agent-team/templates/`: starting points for `docs/agents/project.md`, `AGENTS.md` and the `.gitignore` lines
 - `mods/agent-gantt/` and `.claude-plugin/marketplace.json`: the agent pane, a Claude Code mod installed per machine, not per app (see Agent pane). The marketplace also lists `status-pane`, which sits in `agent-team/.claude/mods/status-pane/`
-- `install.sh`: installs, updates and drift-checks the team in a repo, and writes `docs/agents/installed-from.txt` in the app (the version pin)
+- `install.sh`: with no target path, installs this clone for the machine (links into your home folder; see Install on a machine). With a target path, installs, updates and drift-checks the team in a repo, and writes `docs/agents/installed-from.txt` in the app (the version pin)
 - `tag-release.sh`: tags `origin/main` with the next release number (`v0.1`, `v0.2`, ...). Like `install.sh` it stays here and is not copied into apps
 
 ## Running a Chief of Staff in this repo
@@ -32,6 +32,7 @@ This repo runs its own Chief of Staff. The root links into `agent-team/` so the 
 - `docs/agents/project.md` is real and local to this repo (tracker `github`, prefix `CW`). It is never shipped; apps are seeded from `agent-team/templates/project.md`.
 - Edit shared files under `agent-team/`, never through the links.
 - `.claude/settings.json` at the root is a link into `agent-team/.claude/settings.json`, so any permission a tool saves to project settings lands in the shipped file; put personal permissions in `.claude/settings.local.json` (gitignored).
+- Run `./install.sh` from the root checkout once, so skills here find the scripts at `~/.collective-wisdom` (see Install on a machine). Worktrees then run the root checkout's skills and scripts, not their branch's.
 - Run the Chief of Staff from the root checkout on `main`, like in an app. `agent-team/scripts/test_root_links.py` fails on a dangling link or an unlinked doc.
 
 ## Requirements
@@ -63,6 +64,40 @@ From an empty repo to a running Chief of Staff:
 7. Set branch protection or a ruleset on the merge target branch that requires the checks listed in `Required CI checks` in `project.md`.
 8. Commit everything on a branch and merge it as the install PR.
 9. In T3 Code, start a Chief of Staff thread from the root checkout on the merge target branch and say `start the team`.
+
+## Install on a machine
+
+One clone of this repo runs the agent team in every repo on the machine. Clone it somewhere permanent (not a worktree, which can go away), then run the installer with no target path from the clone's root:
+
+```
+./install.sh --dry-run   # preview, writes nothing
+./install.sh             # install
+```
+
+To update, check out a newer release in the clone (`git fetch origin && git checkout v0.N`, or `git pull` on `main`) and run `./install.sh` again. Every repo then runs the new checkout; there is no separate pin. The rerun only adds links for new skills and agents and drops links to ones a release removed. A run with nothing to do reports `0 change(s)`.
+
+It writes only under your home folder and touches no app. It links:
+
+- `~/.collective-wisdom` to the clone's `agent-team/` folder. Skills and role docs call scripts as `~/.collective-wisdom/scripts/<name>`.
+- Each skill into `~/.claude/skills/`, `~/.agents/skills/` (Codex) and `~/.cursor/skills/`, and each subagent into `~/.claude/agents/`. One link per name, so your own skills stay.
+
+It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` (other keys are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone.
+
+The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and a `TODO:` list. What lands there:
+
+- A real file or folder, or a link to somewhere else, where a skill or agent link should go. (At `~/.collective-wisdom` itself this is not a TODO: the installer refuses and exits before writing anything, so remove it and run again.) The installer never replaces it; move or remove yours and run again.
+- A `~/.claude/settings.json` that is not valid JSON, or whose `hooks.Stop` is not a list. It is left alone; add the hook by hand.
+- A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that cannot be read as text, or has only one of the two marker comments. It is left alone; fix the file.
+- The instruction text for Cursor. Its user rules have no file to write, so paste the text into Cursor Settings, Rules.
+
+A `~/.claude/settings.json`, `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that is itself a link (dotfiles) is written at its target, so the link stays.
+
+Apps that already carry the copied files:
+
+- From this release on, the copied skills call `~/.collective-wisdom/scripts/`. An app that still has the copied files, including one updated with `agent-team-update.sh`, needs the machine install too.
+- An app with the older project-level Stop hook in `.claude/settings.json` should get this release's copy of the scripts, or remove that hook. Otherwise its old copy reads the app's own history, disagrees with the clone, and can keep proposing a rotation.
+
+The installer refuses a clone that is not its own git repo root, and a linked worktree. `## Install` and `## Update` below describe the older route of copying the team into each app. They stay until CW-161 removes that route.
 
 ## Install
 

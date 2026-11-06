@@ -2,9 +2,9 @@
 """Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward the root checkout (on the merge target branch).
 
 Usage:
-    scripts/merge_pr.py <PR number> <approved head SHA>
+    ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA>
 
-Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
+Run it from the root checkout (`cd <root checkout> && python3 ~/.collective-wisdom/scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
 the checks list of the merge-pr skill (gh signed in as project.md's Owner login among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
@@ -323,7 +323,7 @@ def review_stop(f):
 def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
     if f.get("not_root_checkout"):
-        return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
+        return f"run it from the root checkout: cd {f['root']} && python3 ~/.collective-wisdom/scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if not f.get("owner"):
         return "project.md has no Owner login; cannot tell whose gh login this is"
     if f["login"].lower() not in [f["owner"].lower(), *f.get("codeowners", [])]:
@@ -515,7 +515,7 @@ def publish(pr, sha, run):
 
 def main(argv, run=run):
     if len(argv) != 2 or not re.fullmatch(r"[0-9]+", argv[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", argv[1]):
-        print("merge-pr: cannot read arguments; usage: scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
+        print("merge-pr: cannot read arguments; usage: ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
         return 2
     pr, approved = argv[0], argv[1].lower()
     try:

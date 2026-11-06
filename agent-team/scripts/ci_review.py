@@ -2,10 +2,10 @@
 """List and resolve the CI review bot's threads on a PR (project.md `Review mode` `ci`).
 
 Usage:
-    scripts/ci_review.py list <PR number>
-    scripts/ci_review.py resolve <thread id>
+    ~/.collective-wisdom/scripts/ci_review.py list <PR number>
+    ~/.collective-wisdom/scripts/ci_review.py resolve <thread id>
 
-list reads the PR's review threads through ./scripts/gh.sh (one paginated GraphQL query). A thread is the bot's when its
+list reads the PR's review threads through ~/.collective-wisdom/scripts/gh.sh (one paginated GraphQL query). A thread is the bot's when its
 first comment's author is the project.md `CI review bot login` (`[bot]` suffix and case ignored). It prints one line per
 unresolved bot thread, then a last line:
   unresolved <path>:<line> <url> <thread id>
@@ -183,7 +183,7 @@ def main(argv, run=gh):
                 raise CiError(f"resolve {argv[1][:100]}: {e}")
             print(f"ci-review: resolved {argv[1]}")
             return 0
-        raise CiError("read arguments; usage: scripts/ci_review.py list <PR number> | resolve <thread id>")
+        raise CiError("read arguments; usage: ~/.collective-wisdom/scripts/ci_review.py list <PR number> | resolve <thread id>")
     except CiError as e:
         print(f"ci-review: cannot {e}")
         return 2
