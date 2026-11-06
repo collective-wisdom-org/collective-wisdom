@@ -25,6 +25,16 @@ def test_reads_values_and_treats_none_as_unset(tmp_path, monkeypatch):
     assert not project_config.ticket_re(anchored=True).match("XYZ-12")
 
 
+@pytest.mark.parametrize(
+    "cell, expect",
+    [("`on`", "on"), ("`on` (default)", "on"), ("on", "on"), ("  yes ", "yes"), ("", None), ("TODO(owner)", None)],
+)
+def test_setting_reads_a_cell_with_or_without_backticks(cell, expect):
+    rows = project_config._parse(f"| Key | Value |\n|---|---|\n| Flag (on or off) | {cell} |\n")
+    assert project_config.setting("Flag", rows) == expect
+    assert project_config.setting("Missing", rows) is None
+
+
 def _tracker(tmp_path, monkeypatch, row):
     md = tmp_path / "project.md"
     md.write_text("| Key | Value |\n|---|---|\n" + row)

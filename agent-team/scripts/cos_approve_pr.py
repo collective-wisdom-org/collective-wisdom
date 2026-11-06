@@ -150,8 +150,12 @@ def approve(tid, run, auto=False):
     owner = project_config.value("Owner login")
     if not owner:
         raise Cannot("read the Owner login from project.md")
+    try:
+        target = project_config.target_branch()
+    except SystemExit:
+        raise Cannot("read the Merge target branch row of project.md")
     login, f = read_gh(run, pr, auto)
-    if login.lower() != owner.lower():
+    if login.lower() not in [owner.lower(), *merge_pr.codeowners(run)]:
         raise Stop(f"gh is signed in as {login}, not the owner")
     if f["state"] != "OPEN":
         raise Stop(f"PR is {'closed' if f['state'] == 'CLOSED' else f['state'].lower()}")
@@ -159,10 +163,6 @@ def approve(tid, run, auto=False):
         raise Stop("PR is a draft")
     if f["isCrossRepository"]:
         raise Stop("PR is from a fork")
-    try:
-        target = project_config.target_branch()
-    except SystemExit:
-        raise Cannot("read the Merge target branch row of project.md")
     if f["baseRefName"] != target:
         raise Stop(f"base is {f['baseRefName']}, not {target}")
     if f["headRefOid"] != sha:

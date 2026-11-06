@@ -45,6 +45,20 @@ def value(key_prefix, rows=None):
     return None
 
 
+def setting(key_prefix, rows=None):
+    """Like value, but a Value cell without backticks reads as its bare text: `on` and "on" both give "on".
+
+    None when the row is missing, the cell is empty or the cell starts with TODO(.
+    """
+    for key, val in _rows() if rows is None else rows:
+        if key.startswith(key_prefix):
+            m = re.search(r"`([^`]+)`", val)
+            if m:
+                return m.group(1)
+            return None if not val or val.startswith("TODO(") else val
+    return None
+
+
 def no_ci():
     """True when the `Required CI checks` row declares no CI: the cell starts with `none`, in backticks or not."""
     cell = next((v for k, v in _rows() if k.startswith("Required CI checks")), "")

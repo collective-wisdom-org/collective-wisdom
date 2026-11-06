@@ -3,7 +3,7 @@ name: build-from-plan
 description: >-
   Implements an approved plan from the feature worktree with scoped tests
   and verification. Use when the user says implement the plan, execute tasks,
-  yes after plan approval, or build the feature.
+  or build the feature.
 user-invocable: true
 ---
 
@@ -14,7 +14,7 @@ Before acting, read **ship-loop** § Repo invariants.
 ## Preconditions
 
 1. Confirm **cwd** is the feature worktree, not root on the merge target branch.
-2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user).
+2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user). A ticket that changes only markdown files has no plan; build from the spec.
 3. Stay within `AGENTS.md` scope.
 
 ## Execution
@@ -42,16 +42,10 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 
 ## Git
 
-- **Do not commit** unless the user explicitly asks.
+- Commit and push as tasks finish.
+- Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
 - No force-push to the merge target branch.
 
 ## When all tasks pass
 
-Read and follow **finishing-a-development-branch**, or prompt: *"make a pr"* → **open-pr** (open + feedback loop).
-
-## Team mode
-
-When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
-
-- Commit and push as tasks finish. The "Do not commit unless the user asks" rule is lifted. Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
-- Don't offer a choice at the end. Go straight to **open-pr**.
+Go straight to **open-pr** (open + feedback loop). Don't offer a choice.

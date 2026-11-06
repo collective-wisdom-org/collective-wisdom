@@ -1,6 +1,6 @@
 # Project config (collective-wisdom)
 
-The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value that is not decided yet; an agent that needs one must not guess (in team mode, stop with `BLOCKED:`).
+The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value that is not decided yet; an agent that needs one must not guess (stop with `BLOCKED:`).
 
 This file is local to collective-wisdom. It is never shipped to an app: `install.sh` seeds apps from `agent-team/templates/project.md`.
 

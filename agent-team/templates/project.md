@@ -1,6 +1,6 @@
 # Project config (<product name>)
 
-The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value not decided yet; an agent that needs one must not guess (in team mode, stop with `BLOCKED:`).
+The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value not decided yet; an agent that needs one must not guess (stop with `BLOCKED:`).
 
 Scripts read the first backticked token in each Value cell. Keep the backticks around the real value, and keep notes free of extra backticks in the cells marked below.
 
@@ -32,6 +32,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
 | Owner login (trusted review-comment author) | `<github-login>` |
+| Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from an owner, member or collaborator other than the PR author. A missing row means off |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
 
