@@ -16,6 +16,7 @@ Scripts read the first backticked token in each Value cell. Keep the backticks a
 | Linear project (Linear only) | <project name, or none (the team is the scope)> |
 | Approver | <name>. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
+| Review after conflict resolution (`off` or `on`) | `off`. Whether a conflict resolution is reviewed again before it can merge. `off`: reviews from before the resolution stand, and a merge you already approved goes ahead on the resolved head without asking again. `on`: code and security review run on the resolved head, and you approve it again |
 
 ### Choosing a tracker
 
