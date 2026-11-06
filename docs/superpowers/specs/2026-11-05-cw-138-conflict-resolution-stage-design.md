@@ -2,7 +2,7 @@
 
 **Ticket:** [CW-138](https://github.com/collective-wisdom-org/collective-wisdom/issues/138)
 **Status:** Shipped
-**Shipped:** in PR #PRNUM, with differences: [as-built](../as-built/2026-11-05-cw-138-conflict-resolution-stage-as-built.md)
+**Shipped:** in PR #142, with differences: [as-built](../as-built/2026-11-05-cw-138-conflict-resolution-stage-as-built.md)
 **Related:** #46
 
 ## Goal

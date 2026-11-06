@@ -1,6 +1,6 @@
 # As-built: Resolve merge conflicts in the merge lane without restarting the review loop
 
-**Shipped:** in PR #PRNUM
+**Shipped:** in PR #142
 **Ticket:** CW-138
 **Spec:** [2026-11-05-cw-138-conflict-resolution-stage-design.md](../specs/2026-11-05-cw-138-conflict-resolution-stage-design.md)
 
