@@ -17,7 +17,7 @@ A status pane row reads `CW-N title`, then risk, then next step. Today it shows 
 
 ## Builds
 
-- `cos_state.py`: `title` joins the ticket keys. `start` accepts an optional `title` (a string, trimmed, stored as given or `""`). `set` can fill or change it for a ticket already in state.
+- `cos_state.py`: `title` joins the ticket keys. `start` accepts an optional `title` (a string; control characters become spaces, it is trimmed and capped at 200 characters, `""` when absent). `set` can fill or change it for a ticket already in state.
 - The chief-of-staff skill passes the ticket title in the `start` op. It already has the ticket from the readiness check. `state-keys.md` documents the key.
 - The pane row: ID, title, `| risk | next`. A ticket with no title shows the ID alone, as now.
 - The mod drops the thread link, the `environmentId` option and the `childThreadId` field it carried for the link. `autoOpen` stays.
