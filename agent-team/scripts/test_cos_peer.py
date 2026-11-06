@@ -42,9 +42,9 @@ def project(pid, title, slug, root):
 
 # (name, exit code, output)
 FIND = [
-    ("fathom", 0, "target p1 dbeallor/fathom chief c1"),
-    ("I Have a Guy", 0, "target p1 dbeallor/fathom chief c1"),
-    ("dbeallor/fathom", 0, "target p1 dbeallor/fathom chief c1"),
+    ("mail", 0, "target p1 acme/mail chief c1"),
+    ("Acme Mail", 0, "target p1 acme/mail chief c1"),
+    ("acme/mail", 0, "target p1 acme/mail chief c1"),
     ("app", 1, "none app"),  # example/app is this repo (conftest project.md)
     ("nonesuch", 1, "none nonesuch"),
     ("widget", 1, "ambiguous widget: acme/widget-api, acme/widget-ui"),
@@ -57,12 +57,12 @@ FIND = [
 
 @pytest.mark.parametrize("name, code, out", FIND)
 def test_find(tmp_path, monkeypatch, capsys, name, code, out):
-    roots = {n: tmp_path / n for n in ("fathom", "app", "api", "ui", "nostate", "nullchief", "elsewhere", "archived")}
-    for n, chief in (("fathom", "c1"), ("app", "c0"), ("api", "c2"), ("ui", "c3"), ("nullchief", None),
+    roots = {n: tmp_path / n for n in ("mail", "app", "api", "ui", "nostate", "nullchief", "elsewhere", "archived")}
+    for n, chief in (("mail", "c1"), ("app", "c0"), ("api", "c2"), ("ui", "c3"), ("nullchief", None),
                      ("elsewhere", "c1"), ("archived", "c6")):
         write_state(roots[n], chiefThreadId=chief)
     projects = [
-        project("p1", "I Have a Guy", "dbeallor/fathom", roots["fathom"]),
+        project("p1", "Acme Mail", "acme/mail", roots["mail"]),
         project("p0", "Example", "example/app", roots["app"]),
         project("p2", "Widget Shop", "acme/widget-api", roots["api"]),
         project("p3", "Widget Studio", "acme/widget-ui", roots["ui"]),
@@ -103,7 +103,7 @@ CHECK = [
     ("cs", "u1", "FILE a  ticket in app\nfor dark mode", 0, f"accept cs u1 Sender\n{GOOD}"),
     ("child", "uc", GOOD, 1, "refuse: not a chief of staff thread"),
     ("ghost", "ug", GOOD, 1, "refuse: not a chief of staff thread"),
-    ("cs", "ux", "add dark mode to fathom", 1, "refuse: not for this repo"),
+    ("cs", "ux", "add dark mode to mail", 1, "refuse: not for this repo"),
     ("cs", "ut", "a ticket for mission control about dark mode", 0, "accept cs ut Sender\na ticket for mission control about dark mode"),
     ("cs", "c1", "app: approve 12", 1, "refuse: command: approve 12"),
     ("cs", "c2", "app: merge PR 5", 1, "refuse: command: merge pr"),
@@ -120,7 +120,7 @@ def check_env(tmp_path, incoming=(), **state):
     """incoming: (item id, thread id, text) of messages an agent sent to the thread under test."""
     root = write_state(tmp_path / "sender", **({"chiefThreadId": "cs", "retiredThreads": [{"threadId": "old"}]} | state))
     messages = [(i, "cs", "user", t) for i, t in (
-        ("u1", GOOD), ("ux", "add dark mode to fathom"), ("ut", "a ticket for mission control about dark mode"),
+        ("u1", GOOD), ("ux", "add dark mode to mail"), ("ut", "a ticket for mission control about dark mode"),
         ("c1", "app: approve 12"), ("c2", "app: merge PR 5"), ("c3", "app: changes 3: reword it"),
         ("c4", "app: cancel ABC-4"), ("c5", "app: stop everything"), ("c6", "app: merge it"),
         ("c7", "app: merge duplicate contacts"))]

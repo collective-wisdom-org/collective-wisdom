@@ -114,3 +114,28 @@ def test_live_gh_call(monkeypatch, capsys, tmp_path, returncode, pages, want_cod
     code, out = run(monkeypatch, capsys, tmp_path, state)
     assert code == want_code and want_line in out
     assert "--paginate" in calls[0] and calls[0][-1].endswith("/git/matching-refs/heads/feat/abc-1-")
+
+
+@pytest.mark.parametrize(
+    "rows, rollup, comments, want",
+    [
+        ("", None, PASS_BOTH, "ready ABC-1 #5"),
+        ("", [{"__typename": "CheckRun", "name": "t", "status": "COMPLETED", "conclusion": "SUCCESS"}], [], "building ABC-1 #5 (code review not posted"),
+        # ci mode: green checks are enough to look closer, review comments play no part
+        ("| Review mode | `ci` |\n", [{"__typename": "CheckRun", "name": "t", "status": "COMPLETED", "conclusion": "SUCCESS"}], [], "ready ABC-1 #5 head a1b2c3d"),
+        ("| Review mode | `ci` |\n", [{"__typename": "CheckRun", "name": "t", "status": "IN_PROGRESS"}], PASS_BOTH, "building ABC-1 #5 (CI checks not green)"),
+        ("| Review mode | `ci` |\n", [{"__typename": "CheckRun", "name": "t", "status": "COMPLETED", "conclusion": "FAILURE"}], PASS_BOTH, "building ABC-1 #5 (CI checks not green)"),
+        ("| Review mode | `ci` |\n", None, PASS_BOTH, "building ABC-1 #5 (CI checks not green)"),
+        ("| Review mode | `cii` |\n", None, PASS_BOTH, "cos_ready_check: project.md: 'Review mode' row must be one of"),
+    ],
+)
+def test_build_lane_by_review_mode(monkeypatch, capsys, tmp_path, rows, rollup, comments, want):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Issue identifier prefix | `ABC` |\n| Repo | `example/app` |\n" + rows)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    pr = {"number": 5, "headRefName": "feat/abc-1-a", "headRefOid": HEAD, "comments": comments}
+    if rollup is not None:
+        pr["statusCheckRollup"] = rollup
+    code, out = run(monkeypatch, capsys, tmp_path, {"tickets": {"ABC-1": {"stage": "build"}}}, [pr])
+    assert want in out[0]
+    assert code == {"ready": 1, "building": 0, "cos_ready_check:": 2}[want.split()[0]]

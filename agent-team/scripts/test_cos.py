@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -66,6 +67,37 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     assert path.read_bytes() == first
 
 
+@pytest.mark.parametrize("ops, stamped", [
+    ([START], True),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "merge", "status": "m"}], True),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "build", "status": "again"}], False),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "build", "status": "again", "set": {"childThreadId": "c9"}}], True),
+    ([{"op": "set", "ticket": "ABC-1", "set": {"childThreadId": "c9"}}], True),
+    ([{"op": "set", "ticket": "ABC-1", "set": {"note": "x"}}], False),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "w"}], False),
+])
+def test_relay_and_child_start_stamp_lastRelayAt(ops, stamped):
+    new, _, _ = cos_state.apply_ops(STATE, ops)
+    assert ("lastRelayAt" in new) == stamped
+
+
+OLD_SEEN = "2020-01-01T00:00:00Z"
+
+
+@pytest.mark.parametrize("stage, op, restamped", [
+    ("awaiting-merge", {"op": "set", "set": {"headSha": "b" * 40}}, True),
+    ("awaiting-merge", {"op": "stage", "stage": "awaiting-merge", "status": "s", "set": {"headSha": "b" * 40}}, True),
+    ("awaiting-merge", {"op": "set", "set": {"headSha": "a" * 40}}, False),
+    ("awaiting-merge", {"op": "stage", "stage": "awaiting-merge", "status": "s"}, False),
+    ("awaiting-merge", {"op": "set", "set": {"pr": "7"}}, False),
+    ("build", {"op": "set", "set": {"headSha": "b" * 40}}, False),
+])
+def test_new_head_in_a_stamped_stage_restamps_lastSeenAt(stage, op, restamped):
+    state = {**STATE, "tickets": {"ABC-1": ticket(stage, headSha="a" * 40, lastSeenAt=OLD_SEEN)}}
+    new, _, _ = cos_state.apply_ops(state, [{"ticket": "ABC-1", **op}])
+    assert (new["tickets"]["ABC-1"]["lastSeenAt"] != OLD_SEEN) == restamped
+
+
 @pytest.mark.parametrize("bad", [
     {"op": "set", "ticket": "ABC-1", "set": {"bogus": 1}},
     {"op": "set", "ticket": "ABC-1", "set": {"stage": "merge"}},
@@ -76,10 +108,13 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     {"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "s", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
     {"op": "set", "ticket": "ABC-4", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
     {"op": "pm", "set": {"rules": ["rank ABC-9 first"]}},
+    {"op": "top", "set": {"lastRelayAt": "2026-11-04T00:00:00Z"}},
     {"op": "drop", "ticket": "nope"},
     {"op": "unknown"},
     {k: v for k, v in START.items() if k != "parentThreadId"},
     {"op": "retire", "threadId": "t2", "successor": "t2"},
+    {"op": "observe", "kind": "nope"},
+    {"op": "observe", "kind": "other:Bad Slug"},
 ])
 def test_invalid_op_changes_nothing(tmp_path, bad):
     path = tmp_path / "state.json"
@@ -87,6 +122,58 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
     before = path.read_bytes()
     assert cos_state.apply_file(path, [START, QUEUE, bad]) == 1
     assert path.read_bytes() == before
+
+
+def ago(hours):
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def sight(kind, ticket, hours):
+    return {"kind": kind, "ticket": ticket, "at": ago(hours)}
+
+
+def obs(kind, ticket=None):
+    return {"op": "observe", "kind": kind, **({"ticket": ticket} if ticket else {})}
+
+
+LOST = sight("lost-notice", "ABC-1", 24)
+FILED_TODAY = [{"kind": k, "at": ago(2)} for k in ("stall", "rotation-failed", "helper-no-report")]
+
+
+@pytest.mark.parametrize("seen, filed, ops, notes, sightings, filed_kinds", [
+    ([], [], [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([LOST], [], [obs("lost-notice", "ABC-2")], ["file (ABC-1 "], 2, ["lost-notice"]),
+    ([LOST], [], [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([sight("rotation-failed", None, 24)], [], [obs("rotation-failed")], ["file (- "], 2, ["rotation-failed"]),
+    ([], [], [obs("other:slow-handoff")], ["file (-"], 1, ["other:slow-handoff"]),
+    ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(72)}],
+     [obs("lost-notice", "ABC-3")], ["hold (filed "], 3, ["lost-notice"]),
+    ([], FILED_TODAY, [obs("other:slow-handoff")], ["hold (3 filed today)"], 1, [f["kind"] for f in FILED_TODAY]),
+    ([], [], [obs("other:a"), obs("other:b")], ["file (", "hold (one per turn)"], 2, ["other:a"]),
+    (None, None, [obs("lost-notice", "ABC-1")], ["hold (1 of 2 sightings)"], 1, []),
+    ([LOST, sight("lost-notice", "ABC-2", 1)], [{"kind": "lost-notice", "at": ago(24 * 8)}],
+     [obs("lost-notice", "ABC-3")], ["file ("], 3, ["lost-notice", "lost-notice"]),
+    ([], [], [obs("stall"), obs("stall")], ["hold (1 of 2 sightings)", "hold (1 of 2 sightings)"], 1, []),
+])
+def test_observe_files_on_repeat_within_caps(seen, filed, ops, notes, sightings, filed_kinds):
+    state = dict(STATE) if seen is None else {**STATE, "observed": {"sightings": seen, "filed": filed}}  # None: key absent
+    new, _, got = cos_state.apply_ops(state, ops)
+    assert len(got) == len(notes)
+    assert all(n.split(": ", 1)[1].startswith(w) for n, w in zip(got, notes))
+    assert len(new["observed"]["sightings"]) == sightings
+    assert [f["kind"] for f in new["observed"]["filed"]] == filed_kinds
+
+
+def test_prune_drops_observed_older_than_a_week():
+    old, fresh = ago(24 * 8), ago(1)
+    state = {**STATE, "observed": {
+        "sightings": [sight("stall", "ABC-1", 24 * 8), sight("stall", "ABC-2", 1)],
+        "filed": [{"kind": "stall", "at": old}, {"kind": "lost-notice", "at": fresh}],
+    }}
+    new, _, _ = cos_state.apply_ops(state, [{"op": "prune"}])
+    assert new["observed"] == {
+        "sightings": [sight("stall", "ABC-2", 1)], "filed": [{"kind": "lost-notice", "at": fresh}],
+    }
 
 
 @pytest.mark.parametrize("ops, retired, shown", [
@@ -171,3 +258,56 @@ def test_user_check(tmp_path, monkeypatch, capsys, args, words, code, out):
     monkeypatch.setattr("sys.stdin", io.StringIO(words))
     assert cos_user_check.main(["--db", str(db), *args]) == code
     assert capsys.readouterr().out.startswith(out)
+
+
+NEGATED_ROWS = [
+    ("approve 30", True), ("approve 30 please", True), ("ok, approve 30", True),
+    ("no. approve 30", True), ("approve 30 and leave 31 alone", True),
+    ("do not approve 30 yet", False), ("don't approve 30", False), ("Don\u2019t approve 30", False),
+    ("dont approve 30", False), ("never approve 30", False), ("not yet, approve 30 later", False),
+    ("approve 30, no rush", False), ("approve 30 not yet", False),
+    ("approve 30. approve 30, no rush", False), ("don't merge yet\napprove 30", False),
+    ("Approve 30? No, not yet.", False), ("Don't... approve 30", False), ("don\u2032t approve 30", False),
+    ("shouldnt approve 30 yet", False), ("approve 30. Thanks, no problem", True),
+]
+
+
+def negation_db(tmp_path, rows):
+    db = tmp_path / "t3.sqlite"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE orchestration_v2_projection_messages (message_id TEXT, thread_id TEXT, "
+        "role TEXT, streaming INTEGER, created_at TEXT, payload_json TEXT)"
+    )
+    con.executemany("INSERT INTO orchestration_v2_projection_messages VALUES (?,?,?,?,?,?)", rows)
+    con.commit()
+    con.close()
+    return db
+
+
+@pytest.mark.parametrize("text,passes", NEGATED_ROWS)
+def test_user_check_negation(tmp_path, monkeypatch, capsys, text, passes):
+    db = negation_db(tmp_path, [message("m1", text=text)])
+    for args, ok_out, bad_out in [
+        (["latest", "t"], "user turn-item:message:m1 ", "not-user negated turn-item:message:m1 "),
+        (["item", "t", "m1"], "ok", "reject: words negated"),
+    ]:
+        monkeypatch.setattr("sys.stdin", io.StringIO("approve 30"))
+        assert cos_user_check.main(["--db", str(db), *args]) == (0 if passes else 1)
+        assert capsys.readouterr().out.startswith(ok_out if passes else bad_out)
+
+
+def test_user_check_negated_newest_does_not_fall_back(tmp_path, monkeypatch, capsys):
+    db = negation_db(tmp_path, [
+        message("m1", text="approve 30", created="2026-11-02T01:00:00Z"),
+        message("m2", text="do not approve 30 yet", created="2026-11-02T02:00:00Z"),
+    ])
+    monkeypatch.setattr("sys.stdin", io.StringIO("approve 30"))
+    assert cos_user_check.main(["--db", str(db), "latest", "t"]) == 1
+    assert capsys.readouterr().out.startswith("not-user negated turn-item:message:m2 ")
+
+
+def test_user_check_whole_message_words_ignore_own_negation(tmp_path, monkeypatch, capsys):
+    db = negation_db(tmp_path, [message("m1", text="don't merge it")])
+    monkeypatch.setattr("sys.stdin", io.StringIO("don't merge it"))
+    assert cos_user_check.main(["--db", str(db), "item", "t", "m1"]) == 0

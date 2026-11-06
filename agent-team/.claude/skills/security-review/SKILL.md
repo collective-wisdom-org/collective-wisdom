@@ -2,7 +2,7 @@
 name: security-review
 description: >-
   OWASP-aligned security review for PRs before merge; uses Cursor's
-  review-security subagent or Claude Code's /security-review.
+  review-security subagent or the security-reviewer subagent on Claude Code.
 user-invocable: true
 ---
 
@@ -16,15 +16,19 @@ Phase 3 (**open-pr**) complete: PR exists, CI green, and the **latest code revie
 
 Work from the PR's worktree, on the PR head branch.
 
+In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the CI review bot covers it (`open-pr` § CI review mode).
+
 ## Primary review path
+
+When `scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
 
 **Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 
-- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on `main` unless the branch lives there.
+- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
 - **Diff:** `branch changes` (default).
 - **Custom Instructions:** the list below.
 
-**Claude Code:** from the PR worktree on the head branch, run the built-in `/security-review` command. It does not take custom instructions, so then review `git diff origin/main...HEAD` yourself against the list below. If `/security-review` is unavailable in the session, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below instead. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. In team mode, use that subagent path instead of `/security-review`, which runs on the child's own model.
+**Claude Code:** from the PR worktree on the head branch, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. Always use the subagent, so the review runs on Opus and not on the child's own model.
 
 **Custom Instructions** (always apply):
 
@@ -49,13 +53,11 @@ Install instructions: **`docs/agents/security-review.md`**.
 
 Mirror **open-pr** agent review, but as a **separate** security thread (never mix it with code review comments).
 
-Post as a PR issue comment only:
+Post as a PR issue comment only. Post each security review comment on the PR before you mention it in the thread, and keep the comment URL:
 
 ```bash
 ./scripts/gh.sh pr comment <N> --body-file <path>
 ```
-
-In team mode, run it as `AGENT_GH_ROLE=security-reviewer ./scripts/gh.sh pr comment <N> --body-file <path>` (`ship-loop` § Team mode **GitHub users**).
 
 **Comment shape:**
 
@@ -68,8 +70,8 @@ In team mode, run it as `AGENT_GH_ROLE=security-reviewer ./scripts/gh.sh pr comm
 **Loop until PASS:**
 
 1. Run security review (per § Primary review path) → post comment (pass N).
-2. If **CHANGES NEEDED**, fix in worktree → commit → push. If a security fix changes what ships, update the `**Shipped:**` line or as-built, and the PR body's release note, in the same commit.
-3. `./scripts/gh.sh pr checks <N> --watch` until checks finish.
+2. If **CHANGES NEEDED**, fix in worktree → commit → push. If a security fix changes what ships, update the `**Shipped:**` line or as-built, and the PR body's release note (if any) and `## Proof` section, in the same commit.
+3. Wait for CI with `./scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits), not a bare `pr checks --watch`.
 4. Re-run security review (focus on changes since last pass) → next pass comment.
 5. Repeat until the **latest security review** PR comment verdict is **PASS**.
 
@@ -78,7 +80,7 @@ Be honest: if nothing exploitable remains, post **PASS**. Do not invent issues.
 ### Forbidden
 
 - `./scripts/gh.sh pr review --approve`
-- Merging is **merge-pr**'s job (`scripts/merge_pr.py`), only on explicit user request
+- Merging is **merge-pr**'s job (`scripts/merge_pr.py`), only on a merge approval (`ship-loop` § Approvals)
 
 ## Done when
 
@@ -86,16 +88,9 @@ Latest **security review** PR comment is **Verdict: PASS**. Report **merge-ready
 
 ## Next
 
-**merge-pr** only on explicit user request.
+**merge-pr** only on a merge approval (`ship-loop` § Approvals).
 
-When running **ship-loop**, continue this phase after phase 3 **PASS** until security **PASS** before handoff.
-
-## Team mode
-
-When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
-
-- Wait on CI with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § Team mode **CI waits** says, not a bare `pr checks --watch`.
-- Post each security review comment on the PR before you mention it in the thread, and keep the comment URL. Your other `./scripts/gh.sh` calls use `builder`.
+Continue this phase after phase 3 **PASS** until security **PASS** before handoff.
 
 ## Optional (user-initiated)
 

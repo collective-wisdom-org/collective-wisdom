@@ -5,8 +5,10 @@ the Value cell. `none`, an empty cell and `TODO(...)` text have no backticked to
 Set PROJECT_MD to read another file (tests do).
 """
 
+import math
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +25,10 @@ def _rows():
         text = path.read_text()
     except OSError:
         return []
+    return _parse(text)
+
+
+def _parse(text):
     rows = []
     for line in text.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -31,13 +37,38 @@ def _rows():
     return rows
 
 
-def value(key_prefix):
+def value(key_prefix, rows=None):
     """First backticked token in the Value cell of the row whose Key starts with key_prefix, or None."""
-    for key, val in _rows():
+    for key, val in _rows() if rows is None else rows:
         if key.startswith(key_prefix):
             m = re.search(r"`([^`]+)`", val)
             return m.group(1) if m else None
     return None
+
+
+def setting(key_prefix, rows=None):
+    """Like value, but a Value cell without backticks reads as its bare text: `on` and "on" both give "on".
+
+    None when the row is missing, the cell is empty or the cell starts with TODO(.
+    """
+    for key, val in _rows() if rows is None else rows:
+        if key.startswith(key_prefix):
+            m = re.search(r"`([^`]+)`", val)
+            if m:
+                return m.group(1)
+            return None if not val or val.startswith("TODO(") else val
+    return None
+
+
+def no_ci():
+    """True when the `Required CI checks` row declares no CI: the cell starts with `none`, in backticks or not."""
+    cell = next((v for k, v in _rows() if k.startswith("Required CI checks")), "")
+    return bool(re.match(r"`?none\b", cell, re.I))
+
+
+def release_notes_enabled():
+    """False only when the `Publish release notes` row says `off` (any case). A missing row or any other value is True."""
+    return (value("Publish release notes") or "").lower() != "off"
 
 
 def prefix():
@@ -59,9 +90,9 @@ def repo():
     return r if r and re.fullmatch(r"[\w.-]+/[\w.-]+", r) else None
 
 
-def branch_head():
+def branch_head(rows=None):
     """Text before `<prefix>` in the branch pattern (e.g. `feat/`)."""
-    pat = value("Branch pattern") or ""
+    pat = value("Branch pattern", rows) or ""
     head = pat.split("<prefix>")[0] if "<prefix>" in pat else ""
     return head or FALLBACK_BRANCH_HEAD
 
@@ -88,45 +119,172 @@ def tracker():
     return t
 
 
-ROLE_ROWS = {
-    "chief-of-staff": "Chief of Staff login",
-    "builder": "Builder login",
-    "code-reviewer": "Code reviewer login",
-    "security-reviewer": "Security reviewer login",
-}
-LOGIN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?")
+DEFAULT_TARGET = "main"
 
 
-def role_login(role):
-    """GitHub login for an agent role, or None when its row is missing, empty, `none` or TODO.
+def _plain_branch(t):
+    """t when it is a plain branch name; SystemExit for anything else."""
+    bad = (
+        not re.fullmatch(r"[A-Za-z0-9._/-]+", t)
+        or t[0] in "-/."
+        or t[-1] in "/."
+        or t.endswith(".lock")
+        or ".." in t
+        or "//" in t
+    )
+    if bad:
+        raise SystemExit(f"project.md: 'Merge target branch' row has no usable branch name, got `{t}`")
+    return t
 
-    None means the role keeps using the account running gh. Raises SystemExit for an unknown role or a
-    value that is not a GitHub login.
+
+def target_branch():
+    """The branch every PR merges into: the `Merge target branch` row, `main` when unset."""
+    return _plain_branch(value("Merge target branch") or DEFAULT_TARGET)
+
+
+def target_ref():
+    """The merge target branch as a full remote-tracking ref name, so a tag named origin/<branch> cannot win."""
+    return f"refs/remotes/origin/{target_branch()}"
+
+
+def subscription_usage(provider):
+    """API-equivalent dollars of a provider's subscription from its `<provider> subscription API-equivalent usage` row.
+
+    A positive finite number, else None: unset, `none`, 0, a negative, `12,000` and text all read as None.
     """
-    if role not in ROLE_ROWS:
-        raise SystemExit(f"unknown role {role!r}; expected one of {', '.join(ROLE_ROWS)}")
-    login = value(ROLE_ROWS[role])
-    if login is None:
-        cell = next((v for k, v in _rows() if k.startswith(ROLE_ROWS[role])), "")
-        if cell and not re.match(r"(?i)none(\s|\(|$)|TODO\(", cell):  # text, but no `login`: don't fall back to the owner
-            raise SystemExit(f"project.md: '{ROLE_ROWS[role]}' row has no backticked `login`")
+    v = value(f"{provider} subscription API-equivalent usage")
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
         return None
-    if login.lower() == "none":
-        return None
-    if not LOGIN_RE.fullmatch(login):
-        raise SystemExit(f"project.md: '{ROLE_ROWS[role]}' row has no usable `login` value")
-    return login
+    return n if math.isfinite(n) and n > 0 else None
+
+
+REVIEW_MODES = ("agents", "ci")
+
+
+def review_mode():
+    """`agents` or `ci` from the `Review mode` row. A missing or unset row reads as agents.
+
+    Any other value raises SystemExit, so a typo cannot quietly drop a review gate. Callers treat that as a failed read.
+    """
+    v = value("Review mode")
+    if v is None:
+        return "agents"
+    if v.lower() not in REVIEW_MODES:
+        raise SystemExit(f"project.md: 'Review mode' row must be one of {', '.join(REVIEW_MODES)}, got `{v}`")
+    return v.lower()
+
+
+def bot_name(login):
+    """A GitHub login without a `[bot]` suffix, lower case."""
+    return re.sub(r"\[bot\]$", "", login.strip(), flags=re.I).lower()
+
+
+def ci_bot():
+    """The `CI review bot login` row as bot_name() gives it, or None when unset."""
+    v = value("CI review bot login")
+    return (bot_name(v) or None) if v else None
+
+
+TOLERANCES = ("strict", "balanced", "permissive")
+
+
+def _git(cmd):
+    """Run a git command in the app's checkout and return stdout; raise OSError on any failure."""
+    try:
+        p = subprocess.run(cmd, cwd=root(), capture_output=True, text=True, timeout=60)
+    except subprocess.SubprocessError as e:
+        raise OSError(type(e).__name__)
+    if p.returncode:
+        raise OSError((p.stderr or p.stdout).strip() or f"exit {p.returncode}")
+    return p.stdout
+
+
+def _root_rows(run):
+    """Rows of project.md in the root checkout, the first entry of `git worktree list`. Raises OSError."""
+    first = run(["git", "worktree", "list", "--porcelain"]).strip().split("\n\n")[0].splitlines()
+    if not first or not first[0].startswith("worktree "):
+        raise OSError("no root checkout in git worktree list")
+    try:
+        return _parse((Path(first[0].removeprefix("worktree ")) / "docs" / "agents" / "project.md").read_text())
+    except ValueError as e:  # undecodable bytes
+        raise OSError(type(e).__name__)
+
+
+def _committed_rows(run):
+    """(rows, why): project.md as committed on origin/<target>; rows is None and why says so on any failure.
+
+    <target> is the `Merge target branch` row of the root checkout's project.md (the first entry of `git worktree list`,
+    so a feature worktree's own edit of that row changes nothing), read as refs/remotes/origin/<target>. Never read from a
+    working tree. A target that starts with the branch pattern head (from the root checkout's project.md too; an agent can
+    push such a branch) or a committed project.md that names another target is a failure too.
+    """
+    try:
+        rows = _root_rows(run)
+        target = _plain_branch(value("Merge target branch", rows) or DEFAULT_TARGET)
+    except OSError as e:
+        return None, f"could not read project.md in the root checkout: {e}"
+    except SystemExit as e:
+        return None, str(e)
+    if target.startswith(branch_head(rows)):
+        return None, f"merge target branch `{target}` is a ticket branch"
+    try:
+        run(["git", "fetch", "origin", target])
+        text = run(["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"])
+        committed = _plain_branch(value("Merge target branch", _parse(text)) or DEFAULT_TARGET)
+    except OSError as e:
+        return None, f"could not read project.md on origin/{target}: {e}"
+    except SystemExit as e:
+        return None, str(e)
+    if committed != target:
+        return None, f"project.md on origin/{target} names merge target branch `{committed}`, not `{target}`"
+    return _parse(text), ""
+
+
+def approval_setting(run=_git):
+    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/<target>.
+
+    Every failure to read (`_committed_rows`) and every unknown value gives ("strict", why). note is "" when the row set the level.
+    """
+    rows, why = _committed_rows(run)
+    if rows is None:
+        return "strict", why
+    v = value("Approval risk tolerance", rows)
+    if v is None:
+        return "strict", "no Approval risk tolerance value on the merge target branch"
+    if v.lower() not in TOLERANCES:
+        return "strict", f"unknown Approval risk tolerance `{v}`"
+    return v.lower(), ""
+
+
+def approval_tolerance(run=_git):
+    """`strict`, `balanced` or `permissive`; `strict` for anything missing, unknown or unreadable."""
+    return approval_setting(run)[0]
+
+
+def review_after_conflict(run=_git):
+    """`off` or `on` from the `Review after conflict resolution` row of project.md as committed on origin/<target>.
+
+    A missing row is `off`. An unknown value, and any failure to read (`_committed_rows`), is `on`: the safe side is to review.
+    """
+    rows, _ = _committed_rows(run)
+    if rows is None:
+        return "on"
+    if not any(k.startswith("Review after conflict resolution") for k, _ in rows):
+        return "off"
+    v = (value("Review after conflict resolution", rows) or "").lower()
+    return v if v in ("off", "on") else "on"
 
 
 if __name__ == "__main__":
     import sys
 
     try:
-        if len(sys.argv) != 3 or sys.argv[1] != "login":
-            raise SystemExit("usage: project_config.py login <role>")
-        found = role_login(sys.argv[2])
+        if sys.argv[1:] == ["no-ci"]:
+            print("yes" if no_ci() else "no")
+        else:
+            raise SystemExit("usage: project_config.py no-ci")
     except SystemExit as e:
         print(e, file=sys.stderr)
         sys.exit(2)
-    if found:
-        print(found)

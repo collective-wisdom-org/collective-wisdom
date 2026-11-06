@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Say whether a PR's own changes are the same at two heads (e.g. after main was merged in).
+"""Say whether a PR's own changes are the same at two heads (e.g. after the merge target branch was merged in).
 
 Usage:
     scripts/pr_diff_delta.py <PR number> <reviewed SHA> [<head SHA>]
 
 The reviewed SHA (40 hex) is the head the PASS reviews were posted on. The head
 defaults to the PR's current headRefOid. The PR's diff at each head is taken against
-that head's own merge base with origin/main (by its full ref name), and compared per file by blob IDs and modes
+that head's own merge base with origin/<merge target branch> (by its full ref name), and compared per file by blob IDs and modes
 (`git diff --raw`), so any byte that differs, in either the base or the head blob, counts.
 
 Exit 0, last line (full SHAs):
@@ -23,12 +23,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import project_config  # noqa: E402
 
 ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 SHOW = 10
-# Full ref name: a tag called origin/main would win over the short name.
-MAIN = "refs/remotes/origin/main"
 
 
 class CmdError(Exception):
@@ -48,13 +47,14 @@ def run(cmd):
 
 
 def fetch(pr, run):
-    """Fetch main (forced, no tags) and the PR head so MAIN and both heads are local."""
-    run(["git", "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "origin", f"+refs/heads/main:{MAIN}", f"pull/{pr}/head"])
+    """Fetch the merge target branch (forced, no tags) and the PR head so origin/<target> and both heads are local."""
+    target = project_config.target_branch()
+    run(["git", "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "origin", f"+refs/heads/{target}:{project_config.target_ref()}", f"pull/{pr}/head"])
 
 
 def raw_entries(sha, run):
-    """Return {path: (old mode, new mode, old blob, new blob)} for the PR's diff at sha, against sha's merge base with origin/main."""
-    base = run(["git", "merge-base", MAIN, sha]).strip()
+    """Return {path: (old mode, new mode, old blob, new blob)} for the PR's diff at sha, against sha's merge base with origin/<target>."""
+    base = run(["git", "merge-base", project_config.target_ref(), sha]).strip()
     out = run(["git", "diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--no-ext-diff", "--no-textconv", "--ignore-submodules=none", base, sha])
     parts = out.split("\0")
     entries = {}
@@ -69,7 +69,7 @@ def raw_entries(sha, run):
 def delta(reviewed, head, run):
     """Return ("same", []) or ("changed", files). Raises CmdError when it can't compare.
 
-    Expects origin/main and both commits to be local already.
+    Expects origin/<target> and both commits to be local already.
     """
     shas = [run(["git", "rev-parse", "--verify", f"{s}^{{commit}}"]).strip() for s in (reviewed, head)]
     old, new = (raw_entries(s, run) for s in shas)

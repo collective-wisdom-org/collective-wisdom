@@ -81,38 +81,13 @@ Create one at [github.com/settings/tokens?type=beta](https://github.com/settings
 
 Store it as `GITHUB_MCP_TOKEN`, not `GITHUB_TOKEN`.
 
-## Agent users
+## Merge gate
 
-By default every agent acts as your gh account, so PRs, review comments and tickets look like you wrote them. Optionally the team works as four GitHub users, one per persona in [`personas.md`](personas.md): the Chief of Staff, the builder, the code reviewer and the security reviewer. Each login lives in [`project.md`](project.md) § Git and GitHub; a row left as `none` keeps that role on the active gh account.
+With a Chief of Staff, a merge is approved by the user's own `approve N` reply in the Chief of Staff thread. `scripts/cos_approve_pr.py` checks that message in T3's message store, that gh is signed in as the owner (`project.md` § Git and GitHub, `Owner login`), and that the PR is open, not a draft, based on the merge target branch and still at the head the user saw. Only when it exits 0 does the Chief of Staff relay the approval to the merge child, naming that head. `scripts/merge_pr.py` then merges only if gh is signed in as the owner too and the PR's head still equals the relayed one, so a push after the approval needs a new `approve N` (or a new `--auto` pass, `chief-of-staff/approvals.md` § Auto-approval). The merge child stops with `BLOCKED: head moved after approval` on any other head, even one that only merges the merge target branch in. The one exception is a conflict resolution: with `Review after conflict resolution` (`project.md` § Identity) `off`, `scripts/merge_pr.py` also merges a resolved head, a single merge commit whose first parent is the approved head, the only PR commit after it, with its second parent on the merge target branch, and carrying the `resolving conflicts with <target>` note from `open-pr` § Conflict resolution. `--auto` refuses a head that carries that note. In a hand run there is no relay and no `cos_approve_pr.py`: the user's own message in the run's thread, sent after the `MERGE READY` it approves, is the approval, and `scripts/merge_pr.py` still merges only at that report's head.
 
-### Set up
+With `Approval risk tolerance` (`project.md` § Identity) set to `balanced` or `permissive`, the Chief of Staff can run `scripts/cos_approve_pr.py <PREFIX>-N --auto` instead. It runs every gate above except the user's message, and in its place needs the approval rule to say auto for the ticket's `Risk:` level and the setting on `origin/<target>` (the merge target branch), no PR file on the approval path, no renamed file, fewer than 100 files, no `flag:` or migration path, and no head that carries an unreviewed conflict-resolution note. It exits 0 only then, and the relay and `scripts/merge_pr.py` work as before: CI, both review PASS comments (in `ci` review mode, no unresolved CI review thread instead) and the head are still checked at every setting. `--auto` (like `scripts/merge_pr.py`) needs a gh whose `pr view --json files` returns `changeType`; with an older gh it exits 2 and the user decides.
 
-1. Create four GitHub accounts, one per persona. Use the suggested logins in `personas.md` or others.
-2. Set each profile from `personas.md` (name and the one-line bio).
-3. From your own account, invite each as a collaborator on the repo. A personal repo only offers write access, so every agent user can push and its tickets count as team tickets. Turn on two-factor sign-in for each account, and accept each invite while signed in as that account.
-4. Add each account to your gh keyring with `gh auth login -h github.com -p https`, signing in as that account; gh keeps each token in the system keyring. `gh.sh` needs gh 2.40 or newer for `gh auth token -u`; an older gh reports "no gh login" for every role.
-5. Adding an account makes it the active one. Switch back with `gh auth switch -u <owner login>`. `scripts/merge_pr.py` refuses to run while the active account is one of the four agent users.
-6. Fill the four login rows in `project.md` with the new logins.
-7. Run the checks under Verify.
-
-### How a role picks its account
-
-`./scripts/gh.sh` reads one environment variable, `AGENT_GH_ROLE`, set per command because agent shells keep no environment variables between commands:
-
-```bash
-AGENT_GH_ROLE=builder ./scripts/gh.sh pr view 12
-```
-
-The roles are `chief-of-staff`, `builder`, `code-reviewer` and `security-reviewer`.
-
-- Unset or empty: the active gh account, as before.
-- A role whose `project.md` row is `none`: the active gh account.
-- A role with a login: that one `gh` call gets the login's token from the keyring (`gh auth token -u <login>`) as `GH_TOKEN`. The token is not written to a file, printed or exported beyond that process. Nothing sets `GITHUB_TOKEN`.
-- An unknown role, a bad login in `project.md` or a login the keyring does not have: `gh.sh` exits 2 with one line on stderr and makes no `gh` call. It never falls back to your account, so a wrong setup cannot quietly post as you.
-
-Scripts that call `gh.sh` inherit the role from their environment. Merges stay on your own login: `scripts/merge_pr.py` runs with no role, so the merge and the branch delete are yours and the agent users never merge. Commits and pushes keep your own git config and gh credential.
-
-The trust checks follow the same rule. A team comment counts when its author is the login of the role that writes it, or the active gh account when that row is `none`. Once the reviewer rows are set, a review comment posted earlier as your own account no longer counts, so reviews on open PRs must run again.
+Nothing in the team submits a GitHub review. The gate still needs no branch protection, ruleset or CODEOWNERS file. If you set those up and they require a review, `scripts/merge_pr.py` stops and names the reviewers GitHub is waiting on. Keep in mind that GitHub does not let a PR's author approve it, so the owner's own PRs need another human's review. The exception is a codeowner: when the signed-in gh login is on the `*` line of `.github/CODEOWNERS` on `origin/<target>` (the merge target branch), `scripts/merge_pr.py` (and `scripts/cos_approve_pr.py`) accept that login besides the `Owner login`, and a PR whose only blocker is the missing review (`reviewDecision` `REVIEW_REQUIRED`, state `BLOCKED`) may merge. This relies on the ruleset's bypass list holding the repo admin role in `pull_request` mode, so GitHub itself refuses anyone else. Every other gate (checks, review PASS comments (in `ci` review mode, no unresolved CI review thread instead), closeout, head) still runs. `Require teammate approval` (`project.md` § Git and GitHub) adds a rule on top of the user's `approve N`: with it `on`, the gate also needs an approving review on the current head from someone other than the PR author who is an owner, member or collaborator of the repo (reviews from anyone else are ignored), and a standing changes-requested review from any teammate stops the merge. `approve N` stays required either way.
 
 ## Verify
 
@@ -123,11 +98,6 @@ The trust checks follow the same rule. A team comment counts when its author is 
 # Should return "main", not FORBIDDEN
 ./scripts/gh.sh api graphql -f query='{ repository(owner:"<owner>", name:"<repo>") { defaultBranchRef { name } } }'
 
-# With agent users set up, each role must print its own login from project.md
-for role in chief-of-staff builder code-reviewer security-reviewer; do
-  AGENT_GH_ROLE=$role ./scripts/gh.sh api user --jq .login
-done
-
-# With no role it must print your own login (the owner), not an agent user
+# Must print the owner login from project.md: every agent posts as this account
 ./scripts/gh.sh api user --jq .login
 ```

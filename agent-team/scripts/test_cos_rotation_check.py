@@ -19,38 +19,55 @@ NOW = datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc)
 OLD, NEW = "a" * 40, "b" * 40
 
 
-def hours_ago(h):
-    return NOW - timedelta(hours=h)
+def ago(minutes):
+    return (NOW - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def retired(*minutes):
+    return {"retiredThreads": [{"threadId": f"R{m}", "retiredAt": ago(m)} for m in minutes]}
+
+
+QUEUED = {"tickets": {"CW-10": {"stage": "spec-queued"}, "CW-9": {"stage": "build-queued"}, "CW-8": {"stage": "build"}}}
+WAITS = "ok (skill change waits: "
 
 
 @pytest.mark.parametrize("cap", [220_000, 250_000])
 @pytest.mark.parametrize(
-    "state, context_over_cap_by, hours, commit, branch, want",
+    "state, context_over_cap_by, commit, branch, want",
     [
-        ({}, -1_000, 1, OLD, "main", "ok context="),
-        ({}, 0, 1, OLD, "main", "rotate: size"),
-        ({}, 40_000, 1, OLD, "main", "rotate: size"),
-        ({}, -50_000, 1, NEW, "main", "rotate: skill changed aaaaaaa..bbbbbbb"),
-        ({}, -50_000, 1, NEW, "feat/x", "ok context="),
-        ({"skillCommit": None}, -50_000, 1, NEW, "main", f"ok; set skillCommit {NEW}"),
-        ({"paused": True}, 40_000, 1, NEW, "main", "ok (held: paused)"),
-        ({"rotation": {"from": "T0"}}, 40_000, 1, NEW, "main", "ok (held: rotation)"),
-        ({"rotationHeldUntil": "2026-11-02T13:00:00Z"}, 40_000, 1, OLD, "main", "ok (held"),
-        ({"rotationHeldUntil": "2026-11-02T11:00:00Z"}, 40_000, 1, OLD, "main", "rotate: size"),
-        ({}, -35_000, 4, OLD, "main", "rotate: age 4h"),
-        ({}, -35_000, 3.9, OLD, "main", "ok context="),
-        ({"tk": ("T0", 10_000)}, 10_000, 1, OLD, "main", "rotate: size"),
-        ({"tk": ("T1", -20_000)}, 10_000, 1, OLD, "main", "rotate: size"),
-        ({"tk": ("T1", 10_000)}, 10_000, 1, OLD, "main", "ok (size trigger off"),
-        ({"tk": ("T1", 10_000)}, 10_000, 5, OLD, "main", "rotate: age 5h"),
+        ({}, -1_000, OLD, "main", "ok context="),
+        ({}, 0, OLD, "main", "rotate: size"),
+        ({}, 40_000, OLD, "main", "rotate: size"),
+        ({}, -50_000, NEW, "main", "rotate: skill changed aaaaaaa..bbbbbbb"),
+        ({}, -50_000, NEW, "feat/x", "ok context="),
+        ({"skillCommit": None}, -50_000, NEW, "main", f"ok; set skillCommit {NEW}"),
+        ({"paused": True}, 40_000, NEW, "main", "ok (held: paused)"),
+        ({"rotation": {"from": "T0"}}, 40_000, NEW, "main", "ok (held: rotation)"),
+        ({"rotationHeldUntil": "2026-11-02T13:00:00Z"}, 40_000, OLD, "main", "ok (held"),
+        ({"rotationHeldUntil": "2026-11-02T11:00:00Z"}, 40_000, OLD, "main", "rotate: size"),
+        ({"tk": ("T0", 10_000)}, 10_000, OLD, "main", "rotate: size"),
+        ({"tk": ("T1", -20_000)}, 10_000, OLD, "main", "rotate: size"),
+        ({"tk": ("T1", 10_000)}, 10_000, OLD, "main", "ok (size trigger off"),
+        # a skill change waits for a quiet turn: queued first, then relay, then rotation
+        (QUEUED, -50_000, NEW, "main", WAITS + "queued CW-9)"),
+        ({"lastRelayAt": ago(5)}, -50_000, NEW, "main", WAITS + "relay 5m ago)"),
+        ({"lastRelayAt": ago(11)}, -50_000, NEW, "main", "rotate: skill changed"),
+        (retired(600, 30), -50_000, NEW, "main", WAITS + "rotated 30m ago)"),
+        (retired(600, 61), -50_000, NEW, "main", "rotate: skill changed"),
+        ({**QUEUED, "lastRelayAt": ago(1), **retired(5)}, -50_000, NEW, "main", WAITS + "queued"),
+        # junk timestamps are not a wait
+        ({"lastRelayAt": "soon", "retiredThreads": [{"retiredAt": None}, {}, "x"]}, -50_000, NEW, "main", "rotate: skill changed"),
+        # size ignores quiet; the size-off note comes ahead of the waits line
+        ({"lastRelayAt": ago(1), **QUEUED}, 0, NEW, "main", "rotate: size"),
+        ({"lastRelayAt": ago(1), "tk": ("T1", 10_000)}, 10_000, NEW, "main", "ok (size trigger off"),
     ],
 )
-def test_decide(cap, state, context_over_cap_by, hours, commit, branch, want):
+def test_decide(cap, state, context_over_cap_by, commit, branch, want):
     state = {"skillCommit": OLD, "chiefThreadId": "T1", **state}
     if "tk" in state:  # takeoverContext as (thread, tokens over the cap)
         thread, over = state.pop("tk")
         state["takeoverContext"] = {"threadId": thread, "tokens": cap + over}
-    line = crc.decide(state, cap + context_over_cap_by, hours_ago(hours), NOW, commit, branch, cap)
+    line = crc.decide(state, cap + context_over_cap_by, NOW, commit, branch, cap)
     assert line.startswith(want)
 
 
@@ -100,7 +117,7 @@ def test_hook_blocks_only_the_chief_once(monkeypatch, capsys, tmp_path, hook_in,
 
 
 @pytest.mark.parametrize("context, record, want_line, want_tk", [
-    (230_000, True, "ok (size trigger off: take-over ended at 230k)", {"threadId": "T1", "tokens": 230_000}),
+    (230_000, True, "ok (size trigger off: take-over ended at 230k); take-over context=230k", {"threadId": "T1", "tokens": 230_000}),
     (230_000, False, "rotate: size 230k >= 220k", None),
 ])
 def test_plain_saves_session_and_takeover(monkeypatch, capsys, tmp_path, context, record, want_line, want_tk):

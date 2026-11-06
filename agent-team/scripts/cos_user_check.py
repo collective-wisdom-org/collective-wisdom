@@ -9,11 +9,22 @@ The command's own words are always on stdin. Matching folds case and collapses w
 both sides (after NFKC and dropping zero-width characters), and the words must match on token boundaries (word characters on neither side), so
 "approve 25" does not match "approve 253".
 
+A match is negated when the same sentence holds a negation word outside the matched words,
+before or after them: "do not approve 30 yet", "don't approve 30", "never approve 30" and
+"approve 30, no rush" are not the user's "approve 30". A sentence ends at ., !, ? or ; followed
+by whitespace or the end of the text, after a word character (a period inside a token such as v0.3, or an ellipsis, does not end it). A
+negation word is no, not, never, nor, cannot, the apostrophe-less forms (dont, cant, shouldnt ...)
+or anything ending in n't (curly and look-alike apostrophes count). A negation word that starts the
+next sentence also negates ("Approve 30? No, not yet."). If any occurrence of the words is negated, the message is negated. Words inside the match are ignored,
+so a whole-message match still works.
+
 latest checks the newest user-role message in the thread whose text contains the words; with
 --after, only messages created after that ISO time count. Exit 0 and
-"user <itemId> <createdAt> <first 80 characters>" when its createdBy is exactly "user",
-otherwise exit 1 and "not-user <createdBy or missing> <itemId> <first 80 characters>"
-(not-user missing - - when nothing matches). Tying the check to the words means an agent
+"user <itemId> <createdAt> <first 80 characters>" when its createdBy is exactly "user" and
+the words are not negated, otherwise exit 1 and "not-user <createdBy or missing> <itemId>
+<first 80 characters>" (not-user missing - - when nothing matches; "not-user negated <itemId>
+<first 80 characters>" when the user's newest message with the words negates them, with no
+fall back to an older message). Tying the check to the words means an agent
 message with other words can't stand in for the command, an older approval with the same
 words is ignored with --after, and an agent copy of their words that is newer than their own fails
 closed. Empty or missing words, or a --after that is not a full ISO date-time with a timezone
@@ -21,8 +32,8 @@ closed. Empty or missing words, or a --after that is not a full ISO date-time wi
 format characters (zero-width spaces), so look-alike copies of their words match the same way.
 item checks the queued-approval message <itemId> (turn-item:message:<message id>, or the
 bare message id) against the words on stdin. Exit 0 and "ok" only if the message is in that
-thread, was created by "user" and its text contains the words (same matching), otherwise exit 1
-and "reject: <not found | not from the user | words not found>". A message still being written
+thread, was created by "user" and its text contains the words, not negated (same matching),
+otherwise exit 1 and "reject: <not found | not from the user | words not found | words negated>". A message still being written
 counts as not found.
 
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro. Exit 2 and
@@ -85,6 +96,42 @@ def has_words(words, text):
     return re.search(r"(?<!\w)" + re.escape(norm(words)) + r"(?!\w)", norm(text)) is not None
 
 
+SENTENCE_END = re.compile(r"(?<=\w)(?:\.(?!\.)|[!?;])(?=\s|$)")
+NEGATIONS = {
+    "no", "not", "never", "nor", "cannot", "dont", "cant", "wont", "didnt", "doesnt", "isnt", "arent",
+    "wasnt", "werent", "shouldnt", "wouldnt", "couldnt", "havent", "hasnt", "hadnt", "mustnt",
+}
+APOSTROPHES = str.maketrans({c: "'" for c in "\u2019\u2018\u02bc\u2032\u00b4`\u201b\u02b9"})
+
+
+def negation_tokens(text):
+    return [t.strip("'") for t in re.findall(r"[\w']+", text.translate(APOSTROPHES))]
+
+
+def is_negation(token):
+    return token in NEGATIONS or token.endswith("n't")
+
+
+def command_in(words, text):
+    """None if the words are not in text, "negated" if any occurrence is negated, else "ok".
+
+    Negated: a negation word in the same sentence outside the match, or one that starts the next sentence.
+    """
+    t = norm(text)
+    matches = list(re.finditer(r"(?<!\w)" + re.escape(norm(words)) + r"(?!\w)", t))
+    if not matches:
+        return None
+    ends = list(SENTENCE_END.finditer(t))
+    for m in matches:
+        start = max([e.end() for e in ends if e.end() <= m.start()], default=0)
+        after = [e for e in ends if e.start() >= m.end()]
+        end = after[0].start() if after else len(t)
+        following = negation_tokens(t[after[0].end():after[1].start() if len(after) > 1 else len(t)])[:1] if after else []
+        if any(map(is_negation, negation_tokens(t[start:m.start()]) + negation_tokens(t[m.end():end]) + following)):
+            return "negated"
+    return "ok"
+
+
 def latest(db, thread, words, after=None):
     where = "AND julianday(created_at) > julianday(?) " if after is not None else ""
     rows = query(
@@ -97,6 +144,9 @@ def latest(db, thread, words, after=None):
         print("not-user missing - -")
         return 1
     mid, created_at, by, text = rows[0]
+    if by == "user" and command_in(words, text) == "negated":
+        print(f"not-user negated {PREFIX}{mid} {snippet(text)}")
+        return 1
     if by == "user":
         print(f"user {PREFIX}{mid} {created_at} {snippet(text)}")
         return 0
@@ -113,6 +163,8 @@ def item(db, thread, item_id, words):
         reason = "not from the user"
     elif not norm(words) or not has_words(words, rows[0][3]):
         reason = "words not found"
+    elif command_in(words, rows[0][3]) == "negated":
+        reason = "words negated"
     else:
         print("ok")
         return 0
