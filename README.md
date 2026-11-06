@@ -167,7 +167,7 @@ Update with `claude plugin update agent-gantt`. A PR that changes the mod bumps 
 
 ## Propose changes
 
-Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same; CI also runs `node --test mods/agent-gantt/hooks/rows.test.ts`). After it merges, tag a release with `./tag-release.sh`, then run `scripts/agent-team-update.sh` in each app; each app's install PR bumps `docs/agents/installed-from.txt` and puts the command in its body. Prose follows the `human-writing` skill: plain sentences, no em dashes.
+Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same, and also runs `node --test mods/agent-gantt/hooks/rows.test.ts`). After it merges, tag a release with `./tag-release.sh`, then run `scripts/agent-team-update.sh` in each app; each app's install PR bumps `docs/agents/installed-from.txt` and puts the command in its body. Prose follows the `human-writing` skill: plain sentences, no em dashes.
 
 ## Known couplings
 
