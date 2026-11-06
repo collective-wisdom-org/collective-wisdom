@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-06 context compacter agent in the build (CW-72) (#154)
+
+Merged 2026-11-06 04:50 UTC.
+
+When a build adds text to a skill or role doc, a compacter subagent now tightens the added text before the PR opens, and the PR body shows the size change. The pass runs only in collective-wisdom itself; apps get the new files with the next install update and see no change.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-06 add the status pane to the plugin marketplace (CW-156) (#157)
 
 Merged 2026-11-06 04:49 UTC.
