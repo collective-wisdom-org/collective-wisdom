@@ -13,7 +13,9 @@ drift apart. Because of it, when the signed-in login is a codeowner, REVIEW_REQU
 ticket (the merge gate lets that login past it); the teammate rule with the row `on` still does.
 
 A changes request only fires `changes` on the head it was made on, so a child that pushed a fix is not sent
-back to build again while the reviewer has yet to re-review.
+back to build again while the reviewer has yet to re-review. The ticket's changesRelayed {head, at} records the
+request already sent back: while its head is the ticket's headSha and that time is not older than the newest
+on-head request, the ticket is `waiting needs <those logins>` instead, so one request is relayed once.
 
 --route decides where a fresh MERGE READY goes. Prints one line, exit 0:
     route awaiting-merge
@@ -25,8 +27,9 @@ With no --route it checks every ticket in awaiting-review. One line each,
 in state order; the first rule that fits wins:
     closed CW-N #PR                        (the PR was closed, not merged)
     moved CW-N #PR head <short>            (the PR head is not the ticket's headSha)
-    changes CW-N #PR by <logins>           (a reviewer's newest verdict is CHANGES_REQUESTED on the ticket's head,
-                                           and the row is on or GitHub's decision is CHANGES_REQUESTED)
+    changes CW-N #PR by <logins> at <time> (a reviewer's newest verdict is CHANGES_REQUESTED on the ticket's head,
+                                           and the row is on or GitHub's decision is CHANGES_REQUESTED; <time> is
+                                           the newest such review, UTC as YYYY-MM-DDTHH:MM:SSZ)
     approved CW-N #PR head <short> by <logins>   (review_stop() passes; the non-author approvers on the head, else
                                            `github` when its decision is APPROVED, `codeowner` when merge_pr's
                                            codeowner bypass let a missing review pass, else `none`)
@@ -46,6 +49,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
@@ -146,11 +150,13 @@ def facts(n, raw, rule, who):
 
 
 def changers(f):
-    """(logins, logins on the PR head) of reviewers whose newest verdict is CHANGES_REQUESTED, when that stops the PR."""
+    """(logins, logins on the PR head, newest time on the head) of reviewers whose newest verdict is CHANGES_REQUESTED, when that stops the PR."""
     if f["teammate"] != "on" and f["reviewDecision"] != "CHANGES_REQUESTED":
-        return [], []
-    got = [(login, (r.get("commit") or {}).get("oid")) for login, r in merge_pr.latest_verdicts(f).values() if r["state"] == "CHANGES_REQUESTED"]
-    return [login for login, _ in got], [login for login, oid in got if oid == f["headRefOid"]]
+        return [], [], None
+    got = [(login, r) for login, r in merge_pr.latest_verdicts(f).values() if r["state"] == "CHANGES_REQUESTED"]
+    on_head = [(login, r) for login, r in got if (r.get("commit") or {}).get("oid") == f["headRefOid"]]
+    newest = max((merge_pr.ts(r["submittedAt"]) for _, r in on_head), default=None)
+    return [login for login, _ in got], [login for login, _ in on_head], newest
 
 
 def needs(f):
@@ -158,7 +164,7 @@ def needs(f):
     return names(changers(f)[0]) or names(merge_pr.requested_names(f)) or ("required reviewers" if f["reviewDecision"] == "REVIEW_REQUIRED" else "a teammate")
 
 
-def verdict(f, head):
+def verdict(f, head, relayed=None):
     """(word, text after the PR number) for a ticket at head; the first rule that fits wins. May raise on bad review data."""
     if f["state"] == "CLOSED":
         return "closed", ""
@@ -166,9 +172,10 @@ def verdict(f, head):
         return "merged", ""
     if f["headRefOid"] != head:
         return "moved", f" head {f['headRefOid'][:7]}"
-    on_head = changers(f)[1]
-    if on_head:
-        return "changes", f" by {names(on_head)}"
+    _, on_head, newest = changers(f)
+    # A request already sent back to the child (changesRelayed on this head, not older than the request) waits for the reviewer.
+    if on_head and (not relayed or relayed["head"] != head or newest > merge_pr.ts(relayed["at"])):
+        return "changes", f" by {names(on_head)} at {newest.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}"
     if f["reviewDecision"] != "CHANGES_REQUESTED" and merge_pr.review_stop(f) is None:
         ok = [login for login, r in merge_pr.latest_verdicts(f).values() if r["state"] == "APPROVED" and (r.get("commit") or {}).get("oid") == head]
         who = names(ok) if ok else "github" if f["reviewDecision"] == "APPROVED" else "codeowner" if f.get("bypass") else "none"
@@ -215,13 +222,13 @@ def load_prs(path):
 
 
 def tickets(state):
-    """(ticket, pr number or None, headSha or None) for each awaiting-review ticket; None marks a field that can't be used."""
+    """(ticket, pr number or None, headSha or None, changesRelayed) for each awaiting-review ticket; None marks a field that can't be used."""
     for tid, info in sorted(state["tickets"].items()):
         if not (isinstance(info, dict) and TICKET.fullmatch(tid) and info.get("stage") == "awaiting-review"):
             continue
         pr, head = info.get("pr"), info.get("headSha")
         pr = int(pr) if isinstance(pr, str) and pr.isdigit() else pr
-        yield tid, pr if type(pr) is int else None, head if isinstance(head, str) and FULL_SHA.fullmatch(head) else None
+        yield tid, pr if type(pr) is int else None, head if isinstance(head, str) and FULL_SHA.fullmatch(head) else None, info.get("changesRelayed")
 
 
 def check(state, prs=None, run=run_gh):
@@ -233,11 +240,11 @@ def check(state, prs=None, run=run_gh):
             shared = rule_row(), identity(run)
         except Unreadable:
             pass
-    for tid, n, head in items:
+    for tid, n, head, relayed in items:
         try:
             if shared is None or n is None or head is None:
                 raise Unreadable("nothing to check")
-            word, rest = verdict(facts(n, read_pr(n, prs, run), *shared), head)
+            word, rest = verdict(facts(n, read_pr(n, prs, run), *shared), head, relayed)
         except (Unreadable, KeyError, TypeError, ValueError, AttributeError):
             lines.append(f"unreadable {tid} #{'?' if n is None else n}")
             continue

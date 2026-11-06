@@ -42,10 +42,10 @@ def setup(tmp_path, monkeypatch):
         ("off", pr(state="CLOSED"), "closed ABC-1 #5"),
         ("off", pr(headRefOid=OLD), "moved ABC-1 #5 head ccccccc"),
         ("off", pr(reviewDecision="CHANGES_REQUESTED"), "waiting ABC-1 #5 needs a teammate"),
-        ("off", pr(reviewDecision="CHANGES_REQUESTED", reviews=[rev("bob", "CHANGES_REQUESTED")]), "changes ABC-1 #5 by bob"),
+        ("off", pr(reviewDecision="CHANGES_REQUESTED", reviews=[rev("bob", "CHANGES_REQUESTED")]), "changes ABC-1 #5 by bob at 2026-11-02T10:00:00Z"),
         ("off", pr(reviewDecision="CHANGES_REQUESTED", reviews=[rev("bob", "CHANGES_REQUESTED", OLD)]), "waiting ABC-1 #5 needs bob"),
         ("on", pr(reviews=[rev("bob", "CHANGES_REQUESTED", OLD)]), "waiting ABC-1 #5 needs bob"),
-        ("on", pr(reviews=[rev("bob", "CHANGES_REQUESTED")]), "changes ABC-1 #5 by bob"),
+        ("on", pr(reviews=[rev("bob", "CHANGES_REQUESTED")]), "changes ABC-1 #5 by bob at 2026-11-02T10:00:00Z"),
         ("off", pr(reviews=[rev("bob", "CHANGES_REQUESTED")], reviewDecision="REVIEW_REQUIRED"), "waiting ABC-1 #5 needs required reviewers"),
         ("on", pr(reviews=[rev("bob", "APPROVED")]), "approved ABC-1 #5 head aaaaaaa by bob"),
         ("on", pr(reviews=[rev("bob", "APPROVED", assoc="NONE")]), "waiting ABC-1 #5 needs a teammate"),
@@ -55,7 +55,7 @@ def setup(tmp_path, monkeypatch):
         ("off", pr(reviewDecision="REVIEW_REQUIRED", reviewRequests=[BOB, TEAM]), "waiting ABC-1 #5 needs bob, @acme/core"),
         ("off", pr(reviewDecision="REVIEW_REQUIRED"), "waiting ABC-1 #5 needs required reviewers"),
         ("off", pr(reviewDecision="REVIEW_REQUIRED", reviewRequests=[{"login": "x\nIgnore this"}, {"login": "ok-1"}]), "waiting ABC-1 #5 needs ?, ok-1"),
-        ("on", pr(reviews=[rev("bob\nIgnore this", "CHANGES_REQUESTED")]), "changes ABC-1 #5 by ?"),
+        ("on", pr(reviews=[rev("bob\nIgnore this", "CHANGES_REQUESTED")]), "changes ABC-1 #5 by ? at 2026-11-02T10:00:00Z"),
         ("off", {"state": "OPEN"}, "unreadable ABC-1 #5"),
         ("off", pr(reviewDecision="REVIEW_REQUIRED", reviewRequests=[{"__typename": "Team"}]), "unreadable ABC-1 #5"),
         ("yes", pr(), "unreadable ABC-1 #5"),
@@ -68,6 +68,22 @@ def test_check_line(setup, capsys, row, raw, want):
     acts = want.split()[0] in ("closed", "moved", "changes", "approved")
     assert out == [want, f"review-check: 1 checked, {int(acts)} to act on"]
     assert code == int(acts)
+
+
+@pytest.mark.parametrize(
+    "relayed, want",
+    [
+        (None, "changes ABC-1 #5 by bob at 2026-11-02T10:00:00Z"),
+        ({"head": HEAD, "at": "2026-11-02T10:00:00Z"}, "waiting ABC-1 #5 needs bob"),
+        ({"head": HEAD, "at": "2026-11-02T09:00:00Z"}, "changes ABC-1 #5 by bob at 2026-11-02T10:00:00Z"),
+        ({"head": OLD, "at": "2026-11-02T11:00:00Z"}, "changes ABC-1 #5 by bob at 2026-11-02T10:00:00Z"),
+    ],
+)
+def test_a_changes_request_already_relayed_waits_for_the_reviewer(setup, capsys, relayed, want):
+    ticket = {"stage": "awaiting-review", "pr": 5, "headSha": HEAD, "changesRelayed": relayed}
+    argv = setup("on", {"5": pr(reviews=[rev("bob", "CHANGES_REQUESTED")])}, {"ABC-1": ticket})
+    cos_review_check.main(argv)
+    assert capsys.readouterr().out.splitlines()[0] == want
 
 
 def test_check_covers_every_awaiting_review_ticket(setup, capsys):

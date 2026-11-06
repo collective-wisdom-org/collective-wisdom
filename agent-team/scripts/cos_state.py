@@ -38,6 +38,9 @@ heldApproval ({"head", "itemId", "at"}: the user's approve N, held until a teamm
 in awaiting-review, must carry a full head, an itemId and an at, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
 stage clear it; setting it in another stage is rejected.
 
+changesRelayed ({"head", "at"}: the head and time a reviewer's changes request was sent back to the child) may be
+set in any stage and is never cleared by the script; null clears it.
+
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
 """
@@ -67,7 +70,7 @@ TOP = {
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
-    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval",
+    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed",
 }
 STAGES = (
     "spec", "awaiting-spec", "spec-queued", "build-queued", "build",
@@ -155,6 +158,12 @@ def check(t):
         raise Reject(f"stage {t['stage']} needs pendingRelay")
     if not queued and (t.get("pendingRelay") or t.get("queuedAt")):
         raise Reject(f"pendingRelay and queuedAt only belong to a queued stage, not {t['stage']}")
+    relayed = t.get("changesRelayed")
+    if relayed is not None and not (
+        isinstance(relayed, dict) and isinstance(relayed.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", relayed["head"])
+        and isinstance(relayed.get("at"), str) and relayed["at"]
+    ):
+        raise Reject("changesRelayed needs an object with a full head and an at time")
     held = t.get("heldApproval")
     if held:
         if t["stage"] != "awaiting-review":

@@ -63,3 +63,27 @@ def test_awaiting_review_stamp_and_held_approval(stage_now, held, op, stamp, wan
     assert f"awaiting-review={int(got['stage'] == 'awaiting-review')}" in shown[1]
     if got["stage"] == "awaiting-review":
         assert any(l.startswith(f"ABC-1 awaiting-review seen={got['lastSeenAt']}") for l in shown)
+
+
+RELAYED = {"head": A, "at": OLD}
+
+
+@pytest.mark.parametrize(
+    "op, want",
+    [
+        (set_(changesRelayed={**RELAYED, "at": "2026-11-02T10:00:00Z"}), {**RELAYED, "at": "2026-11-02T10:00:00Z"}),
+        (set_(changesRelayed=None), None),
+        (stage("build", headSha=B), RELAYED),  # nothing but a set clears it
+        (set_(changesRelayed={**RELAYED, "head": "abc"}), "reject"),
+        (set_(changesRelayed={"head": A}), "reject"),
+        (set_(changesRelayed={**RELAYED, "at": ""}), "reject"),
+        (set_(changesRelayed="x"), "reject"),
+    ],
+)
+def test_changes_relayed_is_a_validated_record_the_script_never_clears(op, want):
+    state = {"tickets": {"ABC-1": {"stage": "awaiting-review", "headSha": A, "lastSeenAt": OLD, "status": "s", "changesRelayed": RELAYED}}}
+    if want == "reject":
+        with pytest.raises(cos_state.Reject, match="changesRelayed needs"):
+            cos_state.apply_ops(state, [op])
+    else:
+        assert cos_state.apply_ops(state, [op])[0]["tickets"]["ABC-1"]["changesRelayed"] == want
