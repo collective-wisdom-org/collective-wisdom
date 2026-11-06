@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 status pane that shows the Chief of Staff status report (CW-144) (#146)
+
+Merged 2026-11-06 03:33 UTC.
+
+A new `status-pane` mod shows the Chief of Staff status in a pane beside the chat, with links to each child thread and each subagent. After `install.sh --update`, load the mod in Claude Code, open it with `/status-pane` and set your T3 environment ID in the mod's options (see `docs/agents/status-pane.md`).
+
 ## 2026-11-06 install.sh fits repos with their own agent setup, adoption steps (CW-130) (#148)
 
 Merged 2026-11-06 03:11 UTC.
