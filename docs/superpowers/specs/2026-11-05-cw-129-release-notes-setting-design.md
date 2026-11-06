@@ -1,7 +1,8 @@
 # CW-129: Make release note publishing a setting
 
 **Ticket:** [CW-129](https://github.com/collective-wisdom-org/collective-wisdom/issues/129)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #139, as specified
 
 ## Goal
 
