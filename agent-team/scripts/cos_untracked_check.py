@@ -127,6 +127,15 @@ def label_names(issue):
 
 def run(state_file, prs_file=None, issues_file=None, login=None):
     """(lines, found): found is [(ticket, pr or None)]. Calls fail() (exit 2) when it can't run."""
+    try:
+        return _run(state_file, prs_file, issues_file, login)
+    except SystemExit as e:
+        if isinstance(e.code, str):  # project_config's "project.md: ..." message
+            fail("bad project.md")
+        raise
+
+
+def _run(state_file, prs_file, issues_file, login):
     state = load_state(state_file)
     known = set(state["tickets"]) | set(state.get("merged", {}))
     logins = trusted_logins(login)

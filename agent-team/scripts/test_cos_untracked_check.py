@@ -64,13 +64,13 @@ PR5 = pr(5, "feat/abc-1-a")
         ("github", EMPTY, "not json", [PR5], ["cos_untracked_check: bad issue list"], 2),
         ("github", EMPTY, [issue(1)], "not json", ["cos_untracked_check: bad PR list"], 2),
         ("github", "not json", [issue(1)], [PR5], ["cos_untracked_check: unreadable state file"], 2),
+        ("gitlab", EMPTY, [], [PR5], ["cos_untracked_check: bad project.md"], 2),
     ],
 )
 def test_untracked_tickets(monkeypatch, capsys, tmp_path, tracker, state, issues, prs, want, code):
     got_code, out = run(monkeypatch, capsys, tmp_path, tracker, state, issues, prs)
     assert got_code == code
     assert out == want
-    assert not any("stranger" in line for line in out)
 
 
 def test_unreadable_own_login_stops_the_check(monkeypatch, capsys, tmp_path):
