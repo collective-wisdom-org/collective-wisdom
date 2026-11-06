@@ -31,6 +31,8 @@ The as-built holds only the differences: the dateless `**Shipped:** in PR #N`, `
 
 ## Release notes
 
+This applies only when `Publish release notes` in project.md § Docs is not `off`; a missing row counts as `on`. With `off`, PRs carry no release note, the merge gate does not ask for one and nothing is published.
+
 The PR body has a `## Release note` section, one to three sentences for a user of the agent team: what they will notice and what they need to do, if anything. No file lists or implementation detail. The text runs from the heading to the next `## ` heading or the end of the body.
 
 ```markdown
@@ -39,7 +41,7 @@ The PR body has a `## Release note` section, one to three sentences for a user o
 `install.sh --update <app>` now moves an app to the newest commit and reports what changed.
 ```
 
-`python3 scripts/release_notes.py` prints every note, newest merge first: the files under `release-notes/` (older PRs) and the notes in merged PR bodies. Each note shows `Merged YYYY-MM-DD HH:MM UTC.` under its heading; a file note's time is when git added it on `origin/main`, and when git can't tell (no history, no `origin/main`, a renamed file, or a commit that added several notes at once) it sorts by its heading date and shows no time. A file note with no dated first line is printed last, with a warning on stderr. If it cannot read the merged PRs it prints the file notes, says why on stderr and exits 1. With no notes yet it prints `No release notes yet.` After each merge `scripts/merge_pr.py` publishes the same text as `RELEASE_NOTES.md` on the `release-notes` branch.
+`python3 scripts/release_notes.py` prints every note, newest merge first: the files under `release-notes/` (older PRs) and the notes in merged PR bodies. Each note shows `Merged YYYY-MM-DD HH:MM UTC.` under its heading; a file note's time is when git added it on `origin/<merge target branch>`, and when git can't tell (no history, no `origin/<merge target branch>`, a renamed file, or a commit that added several notes at once) it sorts by its heading date and shows no time. A file note with no dated first line is printed last, with a warning on stderr. If it cannot read the merged PRs it prints the file notes, says why on stderr and exits 1. With no notes yet it prints `No release notes yet.` After each merge `scripts/merge_pr.py` publishes the same text as `RELEASE_NOTES.md` on the `release-notes` branch.
 
 ## Merge gate
 
@@ -47,6 +49,6 @@ The PR body has a `## Release note` section, one to three sentences for a user o
 
 - a spec in the PR has `**Status:** Shipped`;
 - a spec has `**Shipped:** in PR #N, as specified`, or the PR adds a file under `as-built/`;
-- the PR body has a non-empty `## Release note` section, or the PR adds a `release-notes/` file; any added `release-notes/` file must start with a dated heading.
+- unless `Publish release notes` in project.md § Docs is `off`: the PR body has a non-empty `## Release note` section, or the PR adds a `release-notes/` file; any added `release-notes/` file must start with a dated heading.
 
 The file branches keep PRs opened under the old rules mergeable.

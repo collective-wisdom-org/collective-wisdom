@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print every release note, newest first: the docs/superpowers/release-notes/*.md files and the `## Release note` section of every PR merged into main.
+"""Print every release note, newest first: the docs/superpowers/release-notes/*.md files and the `## Release note` section of every PR merged into the merge target branch (the `Merge target branch` row of project.md, `main` when unset).
 
 Exit 1 when the merged PRs cannot be read (no gh login, offline): the notes on disk are still printed.
 """
@@ -13,14 +13,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import project_config  # noqa: E402
 
 NOTES = root() / "docs" / "superpowers" / "release-notes"
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 DATED = re.compile(r"# (\d{4}-\d{2}-\d{2}) \S")
 PREFIX = re.compile(r"^[a-z]+(\([^)]*\))?!?:\s*")
 FOLDER = "docs/superpowers/release-notes/"
-# Full ref name: a tag called origin/main would win over the short name.
-MAIN = "refs/remotes/origin/main"
 
 
 def natural(name):
@@ -43,8 +42,8 @@ def section(body, heading="Release note"):
 
 
 def merged_prs():
-    """Merged PRs into main as dicts; raises RuntimeError with the reason when gh fails."""
-    cmd = [GH, "pr", "list", "--state", "merged", "--base", "main",
+    """Merged PRs into the merge target branch as dicts; raises RuntimeError with the reason when gh fails."""
+    cmd = [GH, "pr", "list", "--state", "merged", "--base", project_config.target_branch(),
            "--json", "number,title,body,mergedAt", "--limit", "500"]
     try:
         p = subprocess.run(cmd, cwd=root(), capture_output=True, text=True)
@@ -71,8 +70,8 @@ def parse_added(log):
 
 
 def file_merge_times():
-    """{file name: merge time} for the notes on origin/main; empty when git cannot tell."""
-    cmd = ["git", "log", MAIN, "--diff-filter=A", "--format=%x00%cI", "--name-only", "--", FOLDER]
+    """{file name: merge time} for the notes on origin/<merge target branch>; empty when git cannot tell."""
+    cmd = ["git", "log", project_config.target_ref(), "--diff-filter=A", "--format=%x00%cI", "--name-only", "--", FOLDER]
     try:
         p = subprocess.run(cmd, cwd=root(), capture_output=True, text=True, timeout=30)
         return parse_added(p.stdout) if p.returncode == 0 else {}

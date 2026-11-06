@@ -1,6 +1,6 @@
 # Security review
 
-Before merge, the ship loop runs **security-review** (phase 4). On Cursor that skill uses the **review-security** subagent; on Claude Code, the built-in `/security-review` command plus a manual pass against the OWASP list. Either way it runs on the PR branch worktree.
+Before merge, the ship loop runs **security-review** (phase 4). On Cursor that skill uses the **review-security** subagent; on Claude Code, the `security-reviewer` subagent (Opus) against the OWASP list. Either way it runs on the PR branch worktree.
 
 ## OWASP references
 
@@ -14,11 +14,11 @@ Product overlays are listed in [`project.md`](project.md) § Security overlays; 
 
 ## Security reviewer subagent
 
-The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/main...HEAD` against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
+The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/<target>...HEAD` (`<target>` is the merge target branch) against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
 
 ## PR gate
 
-Security findings are posted as PR issue comments (`## Security review (pass N)` … **Verdict:** `PASS` or `CHANGES NEEDED`). Merge requires the latest security review **PASS** plus code review **PASS** (see **merge-pr**).
+Security findings are posted as PR issue comments (`## Security review (pass N)` … **Verdict:** `PASS` or `CHANGES NEEDED`). Merge requires the latest security review **PASS** plus code review **PASS** (see **merge-pr**). In `ci` review mode (`project.md` § Review) neither agent review runs; see `open-pr` § CI review mode.
 
 ## Built-in review commands
 

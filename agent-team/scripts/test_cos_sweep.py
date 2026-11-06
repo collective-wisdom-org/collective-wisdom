@@ -75,6 +75,26 @@ def test_project_md_without_a_repo_row_only_stops_the_github_parts(tmp_path):
     assert lines[-1] == "sweep: read in full: none; merged: none; didn't run: ready, untracked"
 
 
+@pytest.mark.parametrize(
+    "review_prs, want_last, code",
+    [
+        ({"5": {"state": "OPEN", "author": {"login": "me"}, "headRefOid": "a" * 40, "reviews": [], "reviewDecision": "APPROVED", "reviewRequests": []}},
+         "read in full: none; merged: none; review: ABC-1 approved", 1),
+        ("not json", "read in full: none; merged: none; didn't run: review", 2),
+    ],
+)
+def test_sweep_runs_the_review_check_last_and_grows_the_last_line(tmp_path, capsys, monkeypatch, review_prs, want_last, code):
+    monkeypatch.setattr(cos_sweep.cos_review_check, "identity", lambda run=None: ("agent", []))
+    state = {"tickets": {"ABC-1": {"stage": "awaiting-review", "pr": 5, "headSha": "a" * 40, "parentThreadId": "ME"}}, "merged": {}}
+    (tmp_path / "state.json").write_text(json.dumps(state))
+    (tmp_path / "none.json").write_text("[]")
+    (tmp_path / "review.json").write_text(review_prs if isinstance(review_prs, str) else json.dumps(review_prs))
+    argv = ["--thread", "ME", "--file", str(tmp_path / "state.json"), "--merged-prs", str(tmp_path / "none.json"),
+            "--open-prs", str(tmp_path / "none.json"), "--review-prs", str(tmp_path / "review.json"), "--login", "bot"]
+    assert cos_sweep.main(argv) == code
+    assert capsys.readouterr().out.splitlines()[-1] == "sweep: " + want_last
+
+
 def test_unreadable_issue_list_only_stops_the_untracked_part(tmp_path, capsys, monkeypatch):
     md = tmp_path / "project.md"
     md.write_text(Path(os.environ["PROJECT_MD"]).read_text() + "| Tracker | `github` |\n")

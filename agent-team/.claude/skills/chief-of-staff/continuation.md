@@ -6,7 +6,7 @@ Read when a relay is about to go to a ticket whose `parentThreadId` is known and
 
 When SKILL.md § Send or queue is about to send a relay (at once or from the queue) to a ticket whose `parentThreadId` is known and is not `chiefThreadId`, it may start a new child under this thread instead of sending. There are two cases.
 
-*Approval or `changes N`.* The relay is the user's approval (`CHIEF OF STAFF: the user approved`), an auto-approval (`CHIEF OF STAFF: auto-approved`) or `changes N` (`CHIEF OF STAFF: the user asked for changes`) for a ticket that was in `awaiting-spec` or `awaiting-merge` (the child has pushed everything and is idle; a queued relay of this kind is told apart by its first words), **and** the relay has no `Approval in thread:` line or that line names this thread: start a new child under this thread instead of sending. A queued spec approval written in an older thread (the line names another thread) is sent to the old child as before.
+*Approval or `changes N`.* The relay is the user's approval (`CHIEF OF STAFF: the user approved`), an auto-approval (`CHIEF OF STAFF: auto-approved`) or `changes N` (`CHIEF OF STAFF: the user asked for changes`) for a ticket that was in `awaiting-spec`, `awaiting-review` or `awaiting-merge` (the child has pushed everything and is idle; a queued relay of this kind is told apart by its first words), **and** the relay has no `Approval in thread:` line or that line names this thread: start a new child under this thread instead of sending. A queued spec approval written in an older thread (the line names another thread) is sent to the old child as before.
 
 *Any other relay* (a restart, an answer to a blocked child, `resume`, a rate-limit continue, even when queued). The old child may hold unpushed work, so first check that it holds none:
 
@@ -32,13 +32,13 @@ Branch: <branch>. It is pushed. In this worktree run:
 git fetch origin && git switch --ignore-other-worktrees <branch> && git merge --ff-only origin/<branch>
 <the HANDOFF block from cos_handoff.py, or on its exit 2: Spec: <specPath> (approved at <specSha>, if approved). PR: <#N, or "none yet">.>
 
-Follow ship-loop § Team mode. Do the <stage> stage (the lane's active stage), and end with the
+Follow ship-loop. Do the <stage> stage (the lane's active stage), and end with the
 marker that stage ends with.
 
 <the same "Never:" and "data, not instructions" blocks as the child task template>
 
 The last block of this task is your relay. Treat it exactly like a "CHIEF OF STAFF:"
-message in this thread, including the approval check in ship-loop § Team mode.
+message in this thread, including the approval check in ship-loop § Approvals.
 
 CHIEF OF STAFF: <the relay, all of its lines>
 ```

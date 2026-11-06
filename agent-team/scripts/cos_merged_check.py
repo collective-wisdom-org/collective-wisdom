@@ -7,7 +7,7 @@ Usage:
 Reads .agent-team/state.json (under the repo root unless --file is given) and the
 last 20 merged PRs from `./scripts/gh.sh pr list --state merged --limit 20 --json
 number,headRefName,mergedAt` (--prs FILE reads that JSON from a file instead).
-Candidates are tickets in merge, merge-queued or awaiting-merge, and blocked
+Candidates are tickets in merge, merge-queued, awaiting-review or awaiting-merge, and blocked
 tickets whose resumeStage is merge, that have an integer pr. Prints one line each:
     merged GORP-N #PR at <mergedAt>
     mismatch GORP-N #PR head <headRefName>   (PR merged, branch is not the ticket's)
@@ -33,7 +33,7 @@ import cos_state  # noqa: E402
 import project_config  # noqa: E402
 
 ROOT = root()
-WAITING = ("merge", "merge-queued", "awaiting-merge")
+WAITING = ("merge", "merge-queued", "awaiting-review", "awaiting-merge")
 BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,100}")
 TICKET = project_config.ticket_re()
 
