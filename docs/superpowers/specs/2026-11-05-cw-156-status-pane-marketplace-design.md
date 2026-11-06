@@ -26,7 +26,7 @@
 ## Calls I made
 
 - **The source points into `agent-team/`.** The mod's one copy lives there, so the marketplace entry references it instead of a second copy.
-- **No docs change.** `agent-team/docs/agents/status-pane.md` describes the `install.sh` route, which stays as is. The marketplace route is not added there because that file ships to apps and the marketplace is not shipped.
+- **No change to `agent-team/docs/agents/status-pane.md`.** It describes the `install.sh` route, which stays as is. The marketplace route is not added there because that file ships to apps and the marketplace is not shipped.
 
 ## Touches
 

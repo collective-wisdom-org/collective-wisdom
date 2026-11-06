@@ -186,7 +186,7 @@ In the desktop app, where `/plugin` does not run: click + next to the prompt box
 
 The pane opens when the session first starts a subagent. `/agent-gantt` opens it by hand. Costs come from `scripts/prices.json`, the same table `scripts/agent_usage.py` reads, so in a repo without the agent team the pane shows tokens and a dash for cost. Cache writes are priced at the 5 minute rate, because the mod's events don't say which cache lifetime a write used.
 
-The marketplace also lists `status-pane`, the Chief of Staff status pane. `install.sh` still copies it into apps; this is the per-machine route. Install it the same way, with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`.
+The marketplace also lists `status-pane`, the Chief of Staff status pane. `install.sh` still copies it into apps; this is the per-machine route. Install it the same way, with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`. Use one route per repo: in an app that already has the team installed, the copy in `.claude/mods/status-pane/` is enough.
 
 Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The row builder has a test: `node --test mods/agent-gantt/hooks/rows.test.ts` (Node 24 or newer).
 
