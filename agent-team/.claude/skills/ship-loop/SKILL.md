@@ -67,6 +67,8 @@ Starts after a spec approval (§ Approvals). Write the plan (a ticket that chang
 
 Respect **planner-delegates** when it applies: parent plans; implementer edits files.
 
+The build ends with the compaction pass (`build-from-plan` § Compaction pass).
+
 ### 3. PR loop
 
 **Invoke:** `open-pr` (read and follow in full).

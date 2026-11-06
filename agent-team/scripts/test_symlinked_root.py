@@ -107,7 +107,7 @@ def test_script_runs_by_link_path(app, name):
     )
     out = r.stdout + r.stderr
     assert not any(m in out for m in MARKERS), out
-    if name not in ("merge_pr.py", "pr_diff_delta.py", "review_scope.py"):  # these exit 2 on any bad args
+    if name not in ("compact_check.py", "merge_pr.py", "pr_diff_delta.py", "review_scope.py"):  # these exit 2 on any bad args
         assert r.returncode == 0, out
 
 
