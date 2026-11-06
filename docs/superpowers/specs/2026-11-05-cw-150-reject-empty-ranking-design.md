@@ -1,6 +1,7 @@
 # CW-150: reject an empty Backlog ranking when the Backlog has open tickets
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #158, as specified
 **Ticket:** [#150](https://github.com/collective-wisdom-org/collective-wisdom/issues/150)
 
 ## Goal
