@@ -1,6 +1,7 @@
 # CW-160: install the agent team once per machine
 
-**Status:** Draft (revised after the first review: one install script)
+**Status:** Shipped
+**Shipped:** in PR #164, as specified
 **Ticket:** [#160](https://github.com/collective-wisdom-org/collective-wisdom/issues/160)
 
 ## Goal
