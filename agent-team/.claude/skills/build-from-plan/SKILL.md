@@ -13,7 +13,7 @@ Before acting, read **ship-loop** § Repo invariants.
 
 ## Preconditions
 
-1. Confirm **cwd** is the feature worktree, not root on `main`.
+1. Confirm **cwd** is the feature worktree, not root on the merge target branch.
 2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user). A ticket that changes only markdown files has no plan; build from the spec.
 3. Stay within `AGENTS.md` scope.
 
@@ -43,8 +43,8 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 ## Git
 
 - Commit and push as tasks finish.
-- Never push to `main`. Push only this ticket's `feat/<prefix>-N-*` branch.
-- No force-push to `main`.
+- Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
+- No force-push to the merge target branch.
 
 ## When all tasks pass
 

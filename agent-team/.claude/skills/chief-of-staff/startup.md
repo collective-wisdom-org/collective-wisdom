@@ -6,7 +6,7 @@ Read this on `start the team`, `resume`, the heartbeat prompt (`run /chief-of-st
 
 Run this only on "start the team". With an empty state it is the fresh-state path; with tickets already in state it is resume mode (step 2).
 
-Preconditions: this thread runs at the root checkout, on `main`. If not, stop and tell the user.
+Preconditions: this thread runs at the root checkout, on the merge target branch. If not, stop and tell the user.
 
 1. `ensure-labels` for scope <TEAM>: create `agent` and `agent-skip` if missing.
 2. Run `python3 scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1 and 3, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.

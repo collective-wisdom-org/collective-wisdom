@@ -24,7 +24,7 @@ When `scripts/review_scope.py` prints `docs-only` for the head, this review is s
 
 **Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
 
-- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on `main` unless the branch lives there.
+- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
 - **Diff:** `branch changes` (default).
 - **Custom Instructions:** the list below.
 

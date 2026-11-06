@@ -115,6 +115,27 @@ def test_gate(change, cause):
         assert cause in reason
 
 
+@pytest.mark.parametrize(
+    "row, base, root_branch, cause",
+    [
+        ("| Merge target branch | `dev` |\n", "dev", "dev", None),
+        ("| Merge target branch | `dev` |\n", "main", "dev", "base is main, not dev"),
+        ("| Merge target branch | `dev` |\n", "dev", "main", "root checkout is on main, not dev"),
+        ("", "main", "main", None),
+        ("", "dev", "main", "base is dev, not main"),
+        ("", "main", "dev", "root checkout is on dev, not main"),
+        ("| Merge target branch | `-x` |\n", "main", "main", "'Merge target branch' row has no usable branch name"),
+    ],
+)
+def test_gate_uses_the_merge_target_branch(tmp_path, monkeypatch, row, base, root_branch, cause):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + row)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    f = {**green(), "baseRefName": base, "root_branch": root_branch}
+    reason = merge_pr.gate(f)
+    assert reason is None if cause is None else cause in reason
+
+
 BOT_THREAD = {"path": "a.py", "line": 3, "url": "https://github.com/o/r/pull/7#discussion_r1", "id": "PRRT_1"}
 
 
@@ -229,6 +250,17 @@ def test_main_writes(change, code, wrote, capsys):
     assert any("PUT" in c for c in calls) == (f["state"] == "OPEN" and code == 0)
 
 
+def test_main_stops_with_a_merge_line_on_an_invalid_target_row(tmp_path, monkeypatch, capsys):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Merge target branch | `-x` |\n")
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    f = green()
+    runner, calls = fake(copy.deepcopy(f))
+    assert merge_pr.main(["7", f["approved"]], runner) == 1
+    assert capsys.readouterr().out.splitlines()[-1].startswith("merge-pr: stop #7: project.md: 'Merge target branch' row has no usable branch name")
+    assert not writes(calls)
+
+
 @pytest.mark.parametrize(
     "tip, cross, deleted",
     [("b" * 40, False, False), (HEAD, True, False), (HEAD, False, True), (None, False, False)],
@@ -248,6 +280,34 @@ def test_cleanup_deletes_only_our_unmoved_branch(tip, cross, deleted):
     merge_pr.cleanup(f, runner)
     assert any("DELETE" in c for c in calls) == deleted
     assert any("pull" in c for c in calls)
+
+
+@pytest.mark.parametrize(
+    "row, root_branch, pulled",
+    [
+        ("| Merge target branch | `dev` |\n", "dev", True),
+        ("| Merge target branch | `dev` |\n", "main", False),
+        ("", "main", True),
+        ("", "dev", False),
+    ],
+)
+def test_cleanup_fast_forwards_only_a_root_on_the_merge_target_branch(tmp_path, monkeypatch, row, root_branch, pulled):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + row)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    calls = []
+
+    def runner(cmd):
+        calls.append(cmd)
+        return ""
+
+    f = {"isCrossRepository": True, "headRefName": "feat/x", "headRefOid": HEAD, "root": "/root", "root_branch": root_branch}
+    if pulled:
+        merge_pr.cleanup(f, runner)
+    else:
+        with pytest.raises(merge_pr.CmdError, match="fast-forward root"):
+            merge_pr.cleanup(f, runner)
+    assert [c for c in calls if "pull" in c] == ([["git", "-C", "/root", "pull", "--ff-only"]] if pulled else [])
 
 
 OLD = "c" * 40
@@ -549,6 +609,21 @@ def test_codeowners(text, expect):
         return text
 
     assert merge_pr.codeowners(run) == expect
+
+
+@pytest.mark.parametrize("row, ref", [("", "main"), ("| Merge target branch | `dev` |\n", "dev")])
+def test_codeowners_are_read_from_the_merge_target_branch(tmp_path, monkeypatch, row, ref):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + row)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    seen = []
+
+    def run(cmd, input=None):
+        seen.append(cmd[-1])
+        return "* @a\n"
+
+    merge_pr.codeowners(run)
+    assert seen == [f"refs/remotes/origin/{ref}:.github/CODEOWNERS"]
 
 
 @pytest.mark.parametrize(

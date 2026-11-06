@@ -14,7 +14,7 @@ Product overlays are listed in [`project.md`](project.md) § Security overlays; 
 
 ## Security reviewer subagent
 
-The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/main...HEAD` against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
+The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/<target>...HEAD` (`<target>` is the merge target branch) against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
 
 ## PR gate
 

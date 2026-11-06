@@ -31,6 +31,7 @@ ROWS = [
     ("head moved", {"pr": {"headRefOid": "b" * 40}}, 1, "not the approved head"),
     ("not root checkout", {"root": "/elsewhere"}, 1, "root checkout"),
     ("pr read fails", {"fail": "view"}, 2, "cannot read PR #7"),
+    ("invalid merge target row", {"target": "-x"}, 2, "cos-approve: cannot read the Merge target branch row"),
     ("state tickets is a list", {"tickets": []}, 2, "cannot read the state file or PR facts: AttributeError"),
     ("pr facts miss a key", {"dropkey": "isDraft"}, 2, "cannot read the state file or PR facts: KeyError"),
     ("no message store", {"nodb": True}, 2, "cannot read the message store"),
@@ -40,7 +41,8 @@ ROWS = [
 @pytest.mark.parametrize("changes, code, line", [r[1:] for r in ROWS], ids=[r[0] for r in ROWS])
 def test_cos_approve(tmp_path, monkeypatch, capsys, changes, code, line):
     real = cap.project_config.value
-    monkeypatch.setattr(cap.project_config, "value", lambda k: "owner" if k == "Owner login" else real(k))
+    values = {"Owner login": "owner", "Merge target branch": changes.get("target")}
+    monkeypatch.setattr(cap.project_config, "value", lambda k: values.get(k) or real(k))
     db = tmp_path / "t3.sqlite"
     if not changes.get("nodb"):
         con = sqlite3.connect(db)

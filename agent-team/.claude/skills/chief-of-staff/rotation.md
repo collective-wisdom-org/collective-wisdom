@@ -17,7 +17,7 @@ It prints one line, `ok ...` or `rotate: <reason>`, and exits 0. It applies this
 | Trigger | Threshold |
 |---|---|
 | Size | context is 220k or more (ignores the quiet-turn rule) |
-| Skill change | the current skill commit differs from `skillCommit` in state (only on `main`) **and** the turn is quiet (below). A `null` `skillCommit` prints `ok; set skillCommit <sha>`, save it and don't rotate |
+| Skill change | the current skill commit differs from `skillCommit` in state (only on the merge target branch) **and** the turn is quiet (below). A `null` `skillCommit` prints `ok; set skillCommit <sha>`, save it and don't rotate |
 
 A turn is quiet when no ticket is in a `*-queued` stage, `lastRelayAt` is absent or 10 minutes old or more, and the newest `retiredAt` in `retiredThreads` is 60 minutes old or more (or there is none). A skill change on a turn that isn't quiet prints `ok (skill change waits: queued <PREFIX>-N)`, `ok (skill change waits: relay <N>m ago)` or `ok (skill change waits: rotated <N>m ago)`, the first that applies. Do nothing: the skill commit stays different, so the first quiet turn rotates. If the size trigger also fires, it rotates now.
 

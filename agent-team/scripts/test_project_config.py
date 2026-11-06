@@ -94,6 +94,82 @@ def test_approval_setting_ignores_a_local_branch_named_origin_main(tmp_path, mon
     assert project_config.approval_setting() == ("strict", "")
 
 
+def _set_project_md(tmp_path, monkeypatch, row):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Branch pattern | `feat/<prefix>-N-x` |\n" + row)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+
+
+@pytest.mark.parametrize("row,want", [
+    ("", "main"),
+    ("| Merge target branch | none |\n", "main"),
+    ("| Merge target branch | |\n", "main"),
+    ("| Merge target branch | TODO(owner): pick one |\n", "main"),
+    ("| Merge target branch | `dev` |\n", "dev"),
+    ("| Merge target branch | `release/next` |\n", "release/next"),
+    ("| Merge target branch | `-x` |\n", None),
+    ("| Merge target branch | `a..b` |\n", None),
+    ("| Merge target branch | `dev.lock` |\n", None),
+    ("| Merge target branch | `a b` |\n", None),
+    ("| Merge target branch | `feat//x` |\n", None),
+    ("| Merge target branch | `dev/` |\n", None),
+    ("| Merge target branch | `.dev` |\n", None),
+])
+def test_target_branch(tmp_path, monkeypatch, row, want):
+    _set_project_md(tmp_path, monkeypatch, row)
+    if want is None:
+        with pytest.raises(SystemExit, match="Merge target branch"):
+            project_config.target_branch()
+    else:
+        assert project_config.target_branch() == want
+
+
+def _file(target, tolerance="permissive"):
+    row = f"| Merge target branch | `{target}` |\n" if target else ""
+    return f"{row}| Approval risk tolerance | `{tolerance}` |\n"
+
+
+# target: what the root checkout's project.md names. tree: what the current worktree's project.md names (None: the same).
+@pytest.mark.parametrize("target,committed,want,tree", [
+    ("dev", _file("dev"), ("permissive", ""), None),
+    ("main", _file(None, "balanced"), ("balanced", ""), None),
+    ("feat/next", _file("feat/next"), "strict", None),
+    ("dev", _file("main"), "strict", None),
+    ("dev", _file(None), "strict", None),
+    ("main", _file("dev"), "strict", None),
+    ("dev", _file("-x"), "strict", None),
+    ("-x", _file("-x"), "strict", None),
+    # a worktree that names another target changes nothing: the root's row decides
+    ("main", _file("x"), "strict", "x"),
+    ("dev", _file("dev"), ("permissive", ""), "main"),
+    ("feat/next", _file("dev"), "strict", "dev"),
+])
+def test_approval_setting_follows_the_target(tmp_path, monkeypatch, target, committed, want, tree):
+    _set_project_md(tmp_path, monkeypatch, f"| Merge target branch | `{tree or target}` |\n")
+    root = tmp_path / "root" / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text(f"| Branch pattern | `feat/<prefix>-N-x` |\n| Merge target branch | `{target}` |\n")
+    calls = []
+
+    def fake(cmd):
+        calls.append(cmd)
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path / 'root'}\nHEAD x\n\nworktree {tmp_path}\nHEAD y\n"
+        return committed
+
+    got = project_config.approval_setting(fake)
+    assert (got if isinstance(want, tuple) else got[0]) == want
+    listing = ["git", "worktree", "list", "--porcelain"]
+    if want != "strict":
+        assert calls == [
+            listing,
+            ["git", "fetch", "origin", target],
+            ["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"],
+        ]
+    if target.startswith(("feat/", "-")):
+        assert calls == [listing]
+
+
 @pytest.mark.parametrize(
     "text, expect",
     [
@@ -106,13 +182,38 @@ def test_approval_setting_ignores_a_local_branch_named_origin_main(tmp_path, mon
         (OSError("no git"), "on"),
     ],
 )
-def test_review_after_conflict(text, expect):
+def test_review_after_conflict(tmp_path, text, expect):
+    root = tmp_path / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text("| Branch pattern | `feat/<prefix>-N-x` |\n")
+
     def run(cmd):
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path}\nHEAD x\n"
         if isinstance(text, OSError) and cmd[1] == "show":
             raise text
         return text if cmd[1] == "show" else ""
 
     assert project_config.review_after_conflict(run) == expect
+
+
+@pytest.mark.parametrize("target", ["main", "dev"])
+def test_review_after_conflict_reads_the_merge_target_branch(tmp_path, target):
+    root = tmp_path / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text(f"| Branch pattern | `feat/<prefix>-N-x` |\n| Merge target branch | `{target}` |\n")
+    calls = []
+
+    def run(cmd):
+        calls.append(cmd)
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path}\nHEAD x\n"
+        if cmd[1] == "show":
+            return f"| Merge target branch | `{target}` |\n| Review after conflict resolution | `on` |\n"
+        return ""
+
+    assert project_config.review_after_conflict(run) == "on"
+    assert ["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"] in calls
 
 
 @pytest.mark.parametrize(
