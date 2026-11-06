@@ -347,6 +347,45 @@ def test_review_older_than_head(change, delta, cause):
         assert "older than head commit" in reason and cause in reason
 
 
+RES_NOTE = "Head moved to {h} by resolving conflicts with main; reviews from {o} stand."
+STALE = "2026-11-02T08:00:00Z"
+
+
+def resolved(f, note=RES_NOTE, who="me", head=HEAD, setting="off", parents=(OLD, "d" * 40), extra=False, approved=OLD, new=None, old_date=STALE):
+    """Head HEAD is a merge commit on the approved head OLD; reviews were posted on OLD."""
+    f["approved"] = approved[:7]
+    f["conflictReview"], f["headParents"], f["headNew"] = setting, list(parents), [HEAD] if new is None else new
+    f["commits"] = [{"oid": OLD, "committedDate": old_date}, {"oid": HEAD, "committedDate": "2026-11-02T10:30:00Z"}]
+    if extra:
+        f["commits"].insert(1, {"oid": "e" * 40, "committedDate": "2026-11-02T09:00:00Z"})
+    f["comments"].append({"author": {"login": who}, "body": note.format(h=head, o=OLD), "createdAt": "2026-11-02T10:40:00Z"})
+
+
+@pytest.mark.parametrize(
+    "change, cause",
+    [
+        (resolved, None),
+        (lambda f: resolved(f, setting="on"), "is not approved head"),
+        (lambda f: resolved(f, setting=None), "is not approved head"),
+        (lambda f: resolved(f, who="other"), "is not approved head"),
+        (lambda f: resolved(f, head="d" * 40), "is not approved head"),
+        (lambda f: resolved(f, extra=True), "is not approved head"),
+        (lambda f: resolved(f, new=[HEAD, "f" * 40]), "is not approved head"),  # second parent brings commits not on main
+        (lambda f: resolved(f, old_date="2026-11-03T00:00:00Z"), "is older than head commit"),  # review predates the approved head
+        (lambda f: resolved(f, parents=(OLD,)), "is not approved head"),
+        (lambda f: resolved(f, parents=("d" * 40, OLD)), "is not approved head"),
+        (lambda f: resolved(f, note="Head moved to {h} by merging main; PR diff unchanged since {o}."), "is not approved head"),
+        (lambda f: resolved(f, approved="b" * 40), "is not approved head"),
+        (lambda f: resolved(f, approved=HEAD), None),  # the user approved the resolved head itself after MERGE READY
+    ],
+)
+def test_resolved_head_is_covered_by_the_approval_of_its_first_parent(change, cause):
+    f = green()
+    change(f)
+    reason = merge_pr.gate(f, lambda f, r: ("changed", ["a.py"]))  # reviews must stand without a diff comparison
+    assert reason is None if cause is None else cause in reason
+
+
 TIP = "t" * 40
 NOTE_TEXT = "# 2026-11-04 CW-2: file note\n\nbody\n"
 PRS = [{"number": 5, "title": "feat: new", "body": "## Release note\n\nA note.\n", "mergedAt": "2026-11-04T10:00:00Z"}]

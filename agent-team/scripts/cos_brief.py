@@ -9,7 +9,8 @@ spec prints the spec's title, a blob link, its Goals, Non-goals and Calls I made
 sections (each capped at 40 lines) and the headings of its Design sections. The
 link uses --branch, or the commit when it is not given.
 pr prints the title, url, head SHA (checked against --head), check counts, the
-latest code review and security review verdicts, a line when a `Head moved to` note
+latest code review and security review verdicts, `conflict: yes` when GitHub says the PR conflicts with the merge target branch,
+`flag: conflict resolution not reviewed` when the head carries a conflict-resolution note, a line when a `Head moved to` note
 names the head, a `cost:` line, file areas, flag lines and the migration number check.
 The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
 the ticket in the branch name (feat/<prefix>-N-...), or `cost: unknown` when the branch
@@ -41,6 +42,7 @@ FLAG_CAP = 10
 MIGRATIONS_DIR = project_config.migrations_dir()  # None when project.md says the repo has none
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 MOVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+RESOLVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with [A-Za-z0-9._/-]+; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S)
 PATH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 
@@ -242,6 +244,15 @@ def moved_line(oid, comments, login):
     return f"head moved by merging {project_config.target_branch()} since {m.group(2)[:7].lower()}; reviews stand {found.get('url', '')}"
 
 
+def resolved_flag(oid, comments, login):
+    """`flag:` line when the latest `Head moved to` note by login is a conflict-resolution note naming the head."""
+    notes = [c for c in comments if (c.get("body") or "").startswith("Head moved to ") and (c.get("author") or {}).get("login") == login]
+    m = notes and RESOLVED_RE.match(notes[-1]["body"])
+    if m and oid.startswith(m.group(1).lower()):
+        return "flag: conflict resolution not reviewed"
+    return None
+
+
 def flags_for(paths):
     flags = []
     for p in sorted(paths, key=lambda p: ("/tests/" in p or p.startswith("docs/"), p)):
@@ -333,7 +344,7 @@ def cmd_pr(args):
         die(str(e))
     try:
         pr = gh_json("pr", "view", str(n), "--repo", REPO, "--json",
-                     "url,title,headRefOid,headRefName,files,statusCheckRollup,comments")
+                     "url,title,headRefOid,headRefName,files,statusCheckRollup,comments,mergeable")
     except ReadError:
         die(f"cannot read PR #{n}")
     oid = pr.get("headRefOid") or ""
@@ -350,12 +361,14 @@ def cmd_pr(args):
         areas[area] = areas.get(area, 0) + 1
     by_count = sorted(areas.items(), key=lambda kv: (-kv[1], kv[0]))
     comments = pr.get("comments") or []
-    moved = None
+    moved = login = None
     if mode == "agents":
         try:
-            moved = moved_line(oid, comments, own_login())
+            login = own_login()
+            moved = moved_line(oid, comments, login)
         except ReadError:
             die(f"cannot read PR #{n}")
+    flag = resolved_flag(oid, comments, login) if login else None
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",
@@ -366,6 +379,8 @@ def cmd_pr(args):
             review_line("security review", "## Security review", comments),
         ]),
         *([moved] if moved else []),
+        *(["conflict: yes"] if pr.get("mergeable") == "CONFLICTING" else []),
+        *([flag] if flag else []),
         cost_line(pr.get("headRefName")),
         f"files: {len(paths)} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",
         *flags_for(paths),

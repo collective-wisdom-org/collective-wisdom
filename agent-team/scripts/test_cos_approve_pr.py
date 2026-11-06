@@ -100,6 +100,7 @@ AUTO_ROWS = [
     ("not the owner", {"login": "someone"}, 1, "not the owner"),
     ("draft", {"pr": {"isDraft": True}}, 1, "draft"),
     ("head moved", {"pr": {"headRefOid": "b" * 40}}, 1, "not the approved head"),
+    ("conflict resolution not reviewed", {"pr": {"comments": [{"author": {"login": "owner"}, "body": f"Head moved to {HEAD} by resolving conflicts with main; reviews from {'c' * 40} stand."}]}}, 1, "conflict resolution not reviewed"),
     ("not awaiting-merge", {"stage": "merge"}, 1, "not in awaiting-merge"),
     ("pr read fails", {"fail": "view"}, 2, "cannot read PR #7"),
 ]

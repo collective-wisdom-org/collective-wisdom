@@ -30,6 +30,7 @@ def run(monkeypatch, capsys, tmp_path, *extra):
         ({"stage": "merge", "branch": "feat/abc-9-a"}, [(7, "feat/abc-9-a")], "merged ABC-9 #7", 1),
         ({"stage": "awaiting-merge", "branch": "feat/abc-9-a"}, [(7, "feat/abc-9-a")], "merged ABC-9 #7", 1),
         ({"stage": "merge-queued", "branch": "feat/abc-9-a"}, [(7, "feat/abc-9-a")], "merged ABC-9 #7", 1),
+        ({"stage": "awaiting-review", "branch": "feat/abc-9-a"}, [(7, "feat/abc-9-a")], "merged ABC-9 #7", 1),
         (
             {"stage": "blocked", "resumeStage": "merge", "branch": "feat/abc-9-a"},
             [(7, "feat/abc-9-a")],

@@ -14,9 +14,9 @@ On `SPEC READY`:
 
 On `MERGE READY`:
 
-1. Run `python3 scripts/cos_brief.py pr <N> --head <reported head SHA>`. It prints the URL, head, checks, the latest code review and security review lines, a `head moved by merging <target> since <short SHA>; reviews stand <comment URL>` line when the head moved by a merge of the merge target branch (`<target>`), a `cost:` line (what the ticket's child threads have cost so far, or `cost: unknown`), file counts, `flag:` lines and `migrations:`. Exit 2 (`cannot read PR`): tell the user the PR can't be read.
+1. Run `python3 scripts/cos_brief.py pr <N> --head <reported head SHA>`. It prints the URL, head, checks, the latest code review and security review lines, a `head moved by merging <target> since <short SHA>; reviews stand <comment URL>` line when the head moved by a merge of the merge target branch (`<target>`), a `cost:` line (what the ticket's child threads have cost so far, or `cost: unknown`), file counts, `flag:` lines (one is `flag: conflict resolution not reviewed`), a `conflict: yes` line when GitHub says the PR conflicts with `<target>`, and `migrations:`. Exit 2 (`cannot read PR`): tell the user the PR can't be read. When `conflict: yes` is there, do not ask for approval. Send the conflict relay through SKILL.md § Send or queue (the head check's rules choose the lane) and stop here.
 2. Check that `head:` says it matches the reported SHA, and that the two PASS links in the review lines are the ones the child reported. If either is off or a review says `not posted`, send the child back with `t3_thread_send`: `CHIEF OF STAFF: <the mismatch>. Fix it and report MERGE READY again.` Set the stage back to `build`. Don't ask the user yet.
-3. Build the block from the child's `MERGE READY` report and that output. When the `head moved by merging <target>` line is there, the merge block's Reviews line ends with `(head moved by a <target> merge only since <short SHA>; PR diff unchanged)`. Name each `migrations:` clash and `flag:` line under Risks; flags are hints, so still name anything else you know touches data, money, auth, user email or migrations.
+3. Build the block from the child's `MERGE READY` report and that output. When the `head moved by merging <target>` line is there, the merge block's Reviews line ends with `(head moved by a <target> merge only since <short SHA>; PR diff unchanged)`. When the child's report has a `Conflict resolved:` line, or the `flag: conflict resolution not reviewed` line is there, the Risks line says whether the resolution was reviewed or the reviews from the earlier head stand. Name each `migrations:` clash and `flag:` line under Risks; flags are hints, so still name anything else you know touches data, money, auth, user email or migrations.
 
 In `ci` mode (`docs/agents/project.md` § Review), `cos_brief.py pr` prints `ci: green at <full head SHA>` (or `ci: not green at <full head SHA>`) and a `ci-review: #N <bot>: F fixed, A answered and resolved, U unresolved` line in place of the two review lines, and no `head moved` line. In step 2, check `head:` and that `ci:` says green; a `ci-review:` line with U above 0, or `ci: not green`, sends the child back the same way. In step 3, the merge block's Reviews line is `Reviews: CI green at <short sha>, CI review <F fixed, A answered and resolved, U unresolved>`.
 
@@ -44,7 +44,7 @@ PR: <PR URL>, head <short SHA>
 Reviews: code review PASS <link>, security PASS <link>
 GitHub reviews: <the child's Reviews needed line>
 Proof: <the child's Proof link>
-Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent, 38.6M tokens, ...", or "unknown">
+Cost: <the cost: line from its first "$", e.g. "$14.20 API-equivalent (0.12% of the subscription), 38.6M tokens, ...", or "unknown"; the share shows only when project.md sets the subscription usage>
 Docs: <the child's Docs checked line>
 Changes:
 - …
@@ -61,6 +61,11 @@ Rules:
 - Plain bullets, three to six per list. Never drop a list. An empty one says "nothing" so the user knows it was checked.
 - Calls that change behaviour the user might not expect go first and carry a ⚠. Use ⚠ nowhere else.
 - Name anything that touches data, money, auth, user email or migrations under `Touches` (spec) or `Risks` (merge), even when the child didn't flag it.
+- A `MERGE READY` that `cos_review_check.py --route` sends to `awaiting-review` (SKILL.md § Full pass step 2) gets the same block, with these differences:
+  - The auto-approval check doesn't run yet. It runs when the ticket reaches `awaiting-merge` (SKILL.md § Sweep, `approved` line).
+  - The block gains `Waiting on: <names> (GitHub review)` under `Reviews:`, and its reply line reads `Reply "approve N" now and I'll merge once <names> approve this head, or "changes N: …".`
+  - The `awaiting-review` status line reads `awaiting-review since <time>: PR #N head <short>, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>. Risk: <Level> (<reason>).`
+  - The block is not posted again when the teammate approves the same head; the sweep's reminder line is.
 - Post the full block once, in the first report after the marker. Post it again when the user asks (`status`, `where's <PREFIX>-N?`) and when a child re-reports after `changes N`. A new SHA means a new block.
 
 While an approval is still pending, any later report lists it as one reminder line under `Needs you`. A reminder always keeps the link:
@@ -89,7 +94,7 @@ Small means:
 
 When two levels fit, take the higher one. Write the reason in a few words next to the level: `Low (docs only, 2 files)`, `Medium (changes slot fill, 4 files)`, `High (touches auth)`, `High (⚠ new default for existing users)`.
 
-Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` How later `status` lines carry that tail, and what an unrated ticket shows: SKILL.md § State file.
+Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec`, `awaiting-review` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` How later `status` lines carry that tail, and what an unrated ticket shows: SKILL.md § State file.
 
 ### Auto-approval
 
@@ -112,7 +117,7 @@ Spec and merge use the same rule, and each decision reads the setting again. Tic
 - Exit 0 (`approval: auto spec …`): post the full spec block as a notice with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` If § Send or queue will queue the relay, write `the build starts when a slot frees` in place of `the build has started`. Then run SKILL.md § Send or queue to the build lane with the auto spec relay, the § Models switch included. When a queued auto spec relay is later sent, always post `<PREFIX>-N: Auto-approved under <tolerance>; the build has started.` in the sending thread first, so the child finds a notice that is newer than anything else the Chief of Staff said about the ticket.
 - Exit 1 or 2 (`approval: ask …`, `approval: cannot …`): ask the user as above.
 
-**A merge.** After you write the `awaiting-merge` status line, run the head check and `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto` (SKILL.md § Send or queue). On exit 0, post the full merge block as a notice ending `Auto-approved under <tolerance>; merging now. Reply "cancel N" to stop it.` and send or queue the auto merge relay. On exit 1 or 2, ask the user as above. The script also stops a merge with a `flag:` or migration path, even if you rated it lower.
+**A merge.** After you write the `awaiting-merge` status line, run the head check and `python3 scripts/cos_approve_pr.py <PREFIX>-N --auto` (SKILL.md § Send or queue). On exit 0, post the full merge block as a notice ending `Auto-approved under <tolerance>; merging now. Reply "cancel N" to stop it.` and send or queue the auto merge relay. On exit 1 or 2, ask the user as above. The script also stops a merge with a `flag:` or migration path, or whose head carries an unreviewed conflict-resolution note, even if you rated it lower.
 
 An auto-approval still posts the whole block to the user, so they see what went through. `cancel N` stops it as for any ticket.
 

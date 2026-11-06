@@ -171,6 +171,52 @@ def test_approval_setting_follows_the_target(tmp_path, monkeypatch, target, comm
 
 
 @pytest.mark.parametrize(
+    "text, expect",
+    [
+        ("| Approver | x |\n", "off"),
+        ("| Review after conflict resolution (`off` or `on`) | `off`. text |\n", "off"),
+        ("| Review after conflict resolution (`off` or `on`) | `on`. text |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | `ON`. text |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | `maybe` |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | TODO(x) |\n", "on"),
+        (OSError("no git"), "on"),
+    ],
+)
+def test_review_after_conflict(tmp_path, text, expect):
+    root = tmp_path / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text("| Branch pattern | `feat/<prefix>-N-x` |\n")
+
+    def run(cmd):
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path}\nHEAD x\n"
+        if isinstance(text, OSError) and cmd[1] == "show":
+            raise text
+        return text if cmd[1] == "show" else ""
+
+    assert project_config.review_after_conflict(run) == expect
+
+
+@pytest.mark.parametrize("target", ["main", "dev"])
+def test_review_after_conflict_reads_the_merge_target_branch(tmp_path, target):
+    root = tmp_path / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text(f"| Branch pattern | `feat/<prefix>-N-x` |\n| Merge target branch | `{target}` |\n")
+    calls = []
+
+    def run(cmd):
+        calls.append(cmd)
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path}\nHEAD x\n"
+        if cmd[1] == "show":
+            return f"| Merge target branch | `{target}` |\n| Review after conflict resolution | `on` |\n"
+        return ""
+
+    assert project_config.review_after_conflict(run) == "on"
+    assert ["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"] in calls
+
+
+@pytest.mark.parametrize(
     "rows, mode, bot",
     [
         ("| Repo | `me/thing` |\n", "agents", None),

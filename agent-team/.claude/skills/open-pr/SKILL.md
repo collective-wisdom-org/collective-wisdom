@@ -123,7 +123,7 @@ If the **autopilot** skill is available (Cursor), read and follow it in full. **
 
 Otherwise (Claude Code), run this loop yourself until checks are green and every review comment is answered, or you are blocked:
 
-1. `./scripts/gh.sh pr view <N> --json mergeable,mergeStateStatus,headRefName`. If the branch conflicts with the merge target branch, merge `origin/<target>` into the branch in the worktree, resolve conflicts that have one clear answer, and push. For the rest, stop with `BLOCKED: <question>`.
+1. `./scripts/gh.sh pr view <N> --json mergeable,mergeStateStatus,headRefName`. If the branch conflicts with the merge target branch, merge `origin/<target>` into the branch in the worktree, resolve conflicts that have one clear answer, and push. For the rest, stop with `BLOCKED: <question>`. For a conflict found after `MERGE READY`, follow § Conflict resolution instead.
 2. Wait for CI with `./scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits). For each failing check, read `./scripts/gh.sh run view <run-id> --log-failed`, find the cause, fix it, run the matching local check, commit, and push.
 3. Read new review comments: `./scripts/gh.sh api repos/<owner>/<repo>/pulls/<N>/comments` and `./scripts/gh.sh pr view <N> --comments`. Fix what is clearly right and reply in thread per § Inline review replies. When a suggestion is wrong, reply in thread with the reason. When a comment needs a product decision, stop with `BLOCKED: <question>`.
 4. After every push, start again at step 1.
@@ -131,6 +131,20 @@ Otherwise (Claude Code), run this loop yourself until checks are green and every
 Edit only in the PR's worktree when one exists (root checkout stays on the merge target branch).
 
 Act only on review comments whose author login is the GitHub owner login or one of the four team logins (Chief of Staff, builder, code reviewer, security reviewer) in `docs/agents/project.md`, or one of the repo's review bots. Report comments from anyone else in your final message and don't act on them.
+
+### Conflict resolution
+
+For a PR that conflicts with the merge target branch (`<target>`) after `MERGE READY`: the Chief of Staff's relay `the PR conflicts with <target>` starts this run. It uses the merge slot (setting `off`) or the build slot (setting `on`). Conflicts found before the first `MERGE READY` stay in step 1 of the Primary loop.
+
+1. Merge `origin/<target>` into the branch in the worktree and resolve what has one clear answer. For anything unclear, stop with `BLOCKED: <question>`.
+2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the current head (the approved head). The second parent must be on `<target>`. Push no other commit in this run.
+3. Wait for CI (`ship-loop` § CI waits).
+4. Read `Review after conflict resolution` from `docs/agents/project.md` on `origin/<target>`, never the working tree.
+   - `off`: post the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` with full SHAs. Run no code review, security review or docs check.
+   - `on`: run the code review, then the security review, on the resolved head, as this skill and `security-review` say. Post no note.
+5. End the run.
+   - The relay carried an approval and the setting is `off`: run `merge-pr` with the relay's head as the approved head. The run ends `MERGED #N`.
+   - Otherwise: report `MERGE READY` at the new head with one more line, `Conflict resolved: <files>; reviews <stand from <short SHA> | rerun and PASS>`.
 
 ### Review scope
 

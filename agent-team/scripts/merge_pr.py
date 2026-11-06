@@ -59,6 +59,9 @@ NOTES_FILE = "RELEASE_NOTES.md"
 API = "repos/{owner}/{repo}/git"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
 NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+RESOLVED = re.compile(
+    r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with [A-Za-z0-9._/-]+; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S
+)
 
 
 def run(cmd, input=None):
@@ -122,6 +125,16 @@ def read_facts(pr, approved, run):
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
             f["docs"][path] = run([GH, "api", url, "-H", "Accept: application/vnd.github.raw+json"])
+    f["conflictReview"] = f["headParents"] = f["headNew"] = None
+    if f["state"] == "OPEN" and resolved_note(f):  # only a head with the conflict note needs the setting and the parents
+        f["conflictReview"] = project_config.review_after_conflict()
+        try:
+            pr_diff_delta.fetch(pr, run)
+            f["headParents"] = run(["git", "rev-list", "--parents", "-n", "1", f["headRefOid"]]).split()[1:]
+            if len(f["headParents"]) == 2:  # what the head adds beyond the approved head and the merge target branch must be the merge commit alone
+                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", f"^{project_config.target_ref()}"]).split()
+        except CmdError:
+            pass
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
     block = wt.strip().split("\n\n")[0].splitlines()
     f["root"] = block[0].removeprefix("worktree ")
@@ -147,6 +160,35 @@ def real_delta(f, reviewed):
     return pr_diff_delta.delta(reviewed, f["headRefOid"], pr_diff_delta.run)
 
 
+def resolved_note(f):
+    """The conflict-resolution note naming the current head by the gh login running the merge: its match, or None."""
+    notes = [
+        n
+        for n in f["comments"]
+        if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
+    ]
+    m = RESOLVED.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
+    return m if m and f["headRefOid"].startswith(m[1].lower()) else None
+
+
+def resolved_head(f):
+    """The reviewed head when the current head is a resolved head of the approved head, else None.
+
+    The approval must name this head or the reviewed head (the first parent); the gate checks that. All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
+    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must
+    agree: the head is the only commit not in the approved head or origin/<target>.
+    """
+    m = resolved_note(f)
+    parents = f.get("headParents") or []
+    if not m or f.get("conflictReview") != "off" or len(parents) != 2 or f.get("headNew") != [f["headRefOid"]]:
+        return None
+    first = parents[0].lower()
+    if first != m[2].lower():
+        return None
+    tail = [x["oid"] for x in f["commits"][-2:]]
+    return first if tail == [first, f["headRefOid"]] else None
+
+
 def stands(f, c, delta):
     """Return None when a reviews-stand note covers review c at the current head, else why not."""
     notes = [
@@ -155,6 +197,10 @@ def stands(f, c, delta):
         if n["author"]["login"] == f["login"] and n["body"].startswith("Head moved to ")
     ]
     m = NOTE.match(max(notes, key=lambda n: ts(n["createdAt"]))["body"]) if notes else None
+    if not m and resolved_head(f):
+        m = resolved_note(f)
+        if ts(c["createdAt"]) > ts(next(x for x in f["commits"] if x["oid"].startswith(m[2].lower()))["committedDate"]):
+            return None
     if not m or not f["headRefOid"].startswith(m[1].lower()):
         return "no reviews-stand note for this head"
     reviewed = next((x for x in f["commits"] if x["oid"].startswith(m[2].lower())), None)
@@ -199,6 +245,14 @@ def review(f, title, delta=real_delta):
     return c, None
 
 
+def requested_names(f):
+    """Who GitHub still waits on: logins, and @org/team for a team."""
+    names = []
+    for r in f.get("reviewRequests") or []:
+        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
+    return names
+
+
 def required_reviews(f):
     """Return why GitHub's required reviews still block the PR, or None.
 
@@ -210,10 +264,21 @@ def required_reviews(f):
     if f["login"].lower() in f.get("codeowners", []):
         f["bypass"] = True
         return None
-    names = []
-    for r in f.get("reviewRequests") or []:
-        names.append(f"@{r['slug']}" if r.get("__typename") == "Team" else r["login"])  # slug is "org/team"
-    return f"required reviews missing: waiting on {', '.join(names) or 'required reviewers'}"
+    return f"required reviews missing: waiting on {', '.join(requested_names(f)) or 'required reviewers'}"
+
+
+def latest_verdicts(f):
+    """{lower-cased reviewer: (login, their newest verdict review)} over team members' reviews, the author's own left out."""
+    author = f["author"]["login"]
+    latest = {}
+    others = [
+        r
+        for r in f.get("reviews") or []
+        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
+    ]
+    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
+        latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
+    return latest
 
 
 def teammate_approval(f):
@@ -225,14 +290,7 @@ def teammate_approval(f):
         return f"project.md's Require teammate approval is {rule}; use on or off"
     author = f["author"]["login"]
     head = f["headRefOid"]
-    latest = {}  # lower-cased reviewer -> (login, their newest verdict review)
-    others = [
-        r
-        for r in f.get("reviews") or []
-        if r["author"]["login"].lower() != author.lower() and r.get("authorAssociation") in TEAM_ASSOCIATIONS
-    ]
-    for r in sorted((r for r in others if r["state"] in VERDICTS), key=lambda r: ts(r["submittedAt"])):
-        latest[r["author"]["login"].lower()] = (r["author"]["login"], r)
+    latest = latest_verdicts(f)
     stuck = [who for who, r in latest.values() if r["state"] == "CHANGES_REQUESTED"]
     if stuck:
         return f"changes requested by {', '.join(stuck)} on PR #{f['pr']}"
@@ -251,6 +309,15 @@ def teammate_approval(f):
         for r in f.get("reviews") or []
     )
     return base + ("; the author's own approval does not count" if own else "")
+
+
+def review_stop(f):
+    """Return the first reason the review rules stop the merge (required reviews, then the teammate rule), or None."""
+    for check in (required_reviews, teammate_approval):
+        problem = check(f)
+        if problem:
+            return problem
+    return None
 
 
 def gate(f, delta=real_delta):
@@ -277,12 +344,11 @@ def gate(f, delta=real_delta):
         return str(e)
     if f["baseRefName"] != target:
         return f"base is {f['baseRefName']}, not {target}"
-    if not f["headRefOid"].startswith(f["approved"]):
+    if not f["headRefOid"].startswith(f["approved"]) and not (resolved_head(f) or "").startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
-    for check in (required_reviews, teammate_approval):
-        problem = check(f)
-        if problem:
-            return problem
+    problem = review_stop(f)
+    if problem:
+        return problem
     if f["mergeable"] != "MERGEABLE" or f["mergeStateStatus"] != ("BLOCKED" if f.get("bypass") else "CLEAN"):
         return f"not mergeable: mergeable {f['mergeable']}, state {f['mergeStateStatus']}"
     if not f["statusCheckRollup"] and not f.get("noCi"):

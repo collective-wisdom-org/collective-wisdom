@@ -5,6 +5,7 @@ the Value cell. `none`, an empty cell and `TODO(...)` text have no backticked to
 Set PROJECT_MD to read another file (tests do).
 """
 
+import math
 import os
 import re
 import subprocess
@@ -146,6 +147,19 @@ def target_ref():
     return f"refs/remotes/origin/{target_branch()}"
 
 
+def subscription_usage(provider):
+    """API-equivalent dollars of a provider's subscription from its `<provider> subscription API-equivalent usage` row.
+
+    A positive finite number, else None: unset, `none`, 0, a negative, `12,000` and text all read as None.
+    """
+    v = value(f"{provider} subscription API-equivalent usage")
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return None
+    return n if math.isfinite(n) and n > 0 else None
+
+
 REVIEW_MODES = ("agents", "ci")
 
 
@@ -198,37 +212,47 @@ def _root_rows(run):
         raise OSError(type(e).__name__)
 
 
-def approval_setting(run=_git):
-    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/<target>.
+def _committed_rows(run):
+    """(rows, why): project.md as committed on origin/<target>; rows is None and why says so on any failure.
 
     <target> is the `Merge target branch` row of the root checkout's project.md (the first entry of `git worktree list`,
-    so a feature worktree's own edit of that row changes nothing), read as refs/remotes/origin/<target>. The level is
-    never read from a working tree. Every failure to read (git, file, row) and every unknown value gives ("strict", why),
-    and so does a target that starts with the branch pattern head (from the root checkout's project.md too; an agent can
-    push such a branch) or a committed project.md that names another target. note is "" when the row set the level.
+    so a feature worktree's own edit of that row changes nothing), read as refs/remotes/origin/<target>. Never read from a
+    working tree. A target that starts with the branch pattern head (from the root checkout's project.md too; an agent can
+    push such a branch) or a committed project.md that names another target is a failure too.
     """
     try:
         rows = _root_rows(run)
         target = _plain_branch(value("Merge target branch", rows) or DEFAULT_TARGET)
     except OSError as e:
-        return "strict", f"could not read project.md in the root checkout: {e}"
+        return None, f"could not read project.md in the root checkout: {e}"
     except SystemExit as e:
-        return "strict", str(e)
+        return None, str(e)
     if target.startswith(branch_head(rows)):
-        return "strict", f"merge target branch `{target}` is a ticket branch"
+        return None, f"merge target branch `{target}` is a ticket branch"
     try:
         run(["git", "fetch", "origin", target])
         text = run(["git", "show", f"refs/remotes/origin/{target}:docs/agents/project.md"])
         committed = _plain_branch(value("Merge target branch", _parse(text)) or DEFAULT_TARGET)
     except OSError as e:
-        return "strict", f"could not read project.md on origin/{target}: {e}"
+        return None, f"could not read project.md on origin/{target}: {e}"
     except SystemExit as e:
-        return "strict", str(e)
+        return None, str(e)
     if committed != target:
-        return "strict", f"project.md on origin/{target} names merge target branch `{committed}`, not `{target}`"
-    v = value("Approval risk tolerance", _parse(text))
+        return None, f"project.md on origin/{target} names merge target branch `{committed}`, not `{target}`"
+    return _parse(text), ""
+
+
+def approval_setting(run=_git):
+    """(tolerance, note) from the `Approval risk tolerance` row of project.md as committed on origin/<target>.
+
+    Every failure to read (`_committed_rows`) and every unknown value gives ("strict", why). note is "" when the row set the level.
+    """
+    rows, why = _committed_rows(run)
+    if rows is None:
+        return "strict", why
+    v = value("Approval risk tolerance", rows)
     if v is None:
-        return "strict", f"no Approval risk tolerance value on origin/{target}"
+        return "strict", "no Approval risk tolerance value on the merge target branch"
     if v.lower() not in TOLERANCES:
         return "strict", f"unknown Approval risk tolerance `{v}`"
     return v.lower(), ""
@@ -237,6 +261,20 @@ def approval_setting(run=_git):
 def approval_tolerance(run=_git):
     """`strict`, `balanced` or `permissive`; `strict` for anything missing, unknown or unreadable."""
     return approval_setting(run)[0]
+
+
+def review_after_conflict(run=_git):
+    """`off` or `on` from the `Review after conflict resolution` row of project.md as committed on origin/<target>.
+
+    A missing row is `off`. An unknown value, and any failure to read (`_committed_rows`), is `on`: the safe side is to review.
+    """
+    rows, _ = _committed_rows(run)
+    if rows is None:
+        return "on"
+    if not any(k.startswith("Review after conflict resolution") for k, _ in rows):
+        return "off"
+    v = (value("Review after conflict resolution", rows) or "").lower()
+    return v if v in ("off", "on") else "on"
 
 
 if __name__ == "__main__":
