@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 detect tickets in flight that Chief of Staff state doesn't know (CW-133) (#147)
+
+Merged 2026-11-06 03:39 UTC.
+
+The Chief of Staff now tells you about your own tickets that are in flight but missing from its state, for example after a rotation or on another machine. Say `adopt N` to add one to its state when its child thread is on this machine. It keeps listing the ticket until you do or label it `agent-skip`.
+
 ## 2026-11-06 live Gantt and cost pane for agents as a Claude Code mod (CW-96) (#149)
 
 Merged 2026-11-06 03:38 UTC.
