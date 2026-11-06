@@ -1,7 +1,8 @@
 # CW-161: Leave only project.md from the team in a consuming repo
 
 **Ticket:** [CW-161](https://github.com/collective-wisdom-org/collective-wisdom/issues/161)
-**Status:** Spec (revised for CW-160's one-script design)
+**Status:** Shipped
+**Shipped:** in PR #166, as specified
 **Follows:** CW-160 (install the team once per machine). This ticket builds on CW-160's merged `install.sh` and `~/.collective-wisdom` path, and merges after it.
 
 ## Goal
