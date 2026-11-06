@@ -1,0 +1,16 @@
+{
+  "name": "collective-wisdom",
+  "owner": {
+    "name": "collective-wisdom-org"
+  },
+  "metadata": {
+    "description": "Claude Code mods from the collective-wisdom agent team."
+  },
+  "plugins": [
+    {
+      "name": "agent-gantt",
+      "source": "./mods/agent-gantt",
+      "description": "A pane beside the chat that shows this session's agents as a live Gantt chart with tokens and cost."
+    }
+  ]
+}

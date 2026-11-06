@@ -66,3 +66,12 @@ jobs:
           echo "shellcheck=$shellcheck" >> "$GITHUB_OUTPUT"
       - if: steps.scope.outputs.shellcheck == 'run'
         run: shellcheck install.sh tag-release.sh agent-team/scripts/*.sh
+  # Not a required check (see docs/agents/project.md). Node 24 strips the TypeScript types itself.
+  mod-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node --test mods/agent-gantt/hooks/rows.test.ts

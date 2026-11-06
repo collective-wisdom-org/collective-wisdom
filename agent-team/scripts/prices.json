@@ -1,0 +1,6 @@
+{
+  "opus": { "input": 4, "output": 20, "read": 0.20, "write_1h": 8, "write_5m": 5 },
+  "sonnet": { "input": 2, "output": 10, "read": 0.20, "write_1h": 4, "write_5m": 2.5 },
+  "haiku": { "input": 0.10, "output": 0.50, "read": 0.01, "write_1h": 0.20, "write_5m": 0.125 },
+  "fable": { "input": 10, "output": 50, "read": 0.25, "write_1h": 20, "write_5m": 12.5 }
+}
