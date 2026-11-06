@@ -115,6 +115,65 @@ def test_gate(change, cause):
         assert cause in reason
 
 
+BOT_THREAD = {"path": "a.py", "line": 3, "url": "https://github.com/o/r/pull/7#discussion_r1", "id": "PRRT_1"}
+
+
+@pytest.mark.parametrize(
+    "facts, cause",
+    [
+        ({}, "no Code review"),  # no Review mode row: the agent reviews are still required
+        ({"reviewMode": "agents", "ciBot": "bot", "ciThreads": []}, "no Code review"),
+        ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": []}, None),  # no review comments needed
+        ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": [BOT_THREAD]}, "unresolved CI review thread by bot: a.py:3 https://github.com/o/r/pull/7#discussion_r1"),
+        ({"reviewMode": "ci", "ciBot": None, "ciThreads": []}, "Review mode is ci but has no CI review bot login"),
+        ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": [], "statusCheckRollup": []}, "no checks"),  # the other gates stay
+        ({"reviewMode": "ci", "ciBot": "bot"}, "CI review threads not read"),  # a missing read never passes
+    ],
+)
+def test_gate_review_mode(facts, cause):
+    f = green()
+    f["comments"] = []
+    f.update(facts)
+    reason = merge_pr.gate(f)
+    assert (reason is None) if cause is None else (cause in reason)
+
+
+@pytest.mark.parametrize(
+    "rows, threads, code, want",
+    [
+        ("", [], 1, "no Code review"),
+        ("| Review mode | `ci` |\n| CI review bot login | `Bot[bot]` |\n", [], 0, "merged #7"),
+        ("| Review mode | `ci` |\n| CI review bot login | `Bot[bot]` |\n", [{"id": "PRRT_1", "isResolved": False, "path": "a.py", "line": 3,
+          "head": {"nodes": [{"author": {"login": "bot"}, "url": BOT_THREAD["url"]}]}}], 1, "unresolved CI review thread by bot: a.py:3"),
+        ("| Review mode | `ci` |\n", [], 1, "has no CI review bot login"),
+        ("| Review mode | `cii` |\n", [], 2, "'Review mode' row must be one of"),
+    ],
+)
+def test_main_review_mode(tmp_path, monkeypatch, capsys, rows, threads, code, want):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Repo | `other/repo` |\n" + rows)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    f = green()
+    f["comments"] = []
+    runner, calls = fake(copy.deepcopy(f))
+    gql = json.dumps({"data": {"repository": {"pullRequest": {"reviewThreads": {"pageInfo": {"hasNextPage": False}, "nodes": threads}}}}})
+    monkeypatch.setattr(merge_pr, "publish", lambda *a: None)
+    graphql = []
+
+    def run(cmd, input=None):
+        if "graphql" in cmd:
+            graphql.append(cmd)
+            return gql
+        return runner(cmd)
+
+    assert merge_pr.main(["7", f["approved"]], run) == code
+    # The gate reads threads from gh's own repo (the checkout's remote), never the project.md Repo row.
+    assert all("owner=:owner" in c and "name=:repo" in c for c in graphql)
+    assert bool(graphql) == ("`ci`" in rows and "bot login" in rows)
+    assert want in capsys.readouterr().out
+    assert any("PUT" in c for c in calls) == (code == 0)
+
+
 def fake(f):
     """A runner that serves reads from facts f and records every call."""
     calls = []

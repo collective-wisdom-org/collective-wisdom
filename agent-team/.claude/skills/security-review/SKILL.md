@@ -16,6 +16,8 @@ Phase 3 (**open-pr**) complete: PR exists, CI green, and the **latest code revie
 
 Work from the PR's worktree, on the PR head branch.
 
+In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the CI review bot covers it (`open-pr` § CI review mode).
+
 ## Primary review path
 
 When `scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
