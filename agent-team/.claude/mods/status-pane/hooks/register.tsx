@@ -4,13 +4,17 @@ import type { EngineInterface, Register } from 'claude-code'
 import { groupTickets } from './groups'
 
 const PANE = 'status-pane'
-const FILE = '.agent-team/state.json'
+const STATE = '.agent-team/state.json'
 const EVERY_MS = 5000
 
 // Change a tag when the value's fields change: it declines what an earlier
 // version stored, which outlives a reload.
 const view = atom({ plugin: 'status-pane', key: 'view' } as const, { mtimeMs: 0, groups: [] }, { shape: 'view-1' })
 const agents = atom({ plugin: 'status-pane', key: 'agents' } as const, [], { shape: 'agents-1' })
+
+// The state file at the root checkout, so a session in a worktree or subfolder
+// reads the Chief of Staff's file. Falls back to the session's relative path.
+let file = STATE
 
 let timer: { cancel: () => void } | undefined
 
@@ -20,9 +24,9 @@ async function poll($: EngineInterface) {
   try {
     const list = (await $.agent.list()).map(a => ({ id: a.id, type: a.type, description: a.description }))
     if (JSON.stringify(list) !== JSON.stringify(await read($, agents))) await update($, agents, () => list)
-    const stat = await $.fs.stat(FILE).catch(() => undefined)
+    const stat = await $.fs.stat(file).catch(() => undefined)
     if (!stat || stat.mtimeMs === (await read($, view)).mtimeMs) return
-    const state: unknown = JSON.parse(await $.fs.read(FILE))
+    const state: unknown = JSON.parse(await $.fs.read(file))
     if (typeof state !== 'object' || state === null) return
     await update($, view, () => ({ mtimeMs: stat.mtimeMs, groups: groupTickets(state) }))
   } catch {
@@ -31,6 +35,13 @@ async function poll($: EngineInterface) {
 }
 
 async function open($: EngineInterface) {
+  try {
+    const { exitCode, stdout } = await $.process.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'])
+    const common = stdout.trim()
+    if (exitCode === 0 && common) file = `${common.slice(0, common.lastIndexOf('/'))}/${STATE}`
+  } catch {
+    // not a git checkout: keep the relative path
+  }
   await $.ui.open({ id: PANE, title: 'Status' })
   await poll($)
   timer ??= $.clock.every(EVERY_MS, () => void poll($))
@@ -42,12 +53,19 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'status-pane', description: 'Show the Chief of Staff status in a pane' })
-    if (autoOpen) void open($)
+    if (autoOpen || (await $.ui.panes()).some(p => p.id === PANE)) void open($)
 
     return next(e)
   })
 
   on('session.end', async ($, e, next) => {
+    timer?.cancel()
+    timer = undefined
+
+    return next(e)
+  })
+
+  on('ui.close', { id: PANE }, async ($, e, next) => {
     timer?.cancel()
     timer = undefined
 
@@ -76,7 +94,8 @@ export const register: Register = (on, options) => {
             {g.rows.map(r => (
               <Text key={r.id}>
                 {'  '}
-                <Text bold>{r.id}</Text> {r.title}
+                <Text bold>{r.id}</Text>
+                {r.title && ` ${r.title}`}
                 {environmentId && r.childThreadId && (
                   <Link href={`t3-thread://v2/${environmentId}/${r.childThreadId}`}> thread</Link>
                 )}

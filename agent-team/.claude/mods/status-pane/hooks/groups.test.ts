@@ -24,7 +24,7 @@ test('groupTickets', () => {
   ])
   const row = (group: string, i: number) => groupTickets(state).find(g => g.name === group)?.rows[i]
   expect(row('Building', 0)).toEqual({
-    id: 'CW-1', title: 'CW-1', risk: 'Low (docs only)', next: 'PR #5, review pass 2', childThreadId: 't1',
+    id: 'CW-1', title: '', risk: 'Low (docs only)', next: 'PR #5, review pass 2', childThreadId: 't1',
   })
   expect(row('Queued to build', 0)?.title).toBe('Export')
   expect(row('Queued to build', 1)).toMatchObject({ risk: 'not rated yet', next: 'Waiting for a slot', childThreadId: null })

@@ -24,7 +24,7 @@ function row(id: string, t: Record<string, unknown>): Row {
   const next = (at < 0 ? status : status.slice(0, at)).trim().replace(/[\s;,.]+$/, '')
   return {
     id,
-    title: text(t.title) || id,
+    title: text(t.title),
     risk: risk || NO_RISK,
     next,
     childThreadId: text(t.childThreadId) || null,

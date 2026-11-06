@@ -23,4 +23,4 @@ Under the groups the pane lists the session's subagents. Press one to show its t
 
 - Pending approval blocks, the sweep and the idle check. The pane shows state as the Chief of Staff last wrote it.
 - Approving or cancelling from the pane. Do that in the Chief of Staff thread.
-- Cost, and ticket titles from the tracker. A title shows only if the state file holds one; otherwise the row shows the ticket ID alone.
+- Cost, and ticket titles from the tracker. State has no title field, so a row shows the ticket ID alone.
