@@ -2,7 +2,7 @@
 
 | Doc | What it is |
 |---|---|
-| [`project.md`](project.md) | Repo-specific config the skills read: tracker, scope and prefix, branch pattern, commands, repo invariants |
+| `project.md` (in the app, at `docs/agents/project.md`) | Repo-specific config the skills read: tracker, scope and prefix, branch pattern, commands, repo invariants |
 | [`org-chart.md`](org-chart.md) | The agent team: roles, reporting lines, where the owner approves |
 | [`chief-of-staff.md`](chief-of-staff.md) | Role doc for the Chief of Staff agent |
 | [`ticket-writer.md`](ticket-writer.md) | Role doc for ticket writing; points at the `write-ticket` skill |
@@ -17,4 +17,4 @@
 
 Release notes: unless `Publish release notes` in project.md § Docs is `off`, every merge publishes them all to `RELEASE_NOTES.md` on the `release-notes` branch, at `https://github.com/<owner>/<repo>/blob/release-notes/RELEASE_NOTES.md` (Repo row in project.md).
 
-Area role docs (backend, frontend, design and so on), when an app has them, sit beside these files and are listed in the app's `AGENTS.md`.
+Area role docs (backend, frontend, design and so on), when an app has them, sit in the app's `docs/agents/`, next to `project.md`, and are listed in the app's `AGENTS.md`.

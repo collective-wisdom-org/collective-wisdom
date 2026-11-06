@@ -111,9 +111,11 @@ It stops in these cases, and writes nothing:
 - Exit 2 when `installed-from.txt` is malformed. It must read `collective-wisdom <40-character SHA>`, optionally followed by a `v0.N` tag. Fix the file or delete it by hand.
 - Exit 1 when run inside collective-wisdom itself. Run it in an app.
 
-A listed file that the app reaches through a link out of the app, such as a symlinked parent folder, is skipped with a `skip <path>` line and left alone, so the command never writes outside the app.
+A listed file that the app reaches through a link out of the app, such as a symlinked parent folder, is skipped with a `skip <path>` line and left alone, so the command never writes outside the app. The same goes for the pin and for the five roots.
 
-Then read the TODOs it prints. If `.claude/settings.json` still has the old Stop hook for `cos_rotation_check.py`, remove it by hand: the machine install runs that hook now, and the old one reads the app's own history and can keep proposing a rotation. Check that `docs/agents/project.md` exists; if not, add it as in Adopt in a repo. Commit the removal as a PR in the app. It refuses to run inside this repo.
+Files collective-wisdom dropped in releases before the app's pin are not in the pinned list, so delete any that remain by hand.
+
+Then read the TODOs it prints. If `.claude/settings.json` still has the old Stop hook for `cos_rotation_check.py`, remove it by hand, since the machine install runs the hook now. Check that `docs/agents/project.md` exists; if not, add it as in Adopt in a repo. Commit the removal as a PR in the app.
 
 ## Configure a consuming repo
 

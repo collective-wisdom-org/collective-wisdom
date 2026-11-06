@@ -17,7 +17,7 @@ gh auth login -h github.com -p https
 gh auth status   # keyring should be active when GITHUB_TOKEN is unset
 ```
 
-`<owner>/<repo>` is the repo in [`project.md`](project.md) § Git and GitHub. Run gh through the repo wrapper (`ship-loop` § Repo invariants), which clears the env vars:
+`<owner>/<repo>` is the repo in the app's `docs/agents/project.md` § Git and GitHub. Run gh through the repo wrapper (`ship-loop` § Repo invariants), which clears the env vars:
 
 ```bash
 ~/.collective-wisdom/scripts/gh.sh pr create ...

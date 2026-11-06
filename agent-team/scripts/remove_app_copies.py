@@ -7,8 +7,9 @@ Usage, with the app as the current directory:
 Reads docs/agents/installed-from.txt (`collective-wisdom <40-character SHA>`, optionally followed by
 ` v0.N`) and lists the files that commit's agent-team/ has under .claude/skills, .claude/agents,
 .claude/mods, scripts and docs/agents, except docs/agents/project.md. The commit must be in the clone
-this script sits in. Deletes each listed file the app still has, then the pin, then any directory under
-those five roots left empty, then the .agents/skills link to ../.claude/skills once .claude/skills is gone.
+this script sits in. Deletes each listed file the app still has, then any directory under those five roots left empty,
+then the pin last (so a failed delete leaves it), then the .agents/skills link to ../.claude/skills once
+.claude/skills is gone. Anything reached through a link out of the app is skipped, never written.
 A listed file that differs from the pinned copy is a hand edit: it stops the run with exit 1 and
 nothing is written, unless --force. --dry-run prints the same lines and writes nothing.
 Never touches AGENTS.md, .gitignore, project.md or settings.json, and never commits.
@@ -56,6 +57,11 @@ def pinned_files(sha):
     return files
 
 
+def inside(app, d):
+    """True when directory d, with its links resolved, is the app or under it."""
+    return app.resolve() in (d.resolve(), *d.resolve().parents)
+
+
 def blob_id(p):
     data = os.readlink(p).encode() if p.is_symlink() else p.read_bytes()
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
@@ -88,13 +94,15 @@ def main():
         print(f"collective-wisdom {sha} is not in {CLONE}; run 'git fetch origin' in {CLONE} and try again.", file=sys.stderr)
         return 2
 
-    real = app.resolve()
+    pin_ok = inside(app, pin.parent)
+    if not pin_ok:
+        say(f"skip    {PIN}: it is reached through a link out of the app")
     present = []  # (path, blob id) of listed files the app still has, and that are inside the app
     for path, blob in sorted(pinned_files(sha).items()):
         p = app / path
         if not (p.exists() or p.is_symlink()):
             continue
-        if real not in (p.parent.resolve(), *p.parent.resolve().parents):
+        if not inside(app, p.parent):
             say(f"skip    {path}: it is reached through a link out of the app")
             continue
         present.append((path, blob))
@@ -112,13 +120,18 @@ def main():
         print("Stopped: these files differ from the pinned copy. Nothing was removed. Review them, or run with --force.", file=sys.stderr)
         return 1
 
-    removed = {path for path, _ in present} | {PIN}
-    for path in sorted(removed):
+    removed = {path for path, _ in present} | ({PIN} if pin_ok else set())
+    for path in sorted(removed - {PIN}):
         say(f"remove  {path}")
         if not args.dry_run:
-            (app / path).unlink(missing_ok=True)
+            try:
+                (app / path).unlink(missing_ok=True)
+            except OSError as e:
+                print(f"Stopped: cannot remove {path}: {e}. The pin is still there.", file=sys.stderr)
+                return 1
 
     gone = set()
+    later = []  # directories holding the pin, removed once the pin is
 
     def prune(d):
         """Remove d when only removed files and junk are left in it; True when it is (or would be) gone."""
@@ -134,12 +147,30 @@ def main():
             say(f"remove  {rel}/")
             gone.add(rel)
             if not args.dry_run:
-                shutil.rmtree(d)
+                if pin.is_relative_to(d):
+                    later.append(d)
+                else:
+                    shutil.rmtree(d)
         return empty
 
     for r in ROOTS:
-        if (app / r).is_dir() and not (app / r).is_symlink():
+        if not (app / r).is_dir() or (app / r).is_symlink():
+            continue
+        if inside(app, app / r):
             prune(app / r)
+        else:
+            say(f"skip    {r}/: it is reached through a link out of the app")
+
+    if pin_ok:
+        say(f"remove  {PIN}")
+        if not args.dry_run:
+            try:
+                pin.unlink()
+                for d in later:
+                    shutil.rmtree(d)
+            except OSError as e:
+                print(f"Stopped: cannot remove {PIN}: {e}", file=sys.stderr)
+                return 1
 
     link = app / ".agents/skills"
     if link.is_symlink() and os.readlink(link) == "../.claude/skills" and (".claude/skills" in gone or not os.path.lexists(app / ".claude/skills")):

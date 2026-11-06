@@ -21,10 +21,10 @@ Scripts read the first backticked token in each Value cell. Keep the backticks a
 
 ### Choosing a tracker
 
-Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(...)` value means `linear`. Operations and adapters: [trackers/README.md](trackers/README.md).
+Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(...)` value means `linear`. Operations and adapters: [trackers/README.md](~/.collective-wisdom/docs/agents/trackers/README.md).
 
 - `github`: no extra rows. Tickets are GitHub issues in the `Repo` below, and `Issue identifier prefix` is any short prefix (for example `GH`). The `~/.collective-wisdom/scripts/gh.sh` wrapper does every call.
-- `jira`: untested. Add the rows listed in [trackers/jira.md](trackers/jira.md) § project.md rows to the table above and fill them in.
+- `jira`: untested. Add the rows listed in [trackers/jira.md](~/.collective-wisdom/docs/agents/trackers/jira.md) § project.md rows to the table above and fill them in.
 
 ## Git and GitHub
 
@@ -35,7 +35,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
 | Owner login (trusted review-comment author) | `<github-login>` |
 | Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from an owner, member or collaborator other than the PR author. A missing row means off |
-| GitHub CLI | `~/.collective-wisdom/scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
+| GitHub CLI | `~/.collective-wisdom/scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](~/.collective-wisdom/docs/agents/github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
 
 ## Commands
@@ -96,7 +96,7 @@ Extra checks for the security review, on top of OWASP and "no secrets in repo".
 
 ## Docs check
 
-Read by the documenter subagent ([documenter.md](documenter.md)).
+Read by the documenter subagent ([documenter.md](~/.collective-wisdom/docs/agents/documenter.md)).
 
 - Living docs to search: `README.md`, `AGENTS.md`, `docs/agents/`, `.claude/skills/`, <add the architecture doc, infra README, env example file and so on, or remove what the repo lacks>.
 - Extra checks: <e.g. "brand docs in `docs/brand/` when the diff touches theme tokens, logo, fonts or colours", or none>.

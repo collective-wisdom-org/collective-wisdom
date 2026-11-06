@@ -127,4 +127,4 @@ The Chief of Staff, the Project Manager, the ticket helper and the ship-loop chi
 
 ## Other docs in `docs/agents/`
 
-[`README.md`](README.md) indexes them. [`project.md`](project.md) holds the repo-specific facts (tracker, scope, prefix, branch pattern, commands, repo invariants); the skills read it instead of hardcoding them.
+[`README.md`](README.md) indexes them. The app's `docs/agents/project.md` holds the repo-specific facts (tracker, scope, prefix, branch pattern, commands, repo invariants); the skills read it instead of hardcoding them.

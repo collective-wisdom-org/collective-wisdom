@@ -21,6 +21,10 @@ def git(cwd, *args):
     return subprocess.run([*GIT, *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
 
 
+def snapshot(base):  # files, links and empty directories under base
+    return {str(p.relative_to(base)): p.is_dir() or p.read_bytes() for p in sorted(base.rglob("*"))} if base.exists() else {}
+
+
 def put(base, files):
     for rel, text in files.items():
         (base / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -63,6 +67,16 @@ def set_pin(text):
     return lambda app: (app / "docs/agents/installed-from.txt").write_text(text)
 
 
+def link_out(app):  # all five roots sit outside the app, reached through links; an empty dir sits in two of them
+    out = app.parent / "outside"
+    out.mkdir()
+    for top in (".claude", "scripts", "docs"):
+        shutil.move(app / top, out / top)
+        (app / top).symlink_to(f"../outside/{top}")
+    (out / "docs/agents/empty").mkdir()
+    (out / ".claude/mods/empty").mkdir()
+
+
 def in_collective_wisdom(app):  # a malformed pin too: the refusal must come first
     set_pin("junk\n")(app)
     (app / "install.sh").write_text("#!/bin/bash\n")
@@ -79,6 +93,7 @@ CASES = [
     ("dry run", lambda app: None, ["--dry-run"], 0, "[dry-run] remove  scripts/tool.py", False),
     ("malformed pin", set_pin("collective-wisdom abc\n"), [], 2, "is not 'collective-wisdom", False),
     ("pinned commit not in the clone", set_pin(f"collective-wisdom {'0' * 40}\n"), [], 2, "run 'git fetch origin'", False),
+    ("roots reached through links out of the app", link_out, [], 0, "skip    docs/agents/installed-from.txt", False),
     ("inside collective-wisdom", in_collective_wisdom, [], 1, "collective-wisdom itself", False),
 ]
 
@@ -87,9 +102,10 @@ CASES = [
 def test_remove_app_copies(world, name, setup, args, rc, text, removes):
     clone, app = world
     setup(app)
-    before = tree(app)
+    before, outside = tree(app), snapshot(app.parent / "outside")
     code, out = run(clone, app, *args)
     assert (code, text in out) == (rc, True), out
+    assert snapshot(app.parent / "outside") == outside
     after = tree(app)
     if not removes:
         assert after == before
@@ -98,3 +114,12 @@ def test_remove_app_copies(world, name, setup, args, rc, text, removes):
     assert after == {k: v for k, v in before.items() if k in OWN or (own_skill and k == ".agents/skills")}
     assert not any((app / d).exists() for d in ("scripts", ".claude/agents", ".claude/mods"))
     assert (app / ".agents").exists() == own_skill
+
+
+def test_failed_delete_keeps_the_pin(world):
+    clone, app = world
+    (app / "scripts/tool.py").unlink()
+    (app / "scripts/tool.py").mkdir()  # a directory where a listed file should be: the delete raises
+    code, out = run(clone, app, "--force")
+    assert code == 1 and "scripts/tool.py" in out, out
+    assert (app / "docs/agents/installed-from.txt").is_file()
