@@ -335,3 +335,17 @@ def test_failed_publish_keeps_the_merge_result(capsys):
     assert merge_pr.main(["7", f["approved"]], runner) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[-2].startswith("merge-pr: warn ") and out[-1].startswith("merge-pr: merged #7")
+
+
+@pytest.mark.parametrize("row, notes_on", [("", True), ("on", True), ("off", False), ("OFF", False), ("maybe", True)])
+def test_release_notes_setting(tmp_path, monkeypatch, row, notes_on):
+    """Only an `off` row drops the release note gate and the publish step."""
+    md = tmp_path / "project.md"
+    md.write_text("| Owner login | `me` |\n" + (f"| Publish release notes | `{row}`. text |\n" if row else ""))
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    bare = dict(green(), body="## Proof\n\nNot proven: nothing\n", notesOn=merge_pr.project_config.release_notes_enabled())
+    assert ("Release note" in merge_pr.gate(bare)) if notes_on else merge_pr.gate(bare) is None
+    published = []
+    monkeypatch.setattr(merge_pr, "publish", lambda *a: published.append(a))
+    f = green()
+    assert merge_pr.main(["7", f["approved"]], fake(f)[0]) == 0 and bool(published) == notes_on

@@ -8,7 +8,7 @@ Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.p
 the checks list of the merge-pr skill (gh signed in as project.md's Owner login among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
-After the fast-forward it publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. A failed publish prints
+When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. With `off` it does neither. A failed publish prints
 `merge-pr: warn <reason>` before the last line and changes neither the exit code nor the last line.
 
 Exit 0: merged, or already merged (cleanup is repeated). Last line:
@@ -77,13 +77,14 @@ def read_facts(pr, approved, run):
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
     f["owner"] = project_config.value("Owner login")
     f["noCi"] = project_config.no_ci()
+    f["notesOn"] = project_config.release_notes_enabled()
     f["docs"] = {}
     if f["state"] == "OPEN":
         want = [
             x["path"]
             for x in f["files"]
             if (re.fullmatch(SPECS, x["path"]) and x["changeType"] != "DELETED")
-            or (re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
+            or (f["notesOn"] and re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
         ]
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
@@ -214,13 +215,14 @@ def gate(f, delta=real_delta):
     as_specified = any(re.search(rf"^\*\*Shipped:\*\*\s*in PR #{pr}, as specified\s*$", f["docs"][p], re.M) for p in specs)
     if not as_specified and not any(x["changeType"] == "ADDED" and re.fullmatch(AS_BUILT, x["path"]) for x in paths):
         return f'closeout missing: no spec says "**Shipped:** in PR #{f["pr"]}, as specified" and no added docs/superpowers/as-built/*.md'
-    notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
-    if not notes and not release_notes.section(f["body"]):
-        return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
-    for p in notes:
-        first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
-        if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
-            return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
+    if f.get("notesOn", True):
+        notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
+        if not notes and not release_notes.section(f["body"]):
+            return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
+        for p in notes:
+            first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
+            if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
+                return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
     proof = release_notes.section(f["body"], "Proof")
     if not proof:
         return 'proof missing: no "## Proof" section in the PR body'
@@ -379,7 +381,8 @@ def main(argv, run=run):
     except Exception as e:
         print(f"merge-pr: merged #{pr} as {sha}; cannot {e}")
         return 2
-    publish(pr, sha, run)
+    if f.get("notesOn", True):
+        publish(pr, sha, run)
     print(tail)
     return 0
 

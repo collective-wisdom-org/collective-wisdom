@@ -51,6 +51,11 @@ def no_ci():
     return bool(re.match(r"`?none\b", cell, re.I))
 
 
+def release_notes_enabled():
+    """False only when the `Publish release notes` row says `off` (any case). A missing row or any other value is True."""
+    return (value("Publish release notes") or "").lower() != "off"
+
+
 def prefix():
     """Issue identifier prefix, e.g. GORP. Raises if project.md doesn't give one."""
     p = value("Issue identifier prefix")

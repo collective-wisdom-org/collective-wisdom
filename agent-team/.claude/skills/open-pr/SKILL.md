@@ -67,7 +67,7 @@ Read and follow the **creating-pr** skill end-to-end (prepare branch, title, des
 **Overlays on creating-pr:**
 
 - Run its `gh` calls as `./scripts/gh.sh`.
-- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section (see § Closeout docs) and a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
+- PR body: link **<PREFIX>-N** (`ticket-url`) and the spec path, add a `## Release note` section when notes are on (see § Closeout docs), add a `## Proof` section (§ Proof), and add the as-built path only when one exists. When the `Tracker` row is `github`, also put `Closes #N` in the body so the merge closes the issue.
 - Pushes use the user's own gh auth.
 - **Tracker:** `set-state` the linked ticket to **In Review** when the tracker is available.
 - **CI:** wait with `./scripts/wait-for-ci.sh <N>` as `ship-loop` § CI waits says. Never `pr checks --watch` or `watch_pull_request`.
@@ -96,17 +96,17 @@ As-built template (only the differences; the PR and its review comments hold the
 - <what the spec says, and what shipped instead>
 ```
 
-Add the release note to the PR body, as a `## Release note` section: one to three sentences for a user of the agent team, saying what they will notice and what they need to do, if anything. No file lists or implementation detail. Update the body with `./scripts/gh.sh pr edit <N> --body-file <path>`.
+Unless `Publish release notes` in project.md § Docs is `off`, add the release note to the PR body, as a `## Release note` section: one to three sentences for a user of the agent team, saying what they will notice and what they need to do, if anything. No file lists or implementation detail. Update the body with `./scripts/gh.sh pr edit <N> --body-file <path>`.
 
 Commit the spec (and as-built, if any) on the feature branch: `docs: shipped line for <PREFIX>-N <short>`. Push before step 1 of the agent review loop.
 
-During later fix commits (phase 3 or 4): if a fix changes what ships, update the `**Shipped:**` line or the as-built in the same commit, and the PR body's release note and `## Proof` section. The docs check re-run below backs this up.
+During later fix commits (phase 3 or 4): if a fix changes what ships, update the `**Shipped:**` line or the as-built in the same commit, and the PR body's release note (if any) and `## Proof` section. The docs check re-run below backs this up.
 
 ### Docs check
 
 A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `docs/agents/documenter.md`. You apply the fixes. Run it with the `Agent` tool and `subagent_type: "documenter"`, in the foreground. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general Sonnet subagent with the prompt `Read docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs below.
 
-1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body.
+1. After the closeout commit is pushed, run the documenter on `origin/main...HEAD`. Pass the PR number, head SHA, range, the spec path, the as-built path if there is one, and the release note text from the PR body, if any.
 2. Check the documenter changed nothing (`git status --porcelain` is empty and `HEAD` is the SHA you passed); if it did, stop with `BLOCKED:`. Fix each finding that is right. Commit `docs: bring docs in line with <PREFIX>-N` and push. Note any finding you reject, and why; it goes in the review brief.
 3. Record the head SHA you checked. The check stays current while every commit after it is the step 2 fix commit or a `main` merge that `scripts/pr_diff_delta.py` calls `same`.
 4. Before each later code review pass, if the check is no longer current (step 3), run it again on the PR's own commits since the last checked SHA (`git log --no-merges -p <last checked SHA>..HEAD`), so a merged-in `main` isn't read as part of the change.
@@ -173,7 +173,7 @@ A docs check re-run that should have happened and didn't, or a rejected docs fin
 **Loop until pass:**
 
 1. Review → post comment (pass N) per shape above.
-2. If **CHANGES NEEDED**, fix all **Must fix** items → commit → push. Keep the `**Shipped:**` line or as-built, and the PR body's release note and `## Proof` section, current if the fix changes what ships (same commit for the docs).
+2. If **CHANGES NEEDED**, fix all **Must fix** items → commit → push. Keep the `**Shipped:**` line or as-built, and the PR body's release note (if any) and `## Proof` section, current if the fix changes what ships (same commit for the docs).
 3. Wait for CI with `./scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits).
 4. Re-review (focus on code changed since last pass) → next pass comment.
 5. Repeat until the latest agent comment verdict is **PASS**.
@@ -204,7 +204,7 @@ User asks Bugbot (Cursor only) → read the **review-bugbot** skill (inform your
 
 ### Done when
 
-The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout (spec **Shipped** line, any as-built, the PR body's release note) is in the PR, and the docs check is current (§ Docs check). Report **code review complete** and proceed to **security-review** (phase 4). Do **not** report merge-ready here.
+The primary loop is done (checks green, review comments answered) **and** (when agent review ran) the latest **code review** agent PR comment verdict is **PASS**. Closeout (spec **Shipped** line, any as-built, the PR body's release note if any) is in the PR, and the docs check is current (§ Docs check). Report **code review complete** and proceed to **security-review** (phase 4). Do **not** report merge-ready here.
 
 Repeat **Feedback loop** until code review **PASS** or blocked, then go on to phase 4 in the same session. Don't stop after opening the PR.
 
