@@ -95,6 +95,27 @@ def test_approval_setting_ignores_a_local_branch_named_origin_main(tmp_path, mon
 
 
 @pytest.mark.parametrize(
+    "text, expect",
+    [
+        ("| Approver | x |\n", "off"),
+        ("| Review after conflict resolution (`off` or `on`) | `off`. text |\n", "off"),
+        ("| Review after conflict resolution (`off` or `on`) | `on`. text |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | `ON`. text |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | `maybe` |\n", "on"),
+        ("| Review after conflict resolution (`off` or `on`) | TODO(x) |\n", "on"),
+        (OSError("no git"), "on"),
+    ],
+)
+def test_review_after_conflict(text, expect):
+    def run(cmd):
+        if isinstance(text, OSError) and cmd[1] == "show":
+            raise text
+        return text if cmd[1] == "show" else ""
+
+    assert project_config.review_after_conflict(run) == expect
+
+
+@pytest.mark.parametrize(
     "rows, mode, bot",
     [
         ("| Repo | `me/thing` |\n", "agents", None),

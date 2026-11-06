@@ -185,6 +185,23 @@ def approval_tolerance(run=_git):
     return approval_setting(run)[0]
 
 
+def review_after_conflict(run=_git):
+    """`off` or `on` from the `Review after conflict resolution` row of project.md as committed on origin/main.
+
+    A missing row is `off`. An unknown value, and any failure to read (git, file), is `on`: the safe side is to review.
+    """
+    try:
+        run(["git", "fetch", "origin", "main"])
+        text = run(["git", "show", MAIN_PROJECT_MD])
+    except OSError:
+        return "on"
+    rows = _parse(text)
+    if not any(k.startswith("Review after conflict resolution") for k, _ in rows):
+        return "off"
+    v = (value("Review after conflict resolution", rows) or "").lower()
+    return v if v in ("off", "on") else "on"
+
+
 if __name__ == "__main__":
     import sys
 
