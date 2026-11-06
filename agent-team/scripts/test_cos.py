@@ -124,6 +124,23 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize("ops, title, code", [
+    ([{**START, "title": "  Add X  "}], "Add X", 0),
+    ([START], "", 0),
+    ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": "  Later  "}}], "Later", 0),
+    ([{**START, "title": "A\x1b]8;;x\x07B\nC"}], "A ]8;;x B C", 0),
+    ([{**START, "title": "x" * 300}], "x" * 200, 0),
+    ([{**START, "title": 5}], None, 1),
+    ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": None}}], None, 1),
+])
+def test_ticket_title(tmp_path, ops, title, code):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps(STATE))
+    assert cos_state.apply_file(path, ops) == code
+    if code == 0:
+        assert json.loads(path.read_text())["tickets"]["ABC-3"]["title"] == title
+
+
 def ago(hours):
     return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 

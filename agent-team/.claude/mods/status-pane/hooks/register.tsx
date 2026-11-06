@@ -49,7 +49,6 @@ async function open($: EngineInterface) {
 }
 
 export const register: Register = (on, options) => {
-  const environmentId = String(options.environmentId ?? '').trim()
   const autoOpen = options.autoOpen === true
 
   on('session.start', async ($, e, next) => {
@@ -80,7 +79,7 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Link, Button } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const { groups, mtimeMs } = await read($, view)
     const subs = await read($, agents)
 
@@ -97,9 +96,6 @@ export const register: Register = (on, options) => {
                 {'  '}
                 <Text bold>{r.id}</Text>
                 {r.title && ` ${r.title}`}
-                {environmentId && r.childThreadId && (
-                  <Link href={`t3-thread://v2/${environmentId}/${r.childThreadId}`}> thread</Link>
-                )}
                 <Text dimColor>
                   {' | '}
                   {r.risk} | {r.next}
