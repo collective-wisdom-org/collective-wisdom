@@ -50,7 +50,7 @@ untracked-check: 3 not in state
 
 The state word is `in-review` or `in-progress` from the furthest `status:` label (GitHub only; left out when the issue has neither). `#N` is the lowest open PR number on the ticket's branch, left out when there is none. A branch name that fails the `BRANCH` pattern used by the other checks is skipped. No title, body or author text is printed. A skipped author leaves no trace in the output, not even in the count.
 
-On failure (no repo row, gh failed or timed out, `gh api user` failed or printed nothing, bad JSON, unreadable state) it prints only `cos_untracked_check: <what>` and exits 2. Otherwise exit 0 when nothing is untracked, 1 when something is.
+On failure (no repo row, gh failed or timed out, `gh api user` failed or printed nothing, bad JSON, unreadable state, a `project.md` row it rejects such as `Tracker`) it prints only `cos_untracked_check: <what>` and exits 2. Otherwise exit 0 when nothing is untracked, 1 when something is.
 
 ### `agent-team/scripts/cos_sweep.py`
 
@@ -61,7 +61,7 @@ On failure (no repo row, gh failed or timed out, `gh api user` failed or printed
 
 ### `agent-team/.claude/skills/chief-of-staff/SKILL.md`
 
-- § Sweep: name the fourth part and its line. For each `untracked` ticket, one `t3_thread_list` (`includeSubagents: true`, `titleContains: "<PREFIX>-N"`) for a child thread on this machine. Report the tickets in one Needs you line per ticket: `<PREFIX>-N in flight but not in my state (in review, PR #132; child <link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt <PREFIX>-N to take it here.` The line goes in any report the turn posts (full pass, take over, resume, status); untracked lines alone never make a run-finished turn post. The list call is skipped when the turn posts nothing. Nothing is written and nothing is started for an untracked ticket.
+- § Sweep: name the fourth part and its line. On Linear or Jira, first `get-ticket` each `untracked` ticket and drop it when it is `agent-skip` or not In Progress or In Review. For each remaining `untracked` ticket, one `t3_thread_list` (`includeSubagents: true`, `titleContains: "<PREFIX>-N"`) for a child thread on this machine. Report the tickets in one Needs you line per ticket: `<PREFIX>-N in flight but not in my state (in review, PR #132; child <link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt <PREFIX>-N to take it here.` The line goes in any report the turn posts (full pass, take over, resume, status); untracked lines alone never make a run-finished turn post. The list call is skipped when the turn posts nothing. Nothing is written and nothing is started for an untracked ticket.
 - § Sweep exit 2 fallback for `untracked`: no fallback; don't say every in-flight ticket is known.
 - § Commands: new row `adopt N`, checked with `cos_user_check.py latest` like `approve N` (short words, strict check). It runs § Adopt below.
 - New § Adopt:
