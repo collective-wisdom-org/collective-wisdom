@@ -3,7 +3,6 @@ export type StatusPaneRow = {
   title: string
   risk: string
   next: string
-  childThreadId: string | null
 }
 export type StatusPaneGroup = { name: string; count: number; rows: StatusPaneRow[] }
 export type StatusPaneAgent = { id: string; type: string; description: string }
