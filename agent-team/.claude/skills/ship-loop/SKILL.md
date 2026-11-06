@@ -129,7 +129,7 @@ CI review: <F> fixed, <A> answered and resolved, <U> unresolved
 
 **Invoke:** `merge-pr` (read and follow in full) **only** after a merge approval (§ Approvals), never agent-initiated. **Prerequisite:** phases 3 and 4 complete (code review **PASS** and security review **PASS** on that PR; in `ci` mode, phase 3 complete per § Phase gates and no phase 4). If a merge is approved but either review did not run or its verdict is not **PASS**, run the missing phase first; do not merge.
 
-A head other than the approved one means `BLOCKED: head moved after approval`: the user approves again (§ Approvals) after `MERGE READY` is reported again. The one exception: with `Review after conflict resolution` `off`, the approval of head H also covers a resolved head, one merge commit on H that is the only PR commit after H and carries the conflict note. A conflict child that was sent an approval merges the resolved head itself (`open-pr` § Conflict resolution).
+A head other than the approved one means `BLOCKED: head moved after approval`: the user approves again (§ Approvals) after `MERGE READY` is reported again. The one exception: with `Review after conflict resolution` `off`, the approval of head H also covers a resolved head, one merge commit on H that is the only PR commit after H, has its second parent on `main` and carries the conflict note. A conflict child that was sent an approval merges the resolved head itself (`open-pr` § Conflict resolution).
 
 **Done when** includes root `main` fast-forwarded to `origin/main` after merge (`scripts/merge_pr.py` does it; see `merge-pr` § Done when). Closeout docs merge with the PR, not on root `main` after merge.
 

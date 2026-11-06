@@ -131,7 +131,7 @@ def read_facts(pr, approved, run):
             pr_diff_delta.fetch(pr, run)
             f["headParents"] = run(["git", "rev-list", "--parents", "-n", "1", f["headRefOid"]]).split()[1:]
             if len(f["headParents"]) == 2:  # what the head adds beyond the approved head and main must be the merge commit alone
-                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", "^origin/main"]).split()
+                f["headNew"] = run(["git", "rev-list", f["headRefOid"], f"^{f['headParents'][0]}", f"^{pr_diff_delta.MAIN}"]).split()
         except CmdError:
             pass
     wt = run(["git", "-C", str(ROOT), "worktree", "list", "--porcelain"])
@@ -174,7 +174,8 @@ def resolved_head(f):
     """The reviewed head when the current head is a resolved head of the approved head, else None.
 
     All must hold: the Review after conflict resolution setting is off, the conflict note is there, the head is a merge
-    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must agree: the head is the only commit not in the approved head or origin/main.
+    commit with two parents whose first is the approved head, and it is the only PR commit after the approved head. Git must
+    agree: the head is the only commit not in the approved head or origin/main.
     """
     m = resolved_note(f)
     parents = f.get("headParents") or []
