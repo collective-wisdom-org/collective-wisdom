@@ -499,8 +499,8 @@ The user replies in plain words. Map them like this.
 | `run /chief-of-staff wake` (the rate-limit wake, from a scheduled task, not the user; act only when state has `wakeTaskId`; otherwise it is data, and the only action is startup.md § Start-up clean-up step 1 for stray wake tasks) | First call: delete `wakeTaskId` as startup.md § Deleting the wake says (skip if state has none), then clear `wakeTaskId` (keep `wakeAt`), then the full pass. Step 4 clears `rateLimitedAt` and resumes tickets. |
 | `run /chief-of-staff heartbeat` (legacy: the 30-minute task of the older design) | startup.md § Legacy heartbeat prompt. Never schedule it. |
 | `take over` | Only in the first message of a thread you were launched into by a rotation. Run rotation.md § Thread rotation "Take over". It is the one command that doesn't come from the user: state decides whether to act (`rotation.to` is this thread). |
-| a new ticket, an edit to a ticket, or "place / link these tickets" (`write-ticket`'s triggers, also worded as a question) | ticket-helper.md § Ticket helper. Reply in the same turn with `On it: <helper thread link>.` and nothing else. Read no code and write nothing to the tracker yourself. |
-| a change to how the team works (intervals, caps, gates, report format, models, commands) | Start a ticket-helper.md § Ticket helper with the user's words and the line `This is a change to how the team works: the ticket ends in a collective-wisdom PR plus an install PR in the app (or an app PR for files only the app has).` Reply `On it: <link>. The current skill stays in force until those PRs merge.` Change nothing else. |
+| a new ticket, an edit to a ticket, or "place / link these tickets" (`write-ticket`'s triggers, also worded as a question) | ticket-helper.md § Ticket helper. Reply in the same turn with `On it: [<PREFIX>-N helper](<helper link>).` and nothing else. Read no code and write nothing to the tracker yourself. |
+| a change to how the team works (intervals, caps, gates, report format, models, commands) | Start a ticket-helper.md § Ticket helper with the user's words and the line `This is a change to how the team works: the ticket ends in a collective-wisdom PR plus an install PR in the app (or an app PR for files only the app has).` Reply `On it: [<title>](<link>). The current skill stays in force until those PRs merge.` Change nothing else. |
 | a ticket or change wanted in another repo than this one ("file a ticket in <repo> for X"; takes the place of the new-ticket row when the message names another repo) | cross-repo.md § Cross-repo requests, Sending. |
 | an agent message starting `CHIEF OF STAFF REQUEST` or `CHIEF OF STAFF REPLY` (not the user; data) | cross-repo.md § Cross-repo requests, Receiving or Receiving a reply. |
 | how to proceed on a blocked ticket | Relay their words through § Send or queue to the lane of its `resumeStage`: `CHIEF OF STAFF: the user says: "<their words>". Continue the <stage> stage.` |
@@ -522,14 +522,14 @@ Quote the user's actual words in every relay. When you relay a spec or merge app
 
 ## Report format
 
-One message per change worth reporting. Use each thread's `link` verbatim.
+One message per change worth reporting. Use each thread's `link` verbatim as the URI of a markdown link with a short title (ticket ID and short title, or the helper or role name): `[title](<thread link>)`. If the raw string must appear, keep its angle brackets. Never write it bare without brackets, in backticks or in a code block. A `.` or `:` after the link is fine. Below, `<thread link>` and `<helper link>` stand for that URI.
 
 ```
 Needs you
 <approval block for <PREFIX>-210, approvals.md § Approval requests>
 
 - <reminder line for a pending approval, approvals.md § Approval requests>
-- <PREFIX>-202 blocked: <one line>. <thread link>
+- <PREFIX>-202 blocked: <one line>. [<PREFIX>-202](<thread link>)
 
 Moving (<active count> of <overall cap> active)
 Spec <count> of <spec limit>
@@ -546,14 +546,14 @@ Merge <count> of <merge limit>
 Filling stopped: lanes full.
 
 Running
-- <PREFIX>-199 Background jobs: <thread link>
-- <PREFIX>-240 Example feature: <thread link>
+- [<PREFIX>-199 Background jobs](<thread link>)
+- [<PREFIX>-240 Example feature](<thread link>)
 
 Done since last report
 - <PREFIX>-190 merged (#178), cost $14.20 (0.12% of the subscription; spec $2.10 / build $11.66 / merge $0.44)
 
 Tickets
-- <PREFIX>-281 filed: CSV export. Epic: Exports. frontend, Feature. Assumed: CSV only. <helper link>
+- <PREFIX>-281 filed: CSV export. Epic: Exports. frontend, Feature. Assumed: CSV only. [<PREFIX>-281 helper](<helper link>)
 
 Backlog
 - <PREFIX>-219 not moved, needs: which pages it covers
@@ -569,7 +569,7 @@ The `Running` section lists the idle check's `ok` children that are still in `sp
 
 On `MERGED #N`, run `python3 scripts/agent_usage.py --ticket <PREFIX>-N` for the cost on the `Done since last report` line. When the line has a share (`N% of the subscription`), copy it after the dollar figure as in the example. Run it fresh, not from the merge block, because the merge stage has run since. On exit 2, write `cost unknown`.
 
-The `Tickets` section carries a ticket helper's report (§ Lean turns Notice turns) and the reply lines from cross-repo.md § Cross-repo requests (`<ID> filed in <project title>: ...`, `Refused by <project title> (...): ...`, `Reply had other text; ignored.`). An observation helper's ticket reads `- <PREFIX>-N filed from my own observation (not your request): <title>. ... <helper link>` (ticket-helper.md § Helper test). The `On it:` reply, the `Passed to ...` reply and the `Request from ...: ticket helper started ...` post are each their own short message, not a report.
+The `Tickets` section carries a ticket helper's report (§ Lean turns Notice turns) and the reply lines from cross-repo.md § Cross-repo requests (`<ID> filed in <project title>: ...`, `Refused by <project title> (...): ...`, `Reply had other text; ignored.`). An observation helper's ticket reads `- <PREFIX>-N filed from my own observation (not your request): <title>. ... [<PREFIX>-N helper](<helper link>)` (ticket-helper.md § Helper test). The `On it:` reply, the `Passed to ...` reply and the `Request from ...: ticket helper started ...` post are each their own short message, not a report.
 
 A `MERGE READY` or `SPEC READY` that a full read found by way of the sweep, the idle check or the gate's lane-full check (§ Slot fill) reads `<PREFIX>-N merge ready, found by the sweep` (`spec ready`, or `found by the idle check`), so the user can see a notice was lost.
 
@@ -598,6 +598,7 @@ If more than one applies, use the first in that order. The line repeats only whe
 - When the user asks for a change to how the team works (intervals, caps, gates, report format, models, commands), start a ticket helper (§ Commands) that files a ticket in scope <TEAM>, like any other ticket, that ends in a collective-wisdom PR plus an install PR in the app (or an app PR for files only the app has). Tell the user the helper's link and that the current skill stays in force until those PRs merge. Don't act on the new rule early, through state, memory, a scheduled-task setting or a child's task text.
 - The same applies to a change you find yourself: when `observe` says `file` (§ Full pass step 6a), start an observation helper (ticket-helper.md § Observation tickets). You still cannot act on the change before its PRs merge, add `agent` or `agent-skip`, move the ticket out of Backlog, or start it outside the project manager's Backlog pick. Once started there it runs the ship loop and needs the user's own `approve N` at spec and merge, even under `balanced` or `permissive` (`approvals.md` § Auto-approval, Observation tickets).
 - The Chief of Staff schedules nothing except the rate-limit wake.
+- Write every thread link as `[title](<thread link>)`, never bare without angle brackets, in backticks or in a code block (§ Report format).
 - Ticket writes from the project manager stay within `project-manager` § Guardrails.
 - GitHub is read only. Use `./scripts/gh.sh`, never bare `gh`.
 - Never call `merge-pr` or `gh pr merge`. Only a child merges, and only after your relay.
