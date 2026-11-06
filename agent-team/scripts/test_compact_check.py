@@ -19,6 +19,7 @@ VENDORED = "agent-team/.claude/skills/owasp-security/SKILL.md"
         (True, {VENDORED: "z" * 500}, "main", 0, "compact: skip (no agent files changed)"),
         (True, {"agent-team/docs/agents/new.md": "n" * 30}, "main", 0, "compact: run (+30 characters)"),
         (True, {SKILL: "x" * 150}, "nope", 2, None),
+        (True, {SKILL: "x" * 150}, "--independent", 2, None),
         (False, {SKILL: "x" * 150}, "main", 0, "compact: skip (not collective-wisdom)"),
     ],
 )

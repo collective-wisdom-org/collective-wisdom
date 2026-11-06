@@ -71,7 +71,7 @@ def sizes(base):
 
 
 def main(argv):
-    if argv and (argv[0] != "--base" or len(argv) != 2):
+    if argv and (argv[0] != "--base" or len(argv) != 2 or argv[1].startswith("-")):
         print("compact: cannot read arguments; usage: scripts/compact_check.py [--base <ref>]")
         return 2
     if not (ROOT / "install.sh").exists():
