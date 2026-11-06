@@ -1,5 +1,41 @@
 # Release notes
 
+## 2026-11-06 awaiting-review stage for PRs waiting on a teammate's review (CW-128) (#141)
+
+Merged 2026-11-06 02:47 UTC.
+
+A PR that waits for a teammate's GitHub review no longer needs anyone to watch it. The Chief of Staff holds the ticket in a new `awaiting-review` stage, tells you when a teammate approves, and sends the child back to build when a teammate asks for changes. You can reply `approve N` early; it is held until the teammate approves that head. Repos that don't use reviews see no change.
+
+## 2026-11-06 resolve merge conflicts in the merge lane without a review restart (CW-138) (#142)
+
+Merged 2026-11-06 01:01 UTC.
+
+When a PR you approved for merge conflicts with `main`, the team now resolves it in the merge lane and merges it, without a second review or approval. Set `Review after conflict resolution` to `on` in `project.md` to review the resolution again. Apps without the row behave as `off`.
+
+## 2026-11-06 Publish release notes setting (CW-129) (#139)
+
+Merged 2026-11-06 00:30 UTC.
+
+A repo can now turn release notes off with a `Publish release notes` row in `docs/agents/project.md` § Docs. New installs start with `off`; existing apps have no row, so they keep notes on and nothing changes for them.
+
+## 2026-11-06 review mode setting that uses CI review instead of the agent reviewers (CW-126) (#137)
+
+Merged 2026-11-06 00:26 UTC.
+
+Repos whose CI already runs a review bot can set `Review mode` to `ci` in `docs/agents/project.md` (§ Review, with the bot's login). The team then answers and resolves the bot's review threads instead of running its own code and security reviewers, and merge waits for green checks and no unresolved bot thread. Nothing changes for repos without the row; add the section from the template to turn it on.
+
+## 2026-11-06 let codeowners merge past a missing review through the Chief of Staff (#140)
+
+Merged 2026-11-06 00:05 UTC.
+
+Codeowners can now merge their own PRs through the Chief of Staff when the only blocker is a review required from another codeowner.
+
+## 2026-11-06 require teammate approval and GitHub's required reviews before merge (CW-127) (#136)
+
+Merged 2026-11-06 00:00 UTC.
+
+A repo can now set `Require teammate approval` to `on` in `project.md`, and the merge gate then waits for a teammate's GitHub approval on the current head as well as your `approve N`. Whatever the setting, a PR that GitHub still holds for a required review now stops with the reviewers' names. `MERGE READY` lists the reviewers still requested.
+
 ## 2026-11-05 make team mode the only mode in the shipped skills (CW-58) (#131)
 
 Merged 2026-11-05 23:35 UTC.
