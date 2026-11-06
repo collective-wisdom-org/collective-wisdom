@@ -112,7 +112,7 @@ Backlog ranking
 
 ## Ranking child
 
-When § Backlog pick "Dry ranking" or `backlog` runs a ranking, or its child fails or finishes, read `reference.md` § Ranking child: the start steps, the task text and the failure rules. The Chief of Staff never runs § Backlog ranking itself, and it runs only from there. An empty list is saved only after the Chief of Staff counts the Backlog (`reference.md` § Ranking child, step 3).
+When § Backlog pick "Dry ranking" or `backlog` runs a ranking, or its child fails or finishes, read `reference.md` § Ranking child: the start steps, the task text and the failure rules. The Chief of Staff never runs § Backlog ranking itself, and it runs only from there. An empty list needs a Backlog count first (`reference.md` § Ranking child, step 3).
 
 ## Stale tickets
 
