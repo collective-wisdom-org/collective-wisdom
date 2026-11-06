@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-06 install the agent team once per machine (CW-160) (#164)
+
+Merged 2026-11-06 22:17 UTC.
+
+Install the agent team once per machine with `./install.sh` from a clone of collective-wisdom (no target path). Every repo with a `docs/agents/project.md` then runs that clone's skills and scripts; update by checking out a newer release in the clone and running `./install.sh` again. Apps keep their copied files until the follow-on change removes them, but from this release on the copied skills call `~/.collective-wisdom/scripts/`, so an app updated the old way also needs the machine install on each machine.
+
+Context size: 284185 to 288628 characters (+4443 from main, all from the `~/.collective-wisdom/` path prefix on script calls)
+
 ## 2026-11-06 reject an empty Backlog ranking when the Backlog has tickets (CW-150) (#158)
 
 Merged 2026-11-06 20:58 UTC.
