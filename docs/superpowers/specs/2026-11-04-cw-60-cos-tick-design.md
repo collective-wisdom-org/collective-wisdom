@@ -1,6 +1,6 @@
 # CW-60: A cos_tick.py that prints the tool calls a Chief of Staff turn needs
 
-**Ticket:** [CW-60](https://github.com/dbeallor/collective-wisdom/issues/60)
+**Ticket:** [CW-60](https://github.com/collective-wisdom-org/collective-wisdom/issues/60)
 **Status:** Draft
 
 ## Goal
@@ -9,14 +9,14 @@ The Chief of Staff (Sonnet) stops working out from prose which children to read,
 
 ## Today
 
-Facts from `main` at `57e7470`, checked 2026-11-04.
+Facts from `main` at `e91b9a4`, checked 2026-11-06.
 
-- `agent-team/.claude/skills/chief-of-staff/SKILL.md` is 555 lines, 65 KB. § Full pass (8 steps), § Slot fill (gate plus loop) and § Lean turns (reads, writes, notice turns, idle check, reports) say in which order and under which conditions to run `cos_state.py`, `cos_sweep.py`, `cos_idle_check.py`, `t3_thread_read`, `t3_pending_request`, `t3_thread_send`, `t3_thread_configure`, `delegate_task` and the tracker.
-- 14 `cos_*.py` scripts each decide one thing. None decides the order of a turn. `cos_sweep.py` is the only one that runs others.
+- `agent-team/.claude/skills/chief-of-staff/SKILL.md` is 622 lines, 83 KB. § Full pass (steps 1 to 8, with 6a Observe), § Slot fill (gate plus loop) and § Lean turns (reads, writes, notice turns, idle check, reports) say in which order and under which conditions to run `cos_state.py`, `cos_sweep.py`, `cos_idle_check.py`, `t3_thread_read`, `t3_pending_request`, `t3_thread_send`, `t3_thread_configure`, `delegate_task` and the tracker.
+- 16 `cos_*.py` scripts each decide one thing. None decides the order of a turn. `cos_sweep.py` is the only one that runs others: the merged, ready, parent, untracked and review checks.
 - The lane limits (spec 2, build 2, merge 1, overall 5) exist only as prose in § Lanes. No script knows them. `cos_state.py show` prints the counts and the queues sorted by `queuedAt`.
 - The intro's retired-thread and failed-handoff checks, § Full pass step 4 (rate-limit wake and clearing), step 5 (hygiene child when `pm.lastDailyAt` is over 24 hours old), and § Rotation check (archive, then `cos_rotation_check.py` last) all decide from state alone.
-- Decisions that need a tool result first: a child's marker (`SPEC READY` and so on) needs its thread read; the stuck check needs the run status and the wait check; the sweep and idle check name more children to read; the Todo start needs `list-tickets` and the readiness check.
-- 21 pointers in other files name § Full pass, § Slot fill or § Lean turns (`rotation.md` 4, `startup.md` 4, `ticket-helper.md` 3, `state-keys.md` 2, `status.md` 1, `project-manager/SKILL.md` 2, `project-manager/reference.md` 4, one old spec). `test_section_pointers.py` fails on a pointer to a heading that is gone.
+- Decisions that need a tool result first: a child's marker (`SPEC READY` and so on) needs its thread read; the stuck check needs the run status and the wait check; a `BLOCKED:` merge child needs `pr view --json mergeable`; the sweep and idle check name more children to read; the sweep's review lines (`approved`, `changes`, `moved`, `closed`) and untracked lines are acted on with no thread read; the observe step needs the sighting lines the turn wrote; the Todo start needs `list-tickets` and the readiness check.
+- 28 pointers in other shipped files name § Full pass, § Slot fill or § Lean turns (`rotation.md` 6, `ticket-helper.md` 5, `startup.md` 4, `state-keys.md` 3, `approvals.md` 1, `status.md` 1, `project-manager/SKILL.md` 4, `project-manager/reference.md` 4), and SKILL.md names them 35 times itself. `test_section_pointers.py` checks skills, `docs/agents` and `templates`, and fails on a pointer to a heading that is gone. Specs, plans and as-builts under `docs/superpowers/` are history and are not checked.
 
 ## Design
 
@@ -53,6 +53,7 @@ Numbered lines, one tool call or one named step each. Arguments come from state.
 | `idle-read <PREFIX>-N <child>` | `t3_thread_read` with `limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`. |
 | `run <command>` | A Bash call, written out in full with `AGENT_GH_ROLE=chief-of-staff` where the script calls `gh.sh`, and `<<'EOF'` where it takes stdin (the idle check gets the `idle-read` results). |
 | `each full: read` | For each `full` line of the idle check and each ticket on the sweep's `read in full:` line not already read this turn: a `read` line, then § Child path. |
+| `each sweep line` | The sweep's `merged`, review (`approved`, `changes`, `moved`, `closed`, `unreadable`) and `untracked` lines, as § Sweep and § Merged check say. Printed right after `each full: read`. |
 | `helper-test <thread>` | ticket-helper.md § Helper test (notice for a thread not in `tickets`). |
 | `delete-wake <id>`, `schedule-wake everyMs=<ms>`, `clear-rate-limit` | § Rate limit. `schedule-wake` is printed when `rateLimitedAt` is set, `wakeTaskId` is null and `wakeAt` is in the future; `clear-rate-limit` when `wakeAt` is past. |
 | `hygiene` | project-manager/reference.md § Hygiene child. Printed on `start`, and on `user` and `wake` when `pm.lastDailyAt` is null, malformed or over 24 hours old, never while `paused` or `rateLimitedAt` is set. |
@@ -66,23 +67,24 @@ Numbered lines, one tool call or one named step each. Arguments come from state.
 | `start-todo` | One Todo start: `list-tickets` once per turn, then § Readiness check and start on the next startable ticket, then `project-manager` § Backlog pick when Todo has none. Printed once per free spec slot. |
 | `archive <thread>` | rotation.md § Thread rotation "Archiving", for a `retiredThreads` entry without `archivedAt`. |
 | `run python3 scripts/cos_rotation_check.py` | Always the last tool call. |
-| `report` | § Report format, only if the turn changed what the user sees. The script also prints the slot-fill stop reason (`lanes full`, `nothing queued`, or `spec slot free`) so the `Filling stopped:` line names it. |
+| `observe` | § Full pass step 6a, moved into § Child path: one `observe` op per sighting line the turn is about to report, and an observation helper on `file`. Printed before `report`, and not while `paused`, `rateLimitedAt` or `rotation` is set. |
+| `report` | § Report format, only if the turn changed what the user sees. The script also prints why the slot fill stopped (`lanes full` or `spec slot free`), so the `Filling stopped:` line can follow § Report format. |
 
 ### What each trigger plans
 
 Look plan:
 
 - Every trigger: the retired and failed-handoff checks from state (the SKILL.md intro rules), with `--thread`. `paused` stops after them, except `status`.
-- `start`, `user`, `wake` (full pass): `read` and `pending` for every ticket in `spec`, `build` or `merge`; then the sweep; then `each full: read`.
-- `notice:<thread>` for an active ticket's child: `read` and `pending` for it; `idle-read` for every other active child; the idle check with `--skip <that ticket>`; the sweep; `each full: read`.
+- `start`, `user`, `wake` (full pass): `read` and `pending` for every ticket in `spec`, `build` or `merge`; then the sweep; then `each full: read` and `each sweep line`.
+- `notice:<thread>` for an active ticket's child: `read` and `pending` for it; `idle-read` for every other active child; the idle check with `--skip <that ticket>`; the sweep; `each full: read`; `each sweep line`.
 - `notice:<thread>` for a ticket not in an active stage (cancelled, queued, awaiting, blocked): its own steps are skipped; idle reads, idle check, sweep as above.
 - `notice:<thread>` for a thread not in `tickets`: `helper-test`, then as above.
-- `status`: idle reads for every active child, the idle check, the sweep, `each full: read`. Its act plan is only the rotation check, unless a read changed a stage; then the model runs `--after-reads` for the slot fill.
+- `status`: idle reads for every active child, the idle check, the sweep, `each full: read`, `each sweep line`. Its act plan is only the rotation check, unless a read changed a stage; then the model runs `--after-reads` for the slot fill.
 
 Act plan:
 
-- Full pass: rate-limit lines, `hygiene`, `prune`, slot fill, `archive`, rotation check, `report`.
-- Notice: slot fill, `archive`, rotation check, `report`.
+- Full pass: rate-limit lines, `hygiene`, `prune`, slot fill, `observe`, `report`, `archive`, rotation check.
+- Notice: slot fill, `observe`, `report`, `archive`, rotation check.
 - Slot fill, from state: skipped when `paused` or `rateLimitedAt` is set. Otherwise loop while the overall count is under the cap: take the first lane, in the order merge, build, spec, that has a free slot and a queued ticket (oldest `queuedAt`), and print its pre-steps and `send` (or `continuation`); count it as moved. Then one `start-todo` per remaining free spec slot. The look plan already read or idle-checked every active child, so the gate's lane-full idle check is never needed again inside a tick.
 
 ### Where the lane limits live
@@ -94,21 +96,21 @@ Act plan:
 In `agent-team/.claude/skills/chief-of-staff/SKILL.md`:
 
 - § Full pass and § Slot fill are replaced by one § Tick section: the two calls, the rerun rule, and the plan-line table above. That section is the only order the turn follows.
-- New § Child path holds the judgement that stays with the model, taken from § Full pass steps 2 to 4: reading the markers and the stage op for each, the `nextPosition` write, the pending request, the stuck check with the wait check and the restart message, and how a rate-limit error sets `rateLimitedAt` and its reset time.
+- New § Child path holds the judgement that stays with the model, taken from § Full pass steps 2 to 4 and 6a: reading the markers and the stage op for each (with the review check route for `MERGE READY` and the mergeable read for a `BLOCKED:` merge child), the `nextPosition` write, the pending request, the stuck check with the wait check and the restart message, how a rate-limit error sets `rateLimitedAt` and its reset time, and the observe kinds.
 - § Rate limit holds the judgement part of step 4: reset time from T3's run error only, the 3-minute to 6-hour bounds, and resuming tickets blocked by a rate limit with `rateLimitResumes` below 3.
 - § Lean turns keeps Reads, Writes and Reports. Its Notice turns and Idle check bullets go: the script plans those now.
 - The intro's per-trigger bullets shrink to "run the tick with this trigger".
-- Every pointer to § Full pass, § Slot fill or § Lean turns "Notice turns" in the other files moves to § Tick, § Child path or § Rate limit, so `test_section_pointers.py` passes.
-- The readiness check, the approval brief, § Send or queue, § Commands, § Report format and the reference files stay prose.
+- Every pointer to § Full pass, § Slot fill or § Lean turns "Notice turns" in the shipped files (the 28 above and SKILL.md's own) moves to § Tick, § Child path or § Rate limit, so `test_section_pointers.py` passes. Old specs and plans keep their pointers.
+- The readiness check, the approval brief, § Send or queue, § Sweep (its line table), § Merged check, § Adopt, § Commands, § Report format and the reference files stay prose.
 
 ### Tests
 
 `agent-team/scripts/test_cos_tick.py`, table-driven over fixture states:
 
-- A notice turn: the read, pending, idle reads, idle check, sweep and `tick --after-reads` lines, for an active child, a cancelled ticket and an unknown thread.
+- A notice turn: the read, pending, idle reads, idle check, sweep, `each sweep line` and `tick --after-reads` lines, for an active child, a cancelled ticket, a ticket in `awaiting-review` and an unknown thread.
 - A user turn: one read per active child, the sweep, and the hygiene line when due and not when fresh.
 - A start-up turn: setup lines with empty state; the resume-mode line with tickets.
-- The act plan: merge before build before spec, oldest `queuedAt` first, limits and cap respected across several sends, the pre-steps for a spec approval and a merge approval, `continuation` for a ticket under an older thread, nothing when `paused` or rate limited, `start-todo` count.
+- The act plan: merge before build before spec, oldest `queuedAt` first, limits and cap respected across several sends, the pre-steps for a spec approval and a merge approval, `continuation` for a ticket under an older thread, nothing when `paused` or rate limited, `start-todo` count, `observe` before `report` and not while rate limited.
 - Retired, failed-handoff and paused stops.
 
 ## Calls I made
@@ -122,6 +124,9 @@ In `agent-team/.claude/skills/chief-of-staff/SKILL.md`:
 - The gate's lane-full idle check is dropped inside a tick, since every trigger that fills already read or idle-checked every active child. It changes nothing a turn does today.
 - § Lean turns Reads, Writes and Reports stay. They are how to make a call, not which calls to make.
 - `cos_tick.py` writes nothing. State writes stay with `cos_state.py apply`, run by the model.
+- The sweep's review and untracked lines stay with the model as one `each sweep line` step. They come from the sweep's output, which the script never sees, and § Sweep's table already says what each line does.
+- `observe` is a plan line, not script logic. The script can't see which sighting lines the turn wrote, only whether the step may run.
+- `report` now comes before `archive` and the rotation check, so the rotation check stays the last tool call. Today step 7 (report) also comes before step 8 (rotate).
 
 ## Leaves out
 
