@@ -18,6 +18,8 @@ On `MERGE READY`:
 2. Check that `head:` says it matches the reported SHA, and that the two PASS links in the review lines are the ones the child reported. If either is off or a review says `not posted`, send the child back with `t3_thread_send`: `CHIEF OF STAFF: <the mismatch>. Fix it and report MERGE READY again.` Set the stage back to `build`. Don't ask the user yet.
 3. Build the block from the child's `MERGE READY` report and that output. When the `head moved by merging <target>` line is there, the merge block's Reviews line ends with `(head moved by a <target> merge only since <short SHA>; PR diff unchanged)`. Name each `migrations:` clash and `flag:` line under Risks; flags are hints, so still name anything else you know touches data, money, auth, user email or migrations.
 
+In `ci` mode (`docs/agents/project.md` § Review), `cos_brief.py pr` prints `ci: green at <full head SHA>` (or `ci: not green at <full head SHA>`) and a `ci-review: #N <bot>: F fixed, A answered and resolved, U unresolved` line in place of the two review lines, and no `head moved` line. In step 2, check `head:` and that `ci:` says green; a `ci-review:` line with U above 0, or `ci: not green`, sends the child back the same way. In step 3, the merge block's Reviews line is `Reviews: CI green at <short sha>, CI review <F fixed, A answered and resolved, U unresolved>`.
+
 Spec block:
 
 ```

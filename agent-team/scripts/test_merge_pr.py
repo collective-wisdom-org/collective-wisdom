@@ -136,6 +136,65 @@ def test_gate_uses_the_merge_target_branch(tmp_path, monkeypatch, row, base, roo
     assert reason is None if cause is None else cause in reason
 
 
+BOT_THREAD = {"path": "a.py", "line": 3, "url": "https://github.com/o/r/pull/7#discussion_r1", "id": "PRRT_1"}
+
+
+@pytest.mark.parametrize(
+    "facts, cause",
+    [
+        ({}, "no Code review"),  # no Review mode row: the agent reviews are still required
+        ({"reviewMode": "agents", "ciBot": "bot", "ciThreads": []}, "no Code review"),
+        ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": []}, None),  # no review comments needed
+        ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": [BOT_THREAD]}, "unresolved CI review thread by bot: a.py:3 https://github.com/o/r/pull/7#discussion_r1"),
+        ({"reviewMode": "ci", "ciBot": None, "ciThreads": []}, "Review mode is ci but has no CI review bot login"),
+        ({"reviewMode": "ci", "ciBot": "bot", "ciThreads": [], "statusCheckRollup": []}, "no checks"),  # the other gates stay
+        ({"reviewMode": "ci", "ciBot": "bot"}, "CI review threads not read"),  # a missing read never passes
+    ],
+)
+def test_gate_review_mode(facts, cause):
+    f = green()
+    f["comments"] = []
+    f.update(facts)
+    reason = merge_pr.gate(f)
+    assert (reason is None) if cause is None else (cause in reason)
+
+
+@pytest.mark.parametrize(
+    "rows, threads, code, want",
+    [
+        ("", [], 1, "no Code review"),
+        ("| Review mode | `ci` |\n| CI review bot login | `Bot[bot]` |\n", [], 0, "merged #7"),
+        ("| Review mode | `ci` |\n| CI review bot login | `Bot[bot]` |\n", [{"id": "PRRT_1", "isResolved": False, "path": "a.py", "line": 3,
+          "head": {"nodes": [{"author": {"login": "bot"}, "url": BOT_THREAD["url"]}]}}], 1, "unresolved CI review thread by bot: a.py:3"),
+        ("| Review mode | `ci` |\n", [], 1, "has no CI review bot login"),
+        ("| Review mode | `cii` |\n", [], 2, "'Review mode' row must be one of"),
+    ],
+)
+def test_main_review_mode(tmp_path, monkeypatch, capsys, rows, threads, code, want):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Repo | `other/repo` |\n" + rows)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    f = green()
+    f["comments"] = []
+    runner, calls = fake(copy.deepcopy(f))
+    gql = json.dumps({"data": {"repository": {"pullRequest": {"reviewThreads": {"pageInfo": {"hasNextPage": False}, "nodes": threads}}}}})
+    monkeypatch.setattr(merge_pr, "publish", lambda *a: None)
+    graphql = []
+
+    def run(cmd, input=None):
+        if "graphql" in cmd:
+            graphql.append(cmd)
+            return gql
+        return runner(cmd)
+
+    assert merge_pr.main(["7", f["approved"]], run) == code
+    # The gate reads threads from gh's own repo (the checkout's remote), never the project.md Repo row.
+    assert all("owner=:owner" in c and "name=:repo" in c for c in graphql)
+    assert bool(graphql) == ("`ci`" in rows and "bot login" in rows)
+    assert want in capsys.readouterr().out
+    assert any("PUT" in c for c in calls) == (code == 0)
+
+
 def fake(f):
     """A runner that serves reads from facts f and records every call."""
     calls = []
@@ -396,6 +455,20 @@ def test_failed_publish_keeps_the_merge_result(capsys):
     assert merge_pr.main(["7", f["approved"]], runner) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[-2].startswith("merge-pr: warn ") and out[-1].startswith("merge-pr: merged #7")
+
+
+@pytest.mark.parametrize("row, notes_on", [("", True), ("on", True), ("off", False), ("OFF", False), ("maybe", True)])
+def test_release_notes_setting(tmp_path, monkeypatch, row, notes_on):
+    """Only an `off` row drops the release note gate and the publish step."""
+    md = tmp_path / "project.md"
+    md.write_text("| Owner login | `me` |\n" + (f"| Publish release notes | `{row}`. text |\n" if row else ""))
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    bare = dict(green(), body="## Proof\n\nNot proven: nothing\n", notesOn=merge_pr.project_config.release_notes_enabled())
+    assert ("Release note" in merge_pr.gate(bare)) if notes_on else merge_pr.gate(bare) is None
+    published = []
+    monkeypatch.setattr(merge_pr, "publish", lambda *a: published.append(a))
+    f = green()
+    assert merge_pr.main(["7", f["approved"]], fake(f)[0]) == 0 and bool(published) == notes_on
 
 
 def verdict(who, state, at, oid=HEAD, assoc="COLLABORATOR"):

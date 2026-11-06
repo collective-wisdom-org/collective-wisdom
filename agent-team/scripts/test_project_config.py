@@ -168,3 +168,26 @@ def test_approval_setting_follows_the_target(tmp_path, monkeypatch, target, comm
         ]
     if target.startswith(("feat/", "-")):
         assert calls == [listing]
+
+
+@pytest.mark.parametrize(
+    "rows, mode, bot",
+    [
+        ("| Repo | `me/thing` |\n", "agents", None),
+        ("| Review mode (`agents` or `ci`) | TODO(owner) |\n", "agents", None),
+        ("| Review mode (`agents` or `ci`) | `agents`. `ci` uses the bot |\n", "agents", None),
+        ("| Review mode (`agents` or `ci`) | `CI` |\n| CI review bot login (`ci` mode only) | `Some-Bot[bot]` |\n", "ci", "some-bot"),
+        ("| Review mode | `ci` |\n| CI review bot login | none (or the login in backticks) |\n", "ci", None),
+        ("| Review mode | `ci,agents` |\n", SystemExit, None),
+    ],
+)
+def test_review_mode_and_bot(tmp_path, monkeypatch, rows, mode, bot):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + rows)
+    monkeypatch.setenv("PROJECT_MD", str(md))
+    assert project_config.ci_bot() == bot
+    if mode is SystemExit:
+        with pytest.raises(SystemExit, match="Review mode"):
+            project_config.review_mode()
+    else:
+        assert project_config.review_mode() == mode

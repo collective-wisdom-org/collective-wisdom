@@ -18,7 +18,7 @@ The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads t
 
 ## PR gate
 
-Security findings are posted as PR issue comments (`## Security review (pass N)` … **Verdict:** `PASS` or `CHANGES NEEDED`). Merge requires the latest security review **PASS** plus code review **PASS** (see **merge-pr**).
+Security findings are posted as PR issue comments (`## Security review (pass N)` … **Verdict:** `PASS` or `CHANGES NEEDED`). Merge requires the latest security review **PASS** plus code review **PASS** (see **merge-pr**). In `ci` review mode (`project.md` § Review) neither agent review runs; see `open-pr` § CI review mode.
 
 ## Built-in review commands
 

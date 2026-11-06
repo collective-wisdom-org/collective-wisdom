@@ -31,6 +31,8 @@ After phase 2, the next step is **phase 3** (open PR + code review loop in the s
 
 Do not stop after opening the PR, after CI passes, or after code review **PASS**; continue **security-review** through security **PASS** before reporting `MERGE READY`.
 
+**Review mode.** When `docs/agents/project.md` § Review sets `Review mode` to `ci`, a review bot in CI replaces the code and security reviewer agents. Phase 3 then ends when CI is green on the head and `./scripts/ci_review.py list <N>` exits 0 on that head (`open-pr` § CI review mode), and phase 4 does not run. The rest of the gate table, and the paragraphs above about code review and security review **PASS**, apply with that substitution. A missing row or `agents` keeps the gates above; any other value is an error, not `agents`.
+
 ## Phases (required skills)
 
 ### 1. Spec
@@ -107,11 +109,20 @@ Not proven: <the PR's Not proven list, copied as is, or "nothing">
 
 "Reviews needed" comes from `./scripts/gh.sh pr view <N> --json reviewRequests`: each requested user as their login and each requested team as `@<slug>` (GitHub's slug already includes the org, like `acme/core`), comma-separated, or "none" when the list is empty. It tells the user who GitHub is waiting on. It does not say whether a teammate already approved, and `scripts/merge_pr.py` reads the reviews again at merge. With `Require teammate approval` `on`, only a review from an owner, member or collaborator of the repo counts there.
 
+In `ci` mode there are no review comments, so the review check above does not apply. Replace the two review link lines with these, using the last `wait-for-ci.sh` and `ci_review.py list <N>` results on the current head:
+
+```
+CI: green at <full head SHA>
+CI review: <F> fixed, <A> answered and resolved, <U> unresolved
+```
+
+`Reviews found and fixed` lists the bot findings you fixed, and `Docs checked` comes from your own docs check. The exception for a head moved by merging the merge target branch does not apply: after the merge, wait for CI and run `list` again on the new head.
+
 "Proof" links the PR body's `## Proof` section (`open-pr` § Proof), and "Not proven" is that section's `Not proven` list, copied word for word: it must match the PR body.
 
 ### 5. Merge
 
-**Invoke:** `merge-pr` (read and follow in full) **only** after a merge approval (§ Approvals), never agent-initiated. **Prerequisite:** phases 3 and 4 complete (code review **PASS** and security review **PASS** on that PR). If a merge is approved but either review did not run or its verdict is not **PASS**, run the missing phase first; do not merge.
+**Invoke:** `merge-pr` (read and follow in full) **only** after a merge approval (§ Approvals), never agent-initiated. **Prerequisite:** phases 3 and 4 complete (code review **PASS** and security review **PASS** on that PR; in `ci` mode, phase 3 complete per § Phase gates and no phase 4). If a merge is approved but either review did not run or its verdict is not **PASS**, run the missing phase first; do not merge.
 
 A head other than the approved one means `BLOCKED: head moved after approval`: the user approves again (§ Approvals) after `MERGE READY` is reported again.
 
@@ -119,7 +130,7 @@ A head other than the approved one means `BLOCKED: head moved after approval`: t
 
 ### 6. Close
 
-Usually nothing left: the spec's `**Shipped:**` line, any as-built and the PR body's release note already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; `**Shipped:** in PR #N` is dateless; the index is generated, so there are no rows to fix.
+Usually nothing left: the spec's `**Shipped:**` line, any as-built and the PR body's release note (if any) already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; `**Shipped:** in PR #N` is dateless; the index is generated, so there are no rows to fix.
 
 If a closeout doc is wrong after merge, fix it via a normal PR, not a direct commit on the merge target branch.
 
@@ -189,4 +200,4 @@ If the provider rate-limits you, stop with `BLOCKED: rate limited`.
 
 ## Running one phase by hand
 
-The user can start at a phase by name (spec or kickoff, build, make a pr or handle review, security review, merge). Start there, but warn if the earlier phase's gate isn't met (e.g. a PR without a spec; security review without code review **PASS**; merge without security review **PASS**). In a hand run, a merge that starts without a `MERGE READY` of its own in the thread runs the missing phases, reports `MERGE READY` and waits for an approval sent after it.
+The user can start at a phase by name (spec or kickoff, build, make a pr or handle review, security review, merge). Start there, but warn if the earlier phase's gate isn't met (e.g. a PR without a spec; security review without code review **PASS**; merge without security review **PASS**; in `ci` mode, merge with an unresolved bot thread or red checks). In a hand run, a merge that starts without a `MERGE READY` of its own in the thread runs the missing phases, reports `MERGE READY` and waits for an approval sent after it.

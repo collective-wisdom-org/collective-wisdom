@@ -65,6 +65,11 @@ def no_ci():
     return bool(re.match(r"`?none\b", cell, re.I))
 
 
+def release_notes_enabled():
+    """False only when the `Publish release notes` row says `off` (any case). A missing row or any other value is True."""
+    return (value("Publish release notes") or "").lower() != "off"
+
+
 def prefix():
     """Issue identifier prefix, e.g. GORP. Raises if project.md doesn't give one."""
     p = value("Issue identifier prefix")
@@ -139,6 +144,33 @@ def target_branch():
 def target_ref():
     """The merge target branch as a full remote-tracking ref name, so a tag named origin/<branch> cannot win."""
     return f"refs/remotes/origin/{target_branch()}"
+
+
+REVIEW_MODES = ("agents", "ci")
+
+
+def review_mode():
+    """`agents` or `ci` from the `Review mode` row. A missing or unset row reads as agents.
+
+    Any other value raises SystemExit, so a typo cannot quietly drop a review gate. Callers treat that as a failed read.
+    """
+    v = value("Review mode")
+    if v is None:
+        return "agents"
+    if v.lower() not in REVIEW_MODES:
+        raise SystemExit(f"project.md: 'Review mode' row must be one of {', '.join(REVIEW_MODES)}, got `{v}`")
+    return v.lower()
+
+
+def bot_name(login):
+    """A GitHub login without a `[bot]` suffix, lower case."""
+    return re.sub(r"\[bot\]$", "", login.strip(), flags=re.I).lower()
+
+
+def ci_bot():
+    """The `CI review bot login` row as bot_name() gives it, or None when unset."""
+    v = value("CI review bot login")
+    return (bot_name(v) or None) if v else None
 
 
 TOLERANCES = ("strict", "balanced", "permissive")

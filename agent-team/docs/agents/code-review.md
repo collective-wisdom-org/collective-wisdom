@@ -20,4 +20,6 @@ When the brief says the diff is `small` (`open-pr` § Review scope), also review
 - Never approve or request changes on GitHub. No `gh pr review`.
 - Never edit files, commit or push.
 
+In `ci` review mode (`project.md` § Review) this review does not run; the CI review bot replaces it (`open-pr` § CI review mode).
+
 The comment heading, the `Docs checked:` line, pass numbering, verdict wording and the posting command stay in `open-pr` § Agent review comment loop. The child writes the comment from your findings.
