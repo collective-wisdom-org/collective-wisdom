@@ -3,7 +3,7 @@ name: build-from-plan
 description: >-
   Implements an approved plan from the feature worktree with scoped tests
   and verification. Use when the user says implement the plan, execute tasks,
-  yes after plan approval, or build the feature.
+  or build the feature.
 user-invocable: true
 ---
 
@@ -13,8 +13,8 @@ Before acting, read **ship-loop** § Repo invariants.
 
 ## Preconditions
 
-1. Confirm **cwd** is the feature worktree, not root on `main`.
-2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user).
+1. Confirm **cwd** is the feature worktree, not root on the merge target branch.
+2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user). A ticket that changes only markdown files has no plan; build from the spec.
 3. Stay within `AGENTS.md` scope.
 
 ## Execution
@@ -42,16 +42,18 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 
 ## Git
 
-- **Do not commit** unless the user explicitly asks.
-- No force-push to `main`.
+- Commit and push as tasks finish.
+- Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
+- No force-push to the merge target branch.
+
+## Compaction pass
+
+After the last task passes, run `python3 scripts/compact_check.py` and keep its totals for **open-pr**. After a compacter run, take them from a re-run once its edits are committed.
+
+- `compact: skip`: go on. Exit 2: run it once more; a second exit 2 is `BLOCKED:` (`ship-loop` § Blocked).
+- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`, foreground; if the type isn't listed, a general Sonnet subagent told `Read docs/agents/compacter.md and follow it.`) with the base `origin/<target>` and the output.
+- Then check `git status` lists only files from the output, run the `project.md` test command, and revert any hunk that drops or changes a rule. Commit `docs: compact agent text for <PREFIX>-N` and push.
 
 ## When all tasks pass
 
-Read and follow **finishing-a-development-branch**, or prompt: *"make a pr"* → **open-pr** (open + feedback loop).
-
-## Team mode
-
-When the task says `TEAM MODE`, follow `ship-loop` § Team mode. Overrides:
-
-- Commit and push as tasks finish. The "Do not commit unless the user asks" rule is lifted. Never push to `main`. Push only this ticket's `feat/<prefix>-N-*` branch.
-- Don't offer a choice at the end. Go straight to **open-pr**.
+Go straight to **open-pr** (open + feedback loop). Don't offer a choice.

@@ -18,7 +18,9 @@ is unset or the session has no transcript or no requests.
 --ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
 N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
 worktree sessions with a git branch feat/<prefix>-N or feat/<prefix>-N-..., plus their
-subagents, ignores --since and --until, and exits 2 when nothing matches.
+subagents, ignores --since and --until, and exits 2 when nothing matches. When project.md
+sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
+API-equivalent (P% of the subscription), ...".
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
 subagent transcripts next to each session. A dir without "worktrees" in its
@@ -44,6 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
+import project_config  # noqa: E402
 
 
 def project_name(root=None):
@@ -62,12 +65,12 @@ def project_name(root=None):
 # Claude Code names a transcript dir after the checkout path, so the main checkout's directory name matches it.
 PROJECT = project_name()
 
-# $/MTok: input, output, cache read, cache write 1h, cache write 5m
+# $/MTok: input, output, cache read, cache write 1h, cache write 5m. The numbers live in prices.json,
+# which the agent-gantt mod reads too.
+_RATES = ("input", "output", "read", "write_1h", "write_5m")
 PRICES = {
-    "opus": (4, 20, 0.20, 8, 5),
-    "sonnet": (2, 10, 0.20, 4, 2.5),
-    "haiku": (0.10, 0.50, 0.01, 0.20, 0.125),
-    "fable": (10, 50, 0.25, 20, 12.5),
+    fam: tuple(rates[k] for k in _RATES)
+    for fam, rates in json.loads(Path(__file__).with_name("prices.json").read_text()).items()
 }
 KINDS = ("input", "output", "read", "write")
 ROOT = "root "  # prefix of root-checkout session rows
@@ -203,9 +206,9 @@ def stage_at(relays, ts, stage="spec"):
     for t, body in relays:
         if t > ts:
             break
-        if body.startswith("CHIEF OF STAFF: the user approved the spec"):
+        if body.startswith(("CHIEF OF STAFF: the user approved the spec", "CHIEF OF STAFF: auto-approved the spec")):
             stage = "build"
-        elif body.startswith("CHIEF OF STAFF: the user approved the merge"):
+        elif body.startswith(("CHIEF OF STAFF: the user approved the merge", "CHIEF OF STAFF: auto-approved the merge")):
             stage = "merge"
         else:
             m = re.search(r"[Cc]ontinue the (spec|build|merge) stage", body)
@@ -214,8 +217,19 @@ def stage_at(relays, ts, stage="spec"):
     return stage
 
 
-def ticket_line(projects, ticket):
-    """The --ticket line for a ticket like CW-57, or None when no worktree session ran its branch."""
+def share(cost, usage):
+    """` (P% of the subscription)` for a cost against the subscription's API-equivalent usage, or "" when usage is unset."""
+    if not usage:
+        return ""
+    pct = cost / usage * 100
+    return f" ({'<0.01' if 0 < pct < 0.005 else f'{pct:.2f}'}% of the subscription)"
+
+
+def ticket_line(projects, ticket, usage=None):
+    """The --ticket line for a ticket like CW-57, or None when no worktree session ran its branch.
+
+    usage is the subscription's API-equivalent dollars; when set, the cost part also shows the share of it.
+    """
     own = re.compile(r'"gitBranch":"feat/' + re.escape(ticket.lower()) + r'[-"]')
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
     tokens, runs, times = 0, 0, []
@@ -246,8 +260,9 @@ def ticket_line(projects, ticket):
         return None
     times = [t for t in times if t]
     wall = int((max(times) - min(times)).total_seconds() // 60) if times else 0
+    total = sum(spent.values())
     return (
-        f"cost ${sum(spent.values()):.2f} API-equivalent, {tokens / 1e6:.1f}M tokens, "
+        f"cost ${total:.2f} API-equivalent{share(total, usage)}, {tokens / 1e6:.1f}M tokens, "
         f"spec ${spent['spec']:.2f} / build ${spent['build']:.2f} / merge ${spent['merge']:.2f}, "
         f"{runs} child run{'s' * (runs != 1)}, wall {wall // 60}h {wall % 60:02d}m"
     )
@@ -287,7 +302,11 @@ def main():
         print(context_line(args.projects))
         return
     if args.ticket:
-        found = ticket_line(args.projects, args.ticket)
+        try:
+            usage = project_config.subscription_usage("Claude")
+        except Exception:  # an unreadable project.md reads as unset
+            usage = None
+        found = ticket_line(args.projects, args.ticket, usage)
         if not found:
             print(f"agent_usage: no transcripts for {args.ticket}", file=sys.stderr)
             raise SystemExit(2)

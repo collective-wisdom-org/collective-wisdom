@@ -1,0 +1,14 @@
+{
+  "name": "status-pane",
+  "version": "0.1.0",
+  "description": "A pane beside the chat that shows the Chief of Staff status: tickets by group, with their titles, and subagents.",
+  "userConfig": {
+    "autoOpen": {
+      "type": "boolean",
+      "title": "Open on session start",
+      "description": "Open the pane when a session starts. Off by default; /status-pane opens it.",
+      "default": false
+    }
+  },
+  "types": "./types/index.d.ts"
+}

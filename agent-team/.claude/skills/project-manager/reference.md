@@ -71,12 +71,11 @@ Task:
 PROJECT MANAGER HYGIENE. One-shot.
 
 Read .claude/skills/project-manager/SKILL.md and run § Hygiene pass for team
-<TEAM>, from the root checkout on main.
+<TEAM>, from the root checkout on the merge target branch.
 
 Rules:
 - Tracker writes: only what that skill's § Guardrails allows the hygiene pass
   (empty priority and labels, the two state-drift moves, duplicate comments).
-  Every ./scripts/gh.sh call and tracker operation carries AGENT_GH_ROLE=chief-of-staff.
 - GitHub: ./scripts/gh.sh pr list and GET requests only, plus the tracker
   writes above through the adapter's operations.
 - State: read with python3 scripts/cos_state.py show and get --pm. Write only

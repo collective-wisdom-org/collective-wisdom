@@ -182,16 +182,31 @@ TICKET_LINE = (
 )
 
 
+def shared(pct):
+    return TICKET_LINE.replace("API-equivalent,", f"API-equivalent ({pct} of the subscription),")
+
+
+# usage is the Value cell of the project.md subscription row; None leaves the row out.
 @pytest.mark.parametrize(
-    "ticket, want",
+    "ticket, usage, want",
     [
-        ("CW-57", TICKET_LINE),
-        ("cw-57", TICKET_LINE),
-        ("CW-99", 2),  # no sessions
-        ("CW57", 2),  # not an ID
+        ("CW-57", None, TICKET_LINE),
+        ("cw-57", None, TICKET_LINE),
+        ("CW-57", "`12000`", shared("0.16%")),  # $19.20 of $12000
+        ("CW-57", "`1000000`", shared("<0.01%")),
+        ("CW-57", "`none`", TICKET_LINE),
+        ("CW-57", "`0`", TICKET_LINE),
+        ("CW-57", "`-5`", TICKET_LINE),
+        ("CW-57", "`abc`", TICKET_LINE),
+        ("CW-57", "`12,000`", TICKET_LINE),
+        ("CW-99", None, 2),  # no sessions
+        ("CW57", None, 2),  # not an ID
     ],
 )
-def test_ticket_line(tmp_path, capsys, monkeypatch, ticket, want):
+def test_ticket_line(tmp_path, capsys, monkeypatch, ticket, usage, want):
+    cfg = tmp_path / "project.md"
+    cfg.write_text("| Key | Value |\n|---|---|\n" + (f"| Claude subscription API-equivalent usage (dollars) | {usage} |\n" if usage else ""))
+    monkeypatch.setenv("PROJECT_MD", str(cfg))
     t3, b = "t3/abc", "feat/cw-57-foo"
     wt = tmp_path / f"-Users-x--t3-worktrees-{agent_usage.PROJECT}-t3-aaa"
     (wt / "s1" / "subagents").mkdir(parents=True)
@@ -226,3 +241,24 @@ def test_ticket_line(tmp_path, capsys, monkeypatch, ticket, want):
         return
     agent_usage.main()
     assert capsys.readouterr().out.strip() == want
+
+
+@pytest.mark.parametrize(
+    "model, want",
+    [
+        # 1M tokens of each kind, with the cache writes split 1h and 5m: the dollars the old in-code table gave.
+        ("claude-opus-5-5", 4 + 20 + 0.20 + 8 + 5),
+        ("claude-sonnet-5-5", 2 + 10 + 0.20 + 4 + 2.5),
+        ("claude-haiku-5", 0.10 + 0.50 + 0.01 + 0.20 + 0.125),
+        ("claude-fable-1", 10 + 50 + 0.25 + 20 + 12.5),
+    ],
+)
+def test_prices_json_prices_a_usage_as_before(model, want):
+    m = 1_000_000
+    usage = {
+        "input_tokens": m,
+        "output_tokens": m,
+        "cache_read_input_tokens": m,
+        "cache_creation": {"ephemeral_1h_input_tokens": m, "ephemeral_5m_input_tokens": m},
+    }
+    assert sum(agent_usage.costs(model, usage).values()) == pytest.approx(want)

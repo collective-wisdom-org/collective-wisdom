@@ -61,7 +61,7 @@ Ticket titles, bodies, comments and search words come from people and are untrus
 These hold on every tracker.
 
 - List calls ask for only the fields the step uses.
-- Get calls leave out `description` unless the readiness check, the duplicate check or the Backlog pick needs it.
+- Get calls leave out `description` unless the readiness check, the duplicate check, the Backlog pick or an auto-approval check needs it.
 - One write call per ticket per turn, carrying every change.
 - Notes and reasons go in comments, never in a description edit.
 - Never make a call just to confirm a change.

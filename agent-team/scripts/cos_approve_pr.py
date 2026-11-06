@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Post the owner's approving review on a PR after the user's own "approve N" in the Chief of Staff thread.
+"""Verify the user's own "approve N" in the Chief of Staff thread before a merge approval is relayed.
 
 Usage:
     scripts/cos_approve_pr.py <PREFIX>-N
+    scripts/cos_approve_pr.py <PREFIX>-N --auto
 
-The only argument is the ticket ID: the caller cannot pick the message store or the state file. The PR, its head, the thread, the cut-off time and the words
-(`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, with no AGENT_GH_ROLE
-(it is removed from the environment), signed in to gh as the Owner login.
+The caller picks only the ticket ID (and the optional `--auto` flag): it cannot pick the message store or the state
+file. The PR, its head, the thread, the cut-off time and the words (`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
+Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
 
-Gates, in order; the first failure stops with nothing posted: root checkout, state, the user's message
-(scripts/cos_user_check.py latest), gh login, PR facts, head. If the owner already has an approving review on the head,
-nothing is posted.
+Gates, in order; the first failure stops: root checkout, state, the user's message (scripts/cos_user_check.py latest),
+gh login, PR facts, head.
 
-Exit 0: posted, or already approved. Last line:
-  cos-approve: approved #N at <SHA>
-  cos-approve: #N already approved by <owner> at <SHA>; nothing posted
-Exit 1: a gate failed, nothing posted. Last line: cos-approve: stop <PREFIX>-N: <reason>
-Exit 2: bad arguments, or state, the message store, gh or the POST failed, or one of them had an unexpected shape.
+With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
+auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/<merge target branch>; see
+scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (scripts/cos_brief.py).
+
+Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
+  The snippet is the start of the user's message on one line (80 characters at most), so the Chief of Staff can show the user what was verified.
+With --auto the last line is: cos-approve: auto-approved #N at <SHA> under <tolerance> (Risk: <Level>)
+Exit 1: a gate failed. Last line: cos-approve: stop <PREFIX>-N: <reason>
+Exit 2: bad arguments, or state, the message store or gh failed, or one of them had an unexpected shape.
 Last line: cos-approve: cannot <what>
 """
 
@@ -25,7 +29,6 @@ import contextlib
 import importlib.util
 import io
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -44,16 +47,21 @@ def _load(name):
 merge_pr = _load("merge_pr")
 cos_state = _load("cos_state")
 cos_user_check = _load("cos_user_check")
+cos_brief = _load("cos_brief")
+approval_policy = _load("approval_policy")
 ROOT, GH = merge_pr.ROOT, merge_pr.GH
-PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid,reviews"
+PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid"
+AUTO_FIELDS = ",files,comments"
+AUTO_RELAY = approval_policy.AUTO_RELAY
+FILES_CAP = 100  # gh returns at most this many files; a PR this big can't be checked in full
 
 
 class Stop(Exception):
-    """A gate failed: exit 1, nothing posted."""
+    """A gate failed: exit 1."""
 
 
 class Cannot(Exception):
-    """A read or the POST failed: exit 2, nothing posted."""
+    """A read failed: exit 2."""
 
 
 def check_root(run):
@@ -66,22 +74,25 @@ def check_root(run):
         raise Stop(f"not run from the root checkout; cd {first} first, its project.md is the one to trust")
 
 
-def read_state(tid):
+def read_state(tid, auto=False):
     try:
         state = cos_state.load(cos_state.DEFAULT_FILE)
     except SystemExit:
         raise Cannot("read the state file")
     t = state.get("tickets", {}).get(tid)
-    if not isinstance(t, dict) or t.get("stage") != "awaiting-merge":
+    # --auto also re-checks a merge approval queued by an earlier --auto pass, just before it is sent.
+    queued = auto and isinstance(t, dict) and t.get("stage") == "merge-queued" and str(t.get("pendingRelay") or "").startswith(AUTO_RELAY)
+    if not isinstance(t, dict) or (t.get("stage") != "awaiting-merge" and not queued):
         raise Stop("ticket not in awaiting-merge")
     pr, sha, seen, thread = str(t.get("pr") or ""), t.get("headSha") or "", t.get("lastSeenAt"), state.get("chiefThreadId")
+    status = t.get("status")
     if not re.fullmatch(r"[0-9]+", pr):
         raise Stop("ticket has no pr in the state file")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise Stop("ticket has no full headSha in the state file")
-    if not thread or not isinstance(seen, str) or not cos_user_check.valid_after(seen):
+    if not auto and (not thread or not isinstance(seen, str) or not cos_user_check.valid_after(seen)):
         raise Stop("state file has no chiefThreadId or no usable lastSeenAt")
-    return pr, sha, seen, thread
+    return pr, sha, seen, thread, status
 
 
 def user_said(db, thread, n, seen):
@@ -98,31 +109,56 @@ def user_said(db, thread, n, seen):
     return line.split(" ", 3)[3] if line.count(" ") >= 3 else ""
 
 
-def read_gh(run, pr):
+def read_gh(run, pr, auto=False):
     try:
         login = run([GH, "api", "user", "-q", ".login"]).strip()
-        facts = json.loads(run([GH, "pr", "view", pr, "--json", PR_FIELDS]))
+        facts = json.loads(run([GH, "pr", "view", pr, "--json", PR_FIELDS + (AUTO_FIELDS if auto else "")]))
     except (merge_pr.CmdError, ValueError) as e:
         raise Cannot(f"read PR #{pr}: {e}")
     return login, facts
 
 
-def approve(tid, run):
+def auto_gate(status, files, f=None, login=""):
+    """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop."""
+    level = approval_policy.risk_level(status)
+    tolerance, note = project_config.approval_setting()
+    auto, why = approval_policy.decide(tolerance, level)
+    if not auto:
+        raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
+    paths = [x["path"] for x in files]
+    for x in files:
+        if "changeType" not in x:
+            raise Cannot(f"read the PR files: gh gave no changeType for {x['path']}; needs a newer gh")
+    renamed = [x["path"] for x in files if x["changeType"] == "RENAMED"]
+    if renamed:  # gh gives only the new path, so the old one could be on the approval path
+        raise Stop(f"PR renames a file ({renamed[0]}), too hard to check")
+    if len(paths) >= FILES_CAP:
+        raise Stop(f"PR has {len(paths)} or more files, too many to check")
+    on_path = [p for p in paths if approval_policy.on_approval_path(p)]
+    if on_path:
+        raise Stop(f"PR changes the approval path ({on_path[0]})")
+    flags = cos_brief.flags_for(paths)
+    if flags or cos_brief.migration_numbers(paths):
+        raise Stop(f"PR needs the user: {flags[0] if flags else 'migration file'}")
+    if f and cos_brief.resolved_flag(f["headRefOid"], f.get("comments") or [], login):
+        raise Stop("PR needs the user: conflict resolution not reviewed")
+    return tolerance, level
+
+
+def approve(tid, run, auto=False):
     n = str(int(tid.rsplit("-", 1)[1]))
     check_root(run)
-    pr, sha, seen, thread = read_state(tid)
-    snippet = user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
-    try:
-        owner = project_config.value("Owner login")
-        agents = {l.lower() for r in project_config.ROLE_ROWS if (l := project_config.role_login(r))}
-    except SystemExit as e:
-        raise Cannot(f"read project.md: {e}")
+    pr, sha, seen, thread, status = read_state(tid, auto)
+    snippet = "" if auto else user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
+    owner = project_config.value("Owner login")
     if not owner:
         raise Cannot("read the Owner login from project.md")
-    login, f = read_gh(run, pr)
-    if login.lower() in agents:
-        raise Stop(f"gh is signed in as the agent user {login}, not the owner")
-    if login.lower() != owner.lower():
+    try:
+        target = project_config.target_branch()
+    except SystemExit:
+        raise Cannot("read the Merge target branch row of project.md")
+    login, f = read_gh(run, pr, auto)
+    if login.lower() not in [owner.lower(), *merge_pr.codeowners(run)]:
         raise Stop(f"gh is signed in as {login}, not the owner")
     if f["state"] != "OPEN":
         raise Stop(f"PR is {'closed' if f['state'] == 'CLOSED' else f['state'].lower()}")
@@ -130,27 +166,20 @@ def approve(tid, run):
         raise Stop("PR is a draft")
     if f["isCrossRepository"]:
         raise Stop("PR is from a fork")
-    if f["baseRefName"] != "main":
-        raise Stop(f"base is {f['baseRefName']}, not main")
+    if f["baseRefName"] != target:
+        raise Stop(f"base is {f['baseRefName']}, not {target}")
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
-    if merge_pr.owner_approval({**f, "owner": owner}) is None:
-        return f"cos-approve: #{pr} already approved by {owner} at {sha}; nothing posted"
-    body = (
-        f'Approved from the Chief of Staff thread on the user\'s message "{snippet}" '
-        f"for {tid} at head {sha[:7]}. Posted by scripts/cos_approve_pr.py."
-    )
-    try:
-        run([GH, "api", "-X", "POST", f"repos/{{owner}}/{{repo}}/pulls/{pr}/reviews",
-             "-f", "event=APPROVE", "-f", f"commit_id={sha}", "-f", f"body={body}"])
-    except merge_pr.CmdError as e:
-        raise Cannot(f"post the review on #{pr}: {e}")
-    return f"cos-approve: approved #{pr} at {sha}"
+    if auto:
+        tolerance, level = auto_gate(status, f["files"], f, login)
+        return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level})"
+    return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 
 
 def main(argv, run=merge_pr.run):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("ticket")
+    ap.add_argument("--auto", action="store_true")
     try:
         args = ap.parse_args(argv)
         tid = args.ticket if project_config.ticket_re(anchored=True).match(args.ticket) else None
@@ -159,11 +188,10 @@ def main(argv, run=merge_pr.run):
             return 0
         tid = None
     if not tid:
-        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N")
+        print("cos-approve: cannot read arguments; usage: scripts/cos_approve_pr.py <PREFIX>-N [--auto]")
         return 2
-    os.environ.pop("AGENT_GH_ROLE", None)  # the review is the owner's, never a role's
     try:
-        print(approve(tid, run))
+        print(approve(tid, run, args.auto))
         return 0
     except Stop as e:
         print(f"cos-approve: stop {tid}: {e}")

@@ -1,0 +1,9 @@
+# CW-88 plan: accept a repository ruleset as the merge gate protection
+
+Spec: [2026-11-04-cw-88-ruleset-merge-gate-design.md](../specs/2026-11-04-cw-88-ruleset-merge-gate-design.md). All paths below are under `agent-team/`. No live GitHub settings change.
+
+1. `scripts/merge_pr.py`: `read_protection(run)` returns `(count, unread)`. Classic source: 200 gives its count; a 404 whose message has `Branch not protected` is read-and-absent; any other 404 or 403 goes to `unread` as `branch protection: <message>`; other errors raise. Rules source `repos/{owner}/{repo}/rules/branches/main?per_page=100`: largest `required_approving_review_count` over `pull_request` rules; 404 or 403 goes to `unread` as `rulesets: <message>`. `read_facts` keeps `None` for a non-open PR. `gate` takes the pair: count 1 or more passes; 0 with nothing unread gives `main has no branch protection or ruleset requiring an approving review; set it up per docs/agents/github-auth.md § Merge gate`; 0 with unread gives `cannot read main's protection (...) and found none requiring an approving review; check per docs/agents/github-auth.md § Merge gate`.
+2. `scripts/test_merge_pr.py`: one table-driven `read_protection` test (rows in the spec § Tests); update the two gate rows and `green()` to the pair; make `fake` answer the rules endpoint (`[]`) and the classic 404 with `Branch not protected`.
+3. Docs: `docs/agents/github-auth.md` § Merge gate (two setups, both verify commands, the two stop messages), `.claude/skills/merge-pr/SKILL.md` (checks list, Team mode BLOCKED line), `docs/agents/org-chart.md` (one sentence).
+4. Verify: `python3 -I -m pytest -q agent-team/scripts`; `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh`.
+5. Open the PR, closeout docs, docs check, code review, security review, per ship-loop § Team mode.

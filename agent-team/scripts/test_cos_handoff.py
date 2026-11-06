@@ -100,25 +100,28 @@ def test_ticket_or_state_that_cannot_be_read_exits_2_with_its_own_line(tmp_path,
     assert capsys.readouterr().out.splitlines() == [f"cos_handoff: {want}"]
 
 
-def by(who, k, n):
-    return {**PR["comments"][0], "body": f"## {k} review (pass {n})\n\nVerdict: PASS", "url": f"https://x/{k}", "author": {"login": who}}
+BOT_THREAD = {"id": "PRRT_1", "isResolved": False, "path": "a.py", "line": 3,
+              "head": {"nodes": [{"author": {"login": "some-bot[bot]"}, "url": "https://x/t"}]}}
+CI_ROWS = "| Review mode | `ci` |\n| CI review bot login | `some-bot` |\n"
 
 
 @pytest.mark.parametrize(
-    "roles, comments, want",
+    "rows, pr, code, want, absent",
     [
-        ({"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel"}, [by("cw-reviewer", "Code", 4), by("cw-sentinel", "Security", 3)],
-         ["code review: pass 4 PASS", "security review: pass 3 PASS"]),
-        ({"code-reviewer": "cw-reviewer", "security-reviewer": "cw-sentinel"}, PR["comments"] + [by("cw-sentinel", "Code", 5)],
-         ["code review: not posted", "security review: not posted"]),
-        ({"code-reviewer": "cw-reviewer"}, [by("cw-reviewer", "Code", 4), by("bot", "Security", 3)],
-         ["code review: pass 4 PASS", "security review: pass 3 PASS"]),
+        ("", PR, 0, ["code review: pass 2 PASS", "security review: pass 1 PASS"], ["ci:", "ci-review:"]),
+        (CI_ROWS, {**PR, "reviewThreads": [BOT_THREAD]}, 0,
+         [f"ci: green at {HEAD}", "ci-review: #14 some-bot: 0 fixed, 0 answered and resolved, 1 unresolved"], ["code review", "security review"]),
+        (CI_ROWS, {**PR, "reviewThreads": [], "statusCheckRollup": []}, 0, [f"ci: not green at {HEAD}"], ["code review"]),
+        (CI_ROWS, PR, 2, ["cos_handoff: cannot read PR #14"], []),  # no thread list: the block is not built from a guess
+        ("| Review mode | `cii` |\n", PR, 2, ["cos_handoff: project.md: 'Review mode' row must be one of"], []),
     ],
 )
-def test_reviews_count_from_the_role_login_once_set(tmp_path, capsys, monkeypatch, roles, comments, want):
-    monkeypatch.setattr(cos_handoff.project_config, "role_login", roles.get)
+def test_handoff_review_lines_by_mode(tmp_path, monkeypatch, capsys, rows, pr, code, want, absent):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n| Issue identifier prefix | `ABC` |\n| Branch pattern | `feat/<prefix>-N-x` |\n" + rows)
+    monkeypatch.setenv("PROJECT_MD", str(md))
     (tmp_path / "state.json").write_text(json.dumps({"tickets": {"ABC-1": MERGE}}))
-    (tmp_path / "pr.json").write_text(json.dumps({**PR, "comments": comments}))
-    assert run(["ABC-1", "--file", str(tmp_path / "state.json"), "--pr", str(tmp_path / "pr.json")]) == 0
+    (tmp_path / "pr.json").write_text(json.dumps(pr))
+    assert run(["ABC-1", "--file", str(tmp_path / "state.json"), "--pr", str(tmp_path / "pr.json")]) == code
     out = capsys.readouterr().out
-    assert all(line in out for line in want)
+    assert all(w in out for w in want) and not any(a in out for a in absent)

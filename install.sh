@@ -36,7 +36,7 @@ case "$REF" in -*) echo "bad ref: $REF" >&2; usage ;; esac
 [ -z "$FROM" ] || [ -z "$REF" ] || { echo "--from and --to cannot be used together" >&2; usage; }
 # Release tags are v0.N only, the shape the pin records; this also rules out a name that starts with "-".
 [ -z "$FROM" ] || [[ "$FROM" =~ ^v0\.[0-9]+$ ]] || { echo "bad tag: $FROM (expected v0.N)" >&2; usage; }
-if [ "$CHECK" -eq 1 ]; then [ -z "$REF" ] && [ -z "$FROM" ] && [ "$UPDATE$FORCE" = "00" ] || usage; fi
+if [ "$CHECK" -eq 1 ] && { [ -n "$REF" ] || [ -n "$FROM" ] || [ "$UPDATE$FORCE" != "00" ]; }; then usage; fi
 [ "$FORCE" -eq 0 ] || [ "$UPDATE" -eq 1 ] || { echo "--force only goes with --update" >&2; usage; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -61,7 +61,7 @@ extract() {
 # shipped <dir>: sorted paths of the files the installer syncs from an extracted agent-team/ (the same paths in the app).
 shipped() {
   local p
-  for p in .claude/skills .claude/agents scripts docs/agents; do
+  for p in .claude/skills .claude/agents .claude/mods scripts docs/agents; do
     [ -d "$1/$p" ] && (cd "$1" && find "$p" -type f)
   done | awk '$0 !~ /(^|\/)__pycache__\// && $0 !~ /\.pyc$/ && $0 !~ /\.DS_Store$/' | LC_ALL=C sort
   return 0
@@ -194,6 +194,7 @@ seed_file() {
 
 sync_dir "$SRC/.claude/skills" "$TARGET/.claude/skills"
 sync_dir "$SRC/.claude/agents" "$TARGET/.claude/agents"
+sync_dir "$SRC/.claude/mods" "$TARGET/.claude/mods"
 
 # Skill folders the installer did not ship, named like a shipped skill with a prefix (for example
 # acme-ship-loop next to ship-loop), are old copies. Warn; never delete.
@@ -218,7 +219,11 @@ if [ ! -e "$SET" ]; then
   say "add     .claude/settings.json"; CHANGED=$((CHANGED + 1))
   run mkdir -p "$TARGET/.claude"; run cp "$SRC/.claude/settings.json" "$SET"
 elif ! cmp -s "$SRC/.claude/settings.json" "$SET"; then
-  TODOS+=("Merge the Stop hook from agent-team/.claude/settings.json into .claude/settings.json by hand (the file differs, so it was left alone).")
+  # A text search, not a JSON parse: a hook written by hand in another shape still counts.
+  if ! grep -qF -- cos_rotation_check.py "$SET"; then
+    TODOS+=("Add the Chief of Staff Stop hook to .claude/settings.json by hand (the file has its own settings, so it was left alone). Merge this into its \"hooks\" key:
+$(sed 's/^/      /' "$SRC/.claude/settings.json")")
+  fi
 fi
 
 sync_dir "$SRC/scripts" "$TARGET/scripts"
@@ -239,8 +244,12 @@ if [ ! -e "$TARGET/docs/superpowers/README.md" ]; then
   run mkdir -p "$TARGET/docs/superpowers"; run cp "$SRC/docs/superpowers/README.md" "$TARGET/docs/superpowers/README.md"
 fi
 
+# Decided before seed_file, so a dry run (which seeds nothing) still knows whether the file was already there.
+AGENTS_EXISTED=0
+[ ! -e "$TARGET/AGENTS.md" ] || AGENTS_EXISTED=1
+
 seed_file "$SRC/templates/project.md" "$TARGET/docs/agents/project.md" \
-  "Fill in every <placeholder> in docs/agents/project.md (prefix, repo, commands, invariants). The scripts will not run until the prefix and repo rows are real."
+  "Fill in every <placeholder> in docs/agents/project.md (prefix, repo, commands, invariants), and pick an Approval risk tolerance (strict if you leave it as is). The scripts will not run until the prefix and repo rows are real."
 seed_file "$SRC/templates/AGENTS.md" "$TARGET/AGENTS.md" \
   "Fill in the <placeholders> in AGENTS.md (project name, product, stack). Add a CLAUDE.md containing @AGENTS.md if you use Claude Code."
 
@@ -248,6 +257,31 @@ seed_file "$SRC/templates/AGENTS.md" "$TARGET/AGENTS.md" \
 if [ ! -e "$TARGET/.agents/skills" ] && [ ! -L "$TARGET/.agents/skills" ]; then
   say "link    .agents/skills -> ../.claude/skills"; CHANGED=$((CHANGED + 1))
   run mkdir -p "$TARGET/.agents"; run ln -s ../.claude/skills "$TARGET/.agents/skills"
+fi
+
+# These checks never write. An app's own AGENTS.md and .agents/skills are merged by hand.
+if [ "$AGENTS_EXISTED" -eq 1 ]; then
+  missing=""
+  for h in "Required reading" "GitHub" "Workflow" "Agent config"; do
+    grep -qiE -- "^[[:space:]]*##[[:space:]]+${h}[[:space:]]*\$" "$TARGET/AGENTS.md" || missing="${missing:+$missing, }$h"
+  done
+  if [ -n "$missing" ]; then
+    TODOS+=("AGENTS.md has no $missing section(s). Copy them from agent-team/templates/AGENTS.md in collective-wisdom (at ${SHA:0:12}) and fill them in for this repo.")
+  fi
+fi
+
+AS="$TARGET/.agents/skills"
+why=""
+if [ -L "$AS" ]; then
+  link="$(readlink "$AS")"
+  [ "$link" = "../.claude/skills" ] || why=".agents/skills links to $link, not to ../.claude/skills"
+elif [ -d "$AS" ]; then
+  why=".agents/skills is a real directory, not a link to ../.claude/skills"
+elif [ -e "$AS" ]; then
+  why=".agents/skills is a file"
+fi
+if [ -n "$why" ]; then
+  TODOS+=("$why, so Codex will not see the shipped skills. Move any skills of your own from it into .claude/skills/, then replace it: rm -r .agents/skills && ln -s ../.claude/skills .agents/skills")
 fi
 
 # Append only the gitignore lines that are missing.
