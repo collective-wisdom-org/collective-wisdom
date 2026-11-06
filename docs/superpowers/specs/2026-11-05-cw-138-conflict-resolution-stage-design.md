@@ -68,6 +68,8 @@ New row in `project.md` and `agent-team/templates/project.md` § Identity, next 
 
 `Review after conflict resolution (`off` or `on`)` | `off`. Whether a conflict resolution is reviewed again before it can merge. `off`: reviews from before the resolution stand, and a merge you already approved goes ahead on the resolved head without asking again. `on`: code and security review run on the resolved head, and you approve it again.
 
+This repo's own `docs/agents/project.md` gets the row set to `off`, written out rather than left to the default, so collective-wisdom never reruns reviews after a conflict resolution. It takes effect once this PR is on `main`.
+
 Read from `origin/main`, never the working tree, like `Approval risk tolerance`. A missing row means `off`, so an installed app that updates keeps a single approval. An unknown value or an unreadable file means `on`: the safe side is to review.
 
 ### The merge gate and the approval
@@ -96,6 +98,7 @@ Enforced in `scripts/merge_pr.py`:
 
 ### Scripts
 
+- `docs/agents/project.md`: the new row, `off`.
 - `project_config.py`: `review_after_conflict()`.
 - `merge_pr.py`: the resolved-head exception in the approved-head check and the conflict note in `stands()`.
 - `cos_brief.py`: `conflict: yes` and the `flag:` line.
@@ -129,6 +132,8 @@ No tests for skill prose.
 ## Calls I made
 
 Surprising first.
+
+- **This repo's row is `off`**, as you asked. It is the default too, but the row is written out so the choice is visible.
 
 - **Unreviewed code can now reach `main` after a merge approval, when the setting is `off`.** It is one merge commit of `main` into the branch plus its conflict edits, which the user didn't see. The gate rule "the merged head is the approved head" gets this one exception, enforced in `merge_pr.py`.
 - **With the setting `on`, a conflict goes to the build lane as today**, not the merge lane, so a long review doesn't hold the only merge slot. The approval is withdrawn there.
