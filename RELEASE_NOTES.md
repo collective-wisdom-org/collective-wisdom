@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-06 add the status pane to the plugin marketplace (CW-156) (#157)
+
+Merged 2026-11-06 04:49 UTC.
+
+The status pane can now be installed on a machine with `/plugin install status-pane@collective-wisdom`, after adding this repo as a plugin marketplace.
+
 ## 2026-11-06 run shellcheck and pytest in one CI job (CW-100) (#155)
 
 Merged 2026-11-06 04:41 UTC.
