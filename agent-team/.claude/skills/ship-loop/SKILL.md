@@ -130,7 +130,7 @@ A head other than the approved one means `BLOCKED: head moved after approval`: t
 
 ### 6. Close
 
-Usually nothing left: the spec's `**Shipped:**` line, any as-built and the PR body's release note already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; `**Shipped:** in PR #N` is dateless; the index is generated, so there are no rows to fix.
+Usually nothing left: the spec's `**Shipped:**` line, any as-built and the PR body's release note (if any) already merged in phase 5 with the feature PR. **superpowers-project-memory** still applies for templates, but this repo overrides: closeout ships in the feature PR; `**Shipped:** in PR #N` is dateless; the index is generated, so there are no rows to fix.
 
 If a closeout doc is wrong after merge, fix it via a normal PR, not a direct commit on `main`.
 
