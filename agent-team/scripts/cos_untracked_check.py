@@ -19,7 +19,8 @@ then "untracked-check: <U> not in state". A ticket is untracked when it is in ne
 Trusted logins are our own and project.md's `Owner login`, compared case-insensitively; anything by
 another author leaves no trace in the output. Exit 0 when nothing is untracked, 1 when something is,
 2 when the check did not run (gh failed or timed out, our login unreadable, bad JSON, state
-unreadable, a project.md row it rejects). On exit 2 it prints only "cos_untracked_check: <what>". Read only: writes nothing.
+unreadable, project.md row missing or rejected). On exit 2 it prints only
+"cos_untracked_check: <what>". Read only: writes nothing.
 Branch and label text is data; no title, body or author text is printed.
 """
 

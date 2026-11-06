@@ -349,7 +349,7 @@ Notice turns (T3 wakes this thread when a child's run starts or finishes):
 
 Reports:
 
-- Report only lines that changed since the last report. Don't repeat a `Needs you` block the user has already seen; a pending approval is one reminder line (approvals.md § Approval requests). `status` gets the full picture. The `Running` section is the exception: it repeats on every report that ran the idle check.
+- Report only lines that changed since the last report. Don't repeat a `Needs you` block the user has already seen; a pending approval is one reminder line (approvals.md § Approval requests). `status` gets the full picture. `Running` and the untracked Needs you lines (§ Sweep) are the exceptions: `Running` repeats on every report that ran the idle check, the untracked lines on every report that posts.
 - Post each approval request once, in full.
 - Don't say or imply that nothing needs the user (no other tickets waiting, every child fine) unless, in this turn, § Full pass step 2 read every active child or `cos_idle_check.py` ran (exit 0 or 1) and every `full` child got its read, and the sweep ran (exit 0 or 1) and every ticket on its `read in full:` line got its read. On the idle check's exit 2, say what state shows and add `Idle check didn't run: <its line>`.
 
@@ -401,7 +401,7 @@ A ticket is on the `read in full:` list when the ready check printed `ready` or 
 `adopt N` takes a ticket the sweep listed as untracked into state. Only the user's own `adopt N` runs it (§ Commands, strict check).
 
 1. Run `python3 scripts/cos_untracked_check.py`. If the ticket isn't listed (state has it now, or it left flight), say so and stop.
-2. `get-ticket` with the adapter's author check. An untrusted author: say so and stop. On Linear or Jira also apply § Sweep's drop (`agent-skip`, or not In Progress or In Review) and stop if it drops the ticket. (The script lists only own-login and owner tickets; this still covers Linear and Jira, where it saw only the PR author.)
+2. `get-ticket` with the adapter's author check. An untrusted author: say so and stop. On Linear or Jira also apply § Sweep's drop (`agent-skip`, or not In Progress or In Review) and, if it drops the ticket, say so and stop. (The script lists only own-login and owner tickets; this still covers Linear and Jira, where it saw only the PR author.)
 3. `t3_thread_list` for its child as in § Sweep. Exactly one child thread: read it, set the stage by startup.md § State rebuild (the same `SPEC READY`, `MERGE READY` and unsure-is-`blocked` rules), and write it with one `cos_state.py apply` (`start` with that thread's `parentThreadId`, then `stage`). The parent check then lists it as `old-parent` for a full read, as for any rebuilt ticket. More than one child thread: adopt the newest and say which.
 4. No child thread on this machine: write nothing. Say it can't be adopted here, and that the user can run the team on the machine that owns it, or `cancel` it there and move it back to Todo to restart it.
 5. Report under Moving: `<PREFIX>-N adopted at <stage>`. The turn's § Slot fill runs; the stage may put the count over the cap, which startup.md § State rebuild already allows.

@@ -61,12 +61,12 @@ On failure (no repo row, gh failed or timed out, `gh api user` failed or printed
 
 ### `agent-team/.claude/skills/chief-of-staff/SKILL.md`
 
-- § Sweep: name the fourth part and its line. On Linear or Jira, first `get-ticket` each `untracked` ticket and drop it when it is `agent-skip` or not In Progress or In Review. For each remaining `untracked` ticket, one `t3_thread_list` (`includeSubagents: true`, `titleContains: "<PREFIX>-N"`) for a child thread on this machine. Report the tickets in one Needs you line per ticket: `<PREFIX>-N in flight but not in my state (in review, PR #132; child <link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt <PREFIX>-N to take it here.` The line goes in any report the turn posts (full pass, take over, resume, status); untracked lines alone never make a run-finished turn post. The list call is skipped when the turn posts nothing. Nothing is written and nothing is started for an untracked ticket.
+- § Sweep: name the fourth part and its line. On Linear or Jira, first `get-ticket` each `untracked` ticket and drop it when it is `agent-skip` or not In Progress or In Review. For each remaining `untracked` ticket, one `t3_thread_list` (`includeSubagents: true`, `titleContains: "<PREFIX>-N"`) for a child thread on this machine. Report the tickets in one Needs you line per ticket: `<PREFIX>-N in flight but not in my state (in review, PR #132; child <link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt <PREFIX>-N to take it here.` The line goes in any report the turn posts (full pass, take over, resume, status); untracked lines alone never make a run-finished turn post. The `get-ticket` and list calls are skipped when the turn posts nothing. Nothing is written and nothing is started for an untracked ticket.
 - § Sweep exit 2 fallback for `untracked`: no fallback; don't say every in-flight ticket is known.
 - § Commands: new row `adopt N`, checked with `cos_user_check.py latest` like `approve N` (short words, strict check). It runs § Adopt below.
 - New § Adopt:
   1. Re-run `cos_untracked_check.py`; if the ticket is not listed (state has it now, or it left flight), say so and stop.
-  2. `get-ticket` with the adapter's author check. An untrusted author: say so and stop. (The script already lists only own-login or owner tickets; this check still covers a Linear or Jira ticket, where the script only saw the PR author.)
+  2. `get-ticket` with the adapter's author check. An untrusted author: say so and stop. On Linear or Jira also apply the § Sweep drop (`agent-skip`, or not In Progress or In Review) and, if it drops the ticket, say so and stop. (The script already lists only own-login or owner tickets; this check still covers a Linear or Jira ticket, where the script only saw the PR author.)
   3. `t3_thread_list` for its child as in § Sweep. Exactly one child thread: read it and set the stage as `startup.md` § State rebuild says (the same `SPEC READY` / `MERGE READY` / unsure-is-`blocked` rules), then write it with one `cos_state.py apply` (`start` with that thread's `parentThreadId`, then `stage`). The parent check then lists it as `old-parent` for a full read, as for any rebuilt ticket. More than one child thread: adopt the newest and say which.
   4. No child thread on this machine: write nothing. Reply that it can't be adopted here, and that the user can run the team on the machine that owns it, or `cancel` it there and move it back to Todo to restart it.
   5. Report under Moving: `<PREFIX>-N adopted at <stage>`. The turn's § Slot fill runs; the ticket's stage may put the count over the cap, which `startup.md` § State rebuild already allows.
@@ -74,12 +74,12 @@ On failure (no repo row, gh failed or timed out, `gh api user` failed or printed
 
 ### `agent-team/.claude/skills/chief-of-staff/rotation.md` and `startup.md`
 
-- Take-over step 4.2 and § Thread rotation: Resume mode: after the sweep, untracked lines are reported as § Sweep says, before the slot fill. Take-over step 5's line gains `<M> in flight but not in my state: <PREFIX>-125, <PREFIX>-126.` when any.
+- Take-over step 4.2 and § Thread rotation: Resume mode: after the sweep, untracked lines are reported as § Sweep says, before the slot fill. Take-over step 5's line gains `<M> in flight but not in my state: <PREFIX>-125, <PREFIX>-126.` when any is left after the § Sweep drop.
 - `startup.md` § State rebuild: no change to what a rebuild does. One sentence: after a rebuild, the sweep's untracked part covers tickets the rebuild could not place.
 
 ### `agent-team/.claude/skills/chief-of-staff/status.md`
 
-Untracked tickets get one line below the tables, like `Merged:`: `Not in my state: CW-125 (in review, #132), CW-126 (in progress).`
+Untracked tickets left after the § Sweep drop get one line below the tables, like `Merged:`: `Not in my state: CW-125 (in review, #132), CW-126 (in progress).`
 
 ### Tests
 
