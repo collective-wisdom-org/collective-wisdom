@@ -1,6 +1,6 @@
 # Status pane
 
-The `status-pane` mod keeps the Chief of Staff `status` view open in a pane beside the chat. It reads `.agent-team/state.json` every 5 seconds and redraws when the file changes. Tickets sit in the same groups as the `status` answer, each row with its risk and next step.
+The `status-pane` mod keeps the Chief of Staff `status` view open in a pane beside the chat. It reads `.agent-team/state.json` at the root checkout (so a session in a worktree or subfolder sees the same state) every 5 seconds and redraws when the file changes. Tickets sit in the same groups as the `status` answer, each row with its risk and next step.
 
 ## Turn it on
 
@@ -8,7 +8,7 @@ The install copies the mod to `.claude/mods/status-pane/`. Load it as a mod in C
 
 Two options, set in the config menu:
 
-- `autoOpen`: open the pane when a session starts. Off by default.
+- `autoOpen`: open the pane when a session starts. Off by default. A pane left open reopens at the next session start even when this is off.
 - `environmentId`: the T3 environment ID, which the thread links need.
 
 ## Find the environment ID

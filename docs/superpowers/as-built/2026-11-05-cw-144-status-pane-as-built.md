@@ -11,3 +11,6 @@
 - Queued groups sort by each ticket's `queuedAt`, because state has no `queue` key. That is the order `cos_state.py show` prints.
 - The subagent list is everything `$.agent.list()` returns; the mod adds no session filter of its own.
 - The root `docs/agents/status-pane.md` is a link to the shared doc, which `test_root_links.py` requires for every shared doc.
+- The mod reads the state file at the root checkout, found with `git rev-parse --path-format=absolute --git-common-dir`, and falls back to the relative path when that fails.
+- A pane that was already open reopens on `session.start` even with `autoOpen` off, so a reload does not stop the refresh.
+- The 5-second timer stops when the pane is closed.
