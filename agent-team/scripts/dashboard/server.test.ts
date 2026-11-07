@@ -1,9 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { request } from 'node:http'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { startServer } from './server.ts'
 
 function tmpRoot(): string {
@@ -116,6 +119,35 @@ test('keeps last good state when state.json is half-written', async () => {
     assert.deepEqual(second.status, first.status)
   } finally {
     await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('CLI starts through a symlinked directory', async () => {
+  const root = tmpRoot()
+  const link = join(tmpRoot(), 'dashboard-link')
+  symlinkSync(import.meta.dirname, link)
+  const port = await new Promise<number>((resolve, reject) => {
+    const s = createServer()
+    s.once('error', reject)
+    s.listen(0, '127.0.0.1', () => {
+      const p = (s.address() as { port: number }).port
+      s.close(() => resolve(p))
+    })
+  })
+  const child = spawn(process.execPath, [join(link, 'server.ts'), '--root', root, '--port', String(port)], { stdio: 'ignore' })
+  try {
+    let body = ''
+    for (let i = 0; i < 30 && !body; i++) {
+      await sleep(100)
+      try {
+        const r = await call(port, 'GET', '/health', `127.0.0.1:${port}`)
+        if (r.status === 200) body = r.body
+      } catch {}
+    }
+    assert.deepEqual(JSON.parse(body || 'null'), { ok: true, root })
+  } finally {
+    child.kill()
     rmSync(root, { recursive: true, force: true })
   }
 })

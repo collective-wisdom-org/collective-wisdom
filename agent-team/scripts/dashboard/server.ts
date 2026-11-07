@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildApi, repoUrlFromProject } from './api.ts'
 
@@ -84,7 +84,15 @@ export async function startServer(opts: { root: string; port: number }): Promise
   }
 }
 
-if (process.argv[1] === import.meta.filename) {
+const isMain = (() => {
+  try {
+    return !!process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename
+  } catch {
+    return false
+  }
+})()
+
+if (isMain) {
   const arg = (n: string) => {
     const i = process.argv.indexOf(n)
     return i >= 0 ? process.argv[i + 1] : undefined
