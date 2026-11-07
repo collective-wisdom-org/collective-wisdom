@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-07 choose the GitHub account per repo from the user install (CW-162) (#167)
+
+Merged 2026-11-07 21:35 UTC.
+
+The GitHub account for a repo now comes from `~/.config/collective-wisdom/user.md`, not from `project.md`. Before your next merge, add a row for each repo (and your subscription figure if you want cost percentages); see `github-auth.md` § Account per repo.
+
 ## 2026-11-07 leave only project.md from the team in a consuming repo (CW-161) (#166)
 
 Merged 2026-11-07 20:24 UTC.
