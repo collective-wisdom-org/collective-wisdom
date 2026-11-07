@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-07 remove the root links and rely on the machine install (CW-169) (#170)
+
+Merged 2026-11-07 23:18 UTC.
+
+This repo no longer links its files from the root into `agent-team/`. Run `./install.sh` once on the machine and the Chief of Staff here reads everything from `~/.collective-wisdom`, as an app does.
+
 ## 2026-11-07 ask setup questions before the Chief of Staff starts in a new repo (CW-163) (#168)
 
 Merged 2026-11-07 22:46 UTC.
