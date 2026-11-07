@@ -296,6 +296,29 @@ def test_write_when_the_tracker_row_is_missing_it_reads_as_linear(repo, capsys, 
     assert all(h in md(repo[1]) for h in has)
 
 
+OLD = {**LINEAR, "product": "Old App", "approver": "al", "prefix": "AB", "target": "develop", "repo": "Old/app", "tracker_scope": "Acme"}
+BARE = dict(GITHUB, product="my-app", approver="dq", target="main", host="github.com", rules=["x"])
+
+
+@pytest.mark.parametrize("drop, edit", [
+    ((), lambda t: t),
+    (("Publish release notes",), lambda t: t),
+    (("Tracker scope",), lambda t: t.replace("| Linear team name (Linear only) | `Acme` |", "| Linear team name (Linear only) | Acme (key `AB`, <https://linear.app/w/team/AB/overview>) |")),
+])
+def test_repair_of_a_one_gap_file_changes_only_the_gap(repo, capsys, drop, edit):
+    write(capsys, repo, OLD)
+    old = edit(drop_rows(md(repo[1]), *drop)).replace("| Test | `pytest` |", "| Test | TODO(alice) |")
+    commit(repo, old)
+    assert run(capsys, "status", "--root", repo[1])[1].splitlines()[0] == "placeholders: Test"
+    assert write(capsys, repo, BARE)[0] == 0
+    new = md(repo[1])
+    assert run(capsys, "status", "--root", repo[1])[1].splitlines()[0] == "set"
+    want = old.replace("| Test | TODO(alice) |", "| Test | `pytest` |")
+    if "Tracker scope" in drop:
+        want = want.replace("| Linear team name", "| Tracker scope (`<TEAM>`) | `Acme` |\n| Linear team name", 1)
+    assert new == want
+
+
 def run_user(capsys, *args, key="github.com/Example/App"):
     return run(capsys, "user", "--repo-key", key, *args)
 

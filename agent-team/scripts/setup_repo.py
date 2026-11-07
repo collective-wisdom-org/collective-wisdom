@@ -30,9 +30,15 @@ REQUIRED = ("Tracker", "Tracker scope", "Issue identifier prefix", "Repo", "Test
 PLACEHOLDER = re.compile(r"<[^>]+>")
 AUTOLINK = re.compile(r"<https?://[^<>\s]+>")
 PROSE = r"<(?!https?://)[^<>]*>"
+READ_AS_ON = ("Publish release notes",)  # a missing row already reads as on; the template's `off` would change that
 RULES = "Repo rules: "
 RULE_BULLET = re.compile(r"- <[^<>]*>")
 JIRA = ("Jira site", "Jira project key", *(f"Jira status: {s}" for s in ("Backlog", "Todo", "In Progress", "In Review", "Done", "Canceled")))
+TRACKER_ROWS = ("Tracker", "Tracker scope", "Linear team name")
+ANSWER_ROWS = {  # the rows an answer fills; on a repair it applies only while one of them is unset
+    "product": ("Product name",), "approver": ("Approver",), "target": ("Merge target branch",), "ci": ("Required CI checks",),
+    "tracker": TRACKER_ROWS, "tracker_scope": TRACKER_ROWS, "prefix": ("Issue identifier prefix",), "repo": ("Repo",), "host": ("Repo",), "test": ("Test",),
+}
 NO_ANGLE = ("test", "product", "tracker_scope", "linear_team")
 IGNORED = {".agent-team", ".agent-team/", "/.agent-team", "/.agent-team/"}
 TEXT_KEYS = ("product", "tracker_scope", "linear_team", "test", "approver", "ci")
@@ -188,9 +194,11 @@ def _known(text):
         return None if unset else value
 
     tracker = (val("Tracker") or "linear").lower()
+    team = next((v for k, v in rows if k.startswith("Linear team name")), "").split(" (key")[0].strip()
+    team = team if team and "`" not in team and not _ph(team) else val("Linear team name")
     out = {
         "product": val("Product name"), "tracker": tracker if tracker in project_config.TRACKERS else None, "prefix": val("Issue identifier prefix"),
-        "tracker_scope": val("Tracker scope") or val("Linear team name"), "repo": val("Repo"), "test": val("Test"),
+        "tracker_scope": val("Tracker scope") or team, "repo": val("Repo"), "test": val("Test"),
         "approver": (val("Approver") or "").split(". Approves")[0],
     }
     return {k: v for k, v in out.items() if v}
@@ -496,14 +504,17 @@ def _merge(lines, new):
         if found:
             if _ph(found[1][1]) and not _ph(_cells(line)[1]):
                 lines[found[0]] = line
-        elif (at := _anchor(lines, new, j)) is not None:
+        elif key not in READ_AS_ON and (at := _anchor(lines, new, j)) is not None:
             if not lines[at - 1].endswith("\n"):
                 lines[at - 1] += "\n"
             lines.insert(at, line if line.endswith("\n") else line + "\n")
 
 
 def repair(old, a):
-    """`old` with the answers applied, then every unset row and template bullet filled in as a first setup would write them."""
+    """`old` with every unset row and template bullet filled in as a first setup would write them. An answer applies only to an unset row; a set row keeps its value."""
+    unset = set(unset_rows(old)) | {k for k in ("Product name", "Approver", "Merge target branch", "Required CI checks") if _get(project_config._parse(old), k)[1]}
+    a = {k: v for k, v in a.items() if k not in ANSWER_ROWS or unset & set(ANSWER_ROWS[k])}
+    rules = a.pop("rules", [])
     known = _known(old)
     if a.get("tracker", known.get("tracker")) != known.get("tracker"):
         known.pop("tracker_scope", None)
@@ -511,7 +522,7 @@ def repair(old, a):
     lines = old.splitlines(keepends=True)
     _merge(lines, fresh.splitlines(keepends=True))
     _prose(lines)
-    _rules(lines, [], ph_only=True)
+    _rules(lines, rules, ph_only=True)
     return build("".join(lines), a, False)
 
 
