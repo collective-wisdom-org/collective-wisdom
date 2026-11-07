@@ -49,17 +49,15 @@ An app commits one file from the team: `docs/agents/project.md`. From an empty r
 
 1. Install the prerequisites listed under Requirements: T3 Code; `gh` signed in (`gh auth login`, see `agent-team/docs/agents/github-auth.md`); Python 3 and `pytest`; the superpowers skills, installed globally.
 2. Install the team on the machine once, if you have not: see Install on a machine.
-3. In the app, on a branch, add `docs/agents/project.md` and a `.agent-team/` line in `.gitignore` (the Chief of Staff keeps its state file there). A later set-up command will walk you through this. Until it exists, copy `agent-team/templates/project.md` from your clone to `docs/agents/project.md` by hand and fill it in. Replace every `<placeholder>`, then check each settings row. The default is in brackets.
-   - `Tracker` (`linear`): where tickets live. See Choosing a tracker.
-   - `Merge target branch` (`main`): the branch every PR merges into. See Configure a consuming repo.
+3. In T3 Code, start a Chief of Staff thread from the app's root checkout on the merge target branch and say `set up this repo` (or `start the team`; in a repo with no `docs/agents/project.md` it does the same). The Chief of Staff asks a few questions one at a time, each with its guess in brackets: your GitHub login (only when you have more than one), the subscription figure (only the first time on a machine), the tracker, the issue prefix, the test command and any repo rules. It writes `docs/agents/project.md` and a `.agent-team/` line in `.gitignore` on an `agent-team-setup` branch in a temporary worktree, asks before it creates the branch and worktree, commits, pushes or opens the PR (the read-only checks run without asking). It offers to remove an old app's copied team files in the same PR, and it never pushes to the merge target.
+4. Merge the setup PR on GitHub, pull the root checkout, and say `start the team`. These rows of `docs/agents/project.md` are set to their defaults, and you can change them later by saying `set up this repo` again or by editing the file:
+   - `Merge target branch` (the remote's default branch): the branch every PR merges into. See Configure a consuming repo.
    - `Review mode` (`agents`): `ci` lets a review bot in CI replace the review agents. See Review mode.
    - `Require teammate approval` (`off`): when `on`, a merge also needs an approving GitHub review from someone other than the PR author.
    - `Publish release notes` (`off`): when `on`, each PR carries a release note and every merge publishes the notes to the `release-notes` branch.
    - `Approval risk tolerance` (`strict`): which approvals the team takes without asking you. See Approval risk tolerance.
    - `Review after conflict resolution` (`off`): whether a conflict resolution is reviewed again before it can merge.
-4. Commit both files and merge them as a PR.
 5. Set branch protection or a ruleset on the merge target branch that requires the checks listed in `Required CI checks` in `project.md`.
-6. In T3 Code, start a Chief of Staff thread from the root checkout on the merge target branch and say `start the team`.
 
 An app that was installed the old way, with the team copied into it, follows Moving an app off the copied team first.
 
@@ -118,7 +116,7 @@ A listed file that the app reaches through a link out of the app, such as a syml
 
 Files collective-wisdom dropped in releases before the app's pin are not in the pinned list, so delete any that remain by hand.
 
-Then read the TODOs it prints. If `.claude/settings.json` still has the old Stop hook for `cos_rotation_check.py`, remove it by hand, since the machine install runs the hook now. Check that `docs/agents/project.md` exists; if not, add it as in Adopt in a repo. Commit the removal as a PR in the app.
+Then read the TODOs it prints. If `.claude/settings.json` still has the old Stop hook for `cos_rotation_check.py`, remove it by hand, since the machine install runs the hook now. Check that `docs/agents/project.md` exists; if not, say `set up this repo` as in Adopt in a repo. Commit the removal as a PR in the app.
 
 ## Configure a consuming repo
 

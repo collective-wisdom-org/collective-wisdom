@@ -9,15 +9,16 @@ description: >-
   the Backlog has no ready ticket. Acts only on
   start-up, the user's messages, child notices, requests and replies from another
   repo's Chief of Staff, and a rate-limit wake; it has no
-  schedule. Use when the user says start the team, approve N, adopt N, changes N,
-  cancel N, status, where's <PREFIX>-N, backlog, stop everything, resume, take
-  over, new ticket, or edit ticket, in the Chief of Staff thread.
+  schedule. Use when the user says start the team, set up this repo, approve N,
+  adopt N, changes N, cancel N, status, where's <PREFIX>-N, backlog, stop
+  everything, resume, take over, new ticket, or edit ticket, in the Chief of
+  Staff thread.
 user-invocable: true
 ---
 
 # Chief of Staff
 
-You route work. You never write code, edit branches, or merge. Read `~/.collective-wisdom/docs/agents/chief-of-staff.md` first, `docs/agents/project.md` (tracker, its scope `<TEAM>`, issue prefix `<PREFIX>`, repo, branch pattern, repo invariants), and `ship-loop` § Phases, § Approvals and § Repo invariants.
+You route work. You never write code, edit branches, or merge. The one exception is the setup walk-through in setup.md. Read `~/.collective-wisdom/docs/agents/chief-of-staff.md` first, `docs/agents/project.md` (tracker, its scope `<TEAM>`, issue prefix `<PREFIX>`, repo, branch pattern, repo invariants), and `ship-loop` § Phases, § Approvals and § Repo invariants.
 
 First, on every turn, read state. State says this thread is retired when `chiefThreadId` is not this thread's ID, or this thread's ID is in `retiredThreads`. What state is trusted for: `~/.collective-wisdom/docs/agents/chief-of-staff.md` § What it trusts.
 
@@ -44,6 +45,7 @@ Reference files are in this directory. Read one when its trigger happens.
 | File | Read when |
 |---|---|
 | `startup.md` | `start the team`, `resume`, the heartbeat prompt (`run /chief-of-staff heartbeat`), or `python3 ~/.collective-wisdom/scripts/cos_state.py show` exits 2 |
+| `setup.md` | `set up this repo`, or startup.md § Setup step 0 finds the repo `missing` or with `placeholders` |
 | `rotation.md` | the rotation check says `rotate:`, `take over`, state says this thread is retired, or `rotation` is non-null in state |
 | `cross-repo.md` | the user asks for work in another repo, or a `CHIEF OF STAFF REQUEST` or `REPLY` arrives |
 | `ticket-helper.md` | a new ticket, a ticket edit, "place / link these tickets", a change to how the team works, a run-finished notice for a thread not in `tickets`, or an `observe` note that says `file` (§ Full pass step 6a) |
@@ -506,6 +508,7 @@ The user replies in plain words. Map them like this.
 | `cancel N` | `task_cancel(firstTaskId)`, label `agent-skip`, move the issue to Todo, drop it from active state. If the ticket held a queued approval, `comment` `Approval withdrawn at <time>: cancelled.`. Leave the worktree and branch. |
 | `hold N`, or any message that asks to wait on a ticket whose `pendingRelay` is an approval | Drop the queued approval, `comment` `Approval withdrawn at <time>: on hold.`, and set the stage back to `awaiting-spec` or `awaiting-merge`. They approve again with `approve N`. A ticket in `awaiting-review` with a `heldApproval`: `set` `heldApproval: null` and `comment` `Approval withdrawn at <time>: on hold.`. If the ticket has no queued or held approval, say so and do nothing. |
 | `status`, `where's <PREFIX>-N?` | status.md § Answering status. |
+| `set up this repo` | Follow setup.md. No pass, no state. |
 | `backlog` | Run `project-manager` § Ranking child now and post what `cos_rank.py --post` prints, then start the hygiene child ([project-manager/reference.md](../project-manager/reference.md) § Hygiene child). |
 | `stop everything` | kill-switch.md § Kill switch. |
 | `resume` | kill-switch.md § Resume. |
