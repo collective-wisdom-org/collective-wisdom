@@ -35,6 +35,10 @@ PIN_RE = re.compile(r"collective-wisdom ([0-9a-f]{40})( v0\.[0-9]+)?")
 KEEP = "docs/agents/project.md"
 
 
+class Stop(Exception):
+    """A delete failed; the message is what to print before exiting 1."""
+
+
 def junk(name):
     return name in ("__pycache__", ".DS_Store") or name.endswith(".pyc")
 
@@ -150,37 +154,51 @@ def main():
                 if pin.is_relative_to(d):
                     later.append(d)
                 else:
-                    shutil.rmtree(d)
+                    try:
+                        shutil.rmtree(d)
+                    except OSError as e:
+                        raise Stop(f"Stopped: cannot remove {rel}: {e}. The pin is still there.")
         return empty
 
-    for r in ROOTS:
-        if not (app / r).is_dir() or (app / r).is_symlink():
-            continue
-        if inside(app, app / r):
-            prune(app / r)
-        else:
-            say(f"skip    {r}/: it is reached through a link out of the app")
+    try:
+        for r in ROOTS:
+            if not (app / r).is_dir() or (app / r).is_symlink():
+                continue
+            if inside(app, app / r):
+                prune(app / r)
+            else:
+                say(f"skip    {r}/: it is reached through a link out of the app")
+    except Stop as e:
+        print(e, file=sys.stderr)
+        return 1
 
     if pin_ok:
         say(f"remove  {PIN}")
         if not args.dry_run:
             try:
                 pin.unlink()
-                for d in later:
-                    shutil.rmtree(d)
             except OSError as e:
-                print(f"Stopped: cannot remove {PIN}: {e}", file=sys.stderr)
+                print(f"Stopped: cannot remove {PIN}: {e}. The pin is still there.", file=sys.stderr)
                 return 1
+            for d in later:
+                try:
+                    shutil.rmtree(d)
+                except OSError as e:
+                    print(f"Stopped: cannot remove {d.relative_to(app).as_posix()}: {e}. The pin is already gone.", file=sys.stderr)
+                    return 1
 
     link = app / ".agents/skills"
     if link.is_symlink() and os.readlink(link) == "../.claude/skills" and (".claude/skills" in gone or not os.path.lexists(app / ".claude/skills")):
-        say("remove  .agents/skills")
-        if not args.dry_run:
-            link.unlink()
-        if not set(os.listdir(app / ".agents")) - {"skills"}:
-            say("remove  .agents/")
+        if not inside(app, link.parent):
+            say("skip    .agents/skills: it is reached through a link out of the app")
+        else:
+            say("remove  .agents/skills")
             if not args.dry_run:
-                shutil.rmtree(app / ".agents")
+                link.unlink()
+            if not set(os.listdir(app / ".agents")) - {"skills"} and not (app / ".agents").is_symlink():
+                say("remove  .agents/")
+                if not args.dry_run:
+                    shutil.rmtree(app / ".agents")
 
     settings = app / ".claude/settings.json"
     if settings.is_file() and "cos_rotation_check.py" in settings.read_text(errors="replace"):

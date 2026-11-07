@@ -22,7 +22,7 @@ def git(cwd, *args):
 
 
 def snapshot(base):  # files, links and empty directories under base
-    return {str(p.relative_to(base)): p.is_dir() or p.read_bytes() for p in sorted(base.rglob("*"))} if base.exists() else {}
+    return {str(p.relative_to(base)): p.readlink() if p.is_symlink() else p.is_dir() or p.read_bytes() for p in sorted(base.rglob("*"))} if base.exists() else {}
 
 
 def put(base, files):
@@ -67,12 +67,15 @@ def set_pin(text):
     return lambda app: (app / "docs/agents/installed-from.txt").write_text(text)
 
 
-def link_out(app):  # all five roots sit outside the app, reached through links; an empty dir sits in two of them
+def link_out(app):  # all five roots and .agents sit outside the app, reached through links; an empty dir sits in two of them
     out = app.parent / "outside"
     out.mkdir()
-    for top in (".claude", "scripts", "docs"):
+    for top in (".claude", "scripts", "docs", ".agents"):
         shutil.move(app / top, out / top)
         (app / top).symlink_to(f"../outside/{top}")
+    if not (out / ".agents/skills").is_symlink():
+        (out / ".agents/skills").symlink_to("../.claude/skills")
+    shutil.rmtree(out / ".claude/skills")  # .claude/skills is gone, so the .agents/skills link is due for removal
     (out / "docs/agents/empty").mkdir()
     (out / ".claude/mods/empty").mkdir()
 
@@ -93,7 +96,7 @@ CASES = [
     ("dry run", lambda app: None, ["--dry-run"], 0, "[dry-run] remove  scripts/tool.py", False),
     ("malformed pin", set_pin("collective-wisdom abc\n"), [], 2, "is not 'collective-wisdom", False),
     ("pinned commit not in the clone", set_pin(f"collective-wisdom {'0' * 40}\n"), [], 2, "run 'git fetch origin'", False),
-    ("roots reached through links out of the app", link_out, [], 0, "skip    docs/agents/installed-from.txt", False),
+    ("roots reached through links out of the app", link_out, [], 0, "skip    .agents/skills: it is reached through a link out of the app", False),
     ("inside collective-wisdom", in_collective_wisdom, [], 1, "collective-wisdom itself", False),
 ]
 
