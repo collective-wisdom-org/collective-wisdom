@@ -2,15 +2,15 @@
 
 **Status:** Spec
 **Ticket:** [#162](https://github.com/collective-wisdom-org/collective-wisdom/issues/162)
-**Follows:** CW-160 (install the team once per machine). Builds on its merged `~/.collective-wisdom` link and script call sites. CW-163 (`set up this repo`) writes the file this ticket defines.
+**Follows:** CW-160 (install the team once per machine, merged in #164). Builds on its `~/.collective-wisdom` link and script call sites. CW-163 (`set up this repo`) writes the file this ticket defines.
 
-## Goal
+## Goals
 
 A person with more than one GitHub account has each repo use the right one. The login lives in a per-user file on the machine, not in a committed `project.md`, and the merge gate checks against it.
 
 ## Today
 
-Facts from `main` at `b923e59`, and CW-160's spec on `feat/cw-160-per-machine-install` at `9072305`.
+Facts from `main` at `bb44e3f` (CW-160 merged).
 
 - `agent-team/scripts/gh.sh` is `exec env -u GITHUB_TOKEN -u GH_TOKEN gh "$@"`, so every repo runs as the active keyring account. Every script reaches `gh` through it (`GH = <scripts dir>/gh.sh`).
 - `merge_pr.read_facts` sets `owner` from `project_config.value("Owner login")`. `merge_pr.gate` stops with `project.md has no Owner login; ...` when it is unset, and with `gh is signed in as <login>, not the owner <owner>` unless the `gh api user` login is the owner or a `*` user in `.github/CODEOWNERS` (`merge_pr.codeowners`).
@@ -18,7 +18,8 @@ Facts from `main` at `b923e59`, and CW-160's spec on `feat/cw-160-per-machine-in
 - `cos_untracked_check.trusted_logins` trusts the account running `gh` plus the `Owner login`.
 - `agent_usage.py --ticket` reads `project_config.subscription_usage("Claude")`, the `Claude subscription API-equivalent usage` row, and shows the share of it only when it is a positive number.
 - Both rows are in `docs/agents/project.md` (this repo) and `agent-team/templates/project.md`. Docs that name `Owner login`: `merge-pr/SKILL.md`, `chief-of-staff/SKILL.md` (untracked check), `docs/agents/github-auth.md`, `docs/agents/trackers/github.md` (whose `Approval withdrawn` counts). Test fixtures: `conftest.py`, `test_merge_pr.py`, `test_cos_approve_pr.py`, `test_cos_untracked_check.py`, `test_agent_usage.py`.
-- After CW-160, `gh.sh` runs from the clone (`~/.collective-wisdom/scripts/gh.sh`) with the cwd in the app. `~/.collective-wisdom` is a link to `<clone>/agent-team`.
+- Skills and docs call `~/.collective-wisdom/scripts/gh.sh`, which runs from the clone with the cwd in the app (`test_call_sites.py` enforces the path). `~/.collective-wisdom` is a link to `<clone>/agent-team`. `install.sh <app>` still copies `scripts/` into apps until CW-161 (#166, open) removes that route; either way `user_config.py` sits next to `gh.sh`, which finds it in its own folder.
+- `cos_untracked_check.py` is the one script that passes `--repo`, with the `Repo` row of the root checkout's `project.md`.
 - `gh auth token --hostname <host> --user <login>` prints one keyring account's token without changing the active account. `gh auth switch` changes it for the whole host.
 
 ## Design
@@ -101,7 +102,7 @@ mapped: token=$(env -u GITHUB_TOKEN -u GH_TOKEN gh auth token --hostname <host> 
 
 - `docs/agents/github-auth.md`: new `## Account per repo` section: where `user.md` lives, its shape (link to the template), that `set up this repo` writes it, how to add a row by hand, what `gh.sh` does with it, and the verify step (`~/.collective-wisdom/scripts/gh.sh api user --jq .login` in each repo prints its login, and `gh auth status` shows the same active account). Replace every `Owner login` mention with the mapped login.
 - `merge-pr/SKILL.md` gate list, `chief-of-staff/SKILL.md` untracked check and `trackers/github.md` (`Approval withdrawn` counts from the own login or the mapped login): `Owner login` becomes the login `user.md` maps to this repo.
-- `README.md`: the line about the `Claude subscription API-equivalent usage` row now names `user.md`. If CW-161 has removed that section by build time, put one line under CW-160's `## Install on a machine` instead.
+- `README.md`: drop the `Claude subscription API-equivalent usage` bullet from `## Adopt in a repo` step 3 (it lists `project.md` rows), and add one line under `## Install on a machine` saying the per-machine settings (GitHub login per repo, subscription figure) live in `user.md`, with a link to `github-auth.md` § Account per repo.
 - The `Layout` bullet for `agent-team/templates/` names `user.md`.
 
 ## Acceptance
@@ -128,7 +129,7 @@ Table-driven, per `AGENTS.md` § Testing.
 - `conftest.py`: drop `Owner login` from the fixture `project.md`.
 - Run `python3 -I -m pytest -q agent-team/scripts` and `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh`.
 
-## Leaves out
+## Non-goals
 
 - Writing `user.md`, asking which account to store, and the first-run subscription question. `set up this repo` (CW-163) does that.
 - `install.sh`. It neither creates nor reads `user.md`.
@@ -140,7 +141,7 @@ Table-driven, per `AGENTS.md` § Testing.
 
 - **Merges stop until `user.md` has a row for the repo.** There is no fallback to the old `Owner login` row. After this merges, this repo (and any app) needs its row before the next merge: `github.com/collective-wisdom-org/collective-wisdom` to the owner's login, plus the `12000` subscription figure, or ticket costs lose their percentage. The gate's message says how. I'll put the exact rows in the PR body's `After deploy`.
 - **This ticket owns the `user.md` format.** CW-163's ticket puts the format out of its scope and only writes the row, and there is no CW-163 spec branch yet. CW-163 should create the file from `agent-team/templates/user.md` and use `user_config.py path`.
-- **What must merge first.** CW-160 must merge before the build starts: this builds on its `~/.collective-wisdom` path, and both edit the same doc lines that call `gh.sh`. The build rebases on `main` and stops with `BLOCKED:` if CW-160 has not merged. CW-161 does not block this; whichever merges second rebases (overlap is only `README.md`). CW-163 builds after this one.
+- **Merge order with CW-161.** CW-160 has merged, so nothing blocks the build. CW-161 (#166, open) edits many of the same files: `github-auth.md`, `merge-pr/SKILL.md`, `chief-of-staff/SKILL.md`, `templates/project.md`, this repo's `project.md` and `README.md`. Neither blocks the other; whichever merges second merges `main` in and resolves the conflicts. CW-161 leaves the `Owner login` row to this ticket. CW-163 builds after this one.
 - **The file lives at `~/.config/collective-wisdom/user.md`,** outside the clone, so it can't be committed or lost with the clone. Not under `~/.collective-wisdom`, which is a link into the clone.
 - **The repo key is the `origin` remote's host and `owner/repo`.** I did not resolve SSH host aliases: a remote like `git@work-gh:owner/repo` has host `work-gh`, which gh doesn't know, so that repo needs an https remote or the real host in its remote URL.
 - **A mapped login missing from the keyring is a hard stop,** not a fall back to the active account. Acting as the wrong person is worse than a clear error.
