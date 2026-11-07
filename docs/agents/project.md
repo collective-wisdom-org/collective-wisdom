@@ -85,7 +85,7 @@ Extra checks for the security review, on top of OWASP and "no secrets in repo".
 
 ## Docs check
 
-Read by the documenter subagent ([documenter.md](documenter.md)).
+Read by the documenter subagent (`~/.collective-wisdom/docs/agents/documenter.md`).
 
 - Living docs to search: `README.md`, `AGENTS.md`, `docs/agents/project.md`, `agent-team/docs/agents/`, `agent-team/.claude/skills/`.
 - Extra checks: none.
