@@ -304,6 +304,7 @@ BARE = dict(GITHUB, product="my-app", approver="dq", target="main", host="github
     ((), lambda t: t),
     (("Publish release notes",), lambda t: t),
     (("Tracker scope",), lambda t: t.replace("| Linear team name (Linear only) | `Acme` |", "| Linear team name (Linear only) | Acme (key `AB`, <https://linear.app/w/team/AB/overview>) |")),
+    ((), lambda t: t.replace("- none yet", "- Repo rules: Mine.", 1)),
 ])
 def test_repair_of_a_one_gap_file_changes_only_the_gap(repo, capsys, drop, edit):
     write(capsys, repo, OLD)
@@ -314,6 +315,8 @@ def test_repair_of_a_one_gap_file_changes_only_the_gap(repo, capsys, drop, edit)
     new = md(repo[1])
     assert run(capsys, "status", "--root", repo[1])[1].splitlines()[0] == "set"
     want = old.replace("| Test | TODO(alice) |", "| Test | `pytest` |")
+    if "- Repo rules:" not in old:
+        want = want.replace("- none yet", "- Repo rules: x.", 1)
     if "Tracker scope" in drop:
         want = want.replace("| Linear team name", "| Tracker scope (`<TEAM>`) | `Acme` |\n| Linear team name", 1)
     assert new == want

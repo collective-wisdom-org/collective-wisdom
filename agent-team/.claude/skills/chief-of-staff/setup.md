@@ -87,7 +87,7 @@ Show each git and gh step as the command it will run, and run it only after a ye
    git fetch origin
    git worktree add -b agent-team-setup <wt> origin/<target>
    ```
-2. **Write the files.** Run `setup_repo.py write --dir <wt> --answers @<file>`, then show `git -C <wt> diff` (and `git -C <wt> status --short` for the new files).
+2. **Write the files.** Run `setup_repo.py write --dir <wt> --answers @<file>`, then show `git -C <wt> diff` (and `git -C <wt> status --short` for the new files). Run `write` once per worktree; a second run on the repaired file applies every key it is given.
 3. **The pin offer.** Only when `pinned` is true. Run `python3 ~/.collective-wisdom/scripts/remove_app_copies.py --dry-run` with `<wt>` as the current directory, show its list, and offer the real run. On exit 1 (hand-edited copies) show the list and offer `--force` or skip. Pass its `.claude/settings.json` TODO on to the user as it is. Drop its "commit this removal as a PR" line: this PR is that.
 4. **Commit.**
    ```

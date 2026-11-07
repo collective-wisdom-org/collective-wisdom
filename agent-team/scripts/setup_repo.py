@@ -407,7 +407,7 @@ def _tracker(lines, a, owner, fresh):
 def _rules(lines, rules, ph_only=False):
     """Write the repo rules bullet over the one setup wrote, else `none yet`, else the template bullet; else after the last bullet.
 
-    With ph_only, change only the template bullet and only when there is one.
+    With ph_only (a repair), write over the template bullet, else `none yet`, else add a bullet when there are rules; an existing `Repo rules:` bullet stays.
     """
     found = _section(lines, "Repo invariants") if ph_only else _need_section(lines, "Repo invariants")
     if not found:
@@ -415,8 +415,8 @@ def _rules(lines, rules, ph_only=False):
     s, e = found
     bullets = [i for i in range(s, e) if lines[i].startswith("- ")]
     tests = [lambda t: t.startswith("- " + RULES), lambda t: t == "- none yet", lambda t: bool(RULE_BULLET.fullmatch(t))]
-    at = next((i for f in tests[2 * ph_only:] for i in bullets if f(lines[i].rstrip())), None)
-    if ph_only and at is None:
+    at = next((i for f in ([tests[2], tests[1]] if ph_only else tests) for i in bullets if f(lines[i].rstrip())), None)
+    if ph_only and at is None and not (rules and not any(tests[0](lines[i].rstrip()) for i in bullets)):
         return
     text = "- " + RULES + " ".join(r if r[-1] in ".!?" else r + "." for r in rules) if rules else "- none yet"
     if at is not None:
