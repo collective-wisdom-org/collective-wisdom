@@ -29,6 +29,9 @@ STATUS = [
     (FILLED.replace("| Test | `pytest` |\n", ""), "placeholders: Test"),
     (FILLED.replace("`github`", "`linear`"), "placeholders: Linear team name"),
     (FILLED.replace("`github`", "`linear`") + TEAM, "set"),
+    (FILLED.replace("| Tracker (`linear`, `github` or `jira`) | `github` |\n", "") + TEAM, "set"),
+    (FILLED.replace("| Tracker (`linear`, `github` or `jira`) | `github` |\n| Tracker scope (`<TEAM>`) | `a/b` |\n", "") + TEAM, "set"),
+    (FILLED.replace("| Tracker (`linear`, `github` or `jira`) | `github` |\n", ""), "placeholders: Linear team name"),
     (TEMPLATE, "placeholders: Tracker scope, Issue identifier prefix, Repo, Test, Linear team name"),
 ]
 
@@ -75,7 +78,7 @@ def test_status(tmp_path, capsys, text, want):
     (tmp_path / "docs" / "agents" / "project.md").write_text(text)
     code, out, _ = run(capsys, "status", "--root", tmp_path)
     assert (code, out.splitlines()[0]) == (0, want)
-    assert sorted(json.loads(out.splitlines()[1])) == sorted(["host", "repo", "repo_key", "target", "gh_logins", "mapped_login", "user_md_exists", "pinned", "has_workflows", "test_guess", "prefix_guess", "product_guess"])
+    assert {"prefix_guess", "test_guess", "has_workflows"} <= set(json.loads(out.splitlines()[1]))
 
 
 def test_status_missing_and_unreadable(tmp_path, capsys):
@@ -119,8 +122,9 @@ def test_guess_prefix(name, want):
 
 
 @pytest.mark.parametrize("answers, has, lacks", [
-    (GITHUB, ["`Foo/my-app` (<https://github.com/Foo/my-app>)", "`feat/ma-N-short-title`", "TODO(dq)"], ["Linear team name", "Linear project"]),
-    ({**GITHUB, "ci": "none", "rules": ["Never delete data/"]}, ["none (no CI yet)", "- Never delete data/."], ["TODO(dq) |\n| Agent"]),
+    (GITHUB, ["`Foo/my-app` (<https://github.com/Foo/my-app>)", "| Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is", "TODO(dq)"], ["Linear team name", "Linear project"]),
+    ({**GITHUB, "ci": "none", "rules": ["Never delete data/"]}, ["none (no CI yet)", "- Repo rules: Never delete data/."], ["TODO(dq) |\n| Agent"]),
+    ({**GITHUB, "approver": "dq."}, ["| Approver | dq. Approves specs and merges only |"], ["dq.."]),
     (LINEAR, ["| Linear team name (Linear only) | `Acme` |", "none (the team is the scope)", "| Tracker scope (`<TEAM>`) | `Acme` |"], []),
     ({**GITHUB, "tracker": "jira", "tracker_scope": "KEY"}, ["| Tracker scope (`<TEAM>`) | `KEY` |"], ["Linear team name"]),
 ])
@@ -150,9 +154,9 @@ def test_write_rerun_changes_only_given_rows(repo, capsys):
 def test_write_rerun_missing_row_is_an_error(repo, capsys):
     write(capsys, repo, GITHUB)
     path = repo[1] / "docs" / "agents" / "project.md"
-    path.write_text(path.read_text().replace("| Test | `pytest` |\n", ""))
-    code, _, err = write(capsys, repo, {"test": "x"})
-    assert code == 2 and "'Test'" in err
+    path.write_text(re.sub(r"\| Required CI checks.*\n", "", path.read_text()))
+    code, _, err = write(capsys, repo, {"ci": "none"})
+    assert code == 2 and "'Required CI checks'" in err
 
 
 @pytest.mark.parametrize("had, want", [
@@ -173,17 +177,19 @@ def test_write_gitignore(repo, capsys, had, want):
 def refusal(tmp_path, repo):
     root, wt = repo
     git(wt, "checkout", "-q", "--detach")
-    detached = wt
     other = tmp_path / "other"
     git(root, "worktree", "add", "-q", "-b", "feat/x", str(other))
-    return {"root checkout": (root, {}), "not a worktree": (tmp_path, {}), "detached": (detached, {}), "branch is the target": (other, {"target": "feat/x"})}
+    return {
+        "root checkout": (root, {}, "is not a linked worktree"), "not a worktree": (tmp_path, {}, f"{tmp_path.resolve()} is not a linked worktree of the repo at {root}"),
+        "detached": (wt, {}, "detached HEAD"), "branch is the target": (other, {"target": "feat/x"}, "merge target"),
+    }
 
 
 @pytest.mark.parametrize("case", ["root checkout", "not a worktree", "detached", "branch is the target"])
 def test_write_refuses(repo, capsys, tmp_path, case):
-    wt, extra = refusal(tmp_path, repo)[case]
+    wt, extra, message = refusal(tmp_path, repo)[case]
     code, _, err = write(capsys, repo, {**GITHUB, **extra}, wt=wt)
-    assert code == 1 and err
+    assert code == 1 and message in err
     assert not (wt / "docs").exists() and not (wt / ".gitignore").exists()
 
 
@@ -200,6 +206,7 @@ BAD = [
     {"prefix": "ab"}, {"prefix": "A-B"}, {"repo": "a b"}, {"repo": "solo"}, {"login": "-x"}, {"tracker": "trello"},
     {"target": "../x"}, {"test": "pytest `x`"}, {"test": "a | b"}, {"product": "a\nb"}, {"product": "x" * 301},
     {"rules": ["ok", "bad `x`"]}, {"rules": "no"}, {"nope": "x"},
+    {"test": "make test ARGS=<all>"}, {"product": "a>b"}, {"tracker_scope": "T<1"}, {"linear_team": "<x>"},
 ]
 
 
@@ -213,6 +220,80 @@ def test_write_rejects_bad_answers_and_writes_nothing(repo, capsys, bad):
 def test_write_fresh_needs_every_answer(repo, capsys):
     code, _, err = write(capsys, repo, {k: v for k, v in GITHUB.items() if k != "test"})
     assert code == 2 and "test" in err and not (repo[1] / "docs").exists()
+
+
+def rerun(capsys, repo, start, answers):
+    """Write `start` fresh, then re-run `answers`; returns (code, err, project.md text, status line)."""
+    write(capsys, repo, start)
+    code, _, err = write(capsys, repo, answers)
+    return code, err, md(repo[1]), run(capsys, "status", "--root", repo[1])[1].splitlines()[0]
+
+
+@pytest.mark.parametrize("start, answers, code, has, lacks", [
+    (GITHUB, {"tracker": "linear", "tracker_scope": "Acme"}, 0, ["| Tracker scope (`<TEAM>`) | `Acme` |", "| Linear team name (Linear only) | `Acme` |", "| Linear project (Linear only) | none (the team is the scope) |", "| Tracker (`linear`, `github` or `jira`) | `linear` |"], []),
+    (GITHUB, {"tracker": "linear"}, 2, [], []),
+    (LINEAR, {"tracker": "github"}, 0, ["| Tracker scope (`<TEAM>`) | `Foo/my-app` |"], ["Linear team name", "Linear project", "Acme"]),
+    (GITHUB, {"tracker": "jira", "tracker_scope": "KEY", "login": "dq"}, 0, ["| Tracker scope (`<TEAM>`) | `KEY` |", "| Jira site | TODO(dq) |", "| Jira status: Canceled | TODO(dq) |"], []),
+])
+def test_write_rerun_tracker_change(repo, capsys, start, answers, code, has, lacks):
+    got, err, text, status = rerun(capsys, repo, start, answers)
+    assert got == code and (status == "set" or code == 2)
+    assert all(h in text for h in has) and not any(x in text for x in lacks)
+    assert not (code == 0 and "TODO(dq)" not in text and "jira" in answers.values())
+
+
+def test_write_rerun_rules_replace_only_the_rules_bullet(repo, capsys):
+    def bullets():
+        text = md(repo[1])
+        return [x for x in text.split("## Repo invariants")[1].split("## Areas")[0].splitlines() if x.startswith("- ")][3:]
+
+    write(capsys, repo, GITHUB)
+    assert bullets() == ["- none yet"]
+    for rules, want in ((["A"], ["- Repo rules: A."]), (["B", "C"], ["- Repo rules: B. C."])):
+        write(capsys, repo, {"rules": rules})
+        assert bullets() == want
+    path = repo[1] / "docs" / "agents" / "project.md"
+    path.write_text(path.read_text().replace("- Repo rules: B. C.", "- Mine."))
+    assert write(capsys, repo, {"rules": ["D"]})[0] == 0
+    assert bullets() == ["- Mine.", "- Repo rules: D."]
+    write(capsys, repo, {"rules": ["E"]})
+    assert bullets() == ["- Mine.", "- Repo rules: E."]
+
+
+def commit(repo, text):
+    (repo[1] / "docs" / "agents").mkdir(parents=True, exist_ok=True)
+    (repo[1] / "docs" / "agents" / "project.md").write_text(text)
+
+
+def drop_rows(text, *keys):
+    return "".join(line for line in text.splitlines(keepends=True) if not any(line.startswith(f"| {k}") for k in keys))
+
+
+@pytest.mark.parametrize("answers, has, lacks", [
+    (GITHUB, ["| Tracker scope (`<TEAM>`) | `Foo/my-app` |", "| Product name | My App |", "# Project config (My App)", "| Lint | TODO(dq) |", "- none yet"], ["Linear team name", "<product name"]),
+    ({**LINEAR, "rules": ["No x"]}, ["| Linear team name (Linear only) | `Acme` |", "- Repo rules: No x."], ["<Name the local"]),
+])
+def test_write_on_the_committed_template_ends_set(repo, capsys, answers, has, lacks):
+    commit(repo, TEMPLATE)
+    assert run(capsys, "status", "--root", repo[1])[1].startswith("placeholders")
+    assert write(capsys, repo, answers)[0] == 0
+    text = md(repo[1])
+    assert run(capsys, "status", "--root", repo[1])[1].splitlines()[0] == "set"
+    assert all(h in text for h in has) and not any(x in text for x in lacks)
+
+
+@pytest.mark.parametrize("drop, answers, has", [
+    (("Tracker (",), {"test": "npm test"}, ["| Test | `npm test` |"]),
+    (("Tracker (", "Test |"), {"test": "pytest"}, ["| Test | `pytest` |"]),
+    (("Tracker (", "Linear project"), {"tracker": "github"}, ["| Tracker (`linear`, `github` or `jira`) | `github` |", "| Tracker scope (`<TEAM>`) | `Foo/my-app` |"]),
+])
+def test_write_when_the_tracker_row_is_missing_it_reads_as_linear(repo, capsys, drop, answers, has):
+    write(capsys, repo, LINEAR)
+    commit(repo, drop_rows(md(repo[1]), *drop))
+    code, _, err = write(capsys, repo, answers)
+    assert code == 0, err
+    assert run(capsys, "status", "--root", repo[1])[1].splitlines()[0] == "set"
+    assert all(h in md(repo[1]) for h in has)
 
 
 def run_user(capsys, *args, key="github.com/Example/App"):

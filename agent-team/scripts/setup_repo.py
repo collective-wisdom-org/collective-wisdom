@@ -29,6 +29,11 @@ TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
 REQUIRED = ("Tracker", "Tracker scope", "Issue identifier prefix", "Repo", "Test")
 PLACEHOLDER = re.compile(r"<[^>]+>")
 AUTOLINK = re.compile(r"<https?://[^<>\s]+>")
+PROSE = r"<(?!https?://)[^<>]*>"
+RULES = "Repo rules: "
+RULE_BULLET = re.compile(r"- <[^<>]*>")
+JIRA = ("Jira site", "Jira project key", *(f"Jira status: {s}" for s in ("Backlog", "Todo", "In Progress", "In Review", "Done", "Canceled")))
+NO_ANGLE = ("test", "product", "tracker_scope", "linear_team")
 IGNORED = {".agent-team", ".agent-team/", "/.agent-team", "/.agent-team/"}
 TEXT_KEYS = ("product", "tracker_scope", "linear_team", "test", "approver", "ci")
 ANSWER_KEYS = set(TEXT_KEYS) | {"tracker", "prefix", "repo", "host", "target", "login", "rules"}
@@ -151,18 +156,44 @@ def guess_prefix(name):
     return letters if len(letters) >= 2 and re.fullmatch(r"[A-Z][A-Z0-9]*", letters) else None
 
 
+def _ph(cell):
+    return bool(PLACEHOLDER.search(AUTOLINK.sub("", cell)))
+
+
+def _get(rows, key):
+    """(value, unset) of the row `key`: unset when it is missing, empty, a TODO or still holds a template placeholder."""
+    found = next(((k, v) for k, v in rows if k == key or k.startswith(key + " (")), None)
+    value = found and project_config.setting(found[0], [found])
+    return value, not found or value is None or _ph(found[1])
+
+
 def unset_rows(text):
-    """Names of the required rows that are missing, unset or still hold a template placeholder."""
+    """Names of the required rows that are unset or hold a template placeholder. A missing `Tracker` row reads as linear."""
+    rows = project_config._parse(text)
+    tracker = (_get(rows, "Tracker")[0] or "linear").lower()
+    team_unset = _get(rows, "Linear team name")[1]
+    bad = [
+        k for k in REQUIRED
+        if (tracker not in project_config.TRACKERS if k == "Tracker" else _get(rows, k)[1] and not (k == "Tracker scope" and tracker == "linear" and not team_unset))
+    ]
+    return bad + (["Linear team name"] if tracker == "linear" and team_unset else [])
+
+
+def _known(text):
+    """The answers a project.md already holds in its set rows."""
     rows = project_config._parse(text)
 
-    def get(key):
-        found = next(((k, v) for k, v in rows if k == key or k.startswith(key + " (")), None)
-        value = found and project_config.setting(found[0], [found])
-        return value, not found or value is None or bool(PLACEHOLDER.search(AUTOLINK.sub("", found[1])))
+    def val(key):
+        value, unset = _get(rows, key)
+        return None if unset else value
 
-    tracker = (get("Tracker")[0] or "").lower()
-    bad = [k for k in REQUIRED if get(k)[1] or (k == "Tracker" and tracker not in project_config.TRACKERS)]
-    return bad + (["Linear team name"] if tracker == "linear" and get("Linear team name")[1] else [])
+    tracker = (val("Tracker") or "linear").lower()
+    out = {
+        "product": val("Product name"), "tracker": tracker if tracker in project_config.TRACKERS else None, "prefix": val("Issue identifier prefix"),
+        "tracker_scope": val("Tracker scope") or val("Linear team name"), "repo": val("Repo"), "test": val("Test"),
+        "approver": (val("Approver") or "").split(". Approves")[0],
+    }
+    return {k: v for k, v in out.items() if v}
 
 
 def _gh_logins(host):
@@ -267,8 +298,9 @@ def cmd_user(args):
 
 
 def _free(v, name):
-    if not isinstance(v, str) or not v.strip() or len(v) > 300 or re.search(r"[\n\r|`]", v):
-        raise Fail(2, f"answer '{name}' must be one line of at most 300 characters with no | or backtick")
+    bad = r"[\n\r|`<>]" if name in NO_ANGLE else r"[\n\r|`]"
+    if not isinstance(v, str) or not v.strip() or len(v) > 300 or re.search(bad, v):
+        raise Fail(2, f"answer '{name}' must be one line of at most 300 characters with no | or backtick" + (" and no < or >" if name in NO_ANGLE else ""))
     return v.strip()
 
 
@@ -277,6 +309,10 @@ def validate(a):
     if unknown:
         raise Fail(2, f"unknown answers: {', '.join(sorted(unknown))}")
     a = {k: _free(v, k) if k in TEXT_KEYS else v for k, v in a.items()}
+    if "linear_team" in a:
+        a.setdefault("tracker_scope", a.pop("linear_team"))
+    if "approver" in a:
+        a["approver"] = a["approver"].rstrip(".")
     if "rules" in a:
         if not isinstance(a["rules"], list):
             raise Fail(2, "answer 'rules' must be a list")
@@ -302,9 +338,86 @@ def _owner(a):
 
 
 def _fill(lines, title, pattern, repl):
-    s, e = _need_section(lines, title)
-    for i in range(s, e):
+    found = _section(lines, title)
+    for i in range(*found) if found else ():
         lines[i] = re.sub(pattern, repl, lines[i])
+
+
+def _prose(lines):
+    for title in ("Areas and labels", "Product rules", "Security overlays", "Environments and deploy"):
+        _fill(lines, title, PROSE, "none yet")
+    _fill(lines, "Docs check", r", <add[^<>]*>", "")
+    _fill(lines, "Docs check", PROSE, "none")
+
+
+def _put(lines, key, cell, *after, overwrite=True):
+    """Set the row `key` (its whole key cell) to `cell`; add it after the first of the `after` rows that exists when it is missing."""
+    base = key.split(" (")[0]
+    if _find(lines, base):
+        if overwrite:
+            _set(lines, base, cell)
+        return
+    anchor = next((f for f in (_find(lines, k) for k in after) if f), None)
+    if not anchor:
+        raise Fail(2, f"no '{after[0]}' row to add '{base}' after")
+    if not lines[anchor[0]].endswith("\n"):
+        lines[anchor[0]] += "\n"
+    lines.insert(anchor[0] + 1, f"| {key} | {cell} |\n")
+
+
+def _tracker(lines, a, owner, fresh):
+    """Set the `Tracker` row and what hangs on it: the scope, the Linear rows, the Jira rows."""
+    t = a.get("tracker")
+    if t and _find(lines, "Tracker"):
+        _token(lines, "Tracker", t)
+    elif t:
+        _put(lines, "Tracker (`linear`, `github` or `jira`)", f"`{t}`", "Product name", "Tracker scope", "Issue identifier prefix")
+    scope = a.get("tracker_scope")
+    if scope:
+        _put(lines, "Tracker scope (`<TEAM>`)", f"`{scope}`", "Tracker", "Product name", "Issue identifier prefix")
+    now = t or (_get(project_config._parse("".join(lines)), "Tracker")[0] or "linear").lower()
+    if now == "linear":
+        if scope:
+            _put(lines, "Linear team name (Linear only)", f"`{scope}`", "Tracker scope")
+        elif t and not _find(lines, "Linear team name"):
+            raise Fail(2, "switching to linear needs tracker_scope, the Linear team name")
+        if t:
+            _put(lines, "Linear project (Linear only)", "none (the team is the scope)", "Issue identifier prefix", overwrite=fresh)
+    elif t:
+        _drop(lines, "Linear team name")
+        _drop(lines, "Linear project")
+    if t == "jira":
+        prev = "Issue identifier prefix"
+        for key in JIRA:
+            _put(lines, key, f"TODO({owner})", prev, overwrite=False)
+            prev = key
+    elif t:
+        for key in JIRA:
+            _drop(lines, key)
+
+
+def _rules(lines, rules, ph_only=False):
+    """Write the repo rules bullet over the one setup wrote, else `none yet`, else the template bullet; else after the last bullet.
+
+    With ph_only, change only the template bullet and only when there is one.
+    """
+    found = _section(lines, "Repo invariants") if ph_only else _need_section(lines, "Repo invariants")
+    if not found:
+        return
+    s, e = found
+    bullets = [i for i in range(s, e) if lines[i].startswith("- ")]
+    tests = [lambda t: t.startswith("- " + RULES), lambda t: t == "- none yet", lambda t: bool(RULE_BULLET.fullmatch(t))]
+    at = next((i for f in tests[2 * ph_only:] for i in bullets if f(lines[i].rstrip())), None)
+    if ph_only and at is None:
+        return
+    text = "- " + RULES + " ".join(r if r[-1] in ".!?" else r + "." for r in rules) if rules else "- none yet"
+    if at is not None:
+        lines[at] = text + lines[at][len(lines[at].rstrip("\r\n")):]
+        return
+    last = bullets[-1] if bullets else s
+    if not lines[last].endswith("\n"):
+        lines[last] += "\n"
+    lines[last + 1:last + 1] = ([] if bullets else ["\n"]) + [text + "\n"]
 
 
 def build(text, a, fresh):
@@ -312,23 +425,20 @@ def build(text, a, fresh):
     lines = text.splitlines(keepends=True)
     if fresh:
         a = {"target": "main", "host": "github.com", "approver": a.get("login"), **a}
-        a["tracker_scope"] = a.get("repo") if a.get("tracker") == "github" else a.get("tracker_scope") or a.get("linear_team")
+        a["tracker_scope"] = a.get("repo") if a.get("tracker") == "github" else a.get("tracker_scope")
         missing = [k for k in ("product", "tracker", "prefix", "repo", "test", "approver", "tracker_scope") if not a.get(k)]
         if missing:
             raise Fail(2, f"a first setup needs: {', '.join(missing)}")
-    else:
-        a = {**a, "tracker_scope": a.get("tracker_scope") or a.get("linear_team")}
+    elif a.get("tracker") == "github":
+        a = {**a, "tracker_scope": a.get("repo") or _get(project_config._parse(text), "Repo")[0]}
+    owner = _owner(a)
     if "product" in a:
         _set(lines, "Product name", a["product"])
         title = next((i for i, line in enumerate(lines) if line.startswith("# Project config (")), None)
         if title is not None:
             lines[title] = f"# Project config ({a['product']})\n"
-    if "tracker" in a:
-        _token(lines, "Tracker", a["tracker"])
-    if a.get("tracker_scope"):
-        _set(lines, "Tracker scope", f"`{a['tracker_scope']}`")
-        if _find(lines, "Linear team name") and (a.get("tracker") or "linear") == "linear":
-            _set(lines, "Linear team name", f"`{a['tracker_scope']}`")
+    if "tracker" in a or a.get("tracker_scope"):
+        _tracker(lines, a, owner, fresh)
     if "prefix" in a:
         _token(lines, "Issue identifier prefix", a["prefix"])
     if "approver" in a:
@@ -340,29 +450,69 @@ def build(text, a, fresh):
     if "test" in a:
         _token(lines, "Test", a["test"])
     if "ci" in a or fresh:
-        todo = f"TODO({_owner(a)})"
-        _set(lines, "Required CI checks", "none (no CI yet)" if a.get("ci", "").lower() == "none" else todo)
+        _set(lines, "Required CI checks", "none (no CI yet)" if a.get("ci", "").lower() == "none" else f"TODO({owner})")
     if "rules" in a or fresh:
-        s, e = _need_section(lines, "Repo invariants")
-        i = max(i for i in range(s, e) if lines[i].startswith("- "))
-        eol = lines[i][len(lines[i].rstrip("\r\n")):]
-        rules = " ".join(r if r[-1] in ".!?" else r + "." for r in a.get("rules", [])) or "none yet"
-        lines[i] = f"- {rules}{eol}"
+        _rules(lines, a.get("rules", []))
     if fresh:
-        p = a["prefix"].lower()
-        _set(lines, "Branch pattern", f"`feat/{p}-N-short-title` (`{p}` is the issue prefix in lower case)")
         for key in ("Lint", "Typecheck"):
-            _set(lines, key, f"TODO({_owner(a)})")
-        if a["tracker"] == "linear":
-            _set(lines, "Linear project", "none (the team is the scope)")
-        else:
-            _drop(lines, "Linear team name")
-            _drop(lines, "Linear project")
-        for title in ("Areas and labels", "Product rules", "Security overlays", "Environments and deploy"):
-            _fill(lines, title, r"<[^<>]*>", "none yet")
-        _fill(lines, "Docs check", r", <add[^<>]*>", "")
-        _fill(lines, "Docs check", r"<[^<>]*>", "none")
+            _set(lines, key, f"TODO({owner})")
+        _prose(lines)
     return "".join(lines)
+
+
+def _rowkey(line):
+    c = _cells(line)
+    return c[0].split(" (")[0] if line.lstrip().startswith("|") and len(c) >= 2 and c[0] not in ("Key", "") and not c[0].startswith("-") else None
+
+
+def _table_end(lines, i):
+    while i < len(lines) and lines[i].lstrip().startswith("|"):
+        i += 1
+    return i
+
+
+def _anchor(lines, new, j):
+    """Where in `lines` to put row new[j]: after the nearest preceding row of its table that `lines` has, else at the end of the table of the nearest following one."""
+    for rng, end in ((range(j - 1, -1, -1), False), (range(j + 1, len(new)), True)):
+        for k in rng:
+            if not new[k].lstrip().startswith("|"):
+                break
+            found = (key := _rowkey(new[k])) and _find(lines, key)
+            if found:
+                return _table_end(lines, found[0]) if end else found[0] + 1
+
+
+def _merge(lines, new):
+    """Take the fresh render's row for each row of `lines` that holds a placeholder it fills, and add the rows `lines` lacks."""
+    title = lambda ls: next((i for i, line in enumerate(ls) if line.startswith("# Project config (")), None)
+    ot, nt = title(lines), title(new)
+    if None not in (ot, nt) and _ph(lines[ot]) and not _ph(new[nt]):
+        lines[ot] = new[nt]
+    for j, line in enumerate(new):
+        key = _rowkey(line)
+        if not key:
+            continue
+        found = _find(lines, key)
+        if found:
+            if _ph(found[1][1]) and not _ph(_cells(line)[1]):
+                lines[found[0]] = line
+        elif (at := _anchor(lines, new, j)) is not None:
+            if not lines[at - 1].endswith("\n"):
+                lines[at - 1] += "\n"
+            lines.insert(at, line if line.endswith("\n") else line + "\n")
+
+
+def repair(old, a):
+    """`old` with the answers applied, then every unset row and template bullet filled in as a first setup would write them."""
+    known = _known(old)
+    if a.get("tracker", known.get("tracker")) != known.get("tracker"):
+        known.pop("tracker_scope", None)
+    fresh = build((TEMPLATES / "project.md").read_text(), {**known, **a}, True)
+    lines = old.splitlines(keepends=True)
+    _merge(lines, fresh.splitlines(keepends=True))
+    _prose(lines)
+    _rules(lines, [], ph_only=True)
+    return build("".join(lines), a, False)
 
 
 def _inside(path, wt):
@@ -378,7 +528,7 @@ def _check_worktree(root, wt, a):
         raise Fail(2, f"git worktree list failed in {root}")
     trees = [Path(line[9:]).resolve() for line in listed.splitlines() if line.startswith("worktree ")]
     if wt not in trees[1:]:
-        raise Fail(1, f"{wt} is not a linked worktree of {root}")
+        raise Fail(1, f"{wt} is not a linked worktree of the repo at {root}")
     branch = _git(["symbolic-ref", "--short", "-q", "HEAD"], wt)
     if not branch:
         raise Fail(1, f"{wt} has a detached HEAD")
@@ -410,7 +560,10 @@ def cmd_write(args):
         old = _read(md)
     except FileNotFoundError:
         old = None
-    new = build(old if old is not None else (TEMPLATES / "project.md").read_text(), a, old is None)
+    if old is None:
+        new = build((TEMPLATES / "project.md").read_text(), a, True)
+    else:
+        new = repair(old, a) if unset_rows(old) else build(old, a, False)
     ignored = _read(ignore) if ignore.exists() else ""
     if not any(line.strip() in IGNORED for line in ignored.splitlines()):
         ignored += ("" if not ignored or ignored.endswith("\n") else "\n") + ".agent-team/\n"
