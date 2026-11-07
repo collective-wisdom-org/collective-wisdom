@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-07 leave only project.md from the team in a consuming repo (CW-161) (#166)
+
+Merged 2026-11-07 20:24 UTC.
+
+An app now commits only `docs/agents/project.md` from the team; skills, scripts and role docs come from the machine install. If an app still carries the old copied team, run `~/.collective-wisdom/scripts/remove_app_copies.py` in it and commit the removal as a PR. `install.sh <app>` no longer works.
+
+Context size: 227377 to 227915 characters (+538 from main)
+
 ## 2026-11-06 install the agent team once per machine (CW-160) (#164)
 
 Merged 2026-11-06 22:17 UTC.
