@@ -34,3 +34,9 @@ def test_agent_file_shape(path):
     assert docs, f"{path.name}: body names no docs/agents path"
     for doc in docs:
         assert (ROOT / doc).is_file(), f"{path.name}: {doc} does not exist"
+
+
+def test_project_md_is_local_and_never_shipped():
+    local = TOP / "docs" / "agents" / "project.md"
+    assert local.is_file() and not local.is_symlink()
+    assert not (ROOT / "docs" / "agents" / "project.md").exists()

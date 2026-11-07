@@ -10,7 +10,7 @@ As the last Bash call of every turn that made a tool call, run this from the roo
 python3 ~/.collective-wisdom/scripts/cos_rotation_check.py
 ```
 
-The only turn that skips it is a run-started notice, which makes no tool calls. A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`.claude/settings.json`) runs the same script and sends the turn back when it says `rotate:`, so the check still happens if you forget it.
+The only turn that skips it is a run-started notice, which makes no tool calls. A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`~/.claude/settings.json`) runs the same script and sends the turn back when it says `rotate:`, so the check still happens if you forget it.
 
 It prints one line, `ok ...` or `rotate: <reason>`, and exits 0. It applies this table (the size cap is `SIZE_CAP` and the quiet windows are `QUIET_RELAY_MIN` and `QUIET_ROTATED_MIN` in the script; change doc and script together):
 

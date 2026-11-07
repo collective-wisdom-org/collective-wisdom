@@ -1,1 +1,0 @@
-../../agent-team/docs/agents/status-pane.md

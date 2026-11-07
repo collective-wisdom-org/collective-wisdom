@@ -13,9 +13,6 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 FOLDERS = [".claude/skills", ".claude/agents", "docs/agents", "templates"]
 SKIPPED = {"machine-instruction.md"}  # shipped text that names the folder itself
-EDITED = {  # source files a doc tells you to edit, not scripts to run
-    "docs/agents/trackers/README.md": {"scripts/test_tracker_docs.py", "scripts/project_config.py"},
-}
 RULES = {  # name -> (pattern for a bare path, what to write instead, folders to check)
     "script call": (
         re.compile(r"(?<![\w~/.-])(?:\./)?scripts/[\w*-]+\.(?:py|sh)\b"),
@@ -47,6 +44,5 @@ def test_shared_files_are_reached_through_the_machine_install(rule):
         if path.name not in SKIPPED
         for number, line in enumerate(path.read_text().splitlines(), 1)
         for match in pattern.finditer(line)
-        if match.group() not in EDITED.get(path.relative_to(ROOT).as_posix(), ())
     ]
     assert not bad, fix + ":\n" + "\n".join(bad)
