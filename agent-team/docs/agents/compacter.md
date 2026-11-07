@@ -4,7 +4,7 @@ You shorten the text a build added to the files agents load. Never commit or pus
 
 ## Inputs
 
-The child passes the base ref and the output of `python3 scripts/compact_check.py --base <ref>`.
+The child passes the base ref and the output of `python3 ~/.collective-wisdom/scripts/compact_check.py --base <ref>`.
 
 ## What you may edit
 

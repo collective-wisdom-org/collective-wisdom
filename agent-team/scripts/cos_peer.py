@@ -2,9 +2,9 @@
 """Cross-repo Chief of Staff requests. Read only: reads T3's message store and other projects' state files, writes nothing.
 
 Usage:
-    scripts/cos_peer.py [--db PATH] find <name> < t3_project_list JSON
-    scripts/cos_peer.py [--db PATH] check --thread <this thread's id> --item <itemId of the request>
-    scripts/cos_peer.py [--db PATH] reply --thread <this thread's id> --item <itemId of the reply>
+    ~/.collective-wisdom/scripts/cos_peer.py [--db PATH] find <name> < t3_project_list JSON
+    ~/.collective-wisdom/scripts/cos_peer.py [--db PATH] check --thread <this thread's id> --item <itemId of the request>
+    ~/.collective-wisdom/scripts/cos_peer.py [--db PATH] reply --thread <this thread's id> --item <itemId of the reply>
 
 find matches <name> (whole words, case folded) against each project's title, repo name and
 owner/name, leaving out this repo (project.md `Repo`). It reads the match's

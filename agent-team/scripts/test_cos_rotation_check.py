@@ -76,6 +76,7 @@ def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, rea
     if state is not None:
         path.write_text(json.dumps(state))
     monkeypatch.setenv("COS_STATE_FILE", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # no machine copy unless a test adds one
     monkeypatch.setattr(sys, "stdin", io.StringIO(hook_in if isinstance(hook_in, str) else json.dumps(hook_in)))
 
     def read_context(sid=None):
@@ -164,7 +165,7 @@ def test_skill_paths_follow_symlinks(tmp_path, monkeypatch):
     (tmp_path / "docs" / "agents" / "chief-of-staff.md").symlink_to(
         "../../agent-team/docs/agents/chief-of-staff.md"
     )
-    monkeypatch.setattr(crc, "ROOT", tmp_path)
+    monkeypatch.setattr(crc, "TEAM", tmp_path)
     assert crc.skill_paths() == [
         "agent-team/.claude/skills/chief-of-staff",
         "agent-team/.claude/skills/project-manager",
@@ -187,7 +188,7 @@ def test_skill_paths_unchanged_without_links(tmp_path, monkeypatch):
             p.write_text("x\n")
         else:
             p.mkdir(exist_ok=True)
-    monkeypatch.setattr(crc, "ROOT", tmp_path)
+    monkeypatch.setattr(crc, "TEAM", tmp_path)
     assert crc.skill_paths() == crc.SKILL_PATHS
 
 
@@ -198,8 +199,68 @@ def test_skill_commit_works_when_root_is_a_subfolder(tmp_path, monkeypatch):
     sub = tmp_path / "agent-team"
     (sub / ".claude").mkdir(exist_ok=True)
     (sub / "docs" / "agents").mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(crc, "ROOT", sub)
+    monkeypatch.setattr(crc, "TEAM", sub)
     assert crc.skill_commit() == run("rev-parse", "HEAD")
+
+
+def test_skill_commit_follows_the_clone_not_the_app(tmp_path):
+    # The clone sits outside the app repo and is reached through a ~/.collective-wisdom style link.
+    clone, app, home = tmp_path / "clone", tmp_path / "app", tmp_path / "home"
+    for d in (clone, app, home):
+        d.mkdir()
+    run = _repo(clone)
+    scripts = clone / "agent-team" / "scripts"
+    scripts.mkdir()
+    for f in ("cos_rotation_check.py", "app_root.py", "project_config.py"):
+        (scripts / f).write_text((Path(__file__).with_name(f)).read_text())
+    run("add", "-A")
+    run("commit", "-qm", "one")
+    (home / ".collective-wisdom").symlink_to(clone / "agent-team")
+    for cmd in (["init", "-q"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "app"]):
+        subprocess.run(["git", *cmd], cwd=app, check=True)
+
+    def commit():
+        return subprocess.run(
+            [sys.executable, str(home / ".collective-wisdom" / "scripts" / "cos_rotation_check.py"), "--skill-commit"],
+            cwd=app, capture_output=True, text=True, check=True, env={"PATH": os.environ["PATH"], "HOME": str(home)},
+        ).stdout.strip()
+
+    first = run("rev-parse", "HEAD")
+    assert commit() == first
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "app2"], cwd=app, check=True)
+    assert commit() == first  # the app's history does not move it
+    (clone / "agent-team/docs/agents/chief-of-staff.md").write_text("two\n")
+    run("add", "-A")
+    run("commit", "-qm", "two")
+    assert commit() == run("rev-parse", "HEAD") != first  # the clone's history does
+
+
+@pytest.mark.parametrize("has_project_md, blocks", [(False, False), (True, True)])
+def test_hook_is_silent_in_a_repo_without_project_md(monkeypatch, capsys, tmp_path, has_project_md, blocks):
+    app = tmp_path / "app"
+    (app / "docs" / "agents").mkdir(parents=True)
+    if has_project_md:
+        (app / "docs" / "agents" / "project.md").write_text("| Key | Value |\n")
+    monkeypatch.setattr(crc, "ROOT", app)
+    out = run_hook(monkeypatch, capsys, tmp_path, {"session_id": "S1"}, STATE)  # would block: context over the cap
+    assert ("rotate: size" in out) == blocks and (out == "") == (not blocks)
+
+
+@pytest.mark.parametrize("machine_copy, blocks", [(None, True), ("other", False), ("link", True)])
+def test_hook_defers_to_the_machine_copy(monkeypatch, capsys, tmp_path, machine_copy, blocks):
+    # An app's older-style copy of this script must not disagree with the machine install's copy.
+    app = tmp_path / "app"
+    (app / "docs" / "agents").mkdir(parents=True)
+    (app / "docs" / "agents" / "project.md").write_text("| Key | Value |\n")
+    monkeypatch.setattr(crc, "ROOT", app)
+    scripts = tmp_path / "home" / ".collective-wisdom" / "scripts"
+    scripts.mkdir(parents=True)
+    if machine_copy == "other":
+        (scripts / "cos_rotation_check.py").write_text("# another file\n")
+    elif machine_copy == "link":
+        (scripts / "cos_rotation_check.py").symlink_to(crc.__file__)
+    out = run_hook(monkeypatch, capsys, tmp_path, {"session_id": "S1"}, STATE)
+    assert ("rotate: size" in out) == blocks and (out == "") == (not blocks)
 
 
 def test_hook_blocks_from_a_drifted_cwd(tmp_path):

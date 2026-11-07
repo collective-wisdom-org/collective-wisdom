@@ -31,7 +31,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
    ```
 
 3. **brainstorming**: design gate; settle goal, scope, non-goals. Write the spec without asking the user anything. List every choice the user didn't specify under a `## Calls I made` heading in the spec.
-4. **superpowers-project-memory**: spec path, plan path, templates. Skip its index rows: `scripts/docs_index.py` generates the index from the doc folders.
+4. **superpowers-project-memory**: spec path, plan path, templates. Skip its index rows: `~/.collective-wisdom/scripts/docs_index.py` generates the index from the doc folders.
 5. Commit and push the spec, then stop at `SPEC READY` (`ship-loop` § Phases). The spec is approved per `ship-loop` § Approvals.
 6. After the spec approval, **writing-plans**: plan from the approved spec (path per **superpowers-project-memory**). Don't wait for plan approval; go on to **build-from-plan**. Skip the plan when the ticket changes only markdown files (docs, skills, role docs): the spec is enough, so build from it. A ticket that changes a script, a test, `install.sh` or config writes a plan. Size each task's tests to `AGENTS.md` § Testing: one table-driven test per rule, none for styling or small UI interactions.
 

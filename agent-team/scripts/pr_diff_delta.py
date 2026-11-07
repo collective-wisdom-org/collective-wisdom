@@ -2,7 +2,7 @@
 """Say whether a PR's own changes are the same at two heads (e.g. after the merge target branch was merged in).
 
 Usage:
-    scripts/pr_diff_delta.py <PR number> <reviewed SHA> [<head SHA>]
+    ~/.collective-wisdom/scripts/pr_diff_delta.py <PR number> <reviewed SHA> [<head SHA>]
 
 The reviewed SHA (40 hex) is the head the PASS reviews were posted on. The head
 defaults to the PR's current headRefOid. The PR's diff at each head is taken against
@@ -83,7 +83,7 @@ def main(argv, run=run):
         or not re.fullmatch(r"[0-9]+", argv[0])
         or not all(re.fullmatch(r"[0-9a-fA-F]{40}", a) for a in argv[1:])
     ):
-        print("pr-diff-delta: cannot read arguments; usage: scripts/pr_diff_delta.py <PR number> <reviewed SHA, 40 hex> [<head SHA, 40 hex>]")
+        print("pr-diff-delta: cannot read arguments; usage: ~/.collective-wisdom/scripts/pr_diff_delta.py <PR number> <reviewed SHA, 40 hex> [<head SHA, 40 hex>]")
         return 2
     pr, reviewed = argv[0], argv[1].lower()
     try:

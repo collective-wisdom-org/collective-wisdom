@@ -2,10 +2,10 @@
 """Where a PR waits for a teammate's GitHub review, and which tickets in awaiting-review can move on.
 
 Usage:
-    scripts/cos_review_check.py [--file STATE] [--prs FILE]
-    scripts/cos_review_check.py --route PR --head SHA [--prs FILE]
+    ~/.collective-wisdom/scripts/cos_review_check.py [--file STATE] [--prs FILE]
+    ~/.collective-wisdom/scripts/cos_review_check.py --route PR --head SHA [--prs FILE]
 
-Read only: writes nothing. Reads GitHub through `./scripts/gh.sh pr view <N> --json
+Read only: writes nothing. Reads GitHub through `~/.collective-wisdom/scripts/gh.sh pr view <N> --json
 state,author,headRefOid,reviews,reviewDecision,reviewRequests`, the signed-in login (`gh api user`) and
 project.md's `Require teammate approval` row. --prs FILE reads {"<N>": <that JSON>} instead of gh pr view
 (tests do). The review rule is merge_pr.review_stop(), the same code the merge gate runs, so the two cannot
