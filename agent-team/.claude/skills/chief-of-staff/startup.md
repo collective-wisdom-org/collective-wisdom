@@ -10,9 +10,10 @@ Preconditions: this thread runs at the root checkout, on the merge target branch
 
 0. Run `python3 ~/.collective-wisdom/scripts/setup_repo.py status`. On `missing` or `placeholders: ...`, read setup.md, follow it and stop the turn: no `cos_state.py init`, no pass, no labels. An open setup PR also reads `missing`; setup.md covers it. On `set`, carry on with step 1.
 1. `ensure-labels` for scope <TEAM>: create `agent` and `agent-skip` if missing.
-2. Run `python3 ~/.collective-wisdom/scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1 and 3, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.
+2. Run `python3 ~/.collective-wisdom/scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1, 3 and 5, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.
 3. Read this thread's model with `t3_thread_configure` (no arguments). If it isn't `claude-sonnet-5-5` at effort `medium` (SKILL.md § Models), say so in the start report and ask the user to switch the thread in T3. Don't check again.
 4. Store your own thread ID as `chiefThreadId`. Run `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit` and store its output as `skillCommit`. Run startup.md § Start-up clean-up, run the full pass (SKILL.md § Full pass), and report.
+5. Start the local dashboard. Read the T3 environment id with `t3_environment_read` (`environmentId`) and run `node ~/.collective-wisdom/scripts/dashboard/start.ts --root <root checkout> --environment-id <id>`. It prints the URL. If `preview_status` lists no tab at that URL, `preview_open` it. On any failure (Node older than 24 included; the script prints one line), add that line to the start report and carry on.
 
 The first full pass starts the project manager hygiene child (step 5 of SKILL.md § Full pass). Ready tickets start from the Backlog ranking in the slot fill, after Todo (`project-manager` § Backlog pick). The user can still move a ticket to Todo themself, or keep one out with `agent-skip`.
 
