@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-07 ask setup questions before the Chief of Staff starts in a new repo (CW-163) (#168)
+
+Merged 2026-11-07 22:46 UTC.
+
+Saying `set up this repo` (or `start the team` in a repo whose `docs/agents/project.md` is missing or still holds template placeholders) now asks a few setup questions and opens a PR with `docs/agents/project.md` and the `.agent-team/` line in `.gitignore`. Merge that PR, pull, and say `start the team`. It asks before it creates the branch, commits, pushes or opens the PR, and never pushes to the merge target.
+
 ## 2026-11-07 choose the GitHub account per repo from the user install (CW-162) (#167)
 
 Merged 2026-11-07 21:35 UTC.
