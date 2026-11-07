@@ -46,7 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
-import project_config  # noqa: E402
+import user_config  # noqa: E402
 
 
 def project_name(root=None):
@@ -303,8 +303,8 @@ def main():
         return
     if args.ticket:
         try:
-            usage = project_config.subscription_usage("Claude")
-        except Exception:  # an unreadable project.md reads as unset
+            usage = user_config.subscription_usage("Claude")
+        except Exception:  # an unreadable user.md reads as unset
             usage = None
         found = ticket_line(args.projects, args.ticket, usage)
         if not found:

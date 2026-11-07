@@ -43,7 +43,7 @@ def green():
             {"__typename": "CheckRun", "name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"},
             {"__typename": "StatusContext", "context": "ext", "state": "SUCCESS"},
         ],
-        "login": "me", "owner": "me",
+        "login": "me", "owner": "me", "repoKey": "github.com/example/app",
         "author": {"login": "me"}, "reviews": [], "reviewDecision": "", "reviewRequests": [], "teammate": None,
         "comments": [review("## Code review (pass 2)"), review("## Security review (pass 1)")],
         "commits": [{"oid": HEAD, "committedDate": "2026-11-02T09:00:00Z"}],
@@ -65,9 +65,9 @@ def reviews(**kw):
         (lambda f: None, None),
         (lambda f: f.update(approved="bbbbbbb"), "is not approved head"),
         (lambda f: f.update(owner="ME"), None),
-        (lambda f: f.update(login="agent"), "gh is signed in as agent, not the owner me"),
-        (lambda f: f.update(login="agent", state="MERGED"), "not the owner"),
-        (lambda f: f.update(owner=None), "no Owner login"),
+        (lambda f: f.update(login="agent"), "gh is signed in as agent, not me, the login user.md maps to github.com/example/app"),
+        (lambda f: f.update(login="agent", state="MERGED"), "the login user.md maps to"),
+        (lambda f: f.update(owner=None), "user.md has no GitHub login for github.com/example/app"),
         (lambda f: f.update(state="CLOSED"), "closed"),
         (lambda f: f.update(statusCheckRollup=[]), "no checks"),
         (lambda f: f.update(statusCheckRollup=[], noCi=True), None),
@@ -172,7 +172,7 @@ def test_gate_review_mode(facts, cause):
 )
 def test_main_review_mode(tmp_path, monkeypatch, capsys, rows, threads, code, want):
     md = tmp_path / "project.md"
-    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Repo | `other/repo` |\n" + rows)
+    md.write_text("| Key | Value |\n|---|---|\n| Repo | `other/repo` |\n" + rows)
     monkeypatch.setenv("PROJECT_MD", str(md))
     f = green()
     f["comments"] = []
@@ -203,7 +203,7 @@ def fake(f):
         calls.append(cmd)
         text = " ".join(cmd)
         if "pr view" in text:
-            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "owner", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
+            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "owner", "repoKey", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
         if "api user" in text:
             return f["login"]
         if "/contents/" in text:
@@ -252,7 +252,7 @@ def test_main_writes(change, code, wrote, capsys):
 
 def test_main_stops_with_a_merge_line_on_an_invalid_target_row(tmp_path, monkeypatch, capsys):
     md = tmp_path / "project.md"
-    md.write_text("| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Merge target branch | `-x` |\n")
+    md.write_text("| Key | Value |\n|---|---|\n| Merge target branch | `-x` |\n")
     monkeypatch.setenv("PROJECT_MD", str(md))
     f = green()
     runner, calls = fake(copy.deepcopy(f))
@@ -500,7 +500,7 @@ def test_failed_publish_keeps_the_merge_result(capsys):
 def test_release_notes_setting(tmp_path, monkeypatch, row, notes_on):
     """Only an `off` row drops the release note gate and the publish step."""
     md = tmp_path / "project.md"
-    md.write_text("| Owner login | `me` |\n" + (f"| Publish release notes | `{row}`. text |\n" if row else ""))
+    md.write_text(f"| Publish release notes | `{row}`. text |\n" if row else "")
     monkeypatch.setenv("PROJECT_MD", str(md))
     bare = dict(green(), body="## Proof\n\nNot proven: nothing\n", notesOn=merge_pr.project_config.release_notes_enabled())
     assert ("Release note" in merge_pr.gate(bare)) if notes_on else merge_pr.gate(bare) is None
@@ -583,7 +583,7 @@ def test_required_reviews(decision, requests, expect):
         ("noah", ["david", "noah"], "BLOCKED", "REVIEW_REQUIRED", None),
         ("noah", ["david", "noah"], "BLOCKED", "", "state BLOCKED"),
         ("me", [], "BLOCKED", "REVIEW_REQUIRED", "required reviews missing"),
-        ("eve", ["david", "noah"], "BLOCKED", "REVIEW_REQUIRED", "not the owner me"),
+        ("eve", ["david", "noah"], "BLOCKED", "REVIEW_REQUIRED", "not me, the login user.md maps to"),
     ],
 )
 def test_codeowner_bypasses_missing_review_only(login, owners, state, decision, expect):
@@ -640,7 +640,7 @@ def test_codeowners_are_read_from_the_merge_target_branch(tmp_path, monkeypatch,
 )
 def test_teammate_row_as_written(tmp_path, monkeypatch, cell, cause):
     md = tmp_path / "project.md"
-    md.write_text(f"| Key | Value |\n|---|---|\n| Owner login | `me` |\n| Require teammate approval | {cell} |\n")
+    md.write_text(f"| Key | Value |\n|---|---|\n| Require teammate approval | {cell} |\n")
     monkeypatch.setenv("PROJECT_MD", str(md))
     runner, _ = fake(green())
     f = merge_pr.read_facts("7", HEAD[:7], runner)

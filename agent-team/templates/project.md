@@ -16,7 +16,6 @@ Scripts read the first backticked token in each Value cell. Keep the backticks a
 | Linear project (Linear only) | <project name, or none (the team is the scope)> |
 | Approver | <name>. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
-| Claude subscription API-equivalent usage (dollars) | `none`. Set it to the API-equivalent dollars the Claude plan shows (a number such as 12000); ticket costs then show a share of it |
 | Review after conflict resolution (`off` or `on`) | `off`. Whether a conflict resolution is reviewed again before it can merge. `off`: reviews from before the resolution stand, and a merge you already approved goes ahead on the resolved head without asking again. `on`: code and security review run on the resolved head, and you approve it again |
 
 ### Choosing a tracker
@@ -33,7 +32,6 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 | Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is the issue prefix in lower case) |
 | Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
-| Owner login (trusted review-comment author) | `<github-login>` |
 | Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from an owner, member or collaborator other than the PR author. A missing row means off |
 | GitHub CLI | `~/.collective-wisdom/scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |

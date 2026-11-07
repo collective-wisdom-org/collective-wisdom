@@ -16,7 +16,6 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 | Issue identifier prefix (`<PREFIX>`) | `CW` |
 | Approver | David. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
-| Claude subscription API-equivalent usage (dollars) | `12000`. The API-equivalent dollars the Claude plan shows. Ticket costs then show a share of it |
 | Review after conflict resolution (`off` or `on`) | `off`. Whether a conflict resolution is reviewed again before it can merge. `off`: reviews from before the resolution stand, and a merge you already approved goes ahead on the resolved head without asking again. `on`: code and security review run on the resolved head, and you approve it again |
 
 Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers/README.md](trackers/README.md), [trackers/github.md](trackers/github.md). The `./scripts/gh.sh` wrapper does every call.
@@ -28,7 +27,6 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: [trackers
 | Branch pattern | `feat/cw-N-short-title` (`cw` is the issue prefix in lower case) |
 | Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `collective-wisdom-org/collective-wisdom` (<https://github.com/collective-wisdom-org/collective-wisdom>) |
-| Owner login (trusted review-comment author) | `dbeallor` |
 | GitHub CLI | `./scripts/gh.sh` only, never bare `gh`. Setup: [github-auth.md](github-auth.md) |
 | Commits | Conventional: `feat:`, `fix:`, `docs:`, `infra:` |
 

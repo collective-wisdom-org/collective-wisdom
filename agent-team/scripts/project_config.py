@@ -5,7 +5,6 @@ the Value cell. `none`, an empty cell and `TODO(...)` text have no backticked to
 Set PROJECT_MD to read another file (tests do).
 """
 
-import math
 import os
 import re
 import subprocess
@@ -145,19 +144,6 @@ def target_branch():
 def target_ref():
     """The merge target branch as a full remote-tracking ref name, so a tag named origin/<branch> cannot win."""
     return f"refs/remotes/origin/{target_branch()}"
-
-
-def subscription_usage(provider):
-    """API-equivalent dollars of a provider's subscription from its `<provider> subscription API-equivalent usage` row.
-
-    A positive finite number, else None: unset, `none`, 0, a negative, `12,000` and text all read as None.
-    """
-    v = value(f"{provider} subscription API-equivalent usage")
-    try:
-        n = float(v)
-    except (TypeError, ValueError):
-        return None
-    return n if math.isfinite(n) and n > 0 else None
 
 
 REVIEW_MODES = ("agents", "ci")
