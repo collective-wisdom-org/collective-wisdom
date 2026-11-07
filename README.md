@@ -102,16 +102,18 @@ An app installed the old way carries copies of the skills, agents, mods, scripts
 ~/.collective-wisdom/scripts/remove_app_copies.py             # remove
 ```
 
-It reads the pin, lists the files the team shipped at the pinned commit, and deletes the ones the app still has, then the folders left empty, then the pin last (so a failed delete leaves it), then the `.agents/skills` link. It never touches `docs/agents/project.md`, `AGENTS.md`, `.claude/settings.json` or `.gitignore`, and files the app owns (its own skills and scripts) stay. With no pin it prints `nothing to remove` and exits 0.
+It reads the pin, lists the files the team shipped at the pinned commit, and deletes the ones the app still has, then the folders left empty, then the pin, then the pin's own folder if it is then empty, then the `.agents/skills` link. It never touches `docs/agents/project.md`, `AGENTS.md`, `.claude/settings.json` or `.gitignore`, and files the app owns (its own skills and scripts) stay. With no pin it prints `nothing to remove` and exits 0.
 
-It stops in these cases, and writes nothing:
+These stop before any delete:
 
 - Exit 1, with a `changed <path>` line for each file. A copy was edited by hand, and deleting it loses the edit. Move the edit into this repo first, or run again with `--force` to remove it anyway.
 - Exit 2 with `run 'git fetch origin'`. The pinned commit is not in the machine clone. Fetch there and run again.
 - Exit 2 when `installed-from.txt` is malformed. It must read `collective-wisdom <40-character SHA>`, optionally followed by a `v0.N` tag. Fix the file or delete it by hand.
 - Exit 1 when run inside collective-wisdom itself. Run it in an app.
 
-A listed file that the app reaches through a link out of the app, such as a symlinked parent folder, is skipped with a `skip <path>` line and left alone, so the command never writes outside the app. The same goes for the pin and for the five roots.
+A delete or folder prune that fails stops the run with exit 1 and `Stopped: cannot remove <path>: <err>.`. The message says whether the pin is still there. A rerun is safe.
+
+A listed file that the app reaches through a link out of the app, such as a symlinked parent folder, is skipped with a `skip <path>` line and left alone, so the command never writes outside the app. The same goes for the pin, the five roots and the `.agents/skills` link.
 
 Files collective-wisdom dropped in releases before the app's pin are not in the pinned list, so delete any that remain by hand.
 

@@ -8,8 +8,10 @@ Reads docs/agents/installed-from.txt (`collective-wisdom <40-character SHA>`, op
 ` v0.N`) and lists the files that commit's agent-team/ has under .claude/skills, .claude/agents,
 .claude/mods, scripts and docs/agents, except docs/agents/project.md. The commit must be in the clone
 this script sits in. Deletes each listed file the app still has, then any directory under those five roots left empty,
-then the pin last (so a failed delete leaves it), then the .agents/skills link to ../.claude/skills once
+then the pin (after every other delete except the folder that holds it, so a failed delete leaves it),
+then that folder if it is then empty, then the .agents/skills link to ../.claude/skills once
 .claude/skills is gone. Anything reached through a link out of the app is skipped, never written.
+A delete that fails stops the run with exit 1 and a message saying whether the pin is still there.
 A listed file that differs from the pinned copy is a hand edit: it stops the run with exit 1 and
 nothing is written, unless --force. --dry-run prints the same lines and writes nothing.
 Never touches AGENTS.md, .gitignore, project.md or settings.json, and never commits.
@@ -194,11 +196,19 @@ def main():
         else:
             say("remove  .agents/skills")
             if not args.dry_run:
-                link.unlink()
+                try:
+                    link.unlink()
+                except OSError as e:
+                    print(f"Stopped: cannot remove .agents/skills: {e}. {'The pin is already gone.' if pin_ok else 'The pin was skipped.'}", file=sys.stderr)
+                    return 1
             if not set(os.listdir(app / ".agents")) - {"skills"} and not (app / ".agents").is_symlink():
                 say("remove  .agents/")
                 if not args.dry_run:
-                    shutil.rmtree(app / ".agents")
+                    try:
+                        shutil.rmtree(app / ".agents")
+                    except OSError as e:
+                        print(f"Stopped: cannot remove .agents: {e}. {'The pin is already gone.' if pin_ok else 'The pin was skipped.'}", file=sys.stderr)
+                        return 1
 
     settings = app / ".claude/settings.json"
     if settings.is_file() and "cos_rotation_check.py" in settings.read_text(errors="replace"):
