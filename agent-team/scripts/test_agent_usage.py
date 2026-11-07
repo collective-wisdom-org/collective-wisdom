@@ -186,7 +186,7 @@ def shared(pct):
     return TICKET_LINE.replace("API-equivalent,", f"API-equivalent ({pct} of the subscription),")
 
 
-# usage is the Value cell of the project.md subscription row; None leaves the row out.
+# usage is the Value cell of the user.md subscription row; None leaves the row out.
 @pytest.mark.parametrize(
     "ticket, usage, want",
     [
@@ -203,10 +203,8 @@ def shared(pct):
         ("CW57", None, 2),  # not an ID
     ],
 )
-def test_ticket_line(tmp_path, capsys, monkeypatch, ticket, usage, want):
-    cfg = tmp_path / "project.md"
-    cfg.write_text("| Key | Value |\n|---|---|\n" + (f"| Claude subscription API-equivalent usage (dollars) | {usage} |\n" if usage else ""))
-    monkeypatch.setenv("PROJECT_MD", str(cfg))
+def test_ticket_line(tmp_path, capsys, monkeypatch, user_md, ticket, usage, want):
+    user_md("me", usage)
     t3, b = "t3/abc", "feat/cw-57-foo"
     wt = tmp_path / f"-Users-x--t3-worktrees-{agent_usage.PROJECT}-t3-aaa"
     (wt / "s1" / "subagents").mkdir(parents=True)
