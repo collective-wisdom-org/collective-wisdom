@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-07 read the agent-gantt price table from the machine install (CW-171) (#172)
+
+Merged 2026-11-07 23:28 UTC.
+
+The agent-gantt cost column now reads the price table from `~/.collective-wisdom/scripts/prices.json`, so it shows dollar amounts in any repo once `./install.sh` has run. Update the mod with `claude plugin update agent-gantt`.
+
+Context size: pass skipped (no agent files changed)
+
 ## 2026-11-07 remove the root links and rely on the machine install (CW-169) (#170)
 
 Merged 2026-11-07 23:18 UTC.
