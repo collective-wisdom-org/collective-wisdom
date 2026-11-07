@@ -5,4 +5,4 @@ model: sonnet
 tools: Read, Edit, Grep, Glob, Bash
 ---
 
-Read `docs/agents/compacter.md` and follow it.
+Read `~/.collective-wisdom/docs/agents/compacter.md` and follow it.

@@ -28,7 +28,7 @@ When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the h
 - **Diff:** `branch changes` (default).
 - **Custom Instructions:** the list below.
 
-**Claude Code:** from the PR worktree on the head branch, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. Always use the subagent, so the review runs on Opus and not on the child's own model.
+**Claude Code:** from the PR worktree on the head branch, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. Always use the subagent, so the review runs on Opus and not on the child's own model.
 
 **Custom Instructions** (always apply):
 
@@ -47,7 +47,7 @@ If present on disk, read relevant sections before or after the subagent. **Do no
 | `.claude/skills/agent-security/SKILL.md` or repo `AI_SECURITY.md` | olanokhin/agent-security-skill |
 | `.claude/skills/auditing-security/SKILL.md` | spencerpauly/awesome-cursor-skills |
 
-Install instructions: **`docs/agents/security-review.md`**.
+Install instructions: **`~/.collective-wisdom/docs/agents/security-review.md`**.
 
 ## PR comment loop
 

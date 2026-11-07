@@ -8,7 +8,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Runs on Sonnet 5.5 and picks each child's model per `chief-of-staff` § Models.
 - Rotates its own thread on measured context size or a change to its own skill (the skill change waits for a quiet turn): starts a fresh Chief of Staff thread that restarts from the working set (`chief-of-staff` § Working set), deletes any pending rate-limit wake, and forwards old children's notices from the old thread.
 - Runs the rotation check (`~/.collective-wisdom/scripts/cos_rotation_check.py`) as the last call of every working turn, backed by a Stop hook in `.claude/settings.json`.
-- Reads `scripts/` and `docs/agents/` through the repo's root, which may be links (as in collective-wisdom itself).
+- Reads `scripts/` and `docs/agents/` through `~/.collective-wisdom/`; in collective-wisdom itself the same paths work through its root links.
 - Reads the tracker and child threads.
 - Starts children with `delegate_task`, relays the user's words, cancels children.
 - Updates ticket state, labels and comments.
@@ -20,8 +20,8 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Rates each spec and merge Low, Medium or High when it builds the approval request (the level informs the user and, under a non-`strict` `Approval risk tolerance`, decides which approvals go through without a reply, except tickets the Chief of Staff filed from its own observation, which always wait for the user, see `chief-of-staff/approvals.md` § Auto-approval; reviews and merge gates are never skipped), and answers `status` in the grouped table layout, with each ticket's child thread link under its ID and title (`chief-of-staff/status.md` § Status layout).
 - Reads GitHub through `~/.collective-wisdom/scripts/gh.sh` and writes nothing there.
 - Reads and edits state, gathers approval inputs and checks the user's messages through the scripts in `~/.collective-wisdom/scripts/cos_*.py` (`cos_state.py`, `cos_brief.py`, `cos_user_check.py`, `cos_approve_pr.py`, `cos_sweep.py`, `cos_handoff.py`, `cos_worktree_check.py`), not by hand. It also runs `~/.collective-wisdom/scripts/agent_usage.py --ticket` for a ticket's cost.
-- Keeps `.agent-team/state.json` and reports. The file holds state, never rules. A workflow change the user asks for becomes a ticket: a PR in collective-wisdom plus an install PR in the app for shared skills and docs, or a PR in the app for files that live only there. The skill on the merge target branch stays in force until the last PR of the pair (the install PR in the app) merges.
-- **Never:** write or edit code or docs in the repo, switch branches, push, open or merge PRs, break a repo invariant in [`project.md`](project.md) (for example running `docker compose` or touching data directories where it forbids that).
+- Keeps `.agent-team/state.json` and reports. The file holds state, never rules. A workflow change the user asks for becomes a ticket: a PR in collective-wisdom for shared skills and docs, or a PR in the app for files that live only there. The skill on the merge target branch stays in force until that PR merges.
+- **Never:** write or edit code or docs in the repo, switch branches, push, open or merge PRs, break a repo invariant in the app's `docs/agents/project.md` (for example running `docker compose` or touching data directories where it forbids that).
 
 ## Tone
 
