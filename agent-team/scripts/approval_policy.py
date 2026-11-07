@@ -39,8 +39,8 @@ RISK_TAIL = re.compile(r"Risk: (\w+) \(.*\)\.?\s*$")
 # (all of docs/agents/), everything that enforces them (all scripts) and every dot-directory or dot-file at any depth
 # (.claude, .github, .agents, .cursor, .codex, .vscode, .mcp.json, .gitignore ...), plus agent instruction files
 # (AGENTS.md, CLAUDE.md, AGENTS.override.md, CLAUDE.local.md ...) at any depth and the shipped project and machine-instruction templates.
-# Matched with or without a leading `agent-team/`, ignoring case, and also by the bare name of the `scripts` root
-# link, which `gh` can list as a file.
+# Matched with or without a leading `agent-team/`, ignoring case. It also matches the bare name `scripts`, because `gh`
+# lists a link by that name as a file, and an old branch may still carry one.
 PATH_FILES = {"templates/project.md", "templates/agents.md", "templates/machine-instruction.md", "scripts", "install.sh", "tag-release.sh"}
 PATH_DIRS = ("docs/agents/", "scripts/")
 

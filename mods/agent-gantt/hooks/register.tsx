@@ -7,7 +7,9 @@ import { buildRows, MAIN } from './rows.ts'
 
 const PANE = 'agent-gantt'
 const TICK_MS = 5000
-const PRICES_PATH = 'scripts/prices.json'
+// Relative to the user's home folder: the machine install's copy of the price table.
+const PRICES_PATH = '.collective-wisdom/scripts/prices.json'
+const PRICES_NOTE = '~/.collective-wisdom/scripts/prices.json is missing or unreadable. Run ./install.sh in the collective-wisdom clone.'
 // Agent states that count as still working. Anything else (completed, failed, killed, idle) is over.
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
 
@@ -40,15 +42,17 @@ function addUsage(prev: Record<string, Tokens>, u: TurnUsage): Record<string, To
   }
 }
 
-/** Reads scripts/prices.json from the session's working directory. A miss leaves the cost column as a dash. */
+/** Reads ~/.collective-wisdom/scripts/prices.json, built from HOME because $.fs does not expand ~. A miss, or no HOME, leaves the cost column as a dash. */
 async function loadPrices($: EngineInterface, isForced = false) {
   if (!isForced && (await read($, prices)).isLoaded) return
   let state: PriceState
   try {
-    const table = JSON.parse(await $.fs.read(PRICES_PATH)) as Prices
+    const home = await $.env.get('HOME')
+    if (!home) throw new Error('HOME is not set')
+    const table = JSON.parse(await $.fs.read(`${home}/${PRICES_PATH}`)) as Prices
     state = { isLoaded: true, table, note: '' }
   } catch {
-    state = { isLoaded: true, table: null, note: `${PRICES_PATH} is missing or unreadable here.` }
+    state = { isLoaded: true, table: null, note: PRICES_NOTE }
   }
   await update($, prices, () => state)
 }
