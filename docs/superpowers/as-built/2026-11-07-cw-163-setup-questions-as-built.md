@@ -6,7 +6,7 @@
 
 ## Differs from the spec
 
-- The setup PR check (a remote `agent-team-setup` branch or open PR from it) runs when the status is read, before any question, not only at walk-through step 1, so `start the team` while the PR is open stops without asking again.
+- The setup PR check (a remote `agent-team-setup` branch or open PR from it) runs after the login is settled (question 1) and before the other questions, not only at walk-through step 1, so `start the team` with the setup PR open stops without the remaining questions.
 - That check lists open PRs with `--json url,author,isCrossRepository` and counts only a same-repo PR by the repo's own login. Any other PR on the branch name is foreign: the Chief of Staff links it as untrusted, never offers it as the setup PR, and carries on; a rejected push stops the setup.
 - With `repo` null (origin is not a recognised GitHub URL) the setup stops after `status`, since there is no PR to open. `product_guess` is cut to `A-Za-z0-9._-` (else `repo`), and `<wt>`, `<name>`, `<tmp>` and `<file>` are quoted in every shown command.
 - `setup_repo.py` reads `project.md`, `package.json`, `.gitignore` and `user.md` through one helper that refuses anything but a regular file (a fifo, a device, or a link to one) and anything over 1 MB; `status` on such a `project.md` exits 2. `write` checks that `docs`, `docs/agents`, `project.md` and `.gitignore` resolve inside the worktree before it reads `project.md`.
