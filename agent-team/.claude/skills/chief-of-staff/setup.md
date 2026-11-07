@@ -1,6 +1,6 @@
 # Set up a repo
 
-Read this on `set up this repo`, or when startup.md § Setup step 0 says the repo is `missing` or has `placeholders`. It asks a few questions, writes `docs/agents/project.md` and the `.agent-team/` line in `.gitignore` on a branch, and walks the user through a PR for them. Then the turn ends. Do not run `cos_state.py init`, a pass, `ensure-labels` or the slot fill, and do not start a child.
+Read this on `set up this repo`, or when startup.md § Setup step 0 says the repo is `missing` or has `placeholders`. It asks a few questions, writes `docs/agents/project.md` and the `.agent-team/` line in `.gitignore` on a branch, and walks the user through a PR. Then the turn ends. Do not run `cos_state.py init`, a pass, `ensure-labels` or the slot fill, and do not start a child.
 
 The scripts are `python3 ~/.collective-wisdom/scripts/setup_repo.py` (below, `setup_repo.py`):
 
@@ -22,14 +22,14 @@ The user's replies and the facts become the `--answers` JSON. Keys: `product`, `
 
 | Status | Do |
 |---|---|
-| `missing` or `placeholders: <rows>` | Check for an open setup PR first (step 1 of § The PR walk-through). If there is one, say it is open, link it, and stop. Otherwise ask the questions. |
-| `set` | The repo is set up. Follow § Set up again. |
+| `missing` or `placeholders: <rows>` | Check for an open setup PR first (§ The PR walk-through step 1). If there is one, say it is open, link it, and stop; don't ask the questions again. Otherwise ask them. |
+| `set` | Follow § Set up again. |
 
-`start the team` while the setup PR is open reaches the same place: the status is still `missing` on the root checkout. Say the PR is open, link it, and stop. Do not ask the questions again.
+`start the team` while the setup PR is open lands here too: the status is still `missing` on the root checkout.
 
 ## The questions
 
-Ask one at a time, in this thread. Each has its guess in brackets, so a bare reply takes it. Ask only what the script cannot read.
+Ask one at a time, in this thread. A bare reply takes the guess. Ask only what the script cannot read.
 
 | # | Question | Ask when | Guess |
 |---|---|---|---|
@@ -42,12 +42,12 @@ Ask one at a time, in this thread. Each has its guess in brackets, so a bare rep
 
 Rules for each:
 
-1. **GitHub login.** One login in `gh_logins` is taken with no question. No login stops the setup with: run `gh auth login`, then say `set up this repo` again. When `mapped_login` is set, use it and do not ask.
-2. **Subscription figure.** A number or `none`. Pass it to `setup_repo.py user --subscription`. Skipped on every machine that already has `user.md`.
+1. **GitHub login.** One login in `gh_logins` is taken unasked, as is `mapped_login`. No login stops the setup with: run `gh auth login`, then say `set up this repo` again.
+2. **Subscription figure.** Pass it to `setup_repo.py user --subscription`.
 3. **Tracker.** Linear asks one follow-up, the team name. Jira asks one follow-up, the project key, and the extra Jira rows stay `TODO(<login>)`. For `github` nothing more is asked: the scope is `owner/repo`.
 4. **Issue prefix.** It must match `[A-Z][A-Z0-9]*`. Anything else, ask again.
-5. **Test command.** With no `test_guess`, there is no bracketed guess and the user must type a command.
-6. **Repo rules.** Each rule is one plain sentence. They go in `rules`.
+5. **Test command.** With no `test_guess`, the user must type one.
+6. **Repo rules.** One plain sentence each, into `rules`.
 
 Written with no question:
 
@@ -67,13 +67,13 @@ Written with no question:
 
 There is no `Owner login` row and no subscription row in `project.md`; both live in `user.md`.
 
-When all the answers are in, run `setup_repo.py user --login <login>`, adding `--subscription <n|none>` when question 2 was asked. This is not a git step, so it needs no yes. It runs before the PR steps so that `gh.sh pr create` already runs as the mapped login. With a `mapped_login` and nothing else to record, skip it.
+When all the answers are in, run `setup_repo.py user --login <login>`, adding `--subscription <n|none>` when question 2 was asked. It is not a git step and needs no yes. It runs before the PR steps so `gh.sh pr create` runs as the mapped login. Skip it with a `mapped_login` and nothing else to record.
 
 ## The PR walk-through
 
-Show every git and gh step as the command it will run, and run it only after the user says yes. A no stops there. Print what is left to do by hand and where the files are, and end the turn. Never push to the merge target, and never commit on it.
+Show each git and gh step as the command it will run, and run it only after a yes. A no stops there: print what is left to do by hand and where the files are, and end the turn. Never push to the merge target, and never commit on it.
 
-`<target>` is the merge target branch. `<repo>` is the repository name. `<tmpdir>` is the system temp folder. `<wt>` is `<tmpdir>/agent-team-setup-<repo>`, outside the repo, so the root checkout stays on the merge target and gains no untracked files.
+`<target>` is the merge target branch, `<repo>` the repository name, `<tmpdir>` the system temp folder. `<wt>` is `<tmpdir>/agent-team-setup-<repo>`, outside the repo, so the root checkout stays on the merge target with no untracked files.
 
 1. **Branch and worktree.** Check there is no remote `agent-team-setup` branch (`git ls-remote --heads origin agent-team-setup`) and no open PR from it (`~/.collective-wisdom/scripts/gh.sh pr list --head agent-team-setup --state open`). If either exists, stop and give the link: merge or close that first. Otherwise:
    ```
@@ -101,7 +101,7 @@ The user merges the PR on GitHub. The team's merge gate is not used here: there 
 
 ## Endings
 
-End the turn with one of these. If the user said no at some step, print the hand-over described in § The PR walk-through instead.
+End the turn with one of these. After a no, print the hand-over from § The PR walk-through instead.
 
 | Case | Say |
 |---|---|
@@ -120,8 +120,8 @@ The five lines for a first setup:
 
 `set up this repo` when the status is `set`:
 
-1. Show the current values: the ones asked (tracker, scope, prefix, test command, rules), the defaults, and this repo's login from `user.md` (`mapped_login`). Read them from `docs/agents/project.md`.
-2. Ask what to change. Change only those keys. Build `--answers` from the changed keys alone: on a re-run `write` changes only the rows for the keys it is given. An old `Owner login` row is left alone unless the user asks to change it.
+1. Show the current values from `docs/agents/project.md` (tracker, scope, prefix, test command, rules, the defaults) and this repo's login (`mapped_login`).
+2. Ask what to change. Build `--answers` from the changed keys alone: on a re-run `write` changes only the rows for the keys it is given. An old `Owner login` row is left alone unless the user asks to change it.
 3. If a repo file changed, run § The PR walk-through from step 1. A change to `user.md` alone (a new login) goes through `setup_repo.py user` and needs no PR.
-4. The pin offer (step 3) still runs when `pinned` is true, even with nothing else to change. If it is the only change, the PR holds just the removed copies.
+4. The pin offer (step 3) still runs when `pinned` is true, even with nothing else to change; then the PR holds just the removed copies.
 5. No course at the end. Say what changed, and for a PR, to merge it and pull.

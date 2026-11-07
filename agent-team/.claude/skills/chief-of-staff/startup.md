@@ -8,7 +8,7 @@ Run this only on "start the team". With an empty state it is the fresh-state pat
 
 Preconditions: this thread runs at the root checkout, on the merge target branch. If not, stop and tell the user.
 
-0. Run `python3 ~/.collective-wisdom/scripts/setup_repo.py status`. On `missing` or `placeholders: ...`, read setup.md, follow it and stop the turn: no `cos_state.py init`, no pass, no labels. If the setup PR is open (the status is still `missing` on the root checkout), say so with its link and stop; setup.md covers it. On `set`, carry on with step 1.
+0. Run `python3 ~/.collective-wisdom/scripts/setup_repo.py status`. On `missing` or `placeholders: ...`, read setup.md, follow it and stop the turn: no `cos_state.py init`, no pass, no labels. An open setup PR also reads `missing`; setup.md covers it. On `set`, carry on with step 1.
 1. `ensure-labels` for scope <TEAM>: create `agent` and `agent-skip` if missing.
 2. Run `python3 ~/.collective-wisdom/scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1 and 3, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.
 3. Read this thread's model with `t3_thread_configure` (no arguments). If it isn't `claude-sonnet-5-5` at effort `medium` (SKILL.md § Models), say so in the start report and ask the user to switch the thread in T3. Don't check again.

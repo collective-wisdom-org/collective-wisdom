@@ -508,7 +508,7 @@ The user replies in plain words. Map them like this.
 | `cancel N` | `task_cancel(firstTaskId)`, label `agent-skip`, move the issue to Todo, drop it from active state. If the ticket held a queued approval, `comment` `Approval withdrawn at <time>: cancelled.`. Leave the worktree and branch. |
 | `hold N`, or any message that asks to wait on a ticket whose `pendingRelay` is an approval | Drop the queued approval, `comment` `Approval withdrawn at <time>: on hold.`, and set the stage back to `awaiting-spec` or `awaiting-merge`. They approve again with `approve N`. A ticket in `awaiting-review` with a `heldApproval`: `set` `heldApproval: null` and `comment` `Approval withdrawn at <time>: on hold.`. If the ticket has no queued or held approval, say so and do nothing. |
 | `status`, `where's <PREFIX>-N?` | status.md § Answering status. |
-| `set up this repo` | Read setup.md and follow it: the questions, then the PR walk-through. No pass, no state. |
+| `set up this repo` | Follow setup.md. No pass, no state. |
 | `backlog` | Run `project-manager` § Ranking child now and post what `cos_rank.py --post` prints, then start the hygiene child ([project-manager/reference.md](../project-manager/reference.md) § Hygiene child). |
 | `stop everything` | kill-switch.md § Kill switch. |
 | `resume` | kill-switch.md § Resume. |
