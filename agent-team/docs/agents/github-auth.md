@@ -83,22 +83,21 @@ Store it as `GITHUB_MCP_TOKEN`, not `GITHUB_TOKEN`.
 
 ## Account per repo
 
-If you have more than one GitHub account, each repo can use its own. The login lives in a per-user file on your machine, not in `project.md`, which is committed.
+With more than one GitHub account, each repo can use its own. The login lives in a per-user file, not the committed `project.md`.
 
-- **Where.** `~/.config/collective-wisdom/user.md`. It sits outside the clone, so it can't be committed or lost when the clone is replaced.
+- **Where.** `~/.config/collective-wisdom/user.md`, outside the clone, so it can't be committed or lost when the clone is replaced.
 - **What it holds.** GitHub logins and one dollar figure, never tokens. The shape is in `~/.collective-wisdom/templates/user.md`: a Settings table (the Claude subscription figure) and a GitHub accounts table with one row per repo.
-- **Who writes it.** `set up this repo` creates the file and adds the row. You can also edit it by hand.
-- **Add a row by hand.** Add a line to the table under `## GitHub accounts`, with the backticks:
+- **Who writes it.** `set up this repo` creates the file and adds the row. To add one by hand, add a line under `## GitHub accounts`, with the backticks:
 
   ```
   | `github.com/acme/app` | `acme-login` |
   ```
 
-  The first cell is the host and `owner/repo` of the repo's `origin` remote, in any case. The second is the gh login that acts in that repo. Give a repo one row only: two rows for the same repo is an error. A remote that uses an SSH host alias (`git@work-gh:acme/app`) has the host `work-gh`, which gh does not know, so use an https remote or the real host.
-- **What `gh.sh` does.** In a repo with a row, `~/.collective-wisdom/scripts/gh.sh` fetches that login's token with `gh auth token --user <login>` and gives it to that one `gh` command. It never runs `gh auth switch`, so the active account and `gh auth status` stay as they were. If the login is not signed in on that host, it stops with exit 2 and runs nothing; run `gh auth login -h <host>`. In a repo with no row, `gh.sh` runs `gh` as before.
-- **The merge gate.** `merge_pr.py` and `cos_approve_pr.py` need the row. A merge goes ahead only when the signed-in gh login is the mapped one (or a CODEOWNERS `*` user). With no row they stop and say so.
+  The first cell is the host and `owner/repo` of the repo's `origin` remote, in any case. The second is the gh login that acts in that repo. One row per repo: two rows for the same repo is an error. An SSH host alias (`git@work-gh:acme/app`) gives the host `work-gh`, which gh does not know, so use an https remote or the real host.
+- **What `gh.sh` does.** In a repo with a row, `~/.collective-wisdom/scripts/gh.sh` gets that login's token with `gh auth token --user <login>` and gives it to that one `gh` command. It never runs `gh auth switch`, so the active account and `gh auth status` stay as they were. If the login is not signed in on that host, it stops with exit 2 and runs nothing; run `gh auth login -h <host>`. With no row, `gh.sh` runs `gh` as before.
+- **The merge gate.** `merge_pr.py` and `cos_approve_pr.py` need the row and stop without one. A merge goes ahead only when the signed-in gh login is the mapped one (or a CODEOWNERS `*` user).
 
-Verify: run `~/.collective-wisdom/scripts/gh.sh api user --jq .login` in each repo. It prints that repo's login. `gh auth status` shows the same active account as before.
+Verify with the last command in § Verify, run in each repo.
 
 ## Merge gate
 
