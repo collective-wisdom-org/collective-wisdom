@@ -5,4 +5,4 @@ model: opus
 tools: Read, Grep, Glob, Bash, Skill
 ---
 
-Read `docs/agents/code-review.md` and follow it. Do not edit files.
+Read `~/.collective-wisdom/docs/agents/code-review.md` and follow it. Do not edit files.

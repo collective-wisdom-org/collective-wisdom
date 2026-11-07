@@ -7,7 +7,7 @@ Usage:
 
 The caller picks only the ticket ID (and the optional `--auto` flag): it cannot pick the message store or the state
 file. The PR, its head, the thread, the cut-off time and the words (`approve <N>`) come from the state file and T3's message store. Run it from the root checkout, signed in to gh as the
-Owner login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
+mapped GitHub login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
 
 Gates, in order; the first failure stops: root checkout, state, the user's message (~/.collective-wisdom/scripts/cos_user_check.py latest),
 gh login, PR facts, head.
@@ -35,6 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import project_config  # noqa: E402
+import user_config  # noqa: E402
 
 
 def _load(name):
@@ -150,16 +151,19 @@ def approve(tid, run, auto=False):
     check_root(run)
     pr, sha, seen, thread, status = read_state(tid, auto)
     snippet = "" if auto else user_said(cos_user_check.DEFAULT_DB, thread, n, seen)
-    owner = project_config.value("Owner login")
+    try:
+        owner = user_config.login(ROOT)
+    except user_config.UserConfigError as e:
+        raise Cannot(f"read this repo's GitHub login from user.md: {e}")
     if not owner:
-        raise Cannot("read the Owner login from project.md")
+        raise Cannot("read this repo's GitHub login from user.md")
     try:
         target = project_config.target_branch()
     except SystemExit:
         raise Cannot("read the Merge target branch row of project.md")
     login, f = read_gh(run, pr, auto)
     if login.lower() not in [owner.lower(), *merge_pr.codeowners(run)]:
-        raise Stop(f"gh is signed in as {login}, not the owner")
+        raise Stop(f"gh is signed in as {login}, not {owner}, the login user.md maps to this repo")
     if f["state"] != "OPEN":
         raise Stop(f"PR is {'closed' if f['state'] == 'CLOSED' else f['state'].lower()}")
     if f["isDraft"]:

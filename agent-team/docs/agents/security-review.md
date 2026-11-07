@@ -10,7 +10,7 @@ Reviews frame findings against:
 - **OWASP ASVS** themes where relevant — auth (V2), access control (V4), validation (V5), data protection (V8).
 - **OWASP Top 10 for LLM Apps** and **Agentic Applications (2026)** when the diff touches LLM chat, tools, MCP, RAG, or agent loops.
 
-Product overlays are listed in [`project.md`](project.md) § Security overlays; the baseline (no secrets in repo, session and auth patterns matching existing code) is in **security-review**.
+Product overlays are listed in the app's `docs/agents/project.md` § Security overlays; the baseline (no secrets in repo, session and auth patterns matching existing code) is in **security-review**.
 
 ## Security reviewer subagent
 

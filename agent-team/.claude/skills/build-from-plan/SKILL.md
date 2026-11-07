@@ -24,7 +24,7 @@ Read and follow one of:
 - **subagent-driven-development** — when plan tasks are independent.
 - **executing-plans** — otherwise.
 
-If **planner-delegates** applies: parent plans and delegates; **implementer** subagent edits files and runs verification. Start it with the `Agent` tool and `subagent_type: "implementer"`. If that type isn't listed (the session started before `.claude/agents/implementer.md` existed), start a general Sonnet subagent with the prompt `Read docs/agents/implementer.md and follow it.` plus the task.
+If **planner-delegates** applies: parent plans and delegates; **implementer** subagent edits files and runs verification. Start it with the `Agent` tool and `subagent_type: "implementer"`. If that type isn't listed (the session started before `.claude/agents/implementer.md` existed), start a general Sonnet subagent with the prompt `Read ~/.collective-wisdom/docs/agents/implementer.md and follow it.` plus the task.
 
 Follow plan tasks in order; use plan file paths and acceptance criteria.
 
@@ -51,7 +51,7 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 After the last task passes, run `python3 ~/.collective-wisdom/scripts/compact_check.py` and keep its totals for **open-pr**. After a compacter run, take them from a re-run once its edits are committed.
 
 - `compact: skip`: go on. Exit 2: run it once more; a second exit 2 is `BLOCKED:` (`ship-loop` § Blocked).
-- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`, foreground; if the type isn't listed, a general Sonnet subagent told `Read docs/agents/compacter.md and follow it.`) with the base `origin/<target>` and the output.
+- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`, foreground; if the type isn't listed, a general Sonnet subagent told `Read ~/.collective-wisdom/docs/agents/compacter.md and follow it.`) with the base `origin/<target>` and the output.
 - Then check `git status` lists only files from the output, run the `project.md` test command, and revert any hunk that drops or changes a rule. Commit `docs: compact agent text for <PREFIX>-N` and push.
 
 ## When all tasks pass
