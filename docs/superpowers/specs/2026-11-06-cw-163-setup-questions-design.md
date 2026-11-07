@@ -1,6 +1,7 @@
 # CW-163: Ask setup questions before the Chief of Staff starts in a new repo
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #168, with differences: [as-built](../as-built/2026-11-07-cw-163-setup-questions-as-built.md)
 **Ticket:** [#163](https://github.com/collective-wisdom-org/collective-wisdom/issues/163)
 **Follows:** CW-160 (machine install at `~/.collective-wisdom`, merged in #164), CW-161 (`install.sh` touches no app; `remove_app_copies.py`; PR #166 open), CW-162 (`user.md`, account per repo; spec only, on `feat/cw-162-github-account-per-repo` at `1994ac6`). The build starts after CW-161 and CW-162 merge, and follows what they merge.
 
