@@ -1,6 +1,7 @@
 # CW-162: Choose the GitHub account per repo from the user install
 
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #167, with differences: [as-built](../as-built/2026-11-07-cw-162-github-account-per-repo-as-built.md)
 **Ticket:** [#162](https://github.com/collective-wisdom-org/collective-wisdom/issues/162)
 **Follows:** CW-160 (install the team once per machine, merged in #164). Builds on its `~/.collective-wisdom` link and script call sites. CW-163 (`set up this repo`) writes the file this ticket defines.
 
