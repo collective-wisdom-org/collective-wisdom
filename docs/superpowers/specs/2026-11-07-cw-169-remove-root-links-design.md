@@ -1,6 +1,7 @@
 # CW-169: Remove this repo's root links into agent-team and rely on the machine install
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #170, as specified
 **Ticket:** [#169](https://github.com/collective-wisdom-org/collective-wisdom/issues/169)
 **Follows:** CW-160 to CW-163 (machine install at `~/.collective-wisdom`, apps commit only `docs/agents/project.md`).
 
