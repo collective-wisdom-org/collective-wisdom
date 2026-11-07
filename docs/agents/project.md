@@ -2,7 +2,7 @@
 
 The one place for repo-specific facts. The agent-team skills read this file instead of hardcoding them. `TODO(<owner>)` marks a value that is not decided yet; an agent that needs one must not guess (stop with `BLOCKED:`).
 
-This file is local to collective-wisdom. It is never shipped to an app. An app gets its own from `agent-team/templates/project.md`, copied by hand or by the later init step.
+This file is local to collective-wisdom. It is never shipped to an app. An app gets its own from `set up this repo`, rendered from `agent-team/templates/project.md`.
 
 Scripts read the first backticked token in each Value cell, so keep the backticks around the real value and keep notes free of extra backticks in the cells marked below.
 
