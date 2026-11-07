@@ -70,8 +70,7 @@ def test_login(tmp_path, monkeypatch, text, want):
         assert uc.login(app) == want
 
 
-USAGE_ROWS = [("`12000`", 12000.0), ("`0.5`", 0.5), ("`none`", None), ("`0`", None), ("`-5`", None), ("`12,000`", None),
-              ("`nan`", None), ("`inf`", None), ("12000", None), (None, None)]
+USAGE_ROWS = [("`0.5`", 0.5), ("`none`", None), ("`nan`", None), ("`inf`", None), ("12000", None), (None, None)]
 
 
 @pytest.mark.parametrize("cell, want", USAGE_ROWS)

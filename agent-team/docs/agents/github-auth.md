@@ -96,6 +96,8 @@ With more than one GitHub account, each repo can use its own. The login lives in
   The first cell is the host and `owner/repo` of the repo's `origin` remote, in any case. The second is the gh login that acts in that repo. One row per repo: two rows for the same repo is an error. An SSH host alias (`git@work-gh:acme/app`) gives the host `work-gh`, which gh does not know, so use an https remote or the real host.
 - **What `gh.sh` does.** In a repo with a row, `~/.collective-wisdom/scripts/gh.sh` gets that login's token with `gh auth token --user <login>` and gives it to that one `gh` command. It never runs `gh auth switch`, so the active account and `gh auth status` stay as they were. If the login is not signed in on that host, it stops with exit 2 and runs nothing; run `gh auth login -h <host>`. With no row, `gh.sh` runs `gh` as before.
 - **The merge gate.** `merge_pr.py` and `cos_approve_pr.py` need the row and stop without one. A merge goes ahead only when the signed-in gh login is the mapped one (or a CODEOWNERS `*` user).
+  The row in `user.md` is what the gate trusts, and the keyring login it names is the account `gh.sh` acts as, so protect that file like `.git/config`.
+- **gh version.** `gh auth token --user` needs a recent gh. An old one fails with `unknown flag`, which `gh.sh` shows.
 
 Verify with the last command in § Verify, run in each repo.
 

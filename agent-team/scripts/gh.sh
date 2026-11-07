@@ -18,7 +18,7 @@ if [ -z "$account" ]; then
 fi
 
 read -r host login <<< "$account"
-token="$(env -u GITHUB_TOKEN -u GH_TOKEN -u GH_ENTERPRISE_TOKEN -u GITHUB_ENTERPRISE_TOKEN gh auth token --hostname "$host" --user "$login" 2>/dev/null)"
+token="$(env -u GITHUB_TOKEN -u GH_TOKEN -u GH_ENTERPRISE_TOKEN -u GITHUB_ENTERPRISE_TOKEN gh auth token --hostname "$host" --user "$login")"
 if [ -z "$token" ]; then
   echo "gh.sh: no gh login $login on $host; run gh auth login -h $host" >&2
   exit 2
