@@ -2,8 +2,8 @@
 """Which active children of the Chief of Staff need a full read.
 
 Usage:
-    scripts/cos_idle_check.py [--file STATE] [--now ISO] [--skip ABC-N ...] < reads.json
-    scripts/cos_idle_check.py --wait ABC-N [--now ISO] < thread_read.json
+    ~/.collective-wisdom/scripts/cos_idle_check.py [--file STATE] [--now ISO] [--skip ABC-N ...] < reads.json
+    ~/.collective-wisdom/scripts/cos_idle_check.py --wait ABC-N [--now ISO] < thread_read.json
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and a
 JSON list on stdin with one entry per small child read:

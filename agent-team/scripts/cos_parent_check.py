@@ -2,7 +2,7 @@
 """Which Chief of Staff tickets have a child under an older thread.
 
 Usage:
-    scripts/cos_parent_check.py --thread ID [--file PATH]
+    ~/.collective-wisdom/scripts/cos_parent_check.py --thread ID [--file PATH]
 
 --thread is this thread's own ID, passed in because the caller knows it. --file overrides
 .agent-team/state.json under the repo root. Read-only: nothing is written.

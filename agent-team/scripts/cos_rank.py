@@ -2,7 +2,7 @@
 """Check the Backlog ranking child's list and save it as pm.ranked.
 
 Usage:
-    scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] < child_message
+    ~/.collective-wisdom/scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] < child_message
 
 --started is the time the ranking began (YYYY-MM-DDTHH:MM:SSZ); it becomes pm.rankedAt.
 --backlog-count is the number of Backlog tickets that are neither agent-skip nor an epic,

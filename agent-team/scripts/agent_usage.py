@@ -2,9 +2,9 @@
 """API-equivalent cost of the agent team, read from Claude Code transcripts.
 
 Usage:
-    scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--turns]
-    scripts/agent_usage.py [--projects DIR] --context
-    scripts/agent_usage.py [--projects DIR] --ticket <PREFIX>-N
+    ~/.collective-wisdom/scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--turns]
+    ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --context
+    ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --ticket <PREFIX>-N
 
 --since and --until are ISO 8601 UTC times (default: the last 24 hours).
 --projects defaults to ~/.claude/projects. Read-only: nothing is written.
