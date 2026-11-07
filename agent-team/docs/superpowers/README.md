@@ -38,7 +38,7 @@ The PR body has a `## Release note` section, one to three sentences for a user o
 ```markdown
 ## Release note
 
-`install.sh --update <app>` now moves an app to the newest commit and reports what changed.
+The Chief of Staff status table now links each ticket's child thread under its ID and title.
 ```
 
 `python3 scripts/release_notes.py` prints every note, newest merge first: the files under `release-notes/` (older PRs) and the notes in merged PR bodies. Each note shows `Merged YYYY-MM-DD HH:MM UTC.` under its heading; a file note's time is when git added it on `origin/<merge target branch>`, and when git can't tell (no history, no `origin/<merge target branch>`, a renamed file, or a commit that added several notes at once) it sorts by its heading date and shows no time. A file note with no dated first line is printed last, with a warning on stderr. If it cannot read the merged PRs it prints the file notes, says why on stderr and exits 1. With no notes yet it prints `No release notes yet.` After each merge `scripts/merge_pr.py` publishes the same text as `RELEASE_NOTES.md` on the `release-notes` branch.

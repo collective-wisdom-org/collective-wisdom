@@ -11,7 +11,7 @@ user-invocable: true
 
 # Write a ticket
 
-Before acting, read **ship-loop** § Repo invariants and `docs/agents/project.md` (tracker scope `<TEAM>`, issue prefix `<PREFIX>`, labels). The operations named below are defined in `docs/agents/trackers/README.md`.
+Before acting, read **ship-loop** § Repo invariants and `docs/agents/project.md` (tracker scope `<TEAM>`, issue prefix `<PREFIX>`, labels). The operations named below are defined in `~/.collective-wisdom/docs/agents/trackers/README.md`.
 
 Whole-backlog tidying (ranking, filling empty priority and labels, state drift, duplicates) belongs to **project-manager**, not this skill.
 

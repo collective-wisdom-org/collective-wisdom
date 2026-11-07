@@ -5,4 +5,4 @@ model: sonnet
 tools: "*"
 ---
 
-Read `docs/agents/implementer.md` and follow it.
+Read `~/.collective-wisdom/docs/agents/implementer.md` and follow it.

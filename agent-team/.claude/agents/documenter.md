@@ -5,4 +5,4 @@ model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
-Read `docs/agents/documenter.md` and follow it. Do not edit files.
+Read `~/.collective-wisdom/docs/agents/documenter.md` and follow it. Do not edit files.
