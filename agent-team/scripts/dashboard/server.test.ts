@@ -1,0 +1,121 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { request } from 'node:http'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { startServer } from './server.ts'
+
+function tmpRoot(): string {
+  return mkdtempSync(join(tmpdir(), 'dash-'))
+}
+
+function call(port: number, method: string, path: string, host?: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const headers: Record<string, string> = host === undefined ? {} : { Host: host }
+    const req = request({ host: '127.0.0.1', port, method, path, headers, setHost: host !== undefined }, (res) => {
+      let body = ''
+      res.on('data', (c) => (body += c))
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+const goodSnap = { sessionId: 'good', cwd: '/x', updatedAt: Date.now(), total: null, rows: [] }
+const goodState = { tickets: { 'CW-1': { title: 'one', stage: 'build', status: 'coding' } } }
+
+test('host check', async () => {
+  const root = tmpRoot()
+  const srv = await startServer({ root, port: 0 })
+  try {
+    const p = srv.port
+    const cases: [string | undefined, number][] = [
+      [`127.0.0.1:${p}`, 200],
+      [`localhost:${p}`, 200],
+      ['evil.example', 403],
+      ['127.0.0.1:1', 403],
+      [undefined, 403],
+    ]
+    for (const route of ['/api', '/health']) {
+      for (const [host, want] of cases) {
+        const r = await call(p, 'GET', route, host)
+        assert.equal(r.status, want, `${route} Host=${host}`)
+      }
+    }
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('method and routes', async () => {
+  const root = tmpRoot()
+  const srv = await startServer({ root, port: 0 })
+  try {
+    const host = `127.0.0.1:${srv.port}`
+    assert.equal((await call(srv.port, 'POST', '/api', host)).status, 405)
+    assert.equal((await call(srv.port, 'GET', '/nope', host)).status, 404)
+    const h = await call(srv.port, 'GET', '/health', host)
+    assert.deepEqual(JSON.parse(h.body), { ok: true, root })
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('degraded inputs still answer', async () => {
+  const cases: { name: string; setup: (root: string) => void; sessions: string[] }[] = [
+    { name: 'no .agent-team', setup: () => {}, sessions: [] },
+    {
+      name: 'half-written state',
+      setup: (r) => {
+        mkdirSync(join(r, '.agent-team'))
+        writeFileSync(join(r, '.agent-team/state.json'), '{"tickets":')
+      },
+      sessions: [],
+    },
+    {
+      name: 'bad and good snapshots',
+      setup: (r) => {
+        mkdirSync(join(r, '.agent-team/gantt'), { recursive: true })
+        writeFileSync(join(r, '.agent-team/gantt/bad.json'), '{"rows":')
+        writeFileSync(join(r, '.agent-team/gantt/good.json'), JSON.stringify(goodSnap))
+      },
+      sessions: ['good'],
+    },
+  ]
+  for (const c of cases) {
+    const root = tmpRoot()
+    c.setup(root)
+    const srv = await startServer({ root, port: 0 })
+    try {
+      const r = await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)
+      assert.equal(r.status, 200, c.name)
+      const api = JSON.parse(r.body)
+      assert.deepEqual(api.gantt.map((g: { sessionId: string }) => g.sessionId), c.sessions, c.name)
+    } finally {
+      await srv.close()
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('keeps last good state when state.json is half-written', async () => {
+  const root = tmpRoot()
+  mkdirSync(join(root, '.agent-team'))
+  writeFileSync(join(root, '.agent-team/state.json'), JSON.stringify(goodState))
+  const srv = await startServer({ root, port: 0 })
+  try {
+    const host = `127.0.0.1:${srv.port}`
+    const first = JSON.parse((await call(srv.port, 'GET', '/api', host)).body)
+    assert.ok(first.status.length > 0)
+    writeFileSync(join(root, '.agent-team/state.json'), '{"tickets":')
+    const second = JSON.parse((await call(srv.port, 'GET', '/api', host)).body)
+    assert.deepEqual(second.status, first.status)
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
