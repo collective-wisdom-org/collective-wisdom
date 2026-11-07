@@ -78,4 +78,4 @@ These hold on every tracker.
 
 ## Adding a tracker
 
-Copy an existing adapter, keep the Setup section, and write one `### \`operation\`` section for every row of the operations table. `agent-team/scripts/test_tracker_docs.py` fails if a section is missing. Add the tracker's tool names to the forbidden list in that test, and to the `Tracker` row's allowed values in `agent-team/scripts/project_config.py`.
+Copy an existing adapter, keep the Setup section, and write one `### \`operation\`` section for every row of the operations table. `agent-team/scripts/test_tracker_docs.py` fails if a section is missing. Add the tracker's tool names to that test's forbidden list and to the `Tracker` row's allowed values in `agent-team/scripts/project_config.py`.
