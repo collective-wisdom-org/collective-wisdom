@@ -1,6 +1,7 @@
 # CW-171: Read the agent-gantt price table from the machine install
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #172, as specified
 **Ticket:** [#171](https://github.com/collective-wisdom-org/collective-wisdom/issues/171)
 **Follows:** CW-169 (#170), which removed this repo's root `scripts` link.
 
