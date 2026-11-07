@@ -11,10 +11,12 @@ Exit 0 on success, 1 when `write` refuses (WT is not a linked worktree of the re
 """
 
 import argparse
+import errno
 import json
 import math
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -47,6 +49,7 @@ REPO = re.compile(r"[\w.-]+/[\w.-]+")
 HOST = re.compile(r"[A-Za-z0-9][\w.-]*")
 KEY = re.compile(r"[\w.-]+/[\w.-]+/[\w.-]+")
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
+MAX_READ = 1 << 20
 
 
 class Fail(Exception):
@@ -72,7 +75,14 @@ def _branch(name):
 
 
 def _read(path):
-    return path.read_bytes().decode("utf-8", "surrogateescape")
+    """Text of a regular file of at most 1 MB. A fifo, a device or a directory (a link to one included) is unreadable: OSError, and it never blocks."""
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NONBLOCK), "rb") as f:
+        if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+            raise OSError(errno.EINVAL, "not a regular file")
+        data = f.read(MAX_READ + 1)
+    if len(data) > MAX_READ:
+        raise OSError(errno.EFBIG, "file over 1 MB")
+    return data.decode("utf-8", "surrogateescape")
 
 
 def _write(path, text, mode):
@@ -141,11 +151,11 @@ def _need_section(lines, title):
 
 def guess_test(d):
     try:
-        data = json.loads((d / "package.json").read_text())
+        data = json.loads(_read(d / "package.json"))
         scripts = data.get("scripts") if isinstance(data, dict) else None
         if isinstance(scripts, dict) and scripts.get("test"):
             return "pnpm test" if (d / "pnpm-lock.yaml").exists() else "yarn test" if (d / "yarn.lock").exists() else "npm test"
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         pass
     for marker, cmd in (("pyproject.toml", "pytest"), ("pytest.ini", "pytest"), ("go.mod", "go test ./..."), ("Cargo.toml", "cargo test")):
         if (d / marker).exists():
@@ -230,7 +240,7 @@ def facts(d):
         out["mapped_login"] = user_config.login(d)
     except user_config.UserConfigError as e:
         out["mapped_login"], out["user_md_error"] = None, str(e)
-    name = repo.split("/")[1] if repo else d.resolve().name
+    name = re.sub(r"[^A-Za-z0-9._-]", "", repo.split("/")[1] if repo else d.resolve().name) or "repo"
     pinned = _git(["cat-file", "-e", f"refs/remotes/origin/{target}:docs/agents/installed-from.txt"], d)
     workflows = d / ".github" / "workflows"
     out.update(
@@ -253,7 +263,7 @@ def cmd_status(args):
     except (FileNotFoundError, NotADirectoryError):
         state = "missing"
     except OSError as e:
-        raise Fail(2, f"cannot read project.md: {type(e).__name__}")
+        raise Fail(2, f"cannot read project.md: {e.strerror or type(e).__name__}")
     print(state)
     print(json.dumps(facts(d)))
     return 0
@@ -533,6 +543,11 @@ def _inside(path, wt):
         raise Fail(1, f"{path} resolves outside {wt}")
 
 
+def _paths(wt):
+    agents = wt / "docs" / "agents"
+    return agents, agents / "project.md", wt / ".gitignore"
+
+
 def _check_worktree(root, wt, a):
     listed = _git(["worktree", "list", "--porcelain"], root)
     if listed is None:
@@ -543,10 +558,13 @@ def _check_worktree(root, wt, a):
     branch = _git(["symbolic-ref", "--short", "-q", "HEAD"], wt)
     if not branch:
         raise Fail(1, f"{wt} has a detached HEAD")
+    agents, md, ignore = _paths(wt)
+    for p in (wt / "docs", agents, md, ignore):
+        _inside(p, wt)
     target = a.get("target")
     if not target:
         try:
-            target = project_config.value("Merge target branch", project_config._parse(_read(wt / "docs" / "agents" / "project.md"))) or "main"
+            target = project_config.value("Merge target branch", project_config._parse(_read(md))) or "main"
         except OSError:
             target = "main"
         target = _branch(target)
@@ -564,9 +582,7 @@ def cmd_write(args):
     a = validate(a)
     wt = Path(args.dir).resolve()
     _check_worktree(Path(args.root) if args.root else app_root.root(), wt, a)
-    agents, md, ignore = wt / "docs" / "agents", wt / "docs" / "agents" / "project.md", wt / ".gitignore"
-    for p in (wt / "docs", agents, md, ignore):
-        _inside(p, wt)
+    agents, md, ignore = _paths(wt)
     try:
         old = _read(md)
     except FileNotFoundError:
@@ -575,11 +591,15 @@ def cmd_write(args):
         new = build((TEMPLATES / "project.md").read_text(), a, True)
     else:
         new = repair(old, a) if unset_rows(old) else build(old, a, False)
-    ignored = _read(ignore) if ignore.exists() else ""
+    try:
+        was_ignored = _read(ignore)
+    except FileNotFoundError:
+        was_ignored = None
+    ignored = was_ignored or ""
     if not any(line.strip() in IGNORED for line in ignored.splitlines()):
         ignored += ("" if not ignored or ignored.endswith("\n") else "\n") + ".agent-team/\n"
     agents.mkdir(parents=True, exist_ok=True)
-    for path, text, was in ((md, new, old), (ignore, ignored, _read(ignore) if ignore.exists() else None)):
+    for path, text, was in ((md, new, old), (ignore, ignored, was_ignored)):
         if text == was:
             print(f"unchanged: {path}")
         else:

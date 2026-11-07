@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import signal
 import subprocess
 
 import pytest
@@ -39,6 +41,24 @@ STATUS = [
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     monkeypatch.setattr(sr, "_gh_logins", lambda host: [])
+
+
+@pytest.fixture
+def no_hang():
+    signal.signal(signal.SIGALRM, lambda *_: pytest.fail("read hung"))
+    signal.alarm(5)
+    yield
+    signal.alarm(0)
+
+
+def special(path, kind):
+    """Put a file at `path` that must not be read: a fifo, a link to /dev/zero, or a regular file over 1 MB."""
+    if kind == "fifo":
+        os.mkfifo(path)
+    elif kind == "zero":
+        path.symlink_to("/dev/zero")
+    else:
+        path.write_bytes(b"x" * (sr.MAX_READ + 1))
 
 
 def git(cwd, *args):
@@ -86,6 +106,17 @@ def test_status_missing_and_unreadable(tmp_path, capsys):
     (tmp_path / "docs" / "agents" / "project.md").mkdir(parents=True)
     code, _, err = run(capsys, "status", "--root", tmp_path)
     assert code == 2 and "cannot read" in err
+
+
+@pytest.mark.parametrize("kind", ["fifo", "zero", "big"])
+def test_status_and_guess_skip_files_that_are_not_small_regular_files(tmp_path, capsys, no_hang, kind):
+    (tmp_path / "docs" / "agents").mkdir(parents=True)
+    special(tmp_path / "docs" / "agents" / "project.md", kind)
+    code, out, err = run(capsys, "status", "--root", tmp_path)
+    assert code == 2 and "cannot read project.md" in err and not out
+    special(tmp_path / "package.json", kind)
+    (tmp_path / "go.mod").write_text("")
+    assert sr.guess_test(tmp_path) == "go test ./..."
 
 
 def test_status_facts(tmp_path, capsys):
@@ -200,6 +231,29 @@ def test_write_refuses_symlink_out_of_worktree(repo, capsys, tmp_path):
     code, _, err = write(capsys, repo, GITHUB)
     assert code == 1 and "outside" in err
     assert list((outside / "agents").iterdir()) == [] and not (repo[1] / ".gitignore").exists()
+
+
+def test_write_refuses_linked_project_md_before_reading_it(repo, capsys, tmp_path):
+    outside = tmp_path / "outside.md"
+    outside.write_text("| Merge target branch | `secret value` |\n")
+    (repo[1] / "docs" / "agents").mkdir(parents=True)
+    (repo[1] / "docs" / "agents" / "project.md").symlink_to(outside)
+    code, _, err = write(capsys, repo, {k: v for k, v in GITHUB.items() if k != "target"})
+    assert code == 1 and "outside" in err and "secret" not in err
+    assert outside.read_text() == "| Merge target branch | `secret value` |\n"
+
+
+def test_write_does_not_hang_on_a_fifo_project_md(repo, capsys, no_hang):
+    (repo[1] / "docs" / "agents").mkdir(parents=True)
+    special(repo[1] / "docs" / "agents" / "project.md", "fifo")
+    assert write(capsys, repo, GITHUB)[0] == 2
+
+
+@pytest.mark.parametrize("repo_dir, want", [("my app; rm -rf ~", "myapprm-rf"), ("$(x)", "x"), ("!!!", "repo")])
+def test_product_guess_is_shell_safe(tmp_path, repo_dir, want):
+    d = tmp_path / repo_dir
+    d.mkdir()
+    assert sr.facts(d)["product_guess"] == want
 
 
 BAD = [
