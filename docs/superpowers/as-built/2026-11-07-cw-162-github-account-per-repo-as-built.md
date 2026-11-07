@@ -10,3 +10,5 @@
 - `login()` finds its row by scanning every table row for a backticked repo key, so it does not depend on the `## GitHub accounts` heading.
 - The standalone `test_gh_sh` env-var test became rows of the new table: an unmapped repo runs with `GITHUB_TOKEN` and `GH_TOKEN` set to a PAT and sees both unset.
 - `open-pr/SKILL.md` and `chief-of-staff/approvals.md` also named the old rows and were updated.
+- `gh.sh` follows a symlink to find its own folder, so it works when reached through `~/.collective-wisdom`.
+- With a mapped login, `gh.sh` also clears `GH_ENTERPRISE_TOKEN` and `GITHUB_ENTERPRISE_TOKEN` for the token lookup and the final `gh` call, not only `GITHUB_TOKEN` and `GH_TOKEN`.

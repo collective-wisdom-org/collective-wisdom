@@ -87,7 +87,7 @@ With more than one GitHub account, each repo can use its own. The login lives in
 
 - **Where.** `~/.config/collective-wisdom/user.md`, outside the clone, so it can't be committed or lost when the clone is replaced.
 - **What it holds.** GitHub logins and one dollar figure, never tokens. The shape is in `~/.collective-wisdom/templates/user.md`: a Settings table (the Claude subscription figure) and a GitHub accounts table with one row per repo.
-- **Who writes it.** `set up this repo` creates the file and adds the row. To add one by hand, add a line under `## GitHub accounts`, with the backticks:
+- **Who writes it.** `set up this repo` will create the file and add the row (a later ticket, CW-163). Until then, copy the template to that path and add the row yourself. If the file exists, add a line under `## GitHub accounts`, with the backticks:
 
   ```
   | `github.com/acme/app` | `acme-login` |

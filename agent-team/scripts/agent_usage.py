@@ -18,7 +18,7 @@ is unset or the session has no transcript or no requests.
 --ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
 N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
 worktree sessions with a git branch feat/<prefix>-N or feat/<prefix>-N-..., plus their
-subagents, ignores --since and --until, and exits 2 when nothing matches. When project.md
+subagents, ignores --since and --until, and exits 2 when nothing matches. When the user's user.md
 sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
 API-equivalent (P% of the subscription), ...".
 
