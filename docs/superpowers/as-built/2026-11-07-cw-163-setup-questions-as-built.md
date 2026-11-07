@@ -15,3 +15,9 @@
 - `status` keeps the repo name's case in `repo`; `repo_key` stays lower case.
 - The `Linear team name` row holds the team name alone in backticks, so `project_config.setting` reads it.
 - `agent-team/templates/project.md` is unchanged: the render fills its rows. The role doc and `SKILL.md` "never write code, edit branches or merge" lines name the setup walk-through as the one exception.
+- `write` on an existing `project.md` that still holds template placeholders (status `placeholders`) fills the unset rows from the fresh render and keeps every value already set. It also inserts template rows the old file lacks, so an old file with no `Publish release notes` row (read as `on`) gets `off`. The diff is shown before anything is committed.
+- A missing `Tracker` row reads as `linear`, as `project_config.tracker()` does, and `Tracker scope` is not required when `Linear team name` is set.
+- A re-run that changes `tracker` fixes the rows that depend on it: github derives the scope from the repo, linear adds the Linear rows and needs `tracker_scope`, jira adds the Jira rows from `trackers/jira.md` as `TODO(<login>)`, and leaving linear or jira drops those rows.
+- `rules` is written as a `Repo rules:` bullet under Repo invariants; a re-run replaces that bullet, else the `none yet` bullet, and never touches other bullets.
+- The walk-through step 1 offers to remove a leftover local branch, worktree or remote `agent-team-setup` branch with no open PR instead of stopping; step 7 also deletes the local branch. `git fetch origin` runs before `status` so `pinned` is current.
+- Answers with `<` or `>` in `test`, `product`, `tracker_scope` or `linear_team` are rejected, because `status` would read them as placeholders.

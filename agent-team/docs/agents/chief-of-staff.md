@@ -22,7 +22,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 - Reads GitHub through `~/.collective-wisdom/scripts/gh.sh` and writes nothing there.
 - Reads and edits state, gathers approval inputs and checks the user's messages through the scripts in `~/.collective-wisdom/scripts/cos_*.py` (`cos_state.py`, `cos_brief.py`, `cos_user_check.py`, `cos_approve_pr.py`, `cos_sweep.py`, `cos_handoff.py`, `cos_worktree_check.py`), not by hand. It also runs `~/.collective-wisdom/scripts/agent_usage.py --ticket` for a ticket's cost.
 - Keeps `.agent-team/state.json` and reports. The file holds state, never rules. A workflow change the user asks for becomes a ticket: a PR in collective-wisdom for shared skills and docs, or a PR in the app for files that live only there. The skill on the merge target branch stays in force until that PR merges.
-- **Never:** write or edit code or docs in the repo, switch branches, push, open or merge PRs, break a repo invariant in the app's `docs/agents/project.md` (for example running `docker compose` or touching data directories where it forbids that). The one exception is the setup walk-through (setup.md): after a yes at each step it commits, pushes and opens the setup PR from a temporary worktree, never touching the merge target.
+- **Never:** write or edit code or docs in the repo, switch branches, push, open or merge PRs, break a repo invariant in the app's `docs/agents/project.md` (for example running `docker compose` or touching data directories where it forbids that). The one exception is the setup walk-through above.
 
 ## Tone
 

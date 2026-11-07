@@ -24,14 +24,12 @@ Run `git fetch origin` first, so `pinned` is current.
 
 | Status | Do |
 |---|---|
-| `missing` or `placeholders: <rows>` | Check for an open setup PR first (§ The PR walk-through step 1). If there is one, say it is open, link it, and stop; don't ask the questions again. Otherwise ask them. |
+| `missing` or `placeholders: <rows>` | Check for an open setup PR first (§ The PR walk-through step 1); if there is one, stop there and don't ask the questions. Otherwise ask them. |
 | `set` | Follow § Set up again. |
-
-`start the team` while the setup PR is open lands here too: the status is still `missing` on the root checkout.
 
 ## The questions
 
-Ask one at a time, in this thread. A bare reply takes the guess. Ask only what the script cannot read.
+Ask one at a time, in this thread. A bare reply takes the guess.
 
 | # | Question | Ask when | Guess |
 |---|---|---|---|
@@ -45,7 +43,7 @@ Ask one at a time, in this thread. A bare reply takes the guess. Ask only what t
 Rules for each:
 
 1. **GitHub login.** One login in `gh_logins` is taken unasked, as is `mapped_login`. No login stops the setup with: run `gh auth login`, then say `set up this repo` again.
-2. **Subscription figure.** Pass it to `setup_repo.py user --subscription`.
+2. **Subscription figure.** Goes to `setup_repo.py user --subscription`.
 3. **Tracker.** Linear asks one follow-up, the team name. Jira asks one follow-up, the project key (`tracker_scope`); `write` adds the Jira rows listed in trackers/jira.md § project.md rows as `TODO(<login>)`. For `github` nothing more is asked: the scope is `owner/repo`.
 4. **Issue prefix.** It must match `[A-Z][A-Z0-9]*`. Anything else, ask again.
 5. **Test command.** With no `test_guess`, the user must type one.
@@ -69,7 +67,7 @@ Written with no question:
 
 There is no `Owner login` row and no subscription row in `project.md`; both live in `user.md`.
 
-When all the answers are in, run `setup_repo.py user --login <login>`, adding `--subscription <n|none>` when question 2 was asked. It is not a git step and needs no yes. It runs before the PR steps so `gh.sh pr create` runs as the mapped login. Skip it with a `mapped_login` and nothing else to record.
+When all the answers are in, run `setup_repo.py user --login <login>`, adding `--subscription <n|none>` when question 2 was asked. It needs no yes. It runs before the PR steps so `gh.sh pr create` runs as the mapped login. Skip it with a `mapped_login` and nothing else to record.
 
 ## The PR walk-through
 
@@ -87,7 +85,6 @@ Show each git and gh step as the command it will run, and run it only after a ye
    git fetch origin
    git worktree add -b agent-team-setup <wt> origin/<target>
    ```
-   where `<tmp>` is the output of `mktemp -d`.
 2. **Write the files.** Run `setup_repo.py write --dir <wt> --answers @<file>`, then show `git -C <wt> diff` (and `git -C <wt> status --short` for the new files).
 3. **The pin offer.** Only when `pinned` is true. Run `python3 ~/.collective-wisdom/scripts/remove_app_copies.py --dry-run` with `<wt>` as the current directory, show its list, and offer the real run. On exit 1 (hand-edited copies) show the list and offer `--force` or skip. Pass its `.claude/settings.json` TODO on to the user as it is. Drop its "commit this removal as a PR" line: this PR is that.
 4. **Commit.**
@@ -102,10 +99,10 @@ Show each git and gh step as the command it will run, and run it only after a ye
    ```
    ~/.collective-wisdom/scripts/gh.sh pr create --base <target> --head agent-team-setup --title "docs: set up the agent team" --body-file <file>
    ```
-   The body, written to `<file>` first, lists the answers, the removed copies (if any) and this line: "Merge this, pull the root checkout, then say `start the team`." Put the PR link in the reply.
+   The body, written to `<file>` first, lists the answers, the removed copies (if any) and: "Merge this, pull the root checkout, then say `start the team`." Put the PR link in the reply.
 7. **Clean up.** `git worktree remove <wt>`, then `git branch -D agent-team-setup` (only after the worktree is gone), then `rmdir <tmp>`.
 
-The user merges the PR on GitHub. The team's merge gate is not used here: there is no ticket and no state yet. Do not merge it, and do not pull the root checkout for them.
+The user merges the PR. No merge gate applies: there is no ticket or state yet. Do not merge it or pull the root checkout for them.
 
 ## Endings
 
