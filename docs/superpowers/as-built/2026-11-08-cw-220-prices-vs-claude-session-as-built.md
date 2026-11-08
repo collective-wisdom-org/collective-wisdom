@@ -9,7 +9,7 @@
 - The spec said `modelCost` would be exported for the test. It is, and `addUsage` moved with it from `register.tsx` into `rows.ts`, because `register.tsx` imports `claude-code` and could not be tested.
 - The spec said step 1 would price the card from the stored snapshots. Those rows came from an older mod that priced every write at 5m, so the card column is simulated: `buildRows` run over per-agent usage from the transcripts.
 - The spec put `agent_usage.py` token-count fixes in scope when small. None were needed; the one difference found (requests that never finished) is left for a follow-up, see Known gaps.
-- `history.ts` sets `pricing: null` on history entries, so the page note shows for them.
+- `history.ts` keeps a stored `pricing` across a reload (a missing value reads as null), so only entries written before the fix show the note.
 
 ## What changed
 

@@ -38,5 +38,8 @@ test('parseHistory drops bad entries, cleans rows and gives empty for bad files'
   assert.equal(got.sessions.clean.session.rows.length, 1)
   assert.equal(got.sessions.clean.session.rows[0].name.length, 60)
   assert.equal(got.sessions.clean.session.rows[0].kind, 'agent')
+  // A stored pricing version survives a reload; a missing or bad one reads as null, so only older entries get the page note.
+  const priced = parseHistory(JSON.stringify({ sessions: { a: good('a', { pricing: 2 }), b: good('b'), c: good('c', { pricing: 'x' }) } }))
+  assert.deepEqual(['a', 'b', 'c'].map((id) => priced.sessions[id].session.pricing), [2, null, null])
   for (const text of ['', '{"sessions":', 'null', '[]', '{"sessions":[]}', '{"sessions":5}']) assert.deepEqual(parseHistory(text), { sessions: {} }, text)
 })

@@ -24,10 +24,10 @@ export function parseHistory(text: string): History {
     if (typeof e !== 'object' || e === null) continue
     const { ticket, session: s } = e as { ticket?: unknown; session?: Record<string, unknown> | null }
     if (typeof ticket !== 'string' || !TICKET.test(ticket) || typeof s !== 'object' || s === null) continue
-    const { sessionId, cwd, updatedAt, total, rows } = s
+    const { sessionId, cwd, updatedAt, total, pricing, rows } = s
     if (sessionId !== id || typeof cwd !== 'string' || typeof updatedAt !== 'number' || !Number.isFinite(updatedAt) || updatedAt < 0 || !Array.isArray(rows)) continue
     const cleaned = rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
-    out.push([id, { ticket, session: { sessionId: id, cwd, updatedAt, stale: false, total: typeof total === 'number' && Number.isFinite(total) ? total : null, pricing: null, rows: cleaned } }])
+    out.push([id, { ticket, session: { sessionId: id, cwd, updatedAt, stale: false, total: typeof total === 'number' && Number.isFinite(total) ? total : null, pricing: typeof pricing === 'number' && Number.isFinite(pricing) ? pricing : null, rows: cleaned } }])
   }
   return build(out)
 }
