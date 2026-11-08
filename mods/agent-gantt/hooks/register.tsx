@@ -72,6 +72,8 @@ async function ensureMain($: EngineInterface, t: number) {
 
 // The root checkout, resolved once. Null until the first resolve.
 let root: string | null = null
+// Whether that root uses the team, checked once. A repo that does not gets no `.agent-team/` folder.
+let usesTeam = false
 
 /** The root checkout the way status-pane finds it: only the plain `<root>/.git` layout; else the session's own folder. */
 async function resolveRoot($: EngineInterface): Promise<string> {
@@ -85,6 +87,16 @@ async function resolveRoot($: EngineInterface): Promise<string> {
   } catch {
     // not a git checkout: keep the session's folder
   }
+  usesTeam = false
+  for (const marker of ['docs/agents/project.md', '.agent-team/state.json']) {
+    try {
+      await $.fs.read(`${found}/${marker}`)
+      usesTeam = true
+      break
+    } catch {
+      // not there
+    }
+  }
   root = found
   return root
 }
@@ -92,13 +104,15 @@ async function resolveRoot($: EngineInterface): Promise<string> {
 /** Writes this session's rows for the local dashboard. A failed write never reaches the session. */
 async function writeSnapshot($: EngineInterface) {
   try {
+    const dir = await resolveRoot($)
+    if (!usesTeam) return
     const sessionId = await $.session.id()
     const name = snapshotName(sessionId)
     if (name === null) return
     const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table)
     const total = (await $.session.usage()).cost?.usd ?? null
     const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows })
-    await $.fs.write(`${await resolveRoot($)}/${SNAPSHOT_DIR}/${name}`, text)
+    await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
   } catch {
     // the dashboard is optional: skip this write
   }
