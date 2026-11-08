@@ -8,12 +8,11 @@
 :root { color-scheme: light dark;
   --s1:.25rem; --s2:.5rem; --s3:.75rem; --s4:1rem; --s6:1.5rem; --s8:2rem;
   --t-title:1.375rem; --t-band:1rem; --t-body:.875rem; --t-small:.75rem;
-  --bg:#fff; --fg:#1b1f24; --muted:#59636e; --line:#d1d9e0; --card:#f6f8fa; --accent:#0969da; --bar:#2da44e; --run:#b07a00; --err:#b4161f; --err-bg:#fff1f0;
-  --edge-merge:#cf222e; --tint-merge:#fff0ee; --edge-build:#b07a00; --tint-build:#fff7e0;
-  --b-neutral:#eaeef2; --b-neutral-fg:#424a53; --b-low:#dafbe1; --b-low-fg:#116329; --b-medium:#fff8c5; --b-medium-fg:#7d4e00; --b-high:#ffebe9; --b-high-fg:#a40e26; }
-@media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#30363d; --card:#161b22; --accent:#58a6ff; --bar:#3fb950; --run:#d29922; --err:#ff7b72; --err-bg:#2d1214;
-  --edge-merge:#f85149; --tint-merge:#2a1316; --edge-build:#d29922; --tint-build:#261f10;
-  --b-neutral:#30363d; --b-neutral-fg:#c9d1d9; --b-low:#12261e; --b-low-fg:#56d364; --b-medium:#272115; --b-medium-fg:#e3b341; --b-high:#2d1214; --b-high-fg:#ff7b72; } }
+  --bg:light-dark(#fff, #0d1117); --fg:light-dark(#1b1f24, #e6edf3); --muted:light-dark(#59636e, #9198a1); --line:light-dark(#d1d9e0, #30363d); --card:light-dark(#f6f8fa, #161b22); --accent:light-dark(#0969da, #58a6ff); --bar:light-dark(#2da44e, #3fb950); --run:light-dark(#b07a00, #d29922); --err:light-dark(#b4161f, #ff7b72); --err-bg:light-dark(#fff1f0, #2d1214);
+  --edge-merge:light-dark(#cf222e, #f85149); --tint-merge:light-dark(#fff0ee, #2a1316); --edge-build:light-dark(#b07a00, #d29922); --tint-build:light-dark(#fff7e0, #261f10);
+  --b-neutral:light-dark(#eaeef2, #30363d); --b-neutral-fg:light-dark(#424a53, #c9d1d9); --b-low:light-dark(#dafbe1, #12261e); --b-low-fg:light-dark(#116329, #56d364); --b-medium:light-dark(#fff8c5, #272115); --b-medium-fg:light-dark(#7d4e00, #e3b341); --b-high:light-dark(#ffebe9, #2d1214); --b-high-fg:light-dark(#a40e26, #ff7b72); }
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 body { margin:0; padding:var(--s3); background:var(--bg); color:var(--fg); font:var(--t-body)/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-wrap:anywhere; }
 @media (min-width: 30rem) { body { padding:var(--s6); } }

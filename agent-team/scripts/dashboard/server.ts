@@ -118,6 +118,28 @@ function preflight(entry: string): Promise<string | null> {
   })
 }
 
+/** The system light or dark setting from the result of `defaults read -g AppleInterfaceStyle`. `null` when it can't be told: another platform, or the command could not run or timed out. */
+export function systemScheme(platform: string, result: { code: number | null; out: string } | null): 'dark' | 'light' | null {
+  if (platform !== 'darwin' || result === null) return null
+  // The key is absent in light mode, so the command exits non-zero. Exit 0 with any other text is not an answer.
+  if (result.code !== 0) return 'light'
+  return result.out.trim() === 'Dark' ? 'dark' : null
+}
+
+const macScheme = (): Promise<'dark' | 'light' | null> =>
+  new Promise((done) => {
+    if (process.platform !== 'darwin') return done(null)
+    try {
+      execFile('defaults', ['read', '-g', 'AppleInterfaceStyle'], { timeout: 2000 }, (err, out) => {
+        // A number is the command's exit status; anything else (spawn error, timeout) means it did not run.
+        const code = err === null ? 0 : typeof err.code === 'number' ? err.code : null
+        done(systemScheme('darwin', code === null ? null : { code, out: String(out) }))
+      })
+    } catch {
+      done(null)
+    }
+  })
+
 /** Reads a file only when it is a regular file and every folder in `dirs` is a real folder (no links). */
 export function readRegular(file: string, dirs: string[]): string | undefined {
   try {
@@ -175,7 +197,7 @@ export function mergedPageOf(url: string): number {
   }
 }
 
-export async function startServer(opts: { root: string; port: number }): Promise<{ port: number; close(): Promise<void> }> {
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -210,6 +232,19 @@ export async function startServer(opts: { root: string; port: number }): Promise
 
   // The first read finishes before the server answers, so the first /api already has the list.
   await refreshWorktrees()
+
+  // The system light or dark setting, refreshed at start and every 5 seconds; requests only read the last answer.
+  let theme: 'dark' | 'light' | null = null
+  let themeBusy = false
+  const refreshTheme = async () => {
+    if (themeBusy) return
+    themeBusy = true
+    try {
+      theme = await (opts.scheme ?? macScheme)()
+    } catch {}
+    themeBusy = false
+  }
+  await refreshTheme()
 
   const projectText = () => readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
 
@@ -330,11 +365,12 @@ export async function startServer(opts: { root: string; port: number }): Promise
     if (req.method !== 'GET') return send(405, 'method not allowed')
     try {
       if (path === '/health') return send(200, JSON.stringify({ ok: true, root, code: running, pid: process.pid }), 'application/json')
-      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')), restartError }), 'application/json')
+      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')), restartError, theme }), 'application/json')
       const page = Object.hasOwn(PAGES, path) ? PAGES[path] : undefined
       if (page) {
         try {
-          return send(200, readFileSync(join(import.meta.dirname, 'page', page[0]), 'utf8'), page[1])
+          const text = readFileSync(join(import.meta.dirname, 'page', page[0]), 'utf8')
+          return send(200, path === '/' && theme ? text.replace('<html lang="en">', `<html lang="en" data-theme="${theme}">`) : text, page[1])
         } catch {
           return send(404, 'not found')
         }
@@ -403,6 +439,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     fail('the new server did not start')
   }
   const codeTimer = setInterval(() => {
+    void refreshTheme()
     if (restarting) return
     const version = codeVersion(codeFiles(entry))
     if (version === running) restartError = null
