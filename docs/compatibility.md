@@ -50,7 +50,7 @@ One line per column, saying what done means.
 
 - **Claude Code in T3 Code:** done. A Chief of Staff and its children run a ticket from spec to merge, with subagents, the rotation hook and cost figures. The two mods are the only open cells.
 - **Codex in T3 Code:** done when a Chief of Staff and its children run a ticket to merge on Codex, with subagents, a rotation hook and cost figures that Codex can supply.
-- **Cursor in T3 Code:** done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor with `review-security`, and the hook and cost figures work for it.
+- **Cursor in T3 Code:** done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor, with subagents and `review-security`, and the hook and cost figures work for it.
 - **Antigravity in T3 Code:** done when `install.sh` installs skills and the instruction block for it, a Chief of Staff and its children run a ticket to merge on it, with subagents, a security review, a rotation hook and cost figures.
 
 ## Matrix 2: trackers
@@ -92,7 +92,7 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G1.** Cursor has no file for user rules, so the instruction block is pasted by hand. Ticket: none yet.
 - **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
 - **G3.** No recorded Cursor run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
-- **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so this applies to Codex, Cursor and Antigravity, and nobody has recorded doing it. Ticket: none yet.
+- **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so this applies to Codex, Cursor and Antigravity, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
 - **G5 and G6** are retired. Their numbers are not reused.
 - **G7.** The rotation Stop hook is installed for Claude Code only. Codex, Cursor and Antigravity get no hook. Ticket: none yet.
 - **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex, Cursor or Antigravity work. Ticket: none yet.
