@@ -1,6 +1,7 @@
 # CW-248: Match the dashboard dark colors to T3 Code dark
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #250, as specified
 **Ticket:** [#248](https://github.com/collective-wisdom-org/collective-wisdom/issues/248)
 
 ## Goal
