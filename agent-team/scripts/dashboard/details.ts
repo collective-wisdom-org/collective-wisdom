@@ -136,7 +136,7 @@ export type DetailWant = { id: string; stage: string; specPath?: unknown; specSh
 
 /**
  * Per-stage detail read in the background: a spec once per commit and path while a ticket waits for build approval or builds, the PR at most once a minute from merge approval on, and the PR of a merged ticket the same way.
- * A failed read keeps the last good result (a failed spec read is retried after a minute). Entries for tickets no longer wanted are dropped.
+ * A failed read keeps the last good result (a failed spec read is retried after a minute). Entries for tickets no longer wanted are dropped (a PR read after a minute).
  */
 export function createDetails(opts: { run: Run; git: Run; now?: () => number }) {
   const now = opts.now ?? Date.now
@@ -161,11 +161,12 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
         if (SPEC_STAGES.includes(w.stage) && validSha(w.specSha) && validSpecPath(w.specPath)) wanted.set(w.id, { kind: 'spec', key: `${w.specSha}:${w.specPath}` })
         else if (PR_STAGES.includes(w.stage) && goodPr(w)) wanted.set(w.id, { kind: 'changes', key: String(w.pr) })
       }
-      // An id still on the board keeps its own detail; a merged want for it is ignored.
-      for (const w of wants) if (w.merged && !wanted.has(w.id) && goodPr(w)) wanted.set(w.id, { kind: 'merged', key: String(w.pr) })
+      // An id still on the board keeps its own detail; a merged want for it is ignored. A merged want is keyed `<id>#<pr>`, so two merged PRs of one ticket keep their own text.
+      for (const w of wants) if (w.merged && !wanted.has(w.id) && goodPr(w)) wanted.set(`${w.id}#${w.pr}`, { kind: 'merged', key: String(w.pr) })
       const keys = (spec: boolean) => new Set([...wanted.values()].filter((v) => (v.kind === 'spec') === spec).map((v) => v.key))
       for (const k of specs.keys()) if (!keys(true).has(k)) specs.delete(k)
-      for (const k of prs.keys()) if (!keys(false).has(k)) prs.delete(k)
+      // A PR read is kept for a minute after the last request that wanted it, so tabs on different merged pages do not empty each other's cache.
+      for (const [k, v] of prs) if (!keys(false).has(k) && now() - v.startedAt >= REFRESH_MS) prs.delete(k)
 
       for (const target of wanted.values()) {
         const t = now()
@@ -205,7 +206,7 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
           const parsed = prs.get(key)?.parsed
           if (!parsed) continue
           const { specPaths, mergeSha, ...detail } = parsed
-          const spec = kind === 'merged' ? specOfMerged(specPaths, id, mergeSha) : undefined
+          const spec = kind === 'merged' ? specOfMerged(specPaths, id.replace(/#\d+$/, ''), mergeSha) : undefined
           if (detail.sections.length || detail.files?.length || detail.reviews?.length || spec) out[id] = { kind: 'changes', ...detail, ...(spec ? { spec } : {}) }
         }
       }

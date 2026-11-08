@@ -176,10 +176,11 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     if (row) (row.gantt ??= []).push(s)
   }
   for (const r of rowById.values()) r.gantt?.sort((a, b) => a.updatedAt - b.updatedAt)
-  const withExtras = ({ number: _, ...e }: MergedEntry): MergedEntry => {
+  const withExtras = ({ number, ...e }: MergedEntry): MergedEntry => {
     let out: MergedEntry = Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e
     if (Object.hasOwn(history, e.id) && history[e.id].length) out = { ...out, gantt: history[e.id] }
-    const found = Object.hasOwn(details, e.id) ? details[e.id] : undefined
+    const key = `${e.id}#${number}`
+    const found = Object.hasOwn(details, key) ? details[key] : undefined
     if (found) {
       const { spec, ...plain } = found
       const specUrl = repo && spec ? specUrlOf(repo.url, spec.path, spec.sha) : undefined

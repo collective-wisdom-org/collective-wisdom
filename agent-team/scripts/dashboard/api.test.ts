@@ -251,7 +251,7 @@ test('specUrl on a row: a spec path and a 7 to 40 hex sha of the cos_handoff rul
 test('a merged entry gets its detail and the spec link from the merge commit; the PR number stays internal', () => {
   const entry = { id: 'CW-1', title: 't', prUrl: 'https://github.com/o/r/pull/9', mergedAt: 1, number: 9 }
   const found = { kind: 'changes' as const, sections: [], spec: { path: 'docs/superpowers/specs/a.md', sha: 'b'.repeat(40) } }
-  const [withIt] = build({ merged: [entry], details: { 'CW-1': found } }).merged as any[]
+  const [withIt] = build({ merged: [entry], details: { 'CW-1#9': found, 'CW-1': { kind: 'changes' as const, sections: [] } } }).merged as any[]
   assert.deepEqual(withIt, { id: 'CW-1', title: 't', prUrl: entry.prUrl, mergedAt: 1, detail: { kind: 'changes', sections: [], url: entry.prUrl }, specUrl: `https://github.com/o/r/blob/${'b'.repeat(40)}/docs/superpowers/specs/a.md` })
   const [bare] = build({ merged: [entry] }).merged as any[]
   assert.ok(!('number' in bare) && !('detail' in bare) && !('specUrl' in bare))

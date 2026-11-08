@@ -94,7 +94,7 @@ test('the stage picks the detail: spec while it waits for build approval and bui
   for (const [w, kind] of cases) {
     d.want([{ ...base, ...w }], { slug: 'o/r' })
     await d.idle()
-    assert.equal(d.get().a?.kind, kind, `${w.stage}${w.merged ? ' merged' : ''}`)
+    assert.equal(d.get()[w.merged ? 'a#5' : 'a']?.kind, kind, `${w.stage}${w.merged ? ' merged' : ''}`)
   }
 })
 
@@ -112,6 +112,24 @@ test('a merged PR gives its spec link only when exactly one spec file carries th
     const d = createDetails({ git: async () => '', run: async () => JSON.stringify({ body: '', files: files.map((path) => ({ path, additions: 1, deletions: 0 })), mergeCommit: oid ? { oid } : null }) })
     d.want([{ id: 'CW-240', stage: 'merged', pr: 5, merged: true }], { slug: 'o/r' })
     await d.idle()
-    assert.deepEqual(d.get()['CW-240']?.spec, want, name)
+    assert.deepEqual(d.get()['CW-240#5']?.spec, want, name)
   }
+})
+
+test('merged PRs: two PRs of one ticket keep their own text, and tabs on different pages do not make each other read again inside the minute', async () => {
+  let clock = 0
+  const calls: string[] = []
+  const d = createDetails({ now: () => clock, git: async () => '', run: async (a) => (calls.push(a[2]), JSON.stringify({ body: `## Summary\n\npr ${a[2]}` })) })
+  const page = (...prs: number[]) => d.want(prs.map((pr) => ({ id: 'CW-1', stage: 'merged', pr, merged: true })), { slug: 'o/r' })
+  page(5, 6)
+  await d.idle()
+  assert.deepEqual(['CW-1#5', 'CW-1#6'].map((k) => d.get()[k].sections[0].text), ['pr 5', 'pr 6'])
+  for (let i = 0; i < 3; i++) { page(7); await d.idle(); page(5, 6); await d.idle() }
+  assert.deepEqual(calls.sort(), ['5', '6', '7'])
+  clock = 61_000
+  page(7)
+  await d.idle()
+  page(5)
+  await d.idle()
+  assert.deepEqual(calls.sort(), ['5', '5', '6', '7', '7'])
 })
