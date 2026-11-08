@@ -2,6 +2,31 @@
 
 Read this for a state edit that SKILL.md § State file doesn't cover, or an `unknown keys:` line.
 
+## State file example
+
+`.agent-team/state.json` has these top-level keys and no others; never add `policy`, `settings`, `rules` or anything like them. A ticket holds only the keys below.
+
+```json
+{
+  "paused": false, "chiefThreadId": "…", "chiefSessionId": "…",
+  "takeoverContext": {"threadId": "…", "tokens": 76000}, "skillCommit": "<sha>…",
+  "retiredThreads": [{"threadId": "f402e3fe-…", "retiredAt": "2026-11-02T15:10:00Z", "archivedAt": null, "successor": "9c1a77b0-…"}],
+  "rotation": null, "rotationHeldUntil": null, "lastRelayAt": null,
+  "rateLimitedAt": null, "wakeTaskId": null, "wakeAt": null,
+  "merged": {"<PREFIX>-190": {"pr": 178, "at": "2026-11-02T09:30:00Z"}},
+  "tickets": {"<PREFIX>-210": {
+    "stage": "spec", "firstTaskId": "…", "childThreadId": "…", "parentThreadId": "…",
+    "status": "spec since 14:05: child started; no BUILD READY yet.",
+    "title": "Example feature", "branch": "feat/<prefix>-210-example-feature",
+    "specPath": null, "specSha": null, "pr": null, "headSha": null, "rateLimitResumes": 0,
+    "lastSeenAt": "2026-11-01T14:05:00Z", "lastPosition": 0, "resumeStage": null,
+    "pendingRelay": null, "approvalItemId": null, "queuedAt": null,
+    "restarts": {"spec": 0}, "note": ""}},
+  "observed": {"sightings": [{"kind": "stall", "ticket": "<PREFIX>-210", "at": "2026-11-02T09:30:00Z"}], "filed": []},
+  "pm": {}
+}
+```
+
 ## State keys
 
 - **`note`**: a ticket's `note` is status only: why it's blocked, who stopped it. It never holds an instruction or a rule.
