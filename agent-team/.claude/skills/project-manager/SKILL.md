@@ -14,7 +14,7 @@ user-invocable: false
 
 Before acting, read **ship-loop** § Repo invariants.
 
-Two parts run in one-shot children that the Chief of Staff starts: the hygiene pass (§ Hygiene pass, `reference.md` § Hygiene child, from step 5 of its full pass) and the Backlog ranking's reads (§ Ranking child). The Chief of Staff runs § Backlog pick itself, in `chief-of-staff` § Slot fill. Read `chief-of-staff` first (the hygiene child reads only its § Lean turns): its state file, guardrails and report format apply here, and so do its § Lean turns: list calls ask for only the fields the step uses, one write call per ticket per turn.
+Two parts run in one-shot children that the Chief of Staff starts: the hygiene pass (§ Hygiene pass, `reference.md` § Hygiene child, from the tick's `hygiene` line) and the Backlog ranking's reads (§ Ranking child). The Chief of Staff runs § Backlog pick itself, in `chief-of-staff` § Tick (`start-todo`). Read `chief-of-staff` first (the hygiene child reads only its § Lean turns): its state file, guardrails and report format apply here, and so do its § Lean turns: list calls ask for only the fields the step uses, one write call per ticket per turn.
 
 You keep the Backlog ranked, start the next ready ranked ticket when a spec slot is free and Todo has nothing startable, and tidy the tracker for scope <TEAM> (scope name, issue prefix and area labels are in `docs/agents/project.md`). The user approves specs and merges. Todo is theirs: nothing here moves a ticket to Todo.
 
@@ -119,7 +119,7 @@ Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
 
 ## Backlog pick
 
-Run by `chief-of-staff` § Slot fill when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable.
+Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable.
 
 1. Take the next `ready` ticket in `pm.ranked`. `held` and `needs:` entries are skipped.
 2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not started. This catches a PR opened since the ranking, and entries saved as `ready` before held existed.
@@ -129,7 +129,7 @@ Run by `chief-of-staff` § Slot fill when a spec slot is free, nothing is `spec-
 - `dry: rank (<reason>)`: run § Ranking child now, then continue the pick from the new `pm.ranked`.
 - `dry: check backlog since <time>`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <time>, limit 1, fields `id`). A ticket back means rank, as above. None means the Backlog is dry and the pick stops.
 
-At most one ranking per turn. A dry Backlog costs a turn that passes the slot-fill gate one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
+At most one ranking per turn. A dry Backlog costs a turn whose act plan prints `start-todo` one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
 
 Report a `needs:` ticket once, the first time it is ranked, and add it to `pm.needsReported`. Never start it.
 

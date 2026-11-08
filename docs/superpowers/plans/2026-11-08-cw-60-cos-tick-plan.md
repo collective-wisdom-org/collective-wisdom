@@ -1,0 +1,43 @@
+# CW-60 plan: cos_tick.py prints the tool calls a Chief of Staff turn needs
+
+Spec: `docs/superpowers/specs/2026-11-04-cw-60-cos-tick-design.md` (approved at a88b9a7). Tests per `AGENTS.md` § Testing: one table-driven test per rule, test lines no more than feature lines.
+
+Main moved since the spec's "Today" facts (checked again at 4aa63f8): SKILL.md is 626 lines, 85 KB; `cos_review_check.py`, `cos_untracked_check.py` and `approval_policy.py` exist; the sweep also runs the review and untracked checks. The rest of "Today" holds. `AGENT_GH_ROLE` no longer exists anywhere in `agent-team/`, so `run` lines carry no such prefix. CW-115 (PR #190, open) also edits SKILL.md and approvals.md; merge `origin/main` before the PR and again before `MERGE READY`.
+
+## Task 1: `agent-team/scripts/cos_tick.py` and `test_cos_tick.py`
+
+CLI: `cos_tick.py --thread <id> --trigger start|user|wake|status|notice:<thread> [--after-reads] [--file STATE] [--now ISO]`. Read state with `cos_state.load`. Writes nothing. Output is numbered lines `N. <text>`. Exit 2 with a `cos_tick: <what>` line when state is unreadable or arguments are bad (a missing state file counts as empty state, so `start` still works). Constants: `LIMITS = {"spec": 2, "build": 2, "merge": 1}`, `CAP = sum(LIMITS.values())`. Paths in `run` lines use `~/.collective-wisdom/scripts/...`.
+
+Look plan (no `--after-reads`):
+
+- Stops, first, printing only that line: `stop failed-handoff` when `rotation` is non-null, `rotation.from` is `--thread` and `rotation.startedAt` is over 10 minutes old; else `stop retired` when `chiefThreadId` is set and not `--thread`, or `--thread` is a `retiredThreads` id; else `stop paused` when `paused` (not for `status`). `start` skips the first two when `chiefThreadId` is absent or `--thread`, or `rotation.to` is `--thread` (SKILL.md intro).
+- `start` with tickets in state: one line, `follow rotation.md § Thread rotation: Resume mode`, nothing else. `start` with no tickets: `follow startup.md § Setup`, `follow startup.md § Start-up clean-up`, then the full-pass lines.
+- `wake` with no `wakeTaskId`: one line, `follow startup.md § Start-up clean-up step 1`. With one: first line `delete-wake <id>` (then clear `wakeTaskId`, keep `wakeAt`), then the full-pass lines.
+- Full pass (`start`, `user`, `wake`): for each ticket in `spec`, `build`, `merge` with a `childThreadId` (state order) a `read` line (spec format, `afterPosition` from `lastPosition`, default 0) and a `pending` line; `run python3 ~/.collective-wisdom/scripts/cos_sweep.py --thread <id>`; `each full: read`; `each sweep line`; last line `tick --after-reads`.
+- `notice:<thread>`: the ticket whose `childThreadId` is `<thread>`. Active: its `read` and `pending`; an `idle-read` for every other active child; the idle check `run` line with `--skip <ticket>` (skipped when there is no other active child); the sweep; `each full: read`; `each sweep line`; `tick --after-reads`. A ticket in another stage (queued, awaiting, blocked): the same without its own read, and the idle check has no `--skip`. A thread in no ticket: `helper-test <thread>` first, then as for a non-active ticket.
+- `status`: `idle-read` for every active child, the idle check, the sweep, `each full: read`, `each sweep line`, `tick --after-reads`.
+
+Act plan (`--after-reads`; computed from state only, so it can be rerun):
+
+- `status`: `archive` lines, then the rotation check. (SKILL.md § Tick: after a `status` read that changed a stage, run `--trigger user --after-reads`.)
+- Same stops as above (each prints only its line).
+- Rate limit, only while `rateLimitedAt` is set. Full pass triggers: `wakeTaskId` set and `wakeAt` past: `delete-wake <id>`, `clear-rate-limit`; `wakeTaskId` null and `wakeAt` null or past: `clear-rate-limit`; each of these two ends the plan with `tick --after-reads`, since the model resumes tickets (state changes) before the rest can be planned. `wakeTaskId` null and `wakeAt` in the future: `schedule-wake everyMs=<ms until wakeAt plus 2 minutes, at least 60000, at most 6 hours>` and the plan goes on. `notice` triggers print only `schedule-wake`, never the clearing.
+- `hygiene`: full pass triggers only; `start` always, `user` and `wake` when `pm.lastDailyAt` is null, malformed (not `YYYY-MM-DDTHH:MM:SSZ`) or over 24 hours old; never with `rateLimitedAt` set. Then `prune` (full pass triggers).
+- Slot fill, skipped when `paused` or `rateLimitedAt` is set: count tickets in `spec`, `build`, `merge`; loop while the overall count is under `CAP`: take the first lane in order merge, build, spec with count under its limit and a non-empty `<lane>-queued` queue (oldest `queuedAt` first, missing last), print its lines, count it as moved. Per queued ticket, in order: no `pendingRelay` → `rebuild-relay <T>` only; a merge approval relay (starts `CHIEF OF STAFF: the user approved the merge` or `CHIEF OF STAFF: auto-approved the merge`, or has `The user approved the merge at head`) → `head-check <T> pr=<N> head=<sha>`, and for the auto one also `run python3 ~/.collective-wisdom/scripts/cos_approve_pr.py <T> --auto`; a user-approved spec relay → `user-check <T> <thread from its "Approval in thread:" line, else --thread> <approvalItemId>` with the quoted words; an auto-approved spec relay → `run python3 ~/.collective-wisdom/scripts/approval_policy.py auto <T> spec`; a spec approval (either kind) with no continuation → `configure <child> claude-sonnet-5-5 effort=high`; then `continuation <T> <lane>` when `parentThreadId` is set and not `chiefThreadId`, else `send <T> <lane> <relay as a JSON string>`. After the loop, one `start-todo` per remaining free spec slot, at most the room under `CAP`.
+- `observe`, unless paused, rate limited or `rotation` is set. `report` with the stop reason when the slot fill ran: `(filling stopped: spec slot free)` if any `start-todo` printed, else `(filling stopped: lanes full)`. Then one `archive <thread>` per `retiredThreads` entry without `archivedAt`. Last line `run python3 ~/.collective-wisdom/scripts/cos_rotation_check.py`.
+
+`test_cos_tick.py`: fixture states built in `tmp_path`, one parametrized test per rule group from the spec's Tests section (notice turn variants, user turn and hygiene due or fresh, start-up, act plan ordering and limits and pre-steps and continuation and paused or rate limited and observe, stops). Assert on whole plans or on the lines that matter, not the wording of every line.
+
+## Task 2: chief-of-staff SKILL.md and pointers
+
+Do after Task 1, using its real line formats. In `agent-team/.claude/skills/chief-of-staff/SKILL.md` (spec § Skill changes):
+
+- Replace § Full pass and § Slot fill with § Tick (two calls, the rerun rule, status rerun note, the plan-line table as the script prints it) and new § Child path (steps 2 to 4 and 6a judgement: markers and their stage ops including the review-check route and the mergeable read for a `BLOCKED:` merge child, the `nextPosition` write, the pending request, the stuck check with the wait check and restart message, how a rate-limit error sets `rateLimitedAt` and `wakeAt`, and the observe kinds). New § Rate limit holds the judgement part of step 4 (reset time from T3's run error only, 3-minute to 6-hour bounds, resuming blocked tickets with `rateLimitResumes` under 3, then rerun).
+- § Lean turns keeps Reads, Writes and Reports; drop Notice turns and Idle check bullets but keep what the idle check's `full` lines and `Running` section need (move that text to § Tick or § Report format where it is still read).
+- Intro per-trigger bullets shrink to "run the tick with this trigger". § Lanes says the script holds the limits. § Tools lists `cos_tick.py`. Keep the Send or queue head-check, readiness check, approval brief, Sweep, Merged check, Adopt, Commands, Report format as prose.
+- Move every pointer to § Full pass, § Slot fill or § Lean turns "Notice turns" in shipped files (SKILL.md itself, `rotation.md`, `ticket-helper.md`, `startup.md`, `state-keys.md`, `approvals.md`, `status.md`, `project-manager/SKILL.md`, `project-manager/reference.md`) to § Tick, § Child path or § Rate limit. Leave specs, plans and as-builts alone.
+- Check any doc that lists the `cos_*.py` scripts (README, `agent-team/docs/agents/`, `install.sh` or `test_agent_files.py` lists) and add `cos_tick.py` where the others are.
+
+## Verify
+
+`python3 -I -m pytest -q agent-team/scripts`; `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh`; `/usr/bin/grep -n "## Full pass\|## Slot fill" agent-team/.claude/skills/chief-of-staff/SKILL.md` finds nothing; run `cos_tick.py` on a copy of real state (`.agent-team/state.json` in the root checkout, read only) for each trigger and compare with the old sections.

@@ -22,11 +22,11 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 - **`rotation`**: `{"from": "<old id>", "to": "<new id or null>", "startedAt": "…"}` while a handoff is in progress (rotation.md § Thread rotation), otherwise `null`.
 - **`lastRelayAt`**: when a relay or a new child start last went out. `cos_state.py` stamps it on a `start` op that creates a ticket, on a `stage` op into `spec`, `build` or `merge`, and when a ticket in one of those stages gets a new `childThreadId` (a continuation start); a `top` op that sets it is rejected. The rotation check treats the last 10 minutes as not quiet (rotation.md § Thread rotation).
 - **`rotationHeldUntil`**: set by a failed handoff; no rotation before this time.
-- **`wakeTaskId`, `wakeAt`**: the pending rate-limit wake (SKILL.md § Full pass step 4) and the time it is set to fire. `wakeTaskId` is `null` when no wake is pending. `wakeAt` stays set until `rateLimitedAt` clears, so a lost wake can be made again.
+- **`wakeTaskId`, `wakeAt`**: the pending rate-limit wake (SKILL.md § Rate limit) and the time it is set to fire. `wakeTaskId` is `null` when no wake is pending. `wakeAt` stays set until `rateLimitedAt` clears, so a lost wake can be made again.
 - **`merged`**: tickets whose child reported `MERGED #N`, as `{"pr": N, "at": "<time>"}`. The project manager hygiene child uses it to move them to Done if the tracker lags. `prune` drops entries older than 24 hours and rewrites a bare number as merged now.
-- **`observed`**: `{"sightings": [{"kind", "ticket", "at"}], "filed": [{"kind", "at"}]}`, the Chief of Staff's own process sightings and the observation tickets it has filed (SKILL.md § Full pass step 6a). Only the `observe` op writes it (a `top` op is rejected). `observe` decides `file` or `hold` from it and prints a note; `prune` drops entries older than 7 days. A state file without it works: the first `observe` adds it.
+- **`observed`**: `{"sightings": [{"kind", "ticket", "at"}], "filed": [{"kind", "at"}]}`, the Chief of Staff's own process sightings and the observation tickets it has filed (SKILL.md § Child path "Observe"). Only the `observe` op writes it (a `top` op is rejected). `observe` decides `file` or `hold` from it and prints a note; `prune` drops entries older than 7 days. A state file without it works: the first `observe` adds it.
 - **`pm`**: owned by `project-manager` § State (`apply` `pm` ops). Don't edit it here.
 
 ## Unknown keys and prune
 
-`prune` also drops an unknown top-level key (`scheduledTaskId` silently) and prints it as an `unknown keys:` line; report it once under Cleanup. SKILL.md § Full pass step 1 notes the line for the report and step 5's `prune` drops the key.
+`prune` also drops an unknown top-level key (`scheduledTaskId` silently) and prints it as an `unknown keys:` line; report it once under Cleanup. SKILL.md § Tick notes the line for the report, and the plan's `prune` line drops the key.
