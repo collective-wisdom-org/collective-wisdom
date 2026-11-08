@@ -26,11 +26,13 @@ const cap = (s: string) => (s.length > TEXT_MAX ? `${s.slice(0, TEXT_MAX)}…` :
 export const validSpecPath = (p: unknown): p is string => typeof p === 'string' && /^docs\/[\w./-]+\.md$/.test(p) && !p.includes('..')
 const validSha = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)
 
-/** The `## ` sections of a markdown text, in order. A `###` heading stays inside its section. */
+/** The `## ` sections of a markdown text, in order. A `###` heading, or a `## ` line inside a code fence, stays inside its section. */
 function sectionsOf(markdown: string): { name: string; text: string }[] {
   const out: { name: string; lines: string[] }[] = []
+  let fenced = false
   for (const line of clean(markdown).split('\n')) {
-    const h = line.match(/^## +(\S.*?)\s*#*\s*$/)
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced
+    const h = fenced ? null : line.match(/^## +(\S.*?)\s*#*\s*$/)
     if (h) out.push({ name: h[1], lines: [] })
     else out[out.length - 1]?.lines.push(line)
   }
@@ -88,7 +90,7 @@ export function prDetail(json: string): Parsed | null {
   const wanted: [string, string | undefined][] = [
     ['Summary', (pick('summary') ?? pick('changes'))?.text],
     ['Release note', pick('release note')?.text],
-    ['Not proven', notProven(body)],
+    ['Not proven', notProven(pick('proof')?.text ?? '')],
   ]
   const sections = wanted.filter((w): w is [string, string] => !!w[1]).map(([name, text]) => ({ name, text: cap(text) }))
   const all = (Array.isArray(data.files) ? data.files : []).filter((f): f is Record<string, unknown> => isObj(f) && typeof f.path === 'string')
@@ -110,7 +112,7 @@ export function gitRunner(root: string): Run {
 export type DetailWant = { id: string; stage: string; specPath?: unknown; specSha?: unknown; pr?: unknown }
 
 /**
- * Per-stage detail read in the background: a spec once per commit for a ticket awaiting build approval, the PR at most once a minute for one awaiting merge approval.
+ * Per-stage detail read in the background: a spec once per commit and path for a ticket awaiting build approval, the PR at most once a minute for one awaiting merge approval.
  * A failed read keeps the last good result (a failed spec read is retried after a minute). Entries for tickets no longer wanted are dropped.
  */
 export function createDetails(opts: { run: Run; git: Run; now?: () => number }) {
@@ -131,7 +133,7 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
     want(wants: DetailWant[], cfg: { slug: string } | null) {
       wanted = new Map()
       for (const w of wants) {
-        if (w.stage === 'awaiting-build' && validSha(w.specSha) && validSpecPath(w.specPath)) wanted.set(w.id, { kind: 'spec', key: w.specSha })
+        if (w.stage === 'awaiting-build' && validSha(w.specSha) && validSpecPath(w.specPath)) wanted.set(w.id, { kind: 'spec', key: `${w.specSha}:${w.specPath}` })
         else if (w.stage === 'awaiting-merge' && cfg && Number.isInteger(w.pr) && (w.pr as number) > 0) wanted.set(w.id, { kind: 'changes', key: String(w.pr) })
       }
       const keys = (kind: string) => new Set([...wanted.values()].filter((v) => v.kind === kind).map((v) => v.key))
@@ -143,14 +145,14 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
         if (!target) continue
         const t = now()
         if (target.kind === 'spec') {
-          const sha = target.key
-          const have = specs.get(sha)
+          const rev = target.key
+          const have = specs.get(rev)
           if (have && (have.sections || t - (have.failedAt ?? 0) < REFRESH_MS)) continue
-          specs.set(sha, { failedAt: t })
+          specs.set(rev, { failedAt: t })
           start(async () => {
             try {
-              const text = await opts.git(['show', `${sha}:${w.specPath as string}`])
-              if (specs.has(sha)) specs.set(sha, { sections: specDetail(text) })
+              const text = await opts.git(['show', rev])
+              if (specs.has(rev)) specs.set(rev, { sections: specDetail(text) })
             } catch {}
           })
         } else {
@@ -176,7 +178,7 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
           if (sections?.length) out[id] = { kind: 'spec', sections }
         } else {
           const parsed = prs.get(key)?.parsed
-          if (parsed?.sections.length) out[id] = { kind: 'changes', ...parsed }
+          if (parsed && (parsed.sections.length || parsed.files?.length || parsed.reviews?.length)) out[id] = { kind: 'changes', ...parsed }
         }
       }
       return out

@@ -183,7 +183,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
         if (stage === 'awaiting-build' || stage === 'awaiting-merge') wants.push({ id, stage, specPath, specSha, pr })
       }
     }
-    details.want(wants, titleCfg)
+    details.want(wants, mergedCfg)
     merged.want(mergedCfg)
     updated.want(titleCfg)
     void refreshWorktrees()

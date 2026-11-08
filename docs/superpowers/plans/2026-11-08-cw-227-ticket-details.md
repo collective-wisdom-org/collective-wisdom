@@ -41,7 +41,7 @@ Follow the shape of `updated.ts` and `merged.ts` (`Run` type, `REFRESH_MS = 60_0
 ### Task 5: `api.ts`, `server.ts`
 
 - `StatusRow` gets `detail?: Detail`. `buildApi` takes `details?: Record<string, Detail>` (default `{}`) and sets `row.detail` for ids in it. For `kind: 'spec'` it sets `url` to `${repo.url}/blob/${branch}/${specPath}` when `repo`, a string `branch` and a valid `specPath` are known; for `'changes'` it sets `url` to the `prUrl`.
-- `server.ts`: create `createDetails({ run: ghRunner(root), git: gitRunner(root) })`; in `api()` call `details.want(...)` for every state ticket in a wanted stage with the cfg slug (`titleCfg`), pass `details: details.get()` to `buildApi`.
+- `server.ts`: create `createDetails({ run: ghRunner(root), git: gitRunner(root) })`; in `api()` call `details.want(...)` for every state ticket in a wanted stage with the cfg slug (`mergedCfg`, set for any GitHub repo), pass `details: details.get()` to `buildApi`.
 
 ### Task 6: `app.js`, `index.html`
 

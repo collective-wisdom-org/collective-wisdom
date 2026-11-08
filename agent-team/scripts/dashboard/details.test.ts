@@ -6,17 +6,18 @@ const SHA = 'a'.repeat(40)
 const PATH = 'docs/superpowers/specs/x-design.md'
 
 test('spec sections: only the known headings, in the spec order, capped; none found gives nothing', () => {
-  const spec = ['# T', '## Design', 'skipped', '## calls I made', 'a call', '### Sub', 'inside', '## Goal', 'x'.repeat(2500), '## Touches', '', '## Non-goals', 'none', ''].join('\n')
+  const spec = ['# T', '## Design', 'skipped', '## calls I made', 'a call', '```', '## Not a heading', '```', '### Sub', 'inside', '## Goal', 'x'.repeat(2500), '## Touches', '', '## Non-goals', 'none', ''].join('\n')
   const got = specDetail(spec)
   assert.deepEqual(got.map((s) => s.name), ['calls I made', 'Goal', 'Non-goals'])
-  assert.equal(got[0].text, 'a call\n### Sub\ninside')
-  assert.equal(got[1].text, `${'x'.repeat(2000)}…`)
+  assert.equal(got[0].text, 'a call\n```\n## Not a heading\n```\n### Sub\ninside')
+  assert.equal(got[1].text.slice(0, 2000), 'x'.repeat(2000))
+  assert.equal(got[1].text.length, 2001)
   assert.deepEqual(specDetail('# T\n## Design\ntext\n'), [])
   assert.deepEqual(specDetail(''), [])
 })
 
 test('PR detail: body sections, Not proven lines, files cap, latest review verdicts, bad input', () => {
-  const body = 'Closes #1\n\n## Summary\n\nDid it.\n\n## Release note\n\nA note.\n\n## Proof\n\n- ok\n\nNot proven:\n- first\n  more of first\n\n- second\n\nContext size: x\n'
+  const body = 'Not proven: in the summary, not the Proof\n\n## Summary\n\nDid it.\n\n## Release note\n\nA note.\n\n## Proof\n\n- ok\n\nNot proven:\n- first\n  more of first\n\n- second\n\nContext size: x\n'
   const comment = (b: string, url?: unknown) => ({ body: b, url })
   const files = Array.from({ length: 32 }, (_, i) => ({ path: `f${i}`, additions: i, deletions: 1 }))
   const got = prDetail(JSON.stringify({
