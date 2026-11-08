@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 split the Gantt main row into task chunks, show model and harness, leave out waiting time (CW-191) (#194)
+
+Merged 2026-11-08 05:58 UTC.
+
+The agent chart on each dashboard card now splits the main agent into one row per task, shows the model and harness on every row, and draws bars only for the time an agent was working. The Kids count is gone. A session that was running when the `agent-gantt` mod updates starts its rows fresh at the next event.
+
 ## 2026-11-08 move skill logic into scripts (CW-115) (#190)
 
 Merged 2026-11-08 05:45 UTC.
