@@ -80,7 +80,8 @@ def stops(state, thread, trigger, now):
     """The one `stop` line for this thread, or None."""
     rotation = state.get("rotation") if isinstance(state.get("rotation"), dict) else None
     chief = state.get("chiefThreadId")
-    taking_over = trigger == "start" and (not chief or chief == thread or (rotation or {}).get("to") == thread)
+    to = (rotation or {}).get("to")
+    taking_over = trigger == "start" and (to == thread or (not to and (not chief or chief == thread)))
     if not taking_over:
         started = when((rotation or {}).get("startedAt"))
         if rotation and rotation.get("from") == thread and started and now - started > STALE_HANDOFF:

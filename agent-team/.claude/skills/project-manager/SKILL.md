@@ -129,7 +129,7 @@ Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing
 - `dry: rank (<reason>)`: run § Ranking child now, then continue the pick from the new `pm.ranked`.
 - `dry: check backlog since <time>`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <time>, limit 1, fields `id`). A ticket back means rank, as above. None means the Backlog is dry and the pick stops.
 
-At most one ranking per turn. A dry Backlog costs a turn that passes the slot-fill gate one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
+At most one ranking per turn. A dry Backlog costs a turn whose act plan prints `start-todo` one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
 
 Report a `needs:` ticket once, the first time it is ranked, and add it to `pm.needsReported`. Never start it.
 

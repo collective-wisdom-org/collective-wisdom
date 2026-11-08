@@ -47,14 +47,14 @@ Failures count as the turn's one ranking, so the fill stops for this turn, and `
 - `delegate_task` times out: Cleanup line `Backlog ranking timed out`.
 - `delegate_task` fails, the wait ends early, or the child returns no message: Cleanup line `Backlog ranking failed: <one line>`.
 
-On every failure, `task_cancel` the child if it may still run. A ranking child's own run-finished notice (title `Backlog ranking`) starts no ranking and no slot fill: the Chief of Staff already has its result from the wait, so a failing child can't start another one (a forwarded notice, which carries only an id, can start at most one extra, `chief-of-staff` § Tick). The next ranking is the next turn that passes the slot-fill gate for another reason.
+On every failure, `task_cancel` the child if it may still run. A ranking child's own run-finished notice (title `Backlog ranking`) starts no ranking and no slot fill: the Chief of Staff already has its result from the wait, so a failing child can't start another one (a forwarded notice, which carries only an id, can start at most one extra, `chief-of-staff` § Tick). The next ranking is the next turn whose act plan prints `start-todo` for another reason.
 
 ## Hygiene child
 
 The Chief of Staff does not run SKILL.md § Hygiene pass itself. It starts the child at most once per turn, from the tick's `hygiene` line (`chief-of-staff` § Tick), on:
 
 - `start the team` (the first full pass at start-up), and
-- any other full pass (a user message or the rate-limit wake) when `pm.lastDailyAt` is null, not a valid `YYYY-MM-DDTHH:MM:SSZ` time, or more than 24 hours old.
+- any other full pass (a user command that runs a pass, or the rate-limit wake) when `pm.lastDailyAt` is null, not a valid `YYYY-MM-DDTHH:MM:SSZ` time, or more than 24 hours old.
 
 The `backlog` command starts it too, after the ranking child, from its own row in `chief-of-staff` § Commands, and then step 5 does not start it again.
 

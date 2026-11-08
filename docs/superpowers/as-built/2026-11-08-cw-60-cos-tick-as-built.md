@@ -13,5 +13,6 @@
 - `report` carries the stop reason in parentheses (`filling stopped: spec slot free` or `lanes full`); a rate limited turn prints a plain `report`.
 - The `status` act plan is only the `archive` lines and the rotation check. After a `status` read that changed a stage, the model runs `--trigger user --after-reads` for the slot fill.
 - `start` skips the retired and failed-handoff stops when `chiefThreadId` is absent or this thread, or `rotation.to` is this thread. A missing state file is empty state, not an error.
+- A user question that is not a command runs the `status` trigger, not the `user` one: it gets an answer and no slot fill unless a read changed a stage, and then `--trigger notice:<own thread id> --after-reads` fills the slot with no hygiene and no rate-limit clearing. The old text split on this (a full pass on every user message, but no slot fill on a question).
 - `rotation.md` take over step 4.4 runs `cos_tick.py --trigger user --after-reads` and follows its lines up to `observe`, skipping `hygiene`, `report` and the final rotation check. `startup.md` Setup no longer repeats the start-up clean-up that the `start` plan prints.
 - SKILL.md shrank by about 0.5 KB, not much: § Tick, § Child path and § Rate limit carry every rule the replaced sections held.

@@ -45,6 +45,8 @@ READ = lambda t, c, p=0: f"read {t} {c} afterPosition={p} limit=5 runLimit=1 max
         ({"chiefThreadId": "new"}, "start", ME, "stop retired"),
         ({"chiefThreadId": None}, "start", ME, None),
         ({"chiefThreadId": "old", "rotation": {"from": "old", "to": ME, "startedAt": "2026-11-08T11:00:00Z"}}, "start", ME, None),
+        # a dead handoff with a named successor stops even on `start`; resume mode would hide it
+        ({"chiefThreadId": ME, "rotation": {"from": ME, "to": "new", "startedAt": "2026-11-08T11:00:00Z"}}, "start", ME, "stop failed-handoff"),
         ({"paused": True}, "user", ME, "stop paused"),
         ({"paused": True}, "status", ME, None),
     ],
