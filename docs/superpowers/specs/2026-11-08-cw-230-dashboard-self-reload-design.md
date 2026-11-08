@@ -1,6 +1,7 @@
 # CW-230: Reload the open dashboard page when its files change
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #234, as specified
 **Ticket:** [#230](https://github.com/collective-wisdom-org/collective-wisdom/issues/230)
 **Related:** CW-227 (#227, also edits `page/app.js`).
 
