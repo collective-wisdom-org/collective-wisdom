@@ -28,6 +28,6 @@ Acceptance: `git diff` shows only those 13 dark values changed; every light valu
 
 - `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts`
 - `python3 -I -m pytest -q agent-team/scripts`
-- Screenshots in the PR (dark, beside T3 Code dark; light unchanged).
+- Proof in the PR: a computed diff (only dark halves changed) and contrast ratios. Screenshots could not be attached, so they are listed under Not proven.
 
 No new tests (spec § Tests).
