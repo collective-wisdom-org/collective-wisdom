@@ -46,9 +46,11 @@ test('row title: state wins, else tracker title, else empty', () => {
   for (const [name, extra, titles, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), titles }).title, want, name)
 })
 
+const WT = '/Users/me/.t3/worktrees/repo/t3-1'
+
 test('snapshots', () => {
   const row = (end: number | null, name = 'n') => ({ id: 'a', depth: 0, name, repo: 'r', start: 1, end, tokens: 1, cost: null, childCount: 0 })
-  const snap = (age: number, rows: unknown) => ({ sessionId: 's', cwd: '/c', updatedAt: NOW - age, total: null, rows })
+  const snap = (age: number, rows: unknown) => ({ sessionId: 's', cwd: WT, updatedAt: NOW - age, total: null, rows })
   const H = 3_600_000
   const cases: [string, unknown, (g: any[]) => void][] = [
     ['23h kept', snap(23 * H, [row(2)]), (g) => assert.equal(g.length, 1)],
@@ -65,12 +67,24 @@ test('snapshots', () => {
       assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['childCount', 'cost', 'depth', 'end', 'id', 'name', 'repo', 'start', 'tokens'])
     }],
     ['string', 'x', (g) => assert.equal(g.length, 0)],
-    ['no rows', { sessionId: 's', cwd: '/c', updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
+    ['no rows', { sessionId: 's', cwd: WT, updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
     ['rows not array', snap(1, 'x'), (g) => assert.equal(g.length, 0)],
     ['long name', snap(1, [row(2, 'x'.repeat(80))]), (g) => assert.equal(g[0].rows[0].name.length, 60)],
   ]
   for (const [name, s, check] of cases) {
     try { check(build({ snapshots: [s] }).gantt) } catch (e) { throw new Error(`${name}: ${(e as Error).message}`) }
+  }
+})
+
+test('snapshots: only worktree sessions are listed', () => {
+  const cases: [string, string, number][] = [
+    ['T3 worktree', '/Users/me/.t3/worktrees/repo/t3-1', 1],
+    ['.worktrees checkout', '/Users/me/repo/.worktrees/feat', 1],
+    ['root checkout', '/Users/me/repo', 0],
+  ]
+  for (const [name, cwd, want] of cases) {
+    const snap = { sessionId: 's', cwd, updatedAt: NOW, total: null, rows: [] }
+    assert.equal(build({ snapshots: [snap] }).gantt.length, want, name)
   }
 })
 
