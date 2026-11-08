@@ -100,7 +100,22 @@ test('a card with sessions gets a closed chart that reopens when its id is in th
   const html = (open) => renderStatus(group([row({ gantt: g }), row({ id: 'CW-2' })]), open)
   assert.match(html(), /<details class="chart" data-ticket="CW-1"><summary>Agents <span class="pill">1<\/span>/)
   assert.match(html(new Set(['CW-1'])), /<details class="chart" data-ticket="CW-1" open>/)
-  assert.equal(html().match(/<details/g).length, 1)
+  assert.equal(html().match(/<details class="chart"/g).length, 1)
+})
+
+test('status sections draw open unless collapsed; a closed one keeps its heading and count; the name is escaped', () => {
+  const groups = [
+    { name: 'Building', count: 1, rows: [row()] },
+    { name: 'Queued <b>', count: 2, rows: [row({ id: 'CW-2' })] },
+  ]
+  const section = (html, name) => html.match(new RegExp(`<details class="group" data-group="${name}"[^>]*>`))[0]
+  const all = renderStatus(groups)
+  assert.ok(section(all, 'Building').endsWith(' open>') && section(all, 'Queued &lt;b&gt;').endsWith(' open>'))
+  const some = renderStatus(groups, new Set(), new Set(['Queued <b>']))
+  assert.ok(section(some, 'Building').endsWith(' open>'))
+  assert.ok(!section(some, 'Queued &lt;b&gt;').includes('open'))
+  assert.match(some, /<summary><h3>Queued &lt;b&gt; <span class="pill">2<\/span><\/h3><\/summary>/)
+  assert.ok(!some.includes('<b>'))
 })
 
 test('merged list pages by ten, clamps the page, disables the pager ends and escapes text', () => {
