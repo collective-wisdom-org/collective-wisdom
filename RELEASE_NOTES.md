@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 close the gap between a merge and the ticket leaving the merge stage (CW-245) (#249)
+
+Merged 2026-11-08 22:40 UTC.
+
+When a merge finishes under a Chief of Staff thread that has rotated, the ticket now leaves the merge stage within about a minute and the next queued merge can start. The dashboard no longer lists a ticket as both merging and merged. Nothing to do; the next `./install.sh` run or checkout of `main` picks it up.
+
 ## 2026-11-08 make the dashboard follow the macOS light or dark setting (CW-242) (#246)
 
 Merged 2026-11-08 22:20 UTC.
