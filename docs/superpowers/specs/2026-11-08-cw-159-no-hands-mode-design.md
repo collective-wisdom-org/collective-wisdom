@@ -1,7 +1,7 @@
 # CW-159: No Hands mode, working the Backlog with no approvals
 
 **Status:** Shipped
-**Shipped:** in PR #PRN, with differences: [as-built](../as-built/2026-11-08-cw-159-no-hands-mode-as-built.md)
+**Shipped:** in PR #215, with differences: [as-built](../as-built/2026-11-08-cw-159-no-hands-mode-as-built.md)
 **Ticket:** [#159](https://github.com/collective-wisdom-org/collective-wisdom/issues/159)
 **Related:** the `Approval risk tolerance` setting and `approvals.md` § Auto-approval; `kill-switch.md`; `project-manager` § Backlog pick.
 

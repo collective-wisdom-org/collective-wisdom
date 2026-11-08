@@ -1,6 +1,6 @@
 # As-built: No Hands mode
 
-**Shipped:** in PR #PRN
+**Shipped:** in PR #215
 **Ticket:** CW-159
 **Spec:** [2026-11-08-cw-159-no-hands-mode-design.md](../specs/2026-11-08-cw-159-no-hands-mode-design.md)
 
