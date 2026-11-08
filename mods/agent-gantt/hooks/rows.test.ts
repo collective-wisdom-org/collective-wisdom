@@ -36,7 +36,7 @@ const cases: {
   want: Record<string, unknown>[]
 }[] = [
   {
-    name: 'nests by depth, sorts by start, puts an orphan under main; no row has childCount',
+    name: 'nests by depth, sorts by start, puts an orphan under main; no session row, no row has childCount',
     records: [
       rec('main'),
       rec('late', { start: 30 }),
@@ -47,15 +47,14 @@ const cases: {
     agents: [],
     prices: null,
     want: [
-      { id: 'main', depth: 0, kind: 'session', harness: 'T3 Code' },
-      { id: 'early', depth: 1, kind: 'agent' },
+      { id: 'early', depth: 1, kind: 'agent', harness: 'T3 Code' },
       { id: 'child', depth: 2 },
       { id: 'orphan', depth: 1 },
       { id: 'late', depth: 1 },
     ],
   },
   {
-    name: 'two tasks and a wait: two task rows (none for a task with no spans), the session bar has the gap, a subagent nests under its task with its own model',
+    name: 'two tasks and a wait: two task rows (none for a task with no spans) and no session row, a subagent nests under its task with its own model',
     records: [
       rec('main', {
         usage: { 'claude-opus-5-5': { ...none, output: 9 } },
@@ -72,12 +71,39 @@ const cases: {
     agents: [],
     prices: null,
     want: [
-      { id: 'main', depth: 0, kind: 'session', segments: [[0, 10], [50, null]], model: 'opus-5-5', end: null },
       { id: 'main:task:0', depth: 1, kind: 'task', name: 'one', start: 0, end: 10, segments: [[0, 10]], tokens: 4 },
       { id: 'main:task:1', depth: 1, kind: 'task', name: 'two', start: 50, end: null, model: 'opus-5-5' },
       { id: 'sub', depth: 2, kind: 'agent', model: 'haiku-4-5', segments: [[55, 58]] },
       { id: 'lost', depth: 1, model: null, segments: [[70, null]] },
     ],
+  },
+  {
+    name: 'one task carries main\'s work once; usage outside any task (or in a task with no spans) is one extra row',
+    records: [
+      rec('main', {
+        usage: { 'claude-opus-5-5': { ...none, input: M, output: 7 } },
+        segments: [[0, 10]],
+        tasks: [{ name: 'only', start: 0, segments: [[0, 10]], usage: { 'claude-opus-5-5': { ...none, input: M, output: 4 } } }],
+      }),
+    ],
+    agents: [],
+    prices: PRICES,
+    want: [
+      { id: 'main:outside', depth: 1, kind: 'task', name: 'outside a task', tokens: 3, segments: [], cost: (3 * 20) / M },
+      { id: 'main:task:0', name: 'only', tokens: M + 4 },
+    ],
+  },
+  {
+    name: 'no outside row when the tasks hold all of main\'s usage; its cost stays null without prices',
+    records: [
+      rec('main', {
+        usage: { 'claude-opus-5-5': { ...none, output: 4 } },
+        tasks: [{ name: 'only', start: 0, segments: [[0, 10]], usage: { 'claude-opus-5-5': { ...none, output: 4 } } }],
+      }),
+    ],
+    agents: [],
+    prices: null,
+    want: [{ id: 'main:task:0', cost: null }],
   },
   {
     name: 'the model is the one with the most output tokens, not the most total',
@@ -86,7 +112,7 @@ const cases: {
     ],
     agents: [],
     prices: null,
-    want: [{ id: 'main', model: 'opus-5-5' }],
+    want: [{ id: 'main:outside', model: 'opus-5-5' }],
   },
   {
     name: 'a running agent keeps a null end next to a finished one; repo comes from the cwd',
@@ -98,19 +124,18 @@ const cases: {
     agents: [],
     prices: null,
     want: [
-      { id: 'main', repo: 'app', end: null },
       { id: 'done', repo: 'app', start: 5, end: 9 },
       { id: 'live', repo: 'app', start: 6, end: null },
     ],
   },
   {
-    name: 'cost is tokens times the family rates, with cache writes at the 5m rate',
+    name: 'cost is tokens times the family rates, with cache writes at the 1h rate',
     records: [
       rec('main', { usage: { 'claude-opus-5-5': { input: M, output: M, read: M, write: M } } }),
     ],
     agents: [],
     prices: PRICES,
-    want: [{ id: 'main', tokens: 4 * M, cost: 4 + 20 + 0.2 + 5 }],
+    want: [{ id: 'main:outside', tokens: 4 * M, cost: 4 + 20 + 0.2 + 8 }],
   },
   {
     name: 'cost is null for an unknown model family, even beside a known one',
@@ -120,14 +145,14 @@ const cases: {
     ],
     agents: [],
     prices: PRICES,
-    want: [{ id: 'main', tokens: 2 * M, cost: null }, { id: 'known', cost: 4 }],
+    want: [{ id: 'main:outside', tokens: 2 * M, cost: null }, { id: 'known', cost: 4 }],
   },
   {
     name: 'cost is null for every row without a price table',
     records: [rec('main', { usage: { 'claude-opus-5-5': { ...none, input: M } } })],
     agents: [],
     prices: null,
-    want: [{ id: 'main', tokens: M, cost: null }],
+    want: [{ id: 'main:outside', tokens: M, cost: null }],
   },
 ]
 

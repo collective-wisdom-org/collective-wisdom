@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { beginTask, closeSegment, openSegment, startTask, taskName } from './timeline.ts'
+import { beginTask, closeSegment, createWaits, openSegment, startTask, taskName } from './timeline.ts'
 import type { AgentRecord } from '../types/index.d.ts'
 
 const main: AgentRecord = {
@@ -67,11 +67,45 @@ for (const c of cases) {
 
 test('taskName takes the first real line, skips the T3 preamble, collapses space and cuts to 60', () => {
   const cases: [string, string][] = [
-    ['Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-9: fix', 'TEAM MODE. Run /ship-loop for CW-9: fix'],
+    ['Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
     ['\n  fix   the\tbug \nmore', 'fix the bug'],
     ['x'.repeat(80), 'x'.repeat(60)],
     ['  \n\n', 'task'],
+    ['Act as the implementation sub-agent for this task.\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
+    ['Act as the build subagent for this task\nfix it', 'fix it'],
+    ['TEAM MODE.\nBuild CW-9', 'Build CW-9'],
   ]
   for (const [text, want] of cases) assert.equal(taskName(text), want)
   assert.equal(run([['open', 7]]).tasks[0]?.name, 'task')
 })
+
+// Each case: events on one agent in clock order. `ask` and `settle` are a wait beginning and ending (a permission ask or a plan approval); `complete` ends the agent's turn and `end` stamps its end.
+type Ev = ['open' | 'ask' | 'settle' | 'complete' | 'end', number, string?]
+const waitCases: { name: string; evs: Ev[]; segments: unknown }[] = [
+  { name: 'a permission ask leaves no span over the wait', evs: [['open', 0], ['ask', 10], ['settle', 70]], segments: [[0, 10], [70, null]] },
+  {
+    name: 'overlapping waits close once at the first and reopen after the last',
+    evs: [['open', 0], ['ask', 10], ['ask', 20], ['settle', 30], ['settle', 80]],
+    segments: [[0, 10], [80, null]],
+  },
+  {
+    name: 'an agent that ends during the wait stays closed',
+    evs: [['open', 0], ['ask', 10], ['complete', 40], ['end', 40], ['settle', 90]],
+    segments: [[0, 10]],
+  },
+  { name: 'a settle with no wait changes nothing', evs: [['open', 0], ['settle', 5]], segments: [[0, null]] },
+]
+
+for (const c of waitCases) {
+  test(c.name, () => {
+    const waits = createWaits()
+    let r: AgentRecord = { ...main, tasks: [] }
+    for (const [ev, t] of c.evs) {
+      if (ev === 'open') r = openSegment(r, t)
+      else if (ev === 'complete') r = { ...closeSegment(r, t), last: t }
+      else if (ev === 'end') r = { ...r, end: t }
+      else r = (ev === 'ask' ? waits.begin('main', t) : waits.end('main', t))?.(r) ?? r
+    }
+    assert.deepEqual(r.segments, c.segments)
+  })
+}

@@ -5,7 +5,7 @@ import type { AgentRecord, PriceState, Prices, Tokens } from '../types/index.d.t
 import { bars, clock, dollars, fit, tokens } from './format.ts'
 import { buildRows, MAIN } from './rows.ts'
 import { buildSnapshot, snapshotName } from './snapshot.ts'
-import { beginTask, closeSegment, openSegment, taskName } from './timeline.ts'
+import { beginTask, closeSegment, createWaits, openSegment, taskName } from './timeline.ts'
 
 const PANE = 'agent-gantt'
 const TICK_MS = 5000
@@ -164,34 +164,33 @@ async function writeSnapshot($: EngineInterface) {
   }
 }
 
-// Open waits per agent id: how many, and when the first began. Waits can overlap (parallel tool calls).
-const waits = new Map<string, { count: number; before: number }>()
+const waits = createWaits()
+// Calls whose permission ask is open: tool_use_id to the agent id that waits.
+const asks = new Map<string, string>()
 
 /** Closes the agent's span while `run` waits, and reopens it when the last overlapping wait settles. */
 async function pauseWhile<R>($: EngineInterface, agentId: string | undefined, run: () => Promise<R>): Promise<R> {
   const id = agentId ?? MAIN
-  const now = await $.clock.now()
-  const wait = waits.get(id)
-  const { before } = wait ?? { before: now }
-  waits.set(id, { count: (wait?.count ?? 0) + 1, before })
-  if (wait === undefined) {
-    await updateRecord($, id, r => closeSegment(r, before))
-    await refresh($)
-  }
+  await beginWait($, id)
   try {
     return await run()
   } finally {
-    const open = waits.get(id)
-    if (open !== undefined && open.count > 1) {
-      waits.set(id, { ...open, count: open.count - 1 })
-    } else {
-      waits.delete(id)
-      const after = await $.clock.now()
-      // A turn.complete or an end stamp that landed during the wait wins: no span is left open on a finished agent.
-      await updateRecord($, id, r => (r.end === null && r.last <= before ? openSegment(r, after) : r))
-      await refresh($)
-    }
+    await endWait($, id)
   }
+}
+
+async function beginWait($: EngineInterface, id: string) {
+  const change = waits.begin(id, await $.clock.now())
+  if (change === null) return
+  await updateRecord($, id, change)
+  await refresh($)
+}
+
+async function endWait($: EngineInterface, id: string) {
+  const change = waits.end(id, await $.clock.now())
+  if (change === null) return
+  await updateRecord($, id, change)
+  await refresh($)
 }
 
 /** Moves `now`, stamps the end of agents that stopped running, and starts or stops the tick to match. */
@@ -315,9 +314,35 @@ export const register: Register = on => {
     return out
   })
 
-  // An Agent call (next(e) blocks only while a foreground one runs) and a question to the person are waits inside a turn.
+  // An Agent call (next(e) blocks only while a foreground one runs), a question to the person and a plan to approve are waits inside a turn.
   on('tool.call', { tool: 'AskUserQuestion' }, ($, e, next) => pauseWhile($, e.agentId, () => next(e)))
   on('tool.call', { tool: 'Agent' }, ($, e, next) => pauseWhile($, e.agentId, () => next(e)))
+  on('tool.call', { tool: 'ExitPlanMode' }, ($, e, next) => pauseWhile($, e.agentId, () => next(e)))
+
+  // A permission ask is a wait from the check until the call settles; the dialog and the tool run inside the call's next(e).
+  // An ask with no approver has nobody to wait for. A call with no id cannot be paired with its end.
+  on('tool.check', async ($, e, next) => {
+    const out = await next(e)
+    if (out.decision === 'ask' && e.approver !== undefined && e.tool_use_id !== undefined && !asks.has(e.tool_use_id)) {
+      const id = e.agentId ?? MAIN
+      asks.set(e.tool_use_id, id)
+      // The chart is optional: a failure here never reaches the permission check.
+      await beginWait($, id).catch(() => {})
+    }
+    return out
+  })
+  on('tool.call', async ($, e, next) => {
+    try {
+      return await next(e)
+    } finally {
+      const id = e.tool_use_id === undefined ? undefined : asks.get(e.tool_use_id)
+      if (e.tool_use_id !== undefined && id !== undefined) {
+        asks.delete(e.tool_use_id)
+        // A failure here must not replace the tool's own result.
+        await endWait($, id).catch(() => {})
+      }
+    }
+  })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
@@ -333,7 +358,7 @@ export const register: Register = on => {
     const room = e.props.bodyColumns - FIXED - 1
     const isInline = room >= 16
     const width = isInline ? room : Math.max(10, e.props.bodyColumns - 1)
-    const t0 = rows[0]?.start ?? now
+    const t0 = rows.length ? Math.min(...rows.map(r => r.start)) : now
     const t1 = Math.max(now, t0 + 1)
 
     const head = [fit('agent', NAME), fit('repo', 10), fit('start', 5), fit('end', 7), 'tokens'.padStart(6), 'cost'.padStart(6), fit('model', 10)].join(' ')

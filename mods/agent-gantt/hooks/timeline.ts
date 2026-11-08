@@ -4,13 +4,15 @@ import type { AgentRecord, Segment } from '../types/index.d.ts'
 const NAME_MAX = 60
 // A list keeps its last spans only, so a long session stays small.
 const SEGMENTS_MAX = 500
-// T3 Code puts this line first in a delegated task: `Act as the implementer agent for this task.`
-const PREAMBLE = /^Act as the .* agent for this task\.?$/i
+// T3 Code puts this line first in a delegated task: `Act as the implementer agent for this task.` (also `sub-agent`, `subagent`).
+const PREAMBLE = /^Act as the .*agent for this task\.?$/i
+// The team's mode marker opens a delegated prompt; the name starts after it.
+const TEAM_MODE = /^TEAM MODE\.?\s*/i
 
-/** The task's name: the prompt's first line that is not T3's preamble, whitespace collapsed, cut to 60 characters. */
+/** The task's name: the prompt's first line that is not T3's preamble, whitespace collapsed, a leading `TEAM MODE.` dropped, cut to 60 characters. */
 export function taskName(text: string): string {
   for (const raw of text.split('\n')) {
-    const line = raw.replace(/\s+/g, ' ').trim()
+    const line = raw.replace(/\s+/g, ' ').trim().replace(TEAM_MODE, '')
     if (line === '' || PREAMBLE.test(line)) continue
     return line.length > NAME_MAX ? line.slice(0, NAME_MAX) : line
   }
@@ -57,4 +59,37 @@ export function beginTask(main: AgentRecord, name: string, since: number, t: num
   }
   const started = startTask(main, name, t)
   return isWorking(main) ? openSegment(started, t) : started
+}
+
+/** The clock stamps of one wait: `before` is when the first of the overlapping waits began. */
+type Wait = { count: number; before: number }
+
+/**
+ * Counts waits per agent id. Waits can overlap (parallel tool calls): the span closes at the first and reopens when the last settles.
+ * `begin` and `end` return the change to make to the record, or null when the span stays as it is.
+ */
+export function createWaits(): {
+  begin: (id: string, now: number) => ((r: AgentRecord) => AgentRecord) | null
+  end: (id: string, now: number) => ((r: AgentRecord) => AgentRecord) | null
+} {
+  const open = new Map<string, Wait>()
+  return {
+    begin(id, now) {
+      const wait = open.get(id)
+      const before = wait?.before ?? now
+      open.set(id, { count: (wait?.count ?? 0) + 1, before })
+      return wait === undefined ? r => closeSegment(r, before) : null
+    },
+    end(id, now) {
+      const wait = open.get(id)
+      if (wait === undefined) return null
+      if (wait.count > 1) {
+        open.set(id, { ...wait, count: wait.count - 1 })
+        return null
+      }
+      open.delete(id)
+      // A turn.complete or an end stamp that landed during the wait wins: no span is left open on a finished agent.
+      return r => (r.end === null && r.last <= wait.before ? openSegment(r, now) : r)
+    },
+  }
 }

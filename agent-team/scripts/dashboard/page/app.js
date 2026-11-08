@@ -40,7 +40,7 @@ function ticket(r, { flat, other, open }) {
   <div class="head"><span class="id">${link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}</div>
   <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
   ${flat ? '' : next}
-  ${r.gantt && r.gantt.length ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(r.gantt.length)}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
+  ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
 </li>`
 }
 
@@ -92,7 +92,7 @@ export function renderMerged(list, page, size = 10, open = new Set()) {
       (e) => `<li class="row">
   <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
   <div class="sub"><span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
-  ${e.gantt && e.gantt.length ? `<details class="chart" data-merged="${esc(e.id)}"${open.has(e.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(e.gantt.length)}</span></summary><div class="chart-body" data-merged="${esc(e.id)}"></div></details>` : ''}
+  ${e.gantt && taskCount(e.gantt) ? `<details class="chart" data-merged="${esc(e.id)}"${open.has(e.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(e.gantt))}</span></summary><div class="chart-body" data-merged="${esc(e.id)}"></div></details>` : ''}
 </li>`,
     )
     .join('\n')
@@ -103,43 +103,117 @@ export function renderMerged(list, page, size = 10, open = new Set()) {
   return { html: `<ul class="rows">${rows}</ul>${pager}`, page: at }
 }
 
+const duration = (ms) => {
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  return m < 60 ? `${m}m ${two(s % 60)}s` : `${Math.floor(m / 60)}h ${two(m % 60)}m`
+}
+
+/** Merges working spans [a, b, open] into disjoint ones, in order. A merged span is open if any part of it is. */
+const union = (spans) => {
+  const out = []
+  for (const [a, b, open] of [...spans].sort((x, y) => x[0] - y[0])) {
+    const last = out[out.length - 1]
+    if (last && a <= last[1]) {
+      last[1] = Math.max(last[1], b)
+      last[2] = last[2] || open
+    } else out.push([a, b, open])
+  }
+  return out
+}
+
+const sumCost = (list) => (list.some((c) => typeof c !== 'number') ? null : list.reduce((n, c) => n + c, 0))
+
+/** The row's working spans with open ends closed at the session's clock; a row with none draws one span from start to end. */
+function spansOf(r, clockNow) {
+  const raw = Array.isArray(r.segments) && r.segments.length ? r.segments : [[r.start, r.end]]
+  return raw.map(([a, b]) => {
+    const open = b === null || b === undefined
+    return [a, open ? Math.max(a, clockNow) : b, open]
+  })
+}
+
+/**
+ * The top-level tasks of the sessions in start order, each with the rows nested under it.
+ * A task is a `task` row or an `agent` row at depth 1. An older snapshot's `session` row is dropped when its session has task rows, else it is a task.
+ */
+function ganttTasks(sessions, now) {
+  const items = []
+  for (const s of sessions ?? []) {
+    const clockNow = s.stale ? s.updatedAt : now
+    const hasTasks = s.rows.some((r) => r.kind === 'task')
+    let current = null
+    for (const r of s.rows) {
+      if (r.kind === 'session' && hasTasks) continue
+      const row = { r, s, spans: spansOf(r, clockNow), clockNow }
+      if (r.kind === 'agent' && r.depth >= 2 && current) current.kids.push(row)
+      else items.push((current = { ...row, kids: [] }))
+    }
+  }
+  return items.sort((a, b) => a.r.start - b.r.start)
+}
+
+/** How many tasks the chart draws, for the `Agents` pill. */
+export const taskCount = (sessions) => ganttTasks(sessions, 0).length
+
+const rowTitle = ({ r, s, clockNow }) => {
+  const running = (r.end === null || r.end === undefined) && !s.stale
+  const range = running ? `${clock(r.start)}, running` : `${clock(r.start)} to ${clock(r.end ?? clockNow)}`
+  const meta = [r.repo, range, `${tokens(r.tokens)} tokens`, r.model, r.harness].filter((p) => p !== null && p !== undefined && p !== '')
+  return [r.name, meta.join(' · '), s.cwd].join('\n')
+}
+
 export function renderGantt(sessions, now) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
-  return sessions
-    .map((s) => {
-      const clockNow = s.stale ? s.updatedAt : now
-      const endOf = (r) => (r.end === null || r.end === undefined ? clockNow : r.end)
-      const t0 = s.rows.length ? Math.min(...s.rows.map((r) => r.start)) : 0
-      const t1 = s.rows.length ? Math.max(...s.rows.map(endOf)) : 0
-      const span = Math.max(1, t1 - t0)
-      const rows = s.rows
-        .map((r) => {
-          const segments = Array.isArray(r.segments) && r.segments.length ? r.segments : [[r.start, r.end]]
-          const bars = segments
-            .map(([a, b]) => {
-              const open = b === null || b === undefined
-              const left = Math.min(99, Math.max(0, ((a - t0) / span) * 100))
-              const width = Math.min(100 - left, Math.max(0.5, (((open ? clockNow : b) - a) / span) * 100))
-              return `<span class="bar${open && !s.stale ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span>`
-            })
-            .join('')
-          const running = r.end === null || r.end === undefined
-          const range = running && !s.stale ? `${clock(r.start)}, running` : `${clock(r.start)} to ${clock(endOf(r))}`
-          const meta = [r.repo, range, `${tokens(r.tokens)} tokens`, r.model, r.harness].filter((p) => p !== null && p !== undefined && p !== '')
-          return `<div class="grow">
-  <span class="name" title="${esc(r.name)}" style="padding-left:${Math.max(0, r.depth) * 1.2}em">${esc(r.name)}</span>
-  <span class="track">${bars}</span>
-  <span class="num cost">${dollars(r.cost)}</span>
-  <span class="meta">${meta.map(esc).join(' · ')}</span>
+  const items = ganttTasks(sessions, now)
+  if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
+  // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
+  const active = union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
+  const total = active.reduce((n, [a, b]) => n + (b - a), 0)
+  const scale = Math.max(1, total)
+  const pos = (t) => {
+    let before = 0
+    for (const [a, b] of active) {
+      if (t >= b) before += b - a
+      else {
+        if (t > a) before += t - a
+        break
+      }
+    }
+    return before
+  }
+  const bars = (spans, stale) =>
+    union(spans)
+      .map(([a, b, open]) => {
+        const left = Math.min(99, (pos(a) / scale) * 100)
+        const width = Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100))
+        return `<span class="bar${open && !stale ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span>`
+      })
+      .join('')
+  const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
+  const line = (row, spans, cost, depth) => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
+  <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
+  <span class="track">${bars(spans, row.s.stale)}</span>
+  <span class="num dur">${duration(length(spans))}</span>
+  <span class="num cost">${dollars(cost)}</span>
 </div>`
-        })
-        .join('\n')
-      return `<section class="session${s.stale ? ' stale' : ''}">
-  <h3><span class="cwd">${esc(s.cwd)}</span>${s.stale ? ' <span class="pill">stale</span>' : ''} <span class="total">${dollars(s.total)}</span></h3>
-  ${rows}
-</section>`
-    })
-    .join('\n')
+  const rows = items.map((i) => {
+    const all = [...i.spans, ...i.kids.flatMap((k) => k.spans)]
+    const cost = sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])
+    return [line(i, all, cost, 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
+  })
+  const sum = sumCost(items.map((i) => sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])))
+  const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null
+  const note =
+    sum !== null && reported !== null && Math.abs(reported - sum) >= 0.01 - 1e-9
+      ? `<p class="gnote">Claude Code reports ${dollars(reported)} for these sessions. Row costs use prices.json.</p>`
+      : ''
+  return `<div class="gantt">
+${rows.join('\n')}
+<div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
+${note}
+</div>`
 }
 
 if (typeof document !== 'undefined') {
@@ -196,8 +270,8 @@ if (typeof document !== 'undefined') {
       last = await res.json()
       err.textContent = ''
       // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
-      // Charts count by session id, so new snapshot numbers alone do not rebuild the cards.
-      const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? v.map((s) => s.sessionId) : v))
+      // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
+      const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
       if (json !== shownStatus) {
         shownStatus = json
         const open = new Set([...document.querySelectorAll('details.chart[data-ticket][open]')].map((d) => d.dataset.ticket))

@@ -65,23 +65,25 @@ button.copy { margin-left:auto; }
 details.chart { margin-top:var(--s1); }
 details.chart > summary { cursor:pointer; color:var(--muted); font-size:var(--t-small); width:fit-content; }
 details.chart > summary:hover { color:var(--fg); }
-.session { container-type:inline-size; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:var(--s2) var(--s3); margin-top:var(--s2); }
-.session h3 { display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--s1) var(--s2); margin:0 0 var(--s1); }
-.session .cwd { font:var(--t-small)/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; font-weight:400; color:var(--muted); }
-.session .total { margin-left:auto; font-size:var(--t-small); font-weight:600; font-variant-numeric:tabular-nums; }
-.session.stale { color:var(--muted); }
-.session.stale .track { opacity:.5; }
-.grow { display:grid; grid-template-columns:minmax(0, 1fr) auto; grid-template-areas:"name cost" "meta meta" "track track"; gap:var(--s1) var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); }
+.gantt { container-type:inline-size; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:var(--s2) var(--s3); margin-top:var(--s2); }
+.grow { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; grid-template-areas:"name dur cost" "track track track"; gap:var(--s1) var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); }
+.grow:first-child { border-top:0; }
 .grow .name { grid-area:name; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.grow .cost { grid-area:cost; }
 .grow .track { grid-area:track; }
-.grow .meta { grid-area:meta; color:var(--muted); font-size:var(--t-small); }
+.grow .dur { grid-area:dur; }
+.grow .cost { grid-area:cost; }
+.grow.sub { color:var(--muted); font-size:var(--t-small); }
+.grow.stale { color:var(--muted); }
+.grow.stale .track { opacity:.5; }
+.grow.gtotal { grid-template-areas:"name dur cost"; font-weight:600; }
+.gnote { margin:var(--s1) 0 0; color:var(--muted); font-size:var(--t-small); }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .track { position:relative; height:var(--s3); background:var(--card); border-radius:3px; }
 .bar { position:absolute; top:0; bottom:0; background:var(--bar); border-radius:3px; }
 .bar.running { background:var(--run); }
 @container (min-width: 36rem) {
-  .grow { grid-template-columns:14rem minmax(0, 1fr) auto; grid-template-areas:"name track cost" "meta track cost"; }
+  .grow { grid-template-columns:14rem minmax(0, 1fr) 5rem 4.5rem; grid-template-areas:"name track dur cost"; }
+  .grow.gtotal { grid-template-areas:"name . dur cost"; }
 }
 </style>
 </head>
