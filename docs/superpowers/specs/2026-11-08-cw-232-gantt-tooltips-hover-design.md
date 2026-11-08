@@ -1,6 +1,7 @@
 # CW-232: Make the gantt tooltips show on hover in the dashboard
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #236, as specified
 **Ticket:** [#232](https://github.com/collective-wisdom-org/collective-wisdom/issues/232)
 **Related:** CW-225 (bar tooltips, PR #228), #230 (old `app.js` in an open tab), #227 (ticket details, also edits `app.js`).
 
