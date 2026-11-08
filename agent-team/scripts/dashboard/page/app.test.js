@@ -143,6 +143,16 @@ test('merged list pages by ten, clamps the page, disables the pager ends and esc
   assert.ok(!bad.includes('<script') && !bad.includes('<b>') && !bad.includes('href='))
 })
 
+test('merged row shows spend only when the entry has it', () => {
+  const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
+  const html = (spend) => renderMerged([{ ...e, ...(spend ? { spend } : {}) }], 0).html
+  assert.doesNotMatch(html(), /cost|tokens/)
+  assert.match(html({ cost: 0.4166, tokens: 955168 }), /<span class="num cost">\$0\.42<\/span><span class="meta">955\.2k tokens<\/span>/)
+  const none = html({ cost: null, tokens: 12 })
+  assert.match(none, /12 tokens/)
+  assert.doesNotMatch(none, /cost|\$|–/)
+})
+
 test('groups sort into bands, keep api order inside a band, and show the stage only in Other', () => {
   const g = (name, rows = [row({ id: `${name}-1`, stage: 'build' })]) => ({ name, count: rows.length, rows })
   const bandsOf = (html) => [...html.matchAll(/<h2>([^<]+)<\/h2>|<h3>([^<]+?) <span/g)].map((m) => m[1] ?? m[2])

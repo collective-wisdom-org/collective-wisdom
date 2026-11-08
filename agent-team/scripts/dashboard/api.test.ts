@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildApi, parseWorktrees, repoUrlFromProject } from './api.ts'
+import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
 
 const NOW = 1_800_000_000_000
 const GH = { url: 'https://github.com/o/r', isGithubIssues: true }
@@ -182,4 +182,23 @@ test('snapshots join the card of their worktree branch; the rest are dropped', (
   }
   const two = build({ state, snapshots: [snap('/r/.worktrees/x', 0), snap('/r/.worktrees/x/b', 5000)], worktrees, prefix: 'CW' })
   assert.deepEqual((two.status[0].rows.find((r: any) => r.id === 'CW-7') as any).gantt.map((s: any) => s.sessionId), ['/r/.worktrees/x/b', '/r/.worktrees/x'])
+})
+
+test('merged entries get their ticket spend; a session off the board still matches for the ledger', () => {
+  const entry = (id: string) => ({ id, title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1 })
+  const spend = { 'CW-1': { cost: null, tokens: 5 }, 'CW-2': { cost: 1.5, tokens: 9 } }
+  const merged = build({ merged: [entry('CW-1'), entry('CW-2'), entry('CW-3'), entry('toString')], spend }).merged as any[]
+  assert.deepEqual(merged.map((e) => e.spend ?? null), [{ cost: null, tokens: 5 }, { cost: 1.5, tokens: 9 }, null, null])
+  assert.ok(!('spend' in merged[2]) && !('spend' in merged[3]))
+  assert.ok(!('spend' in (build({ merged: [entry('CW-1')] }).merged[0])))
+
+  const WT2 = '/Users/me/.t3/worktrees/repo/t3-2'
+  const worktrees = [{ path: WT, branch: 'feat/cw-9-gone' }, { path: WT2, branch: 'odd' }]
+  const state = { tickets: { 'CW-4': { branch: 'odd', stage: 'build' } } }
+  const matchedTo = (cwd: string, prefix: string | null) =>
+    ledgerSessions({ snapshots: [{ sessionId: 's', cwd, updatedAt: NOW, total: 1, rows: [] }], worktrees, state, prefix, now: NOW }).map((m) => m.ticket)
+  assert.deepEqual(matchedTo(WT, 'CW'), ['CW-9'], 'off the board, by branch pattern')
+  assert.deepEqual(matchedTo(WT2, null), ['CW-4'], 'by state branch')
+  assert.deepEqual(matchedTo(WT, null), [], 'no prefix, no pattern')
+  assert.deepEqual(matchedTo('/Users/me/repo', 'CW'), [], 'not a worktree session')
 })
