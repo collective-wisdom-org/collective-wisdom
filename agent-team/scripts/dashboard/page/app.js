@@ -47,6 +47,36 @@ export function renderStatus(groups, open = new Set()) {
     .join('\n')
 }
 
+const stamp = (ms) => {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
+}
+
+/** One page of the merged list as cards plus a pager. `page` is 0-based and comes back clamped. */
+export function renderMerged(list, page, size = 10) {
+  if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
+  const pages = Math.ceil(list.length / size)
+  const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
+  const cards = list
+    .slice(at * size, (at + 1) * size)
+    .map(
+      (e) => `<li class="ticket">
+  <div class="top">
+    <span class="id">${link(e.issueUrl, e.id)}</span>
+    <span class="pr">${link(e.prUrl, 'PR')}</span>
+  </div>
+  <div class="title">${esc(e.title)}</div>
+  <div class="next">merged ${esc(stamp(e.mergedAt))}</div>
+</li>`,
+    )
+    .join('\n')
+  const pager =
+    pages > 1
+      ? `<nav class="pager"><button type="button" data-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
+      : ''
+  return { html: `<ul class="cards">${cards}</ul>${pager}`, page: at }
+}
+
 export function renderGantt(sessions, now) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   return sessions
@@ -95,7 +125,18 @@ if (typeof document !== 'undefined') {
       const row = rows.get(body.dataset.ticket)
       if (row) body.innerHTML = renderGantt(row.gantt, now)
     }
-    document.getElementById('gantt').innerHTML = renderGantt(last.gantt, now)
+  }
+  // The merged list is redrawn only when its html changed, so a poll keeps the page and any selection.
+  let mergedPage = 0
+  let shownMerged = null
+  const drawMerged = () => {
+    if (!last) return
+    const r = renderMerged(last.merged, mergedPage)
+    mergedPage = r.page
+    if (r.html !== shownMerged) {
+      shownMerged = r.html
+      document.getElementById('merged').innerHTML = r.html
+    }
   }
   const poll = async () => {
     const err = document.getElementById('error')
@@ -113,12 +154,20 @@ if (typeof document !== 'undefined') {
         document.getElementById('status').innerHTML = renderStatus(last.status, open)
       }
       draw()
+      drawMerged()
     } catch (e) {
       err.textContent = `Could not refresh: ${e.message}`
     }
   }
   document.addEventListener('click', (ev) => {
-    const btn = ev.target instanceof Element ? ev.target.closest('button[data-copy]') : null
+    const target = ev.target instanceof Element ? ev.target : null
+    const pager = target?.closest('button[data-page]')
+    if (pager) {
+      mergedPage = Number(pager.dataset.page)
+      drawMerged()
+      return
+    }
+    const btn = target?.closest('button[data-copy]')
     if (!btn) return
     const label = btn.textContent
     navigator.clipboard.writeText(btn.dataset.copy).then(
