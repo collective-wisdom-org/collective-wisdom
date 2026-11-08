@@ -203,7 +203,7 @@ After each `read` line, `apply` a `set` op with the returned `nextPosition` as `
 
 - `BUILD READY`: `stage` op to `awaiting-build`, with `specPath`, `specSha` and `branch` in `set`. Then run approvals.md § Approval requests.
 - `MERGE READY`: run `python3 ~/.collective-wisdom/scripts/cos_review_check.py --route <PR> --head <sha>` first. Then a `stage` op to the stage it names (`awaiting-merge` or `awaiting-review`), with `pr` and `headSha` in `set`. `route moved head <short>` is a head mismatch: send the child back as approvals.md § Approval requests step 2 says. Otherwise, run approvals.md § Approval requests. Exit 2: `cos_review_check: usage: …` means fix the call; `cos_review_check: crashed` routes to `awaiting-merge`, as an unreadable PR does, since `merge_pr.py` still gates.
-- `BLOCKED:`: for a child in `merge`, first run `python3 ~/.collective-wisdom/scripts/cos_head_check.py <PREFIX>-N` (§ Send or queue, head check). On `conflict keep`, the child still holds the merge slot: send it the printed conflict relay at once (no slot check, as the stuck-check restart), and leave the stage. On `conflict withdraw`, send the printed relay through § Send or queue (`conflict-withdraw`). On any other last line, `stage` op to `blocked`, with the line in `status`. A rate limit is the exception (Rate limit, below).
+- `BLOCKED:`: for a child in `merge`, first run `python3 ~/.collective-wisdom/scripts/cos_head_check.py <PREFIX>-N` (§ Send or queue, head check). On `conflict keep` or `conflict stand`, the child still holds the merge slot (state `noApproval` makes the relay plain, never `CONFLICT_APPROVED`): send it the printed conflict relay at once (no slot check, as the stuck-check restart), and leave the stage. On `conflict withdraw`, send the printed relay through § Send or queue (`conflict-withdraw`). On any other last line, `stage` op to `blocked`, with the line in `status`. A rate limit is the exception (Rate limit, below).
 - `MERGED #N`: `merged` op (`ticket`, `pr`). The child already set the ticket to Done.
 
 **Pending request.** Also run the `pending` line: `t3_pending_request` (action `list`) on the child thread. A pending question counts as blocked: `stage` op to `blocked`, report the question to the user. When they answer, relay it through § Send or queue (`answer`) as `CHIEF OF STAFF: the user answered: "<their words>"`. Never answer the request yourself. Children are told never to use AskUserQuestion, so this is a fallback.
@@ -242,7 +242,7 @@ Every relay that puts a child back to work goes through here. Run `python3 ~/.co
 - `approve-spec` (`approve N` on a spec): run the § Models switch (`t3_thread_configure` on the child that will receive the relay) immediately before the send, whether the send is immediate or comes later from the queue; skip it when a continuation starts.
 - `approve-merge` (`approve N` on a merge), `changes` (`changes N`), `answer` (how to proceed on a blocked ticket, or an answer to a pending request), `resume` (tickets stopped by the user), `rate-limit` (cleared, for tickets blocked by it).
 - `reviewer-changes` (review.md § Review check, `changes` line) and `head-moved` (that file's `moved` line, or the head check below).
-- `conflict-keep`, `conflict-withdraw`: the head check, `conflict: yes` in an approval request, or a `BLOCKED:` merge child.
+- `conflict-keep`, `conflict-stand`, `conflict-withdraw`: the head check, `conflict: yes` in an approval request, or a `BLOCKED:` merge child.
 
 The script prints the `stage` op to apply (fill in `status`), then:
 
@@ -283,6 +283,7 @@ A queued auto-approved relay skips that check. Instead, run `python3 ~/.collecti
 - `head-check: ok`: go on.
 - `head-check: moved <old> <new>`: the head moved after the reviews the user saw. Don't send, and drop the approval if it was queued. `comment` `Approval withdrawn at <time>: the PR head moved.`, tell the user under Needs you, and send the printed relay (`head-moved`).
 - `head-check: conflict keep`: keep the approval (verified at this head) and send the printed relay (`conflict-keep`).
+- `head-check: conflict stand`: no approval to keep or withdraw (reviews stand); send the printed relay (`conflict-stand`). A merge approval's head check prints it only when state says `noApproval`.
 - `head-check: conflict withdraw`: `comment` `Approval withdrawn at <time>: the PR conflicts with <target>.`, tell the user under Needs you, and send the printed relay (`conflict-withdraw`).
 - Exit 2 (`head-check: cannot <what>`): don't send, and tell the user under Needs you.
 
