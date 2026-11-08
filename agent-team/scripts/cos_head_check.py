@@ -37,7 +37,7 @@ FULL_SHA = re.compile(r"[0-9a-f]{40}")
 TICKET = project_config.ticket_re()
 MOVED = (
     "CHIEF OF STAFF: the PR head moved from {old} to {new} after the user approved. Re-check the reviews per "
-    "ship-loop § Phases, 4. Security review (~/.collective-wisdom/scripts/pr_diff_delta.py) and report MERGE READY again."
+    "ship-loop § Phases, 4. Security review (run ~/.collective-wisdom/scripts/review_gate.py) and report MERGE READY again."
 )
 CONFLICT = "CHIEF OF STAFF: the PR conflicts with {target}. Resolve it per open-pr § Conflict resolution and report MERGE READY."
 CONFLICT_APPROVED = (

@@ -11,7 +11,7 @@ SPEC.loader.exec_module(cos_head_check)
 OLD, NEW = "a" * 40, "b" * 40
 MOVED = (
     "CHIEF OF STAFF: the PR head moved from aaaaaaa to bbbbbbb after the user approved. Re-check the reviews per "
-    "ship-loop § Phases, 4. Security review (~/.collective-wisdom/scripts/pr_diff_delta.py) and report MERGE READY again."
+    "ship-loop § Phases, 4. Security review (run ~/.collective-wisdom/scripts/review_gate.py) and report MERGE READY again."
 )
 PLAIN = "CHIEF OF STAFF: the PR conflicts with main. Resolve it per open-pr § Conflict resolution and report MERGE READY."
 KEPT = (
