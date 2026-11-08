@@ -74,9 +74,36 @@ test('taskName takes the first real line, skips the T3 preamble, collapses space
     ['Act as the implementation sub-agent for this task.\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
     ['Act as the build subagent for this task\nfix it', 'fix it'],
     ['TEAM MODE.\nBuild CW-9', 'Build CW-9'],
+    ['Act as the implementation sub-agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-216: Redesign the agent gantt', 'Run /ship-loop for CW-216: Redesign the agent gantt'],
+    ['Act as the implementation sub-agent for this task. TEAM MODE. CONTINUE. Run /ship-loop. Do the build stage.', 'Run /ship-loop. Do the build stage.'],
+    ['TEAM MODE. CONTINUE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
+    ['Continued work on the parser', 'Continued work on the parser'],
+    ['continue\nfix the login bug', 'continue'],
+    ['Act as the reviewer agent for this task and check X', 'Act as the reviewer agent for this task and check X'],
   ]
   for (const [text, want] of cases) assert.equal(taskName(text), want)
   assert.equal(run([['open', 7]]).tasks[0]?.name, 'task')
+})
+
+test('taskName names a Chief of Staff relay by the newest earlier ticket and the work asked', () => {
+  const withTicket = ['Run /ship-loop for CW-1: old', 'build', 'Run /ship-loop for CW-216: Redesign the agent gantt', 'merge PR #5']
+  const cases: [string, string[], string][] = [
+    ['CHIEF OF STAFF: the user approved the spec: "approve 216". Continue to the build stage.', withTicket, 'CW-216 build'],
+    ['CHIEF OF STAFF: auto-approved the spec at abc123.', withTicket, 'CW-216 build'],
+    ['CHIEF OF STAFF: the user approved the merge of PR #218 at head abc: "merge".', withTicket, 'CW-216 merge PR #218'],
+    ['CHIEF OF STAFF: auto-approved the merge of PR #218 at head abc.', withTicket, 'CW-216 merge PR #218'],
+    ['CHIEF OF STAFF: a reviewer asked for changes on PR #218: fix it', withTicket, 'CW-216 changes on PR #218'],
+    ['CHIEF OF STAFF: the user asked for changes: "tighten it".', withTicket, 'CW-216 changes'],
+    ['CHIEF OF STAFF: continue the review stage from where the branch is.', withTicket, 'CW-216 review'],
+    ['CHIEF OF STAFF: the user says: "go on". Continue the build stage.', withTicket, 'CW-216 build'],
+    ['CHIEF OF STAFF: the user answered: use B', withTicket, 'CW-216 the user answered: use B'],
+    ['CHIEF OF STAFF: the user asked for changes: "a"\napproved the spec', withTicket, 'CW-216 changes'],
+    ['Act as the implementer agent for this task.\nCHIEF OF STAFF: the user approved the spec: "ok".', withTicket, 'CW-216 build'],
+    ['CHIEF OF STAFF: the user approved the spec: "ok".', ['task', 'fix the bug'], 'build'],
+    ['CHIEF OF STAFF: the user approved the spec: "ok".', [], 'build'],
+    ['CHIEF OF STAFF NOTICE: child thread done', withTicket, 'CHIEF OF STAFF NOTICE: child thread done'],
+  ]
+  for (const [text, earlier, want] of cases) assert.equal(taskName(text, earlier), want)
 })
 
 // Each case: events on one agent in clock order. `ask` and `settle` are a wait beginning and ending (a permission ask or a plan approval); `complete` ends the agent's turn and `end` stamps its end.
