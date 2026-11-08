@@ -7,8 +7,8 @@ export function snapshotName(sessionId: string): string | null {
   return SAFE_ID.test(sessionId) ? `${sessionId}.json` : null
 }
 
-/** The JSON text the local dashboard reads for one session. */
+/** The JSON text the local dashboard reads for one session. `pricing: 2` marks rows priced after the CW-220 rate fix. */
 export function buildSnapshot(args: { sessionId: string; cwd: string; updatedAt: number; total: number | null; rows: Row[] }): string {
   const { sessionId, cwd, updatedAt, total, rows } = args
-  return JSON.stringify({ sessionId, cwd, updatedAt, total, rows })
+  return JSON.stringify({ sessionId, cwd, updatedAt, total, pricing: 2, rows })
 }

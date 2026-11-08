@@ -27,7 +27,7 @@ export function parseHistory(text: string): History {
     const { sessionId, cwd, updatedAt, total, rows } = s
     if (sessionId !== id || typeof cwd !== 'string' || typeof updatedAt !== 'number' || !Number.isFinite(updatedAt) || updatedAt < 0 || !Array.isArray(rows)) continue
     const cleaned = rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
-    out.push([id, { ticket, session: { sessionId: id, cwd, updatedAt, stale: false, total: typeof total === 'number' && Number.isFinite(total) ? total : null, rows: cleaned } }])
+    out.push([id, { ticket, session: { sessionId: id, cwd, updatedAt, stale: false, total: typeof total === 'number' && Number.isFinite(total) ? total : null, pricing: null, rows: cleaned } }])
   }
   return build(out)
 }

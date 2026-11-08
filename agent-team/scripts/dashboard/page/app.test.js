@@ -160,6 +160,14 @@ test('the engine total shows as a note only when it differs from the row sum by 
   assert.doesNotMatch(html(1.5, null), /reports/)
 })
 
+test('a note says some rows were priced before the CW-220 fix when any drawn session lacks pricing 2', () => {
+  const note = /priced before the CW-220 rate fix and keep their old costs/
+  const html = (...pricing) => renderGantt(pricing.map((p, i) => sess({ sessionId: `s${i}`, pricing: p, total: null, rows: [task({ segments: [[T + i * MIN, T + (i + 1) * MIN]], start: T + i * MIN })] })), T + 10 * MIN)
+  assert.doesNotMatch(html(2, 2), note)
+  assert.match(html(2, undefined), note)
+  assert.match(html(null), note)
+})
+
 test('a card with sessions gets a closed chart that reopens when its id is in the open set', () => {
   const g = [sess()]
   const html = (open) => renderStatus(group([row({ gantt: g }), row({ id: 'CW-2' })]), open)

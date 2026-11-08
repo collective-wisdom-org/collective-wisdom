@@ -209,10 +209,13 @@ export function renderGantt(sessions, now) {
     sum !== null && reported !== null && Math.abs(reported - sum) >= 0.01 - 1e-9
       ? `<p class="gnote">Claude Code reports ${dollars(reported)} for these sessions. Row costs use prices.json.</p>`
       : ''
+  const isOld = sessions.some((s) => s.pricing !== 2)
+  const oldNote = isOld ? '<p class="gnote">Some rows were priced before the CW-220 rate fix and keep their old costs.</p>' : ''
   return `<div class="gantt">
 ${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
 ${note}
+${oldNote}
 </div>`
 }
 
