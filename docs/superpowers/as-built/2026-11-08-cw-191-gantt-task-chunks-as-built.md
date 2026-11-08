@@ -11,5 +11,6 @@
 - The first prompt of a session renames the placeholder task that `turn.start` made, instead of adding a second one.
 - A task with no working span (a slash command that starts no turn) gets no row, and a subagent spawned in such a task sits at depth 1.
 - `cleanRow()` keeps the last 500 segments, not the first 500, and the mod keeps at most the last 500 per list.
-- A main-only session with a running turn is not stale: the stale rule ignores task rows as well as `main`.
+- A subagent record starts with an open span at `agent.spawn`, since its `turn.start` can come before the record exists, and a span reopened after a wait stays closed when a `turn.complete` or end stamp landed during the wait.
+- When no agent is working, `cleanSnapshot()` closes the open task rows as well as `main`, at `updatedAt`.
 - The harness is also read in `ensureMain`, not only at `session.start`.
