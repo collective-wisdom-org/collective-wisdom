@@ -26,14 +26,14 @@ def ticket(stage="build", **kw):
 
 STATE = {
     "paused": False,
-    "tickets": {"ABC-1": ticket(), "ABC-2": ticket("awaiting-spec"), "ABC-4": ticket("awaiting-spec")},
+    "tickets": {"ABC-1": ticket(), "ABC-2": ticket("awaiting-build"), "ABC-4": ticket("awaiting-build")},
     "merged": {"ABC-8": 7, "ABC-9": {"pr": 9, "at": "2020-01-01T00:00:00Z"}},
     "retiredThreads": [{"threadId": "t1", "retiredAt": "2026-11-01T00:00:00Z", "archivedAt": None}],
     "pm": {},
     "scheduledTaskId": "x",
 }
 START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "parentThreadId": "t9",
-         "status": "s"}
+         "status": "s", "title": "Add X"}
 QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q",
          "set": {"pendingRelay": "go"}}
 
@@ -42,7 +42,7 @@ QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q
     [START],
     [QUEUE],
     [{"op": "stage", "ticket": "ABC-1", "stage": "blocked", "status": "b", "set": {"note": "n"}}],
-    [{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "w"}],
+    [{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-build", "status": "w"}],
     [{"op": "set", "ticket": "ABC-1", "set": {"headSha": "abc", "lastPosition": 4}}],
     [{"op": "merged", "ticket": "ABC-1", "pr": 5}],
     [{"op": "drop", "ticket": "ABC-1"}],
@@ -60,11 +60,26 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     assert capsys.readouterr().out.startswith("saved")
     first = path.read_bytes()
     for op in ops:
-        if op["op"] == "stage" and op["stage"] in ("awaiting-spec", "blocked"):
+        if op["op"] == "stage" and op["stage"] in ("awaiting-build", "blocked"):
             assert json.loads(first)["tickets"][op["ticket"]]["lastSeenAt"]
     assert cos_state.apply_file(path, ops) == 0
     assert capsys.readouterr().out.startswith("unchanged")
     assert path.read_bytes() == first
+
+
+@pytest.mark.parametrize("old", ["awaiting-spec", "awaiting-build"])
+def test_old_stage_name_loads_as_awaiting_build(tmp_path, capsys, old):
+    path = tmp_path / "state.json"
+    seen = "2026-11-01T00:00:00Z"
+    state = {**STATE, "tickets": {"ABC-2": ticket(old, lastSeenAt=seen)}}
+    path.write_text(json.dumps(state))
+    assert cos_state.load(path)["tickets"]["ABC-2"]["stage"] == "awaiting-build"
+    assert cos_state.main(["--file", str(path), "show"]) == 0
+    assert "ABC-2 awaiting-build" in capsys.readouterr().out
+    ops = [{"op": "set", "ticket": "ABC-2", "set": {"lastPosition": 4}}]
+    assert cos_state.apply_file(path, ops) == 0
+    saved = json.loads(path.read_text())["tickets"]["ABC-2"]
+    assert (saved["stage"], saved["lastSeenAt"]) == ("awaiting-build", seen)
 
 
 @pytest.mark.parametrize("ops, stamped", [
@@ -74,7 +89,7 @@ def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
     ([{"op": "stage", "ticket": "ABC-1", "stage": "build", "status": "again", "set": {"childThreadId": "c9"}}], True),
     ([{"op": "set", "ticket": "ABC-1", "set": {"childThreadId": "c9"}}], True),
     ([{"op": "set", "ticket": "ABC-1", "set": {"note": "x"}}], False),
-    ([{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "w"}], False),
+    ([{"op": "stage", "ticket": "ABC-1", "stage": "awaiting-build", "status": "w"}], False),
 ])
 def test_relay_and_child_start_stamp_lastRelayAt(ops, stamped):
     new, _, _ = cos_state.apply_ops(STATE, ops)
@@ -105,7 +120,7 @@ def test_new_head_in_a_stamped_stage_restamps_lastSeenAt(stage, op, restamped):
     {"op": "stage", "ticket": "ABC-1", "stage": "merge-queued", "status": "s"},
     {"op": "stage", "ticket": "ABC-1", "stage": "merge"},
     {"op": "stage", "ticket": "ABC-7", "stage": "merge", "status": "s"},
-    {"op": "stage", "ticket": "ABC-1", "stage": "awaiting-spec", "status": "s", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
+    {"op": "stage", "ticket": "ABC-1", "stage": "awaiting-build", "status": "s", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
     {"op": "set", "ticket": "ABC-4", "set": {"lastSeenAt": "2020-01-01T00:00:00Z"}},
     {"op": "pm", "set": {"rules": ["rank ABC-9 first"]}},
     {"op": "top", "set": {"lastRelayAt": "2026-11-04T00:00:00Z"}},
@@ -126,7 +141,8 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
 
 @pytest.mark.parametrize("ops, title, code", [
     ([{**START, "title": "  Add X  "}], "Add X", 0),
-    ([START], "", 0),
+    ([{k: v for k, v in START.items() if k != "title"}], None, 1),
+    ([{**START, "title": "  "}], None, 1),
     ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": "  Later  "}}], "Later", 0),
     ([{**START, "title": "A\x1b]8;;x\x07B\nC"}], "A ]8;;x B C", 0),
     ([{**START, "title": "x" * 300}], "x" * 200, 0),

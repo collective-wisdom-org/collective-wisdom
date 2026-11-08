@@ -2,7 +2,7 @@
 """The Chief of Staff checks that need no thread reads, in one command.
 
 Usage:
-    scripts/cos_sweep.py --thread ID [--file STATE] [--merged-prs FILE] [--open-prs FILE] [--refs FILE] [--review-prs FILE]
+    ~/.collective-wisdom/scripts/cos_sweep.py --thread ID [--file STATE] [--merged-prs FILE] [--open-prs FILE] [--refs FILE] [--review-prs FILE]
                             [--issues FILE] [--login LOGIN]
 
 --thread is this thread's own ID, as for cos_parent_check.py. Runs, in one process:

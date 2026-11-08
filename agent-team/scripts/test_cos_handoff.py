@@ -37,7 +37,7 @@ MERGE = {
     "stage": "awaiting-merge", "branch": "feat/abc-1-x", "specPath": SPEC_PATH, "specSha": "1a2b3c4d",
     "pr": 14, "headSha": HEAD, "status": "awaiting-merge since 21:25:\nPR #14 head 1a2b3c4.",
 }
-SPEC_ONLY = {**MERGE, "stage": "awaiting-spec", "pr": None, "headSha": None}
+SPEC_ONLY = {**MERGE, "stage": "awaiting-build", "pr": None, "headSha": None}
 
 
 @pytest.mark.parametrize(

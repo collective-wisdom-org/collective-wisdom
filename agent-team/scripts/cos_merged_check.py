@@ -2,10 +2,10 @@
 """Which Chief of Staff tickets waiting on a merge have already merged on GitHub.
 
 Usage:
-    scripts/cos_merged_check.py [--file STATE] [--prs FILE] [--apply]
+    ~/.collective-wisdom/scripts/cos_merged_check.py [--file STATE] [--prs FILE] [--apply]
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and the
-last 20 merged PRs from `./scripts/gh.sh pr list --state merged --limit 20 --json
+last 20 merged PRs from `~/.collective-wisdom/scripts/gh.sh pr list --state merged --limit 20 --json
 number,headRefName,mergedAt` (--prs FILE reads that JSON from a file instead).
 Candidates are tickets in merge, merge-queued, awaiting-review or awaiting-merge, and blocked
 tickets whose resumeStage is merge, that have an integer pr. Prints one line each:

@@ -4,7 +4,7 @@ The `status-pane` mod keeps the Chief of Staff `status` view open in a pane besi
 
 ## Turn it on
 
-The install copies the mod to `.claude/mods/status-pane/`. Load it as a mod in Claude Code, then run `/status-pane` to open the pane.
+Install the mod with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`, then run `/status-pane` to open the pane.
 
 One option, set in the config menu:
 

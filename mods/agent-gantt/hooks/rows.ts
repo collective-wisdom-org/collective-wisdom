@@ -17,11 +17,19 @@ export type ListedAgent = { id: string; parentId?: string; name?: string }
 
 export const MAIN = 'main'
 
+const T3_WORKTREE = /\/\.t3\/worktrees\/([^/]+)\/[^/]+/
+const NESTED_WORKTREE = /^(.*)\/\.worktrees\/[^/]+/
+
+/** True when the working directory is inside a T3 worktree or a `.worktrees/` checkout. */
+export function isWorktree(cwd: string): boolean {
+  return T3_WORKTREE.test(cwd) || NESTED_WORKTREE.test(cwd)
+}
+
 /** The repo name for a working directory: T3 and `.worktrees/` paths map to the main checkout's name. */
 export function repoOf(cwd: string): string {
-  const t3 = /\/\.t3\/worktrees\/([^/]+)\/[^/]+/.exec(cwd)
+  const t3 = T3_WORKTREE.exec(cwd)
   if (t3?.[1]) return t3[1]
-  const nested = /^(.*)\/\.worktrees\/[^/]+/.exec(cwd)
+  const nested = NESTED_WORKTREE.exec(cwd)
   const path = nested?.[1] ?? cwd
   return path.split('/').filter(Boolean).pop() ?? ''
 }

@@ -24,17 +24,16 @@ def entry(n=1, readiness="ready", **kw):
             "priority": "High", "createdAt": "2026-10-30T10:00:00Z", **kw}
 
 
-def run(tmp_path, monkeypatch, body, started=STARTED):
+def run(tmp_path, monkeypatch, body, started=STARTED, extra=()):
     path = tmp_path / "state.json"
     path.write_text(json.dumps(STATE))
     before = path.read_bytes()
     monkeypatch.setattr("sys.stdin", io.StringIO(body))
-    code = cos_rank.main(["--file", str(path), "--started", started])
+    code = cos_rank.main(["--file", str(path), "--started", started, *extra])
     return code, before, path
 
 
 @pytest.mark.parametrize("body,started,code", [
-    ("[]", STARTED, 0),
     (json.dumps([entry(n) for n in range(1, 6)] + [entry(n, "held: PR #9") for n in range(10, 15)]), STARTED, 0),
     ("noise\n```json\n[]\n```\nmore\n```json\n" + json.dumps([entry()]) + "\n```\n", STARTED, 0),
     ("not json", STARTED, 2),
@@ -64,6 +63,28 @@ def test_ranking_shape_check(tmp_path, monkeypatch, capsys, body, started, code)
         pm = json.loads(path.read_text())["pm"]
         assert pm["rankedAt"] == STARTED
         assert pm["ranked"] == json.loads(cos_rank.FENCE.findall(body)[-1] if "```" in body else body)
+
+
+@pytest.mark.parametrize("body,extra,code,msg", [
+    ("[]", [], 3, "cos_rank: empty ranking, count the Backlog"),
+    ("[]", ["--backlog-count", "0"], 0, ""),
+    ("[]", ["--backlog-count", "3"], 2, "at least 3 rankable tickets"),
+    (json.dumps([entry()]), ["--backlog-count", "0"], 0, ""),
+    ("[]", ["--backlog-count", "-1"], 2, "cos_rank: bad --backlog-count"),
+    ("[]", ["--backlog-count", "99999"], 2, "cos_rank: bad --backlog-count"),
+])
+def test_empty_ranking_needs_backlog_count(tmp_path, monkeypatch, capsys, body, extra, code, msg):
+    got, before, path = run(tmp_path, monkeypatch, body, extra=extra)
+    assert got == code
+    out = capsys.readouterr().out
+    if code:
+        assert msg in out
+        assert path.read_bytes() == before
+    else:
+        pm = json.loads(path.read_text())["pm"]
+        assert pm["rankedAt"] == STARTED
+        assert pm["ranked"] == json.loads(body)
+        assert pm["rankedReady"] is bool(json.loads(body))
 
 
 def test_ranked_ready_comes_from_entries(tmp_path, monkeypatch):

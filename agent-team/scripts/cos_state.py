@@ -2,11 +2,11 @@
 """Read and edit the Chief of Staff state file, so nobody prints or rewrites it by hand.
 
 Usage:
-    scripts/cos_state.py [--file PATH] show
-    scripts/cos_state.py [--file PATH] get GORP-N | --pm
-    scripts/cos_state.py [--file PATH] apply < ops.json
-    scripts/cos_state.py [--file PATH] prune
-    scripts/cos_state.py [--file PATH] init
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] show
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] get GORP-N | --pm
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] apply < ops.json
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] prune
+    ~/.collective-wisdom/scripts/cos_state.py [--file PATH] init
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket, and the retired
@@ -17,9 +17,9 @@ ticket, and writes through a temp file, fsync and os.replace under a flock on st
 next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
-    start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch, title
+    start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
     stage     ticket, stage, status; optional set (a stage change needs a status line)
-              awaiting-spec, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
+              awaiting-build, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
               user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
               with headSha unchanged keeps it. awaiting-review holds no lane slot.
     set       ticket, set (ticket fields other than stage)
@@ -74,7 +74,7 @@ TICKET = {
     "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
 }
 STAGES = (
-    "spec", "awaiting-spec", "spec-queued", "build-queued", "build",
+    "spec", "awaiting-build", "spec-queued", "build-queued", "build",
     "awaiting-review", "awaiting-merge", "merge-queued", "merge", "blocked",
 )
 ACTIVE = ("spec", "build", "merge")
@@ -191,8 +191,10 @@ def check(t):
 
 
 def op_start(s, op):
-    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", optional=("branch", "title"))
-    title = clean_title(op.get("title", ""))
+    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", "title", optional=("branch",))
+    title = clean_title(op["title"])
+    if not title:
+        raise Reject("title must be a non-empty string")
     tid, t = ticket_of(s, op)
     if t:
         if t.get("childThreadId") != op["childThreadId"]:
@@ -209,7 +211,7 @@ def op_start(s, op):
     s["lastRelayAt"] = now()
 
 
-STAMPED = ("awaiting-spec", "awaiting-review", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
+STAMPED = ("awaiting-build", "awaiting-review", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
 
 
 def op_stage(s, op):
@@ -448,6 +450,10 @@ def load(path):
     if not isinstance(state, dict):
         print("cos_state: unreadable state file", file=sys.stderr)
         sys.exit(2)
+    tickets = state.get("tickets")
+    for x in tickets.values() if isinstance(tickets, dict) else ():
+        if isinstance(x, dict) and x.get("stage") == "awaiting-spec":  # the pre-CW-177 name
+            x["stage"] = "awaiting-build"
     return state
 
 
@@ -518,7 +524,7 @@ def show(s):
         f"rotationHeldUntil={t(s.get('rotationHeldUntil'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)
-        + f" active={len(by(*ACTIVE))} awaiting-spec={len(by('awaiting-spec'))}"
+        + f" active={len(by(*ACTIVE))} awaiting-build={len(by('awaiting-build'))}"
         f" awaiting-review={len(by('awaiting-review'))} awaiting-merge={len(by('awaiting-merge'))} blocked={len(by('blocked'))}",
     ]
     for lane in ("spec", "build", "merge"):

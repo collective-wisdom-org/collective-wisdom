@@ -2,9 +2,9 @@
 """API-equivalent cost of the agent team, read from Claude Code transcripts.
 
 Usage:
-    scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--turns]
-    scripts/agent_usage.py [--projects DIR] --context
-    scripts/agent_usage.py [--projects DIR] --ticket <PREFIX>-N
+    ~/.collective-wisdom/scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--turns]
+    ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --context
+    ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --ticket <PREFIX>-N
 
 --since and --until are ISO 8601 UTC times (default: the last 24 hours).
 --projects defaults to ~/.claude/projects. Read-only: nothing is written.
@@ -18,7 +18,7 @@ is unset or the session has no transcript or no requests.
 --ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
 N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
 worktree sessions with a git branch feat/<prefix>-N or feat/<prefix>-N-..., plus their
-subagents, ignores --since and --until, and exits 2 when nothing matches. When project.md
+subagents, ignores --since and --until, and exits 2 when nothing matches. When the user's user.md
 sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
 API-equivalent (P% of the subscription), ...".
 
@@ -46,7 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
-import project_config  # noqa: E402
+import user_config  # noqa: E402
 
 
 def project_name(root=None):
@@ -303,8 +303,8 @@ def main():
         return
     if args.ticket:
         try:
-            usage = project_config.subscription_usage("Claude")
-        except Exception:  # an unreadable project.md reads as unset
+            usage = user_config.subscription_usage("Claude")
+        except Exception:  # an unreadable user.md reads as unset
             usage = None
         found = ticket_line(args.projects, args.ticket, usage)
         if not found:
