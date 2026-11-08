@@ -47,6 +47,20 @@ export function renderStatus(groups, open = new Set()) {
     .join('\n')
 }
 
+export function renderBadges(groups) {
+  if (!Array.isArray(groups)) return ''
+  const count = (name) => groups.find((g) => g.name === name)?.count ?? 0
+  const merge = count('Awaiting merge approval')
+  const build = count('Awaiting build approval')
+  const queue = count('Queued to build')
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+  return [
+    merge > 0 ? `<span class="badge cta-high">${plural(merge, 'thread')} awaiting merge approval</span>` : '',
+    build > 0 ? `<span class="badge cta-medium">${plural(build, 'thread')} awaiting build approval</span>` : '',
+    `<span class="badge">${queue > 0 ? `${plural(queue, 'ticket')} in the build queue` : 'No tickets in the build queue'}</span>`,
+  ].join('')
+}
+
 const stamp = (ms) => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
@@ -152,6 +166,7 @@ if (typeof document !== 'undefined') {
         shownStatus = json
         const open = new Set([...document.querySelectorAll('details.chart[open]')].map((d) => d.dataset.ticket))
         document.getElementById('status').innerHTML = renderStatus(last.status, open)
+        document.getElementById('cta').innerHTML = renderBadges(last.status)
       }
       draw()
       drawMerged()
