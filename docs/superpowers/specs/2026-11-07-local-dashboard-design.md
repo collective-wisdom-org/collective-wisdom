@@ -1,6 +1,7 @@
 # Local dashboard: status pane and agent gantt in the browser
 
-**Status:** Approved 2026-11-07
+**Status:** Shipped
+**Shipped:** in PR #174, with differences: [as-built](../as-built/2026-11-07-local-dashboard.md)
 **Ticket:** [#173](https://github.com/collective-wisdom-org/collective-wisdom/issues/173)
 **Follows:** CW-171 (#172), which gave the gantt cost column its price table.
 
