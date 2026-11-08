@@ -36,7 +36,9 @@ export function recordSpend(ledger: Ledger, matched: { ticket: string; session: 
   const map = new Map(Object.entries(ledger.sessions))
   for (const { ticket, session: s } of matched) {
     if (!s.sessionId || (map.get(s.sessionId)?.updatedAt ?? -Infinity) > s.updatedAt) continue
-    const tokens = s.rows.reduce((n, r) => (r.kind === 'session' || r.kind === 'agent' ? n + r.tokens : n), 0)
+    // Main's work is the session row in older snapshots (its task rows repeat it), else the task rows.
+    const mainKind = s.rows.some((r) => r.kind === 'session') ? 'session' : 'task'
+    const tokens = s.rows.reduce((n, r) => (r.kind === mainKind || r.kind === 'agent' ? n + r.tokens : n), 0)
     map.set(s.sessionId, { ticket, cost: s.total, tokens, updatedAt: s.updatedAt })
   }
   return build([...map].sort((a, b) => b[1].updatedAt - a[1].updatedAt).slice(0, MAX_SESSIONS))

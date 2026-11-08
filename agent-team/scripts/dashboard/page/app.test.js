@@ -58,41 +58,106 @@ const T = Date.UTC(2026, 10, 7, 12, 0, 0)
 const grow = (o) => ({ id: 'a', depth: 0, name: 'agent', repo: 'r', start: T, end: T + 600000, tokens: 12345, cost: null, ...o })
 const sess = (o = {}) => ({ sessionId: 's', cwd: '/x', updatedAt: T, stale: false, total: 0.5, rows: [grow()], ...o })
 
-test('gantt escapes names, formats tokens and cost, and marks running rows', () => {
-  const html = renderGantt([sess({ rows: [grow({ name: '<img onerror=x>', depth: 1 }), grow({ end: null, tokens: 950, cost: 0.42 })] })], T + 60000)
+test('gantt escapes text, formats tokens and cost in the row title, and marks running rows', () => {
+  const html = renderGantt([sess({ rows: [grow({ name: '<img onerror=x>', kind: 'task' }), grow({ id: 'b', kind: 'task', end: null, tokens: 950, cost: 0.42, model: 'opus-5-5', harness: 'T3 Code' })] })], T + 60000)
   assert.ok(!html.includes('<img'))
   assert.match(html, /&lt;img onerror=x&gt;/)
-  assert.match(html, /12\.3k/)
-  assert.match(html, /950/)
+  assert.match(html, /title="&lt;img onerror=x&gt;\nr · \d\d:\d\d to \d\d:\d\d · 12\.3k tokens\n\/x"/)
+  assert.match(html, /r · \d\d:\d\d, running · 950 tokens · opus-5-5 · T3 Code/)
   assert.match(html, /\$0\.42/)
-  assert.match(html, /–/)
-  assert.match(html, /running/)
-  assert.match(html, /\$0\.50/)
+  assert.match(html, /bar running/)
 })
 
-test('gantt draws one bar per segment and model and harness cells, no kids', () => {
-  const bars = (html) => [...html.matchAll(/<span class="bar( running)?" style="left:([\d.]+)%;width:([\d.]+)%/g)].map((m) => [m[1] ? 'running' : '', Number(m[2]), Number(m[3])])
-  const seg = [[T, T + 100000], [T + 300000, T + 400000], [T + 500000, null]]
-  const live = renderGantt([sess({ rows: [grow({ end: null, segments: seg, model: 'opus-5-5', harness: 'T3 Code' })] })], T + 600000)
-  assert.deepEqual(bars(live), [['', 0, 16.67], ['', 50, 16.67], ['running', 83.33, 16.67]])
-  assert.match(live, /<span class="meta">r · \d\d:\d\d, running · 12\.3k tokens · opus-5-5 · T3 Code<\/span>/)
-  assert.ok(!live.includes('class="grow head"'))
-  assert.ok(!/kids|Kids/.test(live))
-  const stale = renderGantt([sess({ stale: true, updatedAt: T + 600000, rows: [grow({ segments: seg })] })], T + 900000)
+const MIN = 60000
+const task = (o) => grow({ kind: 'task', depth: 1, ...o })
+const sub = (o) => grow({ kind: 'agent', depth: 2, ...o })
+// What the chart shows per row: class, name, duration, cost and the bars as [left, width].
+const view = (html) =>
+  html
+    .split('<div class="grow')
+    .slice(1)
+    .map((chunk) => ({
+      cls: /^([^"]*)"/.exec(chunk)[1].trim(),
+      name: /class="name"[^>]*>([^<]*)/.exec(chunk)[1].trim(),
+      dur: /class="num dur">([^<]*)/.exec(chunk)[1],
+      cost: /class="num cost">([^<]*)/.exec(chunk)[1],
+      bars: [...chunk.matchAll(/left:([\d.]+)%;width:([\d.]+)%/g)].map((m) => [Number(m[1]), Number(m[2])]),
+    }))
+
+test('renderGantt draws one waterfall of active time', () => {
+  const one = (rows, o) => renderGantt([sess({ rows, ...o })], T + 10 * MIN)
+  const sums = (html) => view(html).map((r) => `${r.name}|${r.dur}|${r.cost}`)
+  const cases = [
+    {
+      name: 'sessions merge into one list in start order',
+      html: renderGantt(
+        [
+          sess({ sessionId: 'a', rows: [task({ name: 'late', start: T + 60 * MIN, segments: [[T + 60 * MIN, T + 61 * MIN]], end: T + 61 * MIN })] }),
+          sess({ sessionId: 'b', rows: [task({ name: 'early', segments: [[T, T + 2 * MIN]], end: T + 2 * MIN })] }),
+        ],
+        T + 90 * MIN,
+      ),
+      want: ['early|2m 00s|–', 'late|1m 00s|–', 'Total|3m 00s|–'],
+    },
+    {
+      name: 'an idle gap between tasks takes no width',
+      html: one([
+        task({ name: 'a', segments: [[T, T + MIN]], end: T + MIN }),
+        task({ name: 'b', start: T + 240 * MIN, segments: [[T + 240 * MIN, T + 241 * MIN]], end: T + 241 * MIN }),
+      ]),
+      want: ['a|1m 00s|–', 'b|1m 00s|–', 'Total|2m 00s|–'],
+      bars: [[[0, 50]], [[50, 50]], []],
+    },
+    {
+      name: 'a task row includes its subagents once even when they run in parallel; a subagent row shows its own share',
+      html: one([
+        task({ name: 't', cost: 1, segments: [[T, T + 2 * MIN]] }),
+        sub({ name: 'x', start: T + MIN, cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] }),
+        sub({ name: 'y', start: T + MIN, cost: 0.25, segments: [[T + MIN, T + 2 * MIN]] }),
+      ]),
+      want: ['t|3m 00s|$1.75', 'x|2m 00s|$0.50', 'y|1m 00s|$0.25', 'Total|3m 00s|$1.75'],
+      classes: ['', 'sub', 'sub', 'gtotal'],
+    },
+    {
+      name: 'an unknown cost anywhere in a task gives a dash for it and for the total',
+      html: one([task({ name: 't', cost: 1, segments: [[T, T + MIN]] }), sub({ name: 'x', cost: null, segments: [[T, T + MIN]] }), task({ name: 'u', start: T + MIN, cost: 2, segments: [[T + MIN, T + 2 * MIN]] })]),
+      want: ['t|1m 00s|–', 'x|1m 00s|–', 'u|1m 00s|$2.00', 'Total|2m 00s|–'],
+    },
+    {
+      name: 'an older snapshot session row is not drawn when tasks exist, and is the task when none do',
+      html: one([grow({ name: 'main', kind: 'session', segments: [[T, T + MIN]] }), task({ name: 't', segments: [[T, T + MIN]] })]),
+      want: ['t|1m 00s|–', 'Total|1m 00s|–'],
+    },
+    {
+      name: 'a session row alone is a task',
+      html: one([grow({ name: 'main', kind: 'session', cost: 2, segments: [[T, T + MIN]] }), sub({ name: 'x', depth: 1, start: T + MIN, cost: 1, segments: [[T + MIN, T + 2 * MIN]] })]),
+      want: ['main|1m 00s|$2.00', 'x|1m 00s|$1.00', 'Total|2m 00s|$3.00'],
+    },
+    {
+      name: 'a running span ends at now; a stale session stops at its last update',
+      html: renderGantt([sess({ stale: true, updatedAt: T + MIN, rows: [task({ end: null, segments: [[T, null]] })] })], T + 90 * MIN),
+      want: ['agent|1m 00s|–', 'Total|1m 00s|–'],
+      classes: ['stale', 'gtotal'],
+    },
+  ]
+  for (const c of cases) {
+    assert.deepEqual(sums(c.html), c.want, c.name)
+    if (c.bars) assert.deepEqual(view(c.html).map((r) => r.bars), c.bars, c.name)
+    if (c.classes) assert.deepEqual(view(c.html).map((r) => r.cls), c.classes, c.name)
+  }
+  assert.match(one([task({ end: null, segments: [[T, null]] })]), /10m 00s/)
+  const stale = renderGantt([sess({ stale: true, updatedAt: T + MIN, rows: [task({ end: null, segments: [[T, null]] })] })], T + 90 * MIN)
+  assert.match(stale, /<span class="pill">stale<\/span>/)
   assert.ok(!/bar running/.test(stale))
-  const old = renderGantt([sess({ rows: [grow()] })], T + 60000)
-  assert.equal(bars(old).length, 1)
-  assert.match(old, /<span class="meta">r · \d\d:\d\d to \d\d:\d\d · 12\.3k tokens<\/span>/)
 })
 
-test('the shared axis follows now for a live session and freezes for a stale one', () => {
-  // The closed row (index 1) shrinks on the axis as the running row grows.
-  const closedWidth = (html) => Number([...html.matchAll(/class="bar[^"]*" style="[^"]*width:([\d.]+)%/g)][1][1])
-  const run = (now, stale) => renderGantt([sess({ stale, updatedAt: T + 60000, rows: [grow({ end: null }), grow({ id: 'b', start: T, end: T + 60000 })] })], now)
-  assert.ok(closedWidth(run(T + 600000, false)) < closedWidth(run(T + 120000, false)))
-  assert.equal(closedWidth(run(T + 600000, true)), closedWidth(run(T + 120000, true)))
-  assert.match(run(T, true), /class="session stale"/)
-  assert.ok(!/class="session stale"/.test(run(T, false)))
+test('the engine total shows as a note only when it differs from the row sum by a cent or more', () => {
+  const html = (...totals) => renderGantt(totals.map((total, i) => sess({ sessionId: `s${i}`, total, rows: [task({ cost: 1, segments: [[T + i * MIN, T + (i + 1) * MIN]], start: T + i * MIN })] })), T + 10 * MIN)
+  assert.match(html(1.5), /Claude Code reports \$1\.50 for these sessions\. Row costs use prices\.json\./)
+  assert.match(html(0.5, 0.5, 0.5), /reports \$1\.50/)
+  assert.doesNotMatch(html(1), /reports/)
+  assert.doesNotMatch(html(1.009), /reports/)
+  assert.doesNotMatch(html(1.5, null), /reports/)
 })
 
 test('a card with sessions gets a closed chart that reopens when its id is in the open set', () => {
@@ -101,6 +166,9 @@ test('a card with sessions gets a closed chart that reopens when its id is in th
   assert.match(html(), /<details class="chart" data-ticket="CW-1"><summary>Agents <span class="pill">1<\/span>/)
   assert.match(html(new Set(['CW-1'])), /<details class="chart" data-ticket="CW-1" open>/)
   assert.equal(html().match(/<details class="chart"/g).length, 1)
+  // The pill counts tasks across sessions, not sessions; an older snapshot's session row beside task rows is not one.
+  const rows = [grow({ kind: 'session' }), grow({ kind: 'task', depth: 1 }), grow({ kind: 'agent', depth: 2 }), grow({ kind: 'task', depth: 1 })]
+  assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">3<\/span>/)
 })
 
 test('status sections draw open unless collapsed; a closed one keeps its heading and count; the name is escaped', () => {
