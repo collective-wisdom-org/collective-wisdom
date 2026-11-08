@@ -42,7 +42,7 @@ changesRelayed ({"head", "at"}: the head and time a reviewer's changes request w
 set in any stage and is never cleared by the script; null clears it. It must be an object with a full 40-hex
 head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
-noApproval (true or null) marks a merge-lane run that carries no user approval (a conflict sent to the merge lane while
+noApproval (true only; a stage op to another stage clears it) marks a merge-lane run that carries no user approval (a conflict sent to the merge lane while
 reviews stand). It is allowed only in merge, merge-queued and blocked, and a stage op to any other stage clears it.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
@@ -181,9 +181,9 @@ def check(t):
         and getattr(parse(relayed.get("at")), "tzinfo", None) is not None
     ):
         raise Reject("changesRelayed needs an object with a full head and an at time with a zone")
-    if t.get("noApproval") is not None:
+    if "noApproval" in t:
         if t["noApproval"] is not True:
-            raise Reject("noApproval must be true or null")
+            raise Reject("noApproval must be true")
         if t["stage"] not in NO_APPROVAL_STAGES:
             raise Reject(f"noApproval only belongs to merge, merge-queued or blocked, not {t['stage']}")
     held = t.get("heldApproval")

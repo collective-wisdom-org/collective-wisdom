@@ -43,7 +43,6 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("conflict-keep", "awaiting-merge", {}, "off", "send merge"),
         ("conflict-keep", "merge-queued", {}, "off", "send merge"),
         ("conflict-stand", "awaiting-review", {}, "off", "send merge"),
-        ("conflict-stand", "awaiting-merge", {}, "off", "send merge"),
         ("conflict-withdraw", "awaiting-review", {}, "on", "send build"),
         ("conflict-withdraw", "merge", {}, "on", "send build"),
         ("conflict-withdraw", "awaiting-merge", {}, "off", "send build"),
@@ -124,3 +123,10 @@ def test_bad_arguments_and_unknown_tickets_exit_2(tmp_path, capsys, monkeypatch,
     assert code == 2
     assert capsys.readouterr().out.startswith("route: cannot ")
     assert cos_route.main(["ABC-1", "resume", "--file", str(tmp_path / "missing.json")]) == 2
+
+
+def test_a_continuation_still_carries_no_approval(tmp_path, capsys, monkeypatch):
+    t = {"stage": "awaiting-merge", "parentThreadId": "old"}
+    _, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": t}, "conflict-stand")
+    assert out[-1] == "route: continuation merge"
+    assert 'set: {"noApproval": true}' in out

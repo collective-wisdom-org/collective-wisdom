@@ -33,6 +33,7 @@ whose parentThreadId is known and is not the Chief of Staff thread is a continua
 Prints lines the caller acts on, then a last line, exit 0 unless noted:
     stage: <JSON stage op>                  to apply (a send: the lane's active stage; a queue: <lane>-queued, to which
                                             the caller adds pendingRelay and, for a user spec approval, approvalItemId)
+    set: <JSON>                             a continuation has no stage op: add these keys to the lane's stage op
     moving: <line>                          copy under Moving (a send to a ticket with no known parent thread)
     fallback: <line>                        a continuation that falls back to sending to the old child adds this
     route: send <lane>                      send with t3_thread_send, then apply the stage op
@@ -117,14 +118,16 @@ def route(state, tid, caller, thread, setting):
         waiting = sum(queue_key(t) < queue_key(ticket) for _, t in others if t.get("stage") == f"{lane}-queued")
     room = count(lane) < cos_tick.LIMITS[lane] and count(*cos_state.ACTIVE) < cos_tick.CAP and not waiting
     op = {"op": "stage", "ticket": tid, "stage": lane if room else f"{lane}-queued", "status": "<status line>"}
+    extra = []
     if caller == "conflict-stand":  # a merge run with no approval to carry: later head checks must not invent one
         op["set"] = {"noApproval": True}
+        extra = ['set: {"noApproval": true}']
     if not room:
         return [f"stage: {json.dumps(op)}"], f"route: queue {lane}", 0
     parent, chief = ticket.get("parentThreadId"), state.get("chiefThreadId") or thread
     moving = MAY_NOT_HEAR.format(ticket=tid)
     if parent and parent != chief:
-        return [f"fallback: if the continuation sends to the old child, add under Moving: {moving}"], f"route: continuation {lane}", 0
+        return [f"fallback: if the continuation sends to the old child, add under Moving: {moving}"] + extra, f"route: continuation {lane}", 0
     return [f"stage: {json.dumps(op)}"] + ([f"moving: {moving}"] if not parent else []), f"route: send {lane}", 0
 
 

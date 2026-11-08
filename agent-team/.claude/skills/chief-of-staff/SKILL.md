@@ -283,7 +283,7 @@ A queued auto-approved relay skips that check. Instead, run `python3 ~/.collecti
 - `head-check: ok`: go on.
 - `head-check: moved <old> <new>`: the head moved after the reviews the user saw. Don't send, and drop the approval if it was queued. `comment` `Approval withdrawn at <time>: the PR head moved.`, tell the user under Needs you, and send the printed relay (`head-moved`).
 - `head-check: conflict keep`: keep the approval (verified at this head) and send the printed relay (`conflict-keep`).
-- `head-check: conflict stand`: no approval exists, reviews stand: send the printed relay (`conflict-stand`). A merge approval's head check prints it only when state says `noApproval`.
+- `head-check: conflict stand`: no approval exists, reviews stand: send the printed relay (`conflict-stand`). It comes from `--no-approval` callers and a `BLOCKED:` merge child whose state says `noApproval`.
 - `head-check: conflict withdraw`: `comment` `Approval withdrawn at <time>: the PR conflicts with <target>.`, tell the user under Needs you, and send the printed relay (`conflict-withdraw`).
 - Exit 2 (`head-check: cannot <what>`): don't send, and tell the user under Needs you.
 

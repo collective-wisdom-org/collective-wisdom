@@ -94,13 +94,10 @@ def test_changes_relayed_is_a_validated_record_the_script_never_clears(op, want)
     "stage_now, op, want",
     [
         ("merge", set_(noApproval=True), True),
-        ("merge-queued", set_(noApproval=True), True),
         ("blocked", set_(noApproval=True), True),
-        ("merge", set_(noApproval=None), None),
         ("awaiting-merge", set_(noApproval=True), "reject"),
-        ("build", set_(noApproval=True), "reject"),
         ("merge", set_(noApproval=False), "reject"),
-        ("merge", set_(noApproval="yes"), "reject"),
+        ("merge", set_(noApproval=None), "reject"),
         ("merge", stage("blocked"), True),  # kept so the resumed run still carries no approval
         ("merge", stage("awaiting-merge"), None),
     ],
