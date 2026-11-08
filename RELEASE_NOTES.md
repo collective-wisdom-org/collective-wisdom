@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 list subagent threads under each Running child (CW-94) (#180)
+
+Merged 2026-11-08 05:09 UTC.
+
+The Chief of Staff's `Running` list now shows the subagent threads (implementer, docs check, code review and others) under each running ticket, so you can open them from the report. Nothing to do on your side.
+
 ## 2026-11-08 nest each agent Gantt chart under its status card (CW-181) (#184)
 
 Merged 2026-11-08 05:08 UTC.
