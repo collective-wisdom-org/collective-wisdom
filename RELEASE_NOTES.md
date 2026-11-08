@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 show the status pane and agent Gantt in a local dashboard (CW-173) (#174)
+
+Merged 2026-11-08 00:32 UTC.
+
+`start the team` now also starts a local dashboard and opens it in T3's browser pane. It shows the Chief of Staff status and each session's agents as a Gantt chart, with links to issues and PRs. It needs Node 24 or newer; without it you get one line in the start report and everything else works as before.
+
 ## 2026-11-07 read the agent-gantt price table from the machine install (CW-171) (#172)
 
 Merged 2026-11-07 23:28 UTC.
