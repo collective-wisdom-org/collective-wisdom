@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildApi, repoUrlFromProject } from './api.ts'
+import { buildApi, parseWorktrees, repoUrlFromProject } from './api.ts'
 
 const NOW = 1_800_000_000_000
 const GH = { url: 'https://github.com/o/r', isGithubIssues: true }
@@ -96,4 +96,34 @@ test('repoUrlFromProject', () => {
   const md = readFileSync(join(import.meta.dirname, '../../../docs/agents/project.md'), 'utf8')
   assert.deepEqual(repoUrlFromProject(md), { url: 'https://github.com/collective-wisdom-org/collective-wisdom', isGithubIssues: true })
   assert.equal(repoUrlFromProject('# nothing here\n'), null)
+})
+
+test('snapshots join the card of their worktree branch; the rest stay in the Agents list', () => {
+  const porcelain = [
+    'worktree /r\nHEAD a\nbranch refs/heads/main',
+    'worktree /r/.worktrees/x\nHEAD b\nbranch refs/heads/feat/cw-7-thing',
+    'worktree /h/.t3/worktrees/r/t3-1\nHEAD c\nbranch refs/heads/odd-name',
+    'worktree /h/.t3/worktrees/r/t3-2\nHEAD d\nbranch refs/heads/feat/cw-9-off-board',
+    'worktree /h/.t3/worktrees/r/t3-3\nHEAD e\ndetached',
+  ].join('\n\n')
+  const worktrees = parseWorktrees(porcelain)
+  assert.deepEqual(worktrees.map((w) => w.path), ['/r', '/r/.worktrees/x', '/h/.t3/worktrees/r/t3-1', '/h/.t3/worktrees/r/t3-2'])
+  const state = { tickets: { 'CW-7': { title: 't', stage: 'build', status: 'going. Risk: low' }, 'CW-8': { title: 't', stage: 'build', status: 'going. Risk: low', branch: 'odd-name' } } }
+  const snap = (cwd: string, age = 0) => ({ sessionId: cwd, cwd, updatedAt: NOW - age, total: null, rows: [] })
+  const cases: [string, string, string | null][] = [
+    ['equal cwd, nested beats root, pattern', '/r/.worktrees/x', 'CW-7'],
+    ['under worktree', '/r/.worktrees/x/src', 'CW-7'],
+    ['state branch', '/h/.t3/worktrees/r/t3-1/a', 'CW-8'],
+    ['not on board', '/h/.t3/worktrees/r/t3-2', null],
+    ['detached skipped', '/h/.t3/worktrees/r/t3-3', null],
+    ['sibling folder prefix', '/r/.worktrees/xy', null],
+  ]
+  for (const [name, cwd, want] of cases) {
+    const api = build({ state, snapshots: [snap(cwd)], worktrees, prefix: 'CW' })
+    const rows = api.status.flatMap((g) => g.rows) as any[]
+    assert.equal(rows.find((r) => r.gantt)?.id ?? null, want, name)
+    assert.equal(api.gantt.length, want ? 0 : 1, name)
+  }
+  const two = build({ state, snapshots: [snap('/r/.worktrees/x', 0), snap('/r/.worktrees/x/b', 5000)], worktrees, prefix: 'CW' })
+  assert.deepEqual((two.status[0].rows.find((r: any) => r.id === 'CW-7') as any).gantt.map((s: any) => s.sessionId), ['/r/.worktrees/x/b', '/r/.worktrees/x'])
 })

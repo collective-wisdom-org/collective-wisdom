@@ -60,3 +60,11 @@ test('the shared axis follows now for a live session and freezes for a stale one
   assert.match(run(T, true), /class="session stale"/)
   assert.ok(!/class="session stale"/.test(run(T, false)))
 })
+
+test('a card with sessions gets a closed chart that reopens when its id is in the open set', () => {
+  const g = [sess()]
+  const html = (open) => renderStatus(group([row({ gantt: g }), row({ id: 'CW-2' })]), open)
+  assert.match(html(), /<details class="chart" data-ticket="CW-1"><summary>Agents <span class="pill">1<\/span>/)
+  assert.match(html(new Set(['CW-1'])), /<details class="chart" data-ticket="CW-1" open>/)
+  assert.equal(html().match(/<details/g).length, 1)
+})
