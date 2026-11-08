@@ -1,15 +1,16 @@
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
-import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
+import { lstatSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { join } from 'node:path'
-import { buildApi, parseWorktrees, repoUrlFromProject } from './api.ts'
+import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
 import type { Worktree } from './api.ts'
 import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 import { createUpdated } from './updated.ts'
 import { createMerged } from './merged.ts'
 import type { MergedConfig } from './merged.ts'
+import { parseLedger, recordSpend, spendByTicket } from './spend.ts'
 
 const PAGES: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -33,6 +34,28 @@ function readJson(file: string, dirs: string[]): unknown {
     return text === undefined ? undefined : JSON.parse(text)
   } catch {
     return undefined
+  }
+}
+
+/** Writes the ledger through a temp file and a rename. Nothing is written unless `.agent-team` is a real folder and `spend.json` is absent or a regular file. */
+function writeSpend(agentDir: string, text: string): boolean {
+  const file = join(agentDir, 'spend.json')
+  const tmp = join(agentDir, `spend.json.${process.pid}.tmp`)
+  try {
+    if (!lstatSync(agentDir).isDirectory()) return false
+    try {
+      if (!lstatSync(file).isFile()) return false
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') return false
+    }
+    writeFileSync(tmp, text, { flag: 'wx' })
+    renameSync(tmp, file)
+    return true
+  } catch {
+    try {
+      unlinkSync(tmp)
+    } catch {}
+    return false
   }
 }
 
@@ -69,9 +92,15 @@ export async function startServer(opts: { root: string; port: number }): Promise
   // The first read finishes before the server answers, so the first /api already has the list.
   await refreshWorktrees()
 
-  const api = () => {
+  const projectText = () => readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
+
+  const readState = (): unknown => {
     const state = readJson(join(agentDir, 'state.json'), [agentDir])
     if (state !== undefined) lastState = state
+    return lastState
+  }
+
+  const readSnapshots = (): unknown[] => {
     const snapshots: unknown[] = []
     try {
       const dir = join(agentDir, 'gantt')
@@ -83,6 +112,29 @@ export async function startServer(opts: { root: string; port: number }): Promise
         }
       }
     } catch {}
+    return snapshots
+  }
+
+  // The spend ledger: loaded at start, updated every 30 seconds whether or not the page polls, rewritten only when it changed.
+  let ledger = parseLedger(readRegular(join(agentDir, 'spend.json'), [agentDir]) ?? '')
+  let written = JSON.stringify(ledger)
+  const recordRound = () => {
+    try {
+      const text = projectText()
+      void refreshWorktrees()
+      const matched = ledgerSessions({ snapshots: readSnapshots(), worktrees, state: readState(), prefix: text === undefined ? null : prefixFromProject(text), now: Date.now() })
+      ledger = recordSpend(ledger, matched)
+      const next = JSON.stringify(ledger)
+      if (next !== written && writeSpend(agentDir, next)) written = next
+    } catch {}
+  }
+  recordRound()
+  const spendTimer = setInterval(recordRound, 30_000)
+  spendTimer.unref()
+
+  const api = () => {
+    readState()
+    const snapshots = readSnapshots()
     const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir])
     const envId = (dash as { environmentId?: unknown } | undefined)?.environmentId
     let repo = null
@@ -90,7 +142,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     let mergedCfg: MergedConfig | null = null
     let prefix: string | null = null
     try {
-      const text = readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
+      const text = projectText()
       if (text !== undefined) {
         repo = repoUrlFromProject(text)
         prefix = prefixFromProject(text)
@@ -112,7 +164,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     merged.want(mergedCfg)
     updated.want(titleCfg)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get() })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger) })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
@@ -153,6 +205,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     port: bound,
     close: () =>
       new Promise<void>((resolve) => {
+        clearInterval(spendTimer)
         server.close(() => resolve())
         server.closeAllConnections()
       }),

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { request } from 'node:http'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, realpathSync, readFileSync, readdirSync, existsSync } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -145,6 +145,37 @@ test('degraded inputs still answer', async () => {
       await srv.close()
       rmSync(join(root, '..', '..'), { recursive: true, force: true })
       for (const d of outsideDirs.splice(0)) rmSync(d, { recursive: true, force: true })
+    }
+  }
+})
+
+test('records spend in the background and writes nothing through a link', async () => {
+  const cases: { name: string; link: boolean }[] = [{ name: 'real folder', link: false }, { name: '.agent-team is a link', link: true }]
+  for (const c of cases) {
+    const root = wtRoot()
+    const outside = tmpRoot()
+    const agent = join(root, '.agent-team')
+    if (c.link) symlinkSync(outside, agent)
+    else mkdirSync(agent)
+    mkdirSync(join(agent, 'gantt'))
+    writeFileSync(join(agent, 'state.json'), JSON.stringify(goodState))
+    const rows = [{ id: 'main', depth: 0, name: 'm', repo: 'r', start: 1, end: 2, tokens: 40, cost: 0.5, kind: 'session' }, { id: 't', depth: 1, name: 't', repo: 'r', start: 1, end: 2, tokens: 99, cost: 0.1, kind: 'task' }]
+    writeFileSync(join(agent, 'gantt/a.json'), JSON.stringify({ ...goodSnap, sessionId: 'a', cwd: root, total: 0.5, rows }))
+    const srv = await startServer({ root, port: 0 })
+    try {
+      const file = join(outside, 'spend.json')
+      if (c.link) {
+        assert.ok(!existsSync(file), c.name)
+        assert.deepEqual(readdirSync(outside).sort(), ['gantt', 'state.json'], c.name)
+      } else {
+        const ledger = JSON.parse(readFileSync(join(agent, 'spend.json'), 'utf8'))
+        assert.deepEqual(ledger.sessions.a, { ticket: 'CW-1', cost: 0.5, tokens: 40, updatedAt: goodSnap.updatedAt })
+        assert.deepEqual(readdirSync(agent).sort(), ['gantt', 'spend.json', 'state.json'], c.name)
+      }
+    } finally {
+      await srv.close()
+      rmSync(join(root, '..', '..'), { recursive: true, force: true })
+      rmSync(outside, { recursive: true, force: true })
     }
   }
 })

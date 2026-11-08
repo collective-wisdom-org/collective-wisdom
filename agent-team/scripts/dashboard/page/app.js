@@ -79,6 +79,8 @@ const stamp = (ms) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
 
+const spent = (s) => (s ? `${typeof s.cost === 'number' ? `<span class="num cost">${dollars(s.cost)}</span>` : ''}<span class="meta">${tokens(s.tokens)} tokens</span>` : '')
+
 /** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped. */
 export function renderMerged(list, page, size = 10) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
@@ -89,7 +91,7 @@ export function renderMerged(list, page, size = 10) {
     .map(
       (e) => `<li class="row">
   <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
-  <div class="sub"><span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span></div>
+  <div class="sub"><span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
 </li>`,
     )
     .join('\n')

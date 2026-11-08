@@ -1,7 +1,7 @@
 import type { TitleConfig } from './titles.ts'
 
 export type MergedConfig = TitleConfig & { issueUrls: boolean }
-export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number }
+export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; spend?: { cost: number | null; tokens: number } }
 type Run = (args: string[]) => Promise<string>
 
 const REFRESH_MS = 60_000

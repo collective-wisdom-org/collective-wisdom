@@ -91,7 +91,7 @@ function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null {
   }
 }
 
-function cleanSnapshot(s: unknown, now: number): Session | null {
+export function cleanSnapshot(s: unknown, now: number): Session | null {
   if (!isObj(s) || !Array.isArray(s.rows) || !isWorktree(str(s.cwd))) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
@@ -104,20 +104,33 @@ function cleanSnapshot(s: unknown, now: number): Session | null {
   return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), rows }
 }
 
-/** The board ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `feat/<prefix>-N-`. */
-function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, unknown>, onBoard: Set<string>, prefix: string | null): string | null {
+/** The ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `feat/<prefix>-N-`. With `onBoard` only those tickets count; with null any ticket id from the branch does. */
+function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, unknown>, onBoard: Set<string> | null, prefix: string | null): string | null {
   let best: Worktree | null = null
   for (const w of worktrees) {
     if ((cwd === w.path || cwd.startsWith(w.path.replace(/\/+$/, '') + '/')) && (!best || w.path.length > best.path.length)) best = w
   }
   if (!best) return null
-  for (const id of onBoard) {
+  for (const id of onBoard ?? Object.keys(tickets)) {
     const t = tickets[id]
     if (isObj(t) && t.branch === best.branch) return id
   }
   const n = prefix ? best.branch.match(new RegExp(`^feat/${prefix.toLowerCase()}-(\\d+)(?:-|$)`))?.[1] : undefined
   const id = n ? `${prefix}-${n}` : null
-  return id && onBoard.has(id) ? id : null
+  return id && (!onBoard || onBoard.has(id)) ? id : null
+}
+
+/** The sessions that belong to a ticket for the spend ledger. Unlike the charts, the ticket need not be on the board. */
+export function ledgerSessions(input: { snapshots: unknown[]; worktrees: Worktree[]; state: unknown; prefix: string | null; now: number }): { ticket: string; session: Session }[] {
+  const { snapshots, worktrees, state, prefix, now } = input
+  const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
+  const out: { ticket: string; session: Session }[] = []
+  for (const raw of snapshots) {
+    const session = cleanSnapshot(raw, now)
+    const ticket = session && ticketOf(session.cwd, worktrees, tickets, null, prefix)
+    if (session && ticket) out.push({ ticket, session })
+  }
+  return out
 }
 
 const QUEUED = ['merge-queued', 'build-queued', 'spec-queued']
@@ -128,8 +141,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number> }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {} } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }> }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
@@ -153,5 +166,5 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     if (row) (row.gantt ??= []).push(s)
   }
   for (const r of rowById.values()) r.gantt?.sort((a, b) => a.updatedAt - b.updatedAt)
-  return { generatedAt: now, status, merged }
+  return { generatedAt: now, status, merged: merged.map((e) => (Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e)) }
 }
