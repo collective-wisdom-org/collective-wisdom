@@ -47,7 +47,7 @@ When more than one snapshot is `chief`, the newest `updatedAt` wins (one card, o
 `buildApi` adds two keys; `status` and `merged` don't change.
 
 - `chief`: `{ state: 'running' | 'idle' | 'paused', threadLink?: string, gantt?: Session[] }`.
-  - `paused` when state `paused` is `true`. Else `running` when the matched session's raw `main` row has an open last segment (a turn is in progress) and `updatedAt` is within 60 seconds. Else `idle`.
+  - `paused` when state `paused` is `true`. Else `running` when the matched session has an open last segment on its `main` row or on any `main:task:N` row (a turn is in progress; real snapshots carry the task rows only) and `updatedAt` is within 60 seconds. Else `idle`.
   - `threadLink` is `<t3-thread://v2/<environmentId>/<chiefThreadId>>`, built the way ticket rows build theirs.
   - `gantt` is the matched session alone. No matched session: no `gantt`.
 - `pm`: a list, newest `updatedAt` first, each `{ sessionId, role: 'ranking' | 'hygiene', state: 'running' | 'finished', threadLink?: string, gantt: Session[] }`. `running` uses the same test as the card; otherwise `finished`. `threadLink` uses the snapshot's `threadId`. Live snapshots and history entries are merged by `sessionId`, the newer one wins.
@@ -81,7 +81,7 @@ The Chief of Staff's own sessions are not kept in history: the card shows the cu
 - **Roles come from the first prompt's heading, not from state.** The ticket offered a field from `writeSnapshot`, a state record, or the thread id. A state record would change the Chief of Staff skill and `cos_state.py`, which this ticket keeps out of scope. The heading needs only the mod, and the task headings are fixed text in `project-manager/reference.md`. If those headings change, the dashboard's two-row table must change with them.
 - **The mod reports a generic heading, not a role.** The mod stays free of team words, and the dashboard holds the mapping.
 - **The Chief of Staff is matched by `chiefSessionId` first, `chiefThreadId` second.** `chiefSessionId` is set on every plain Chief of Staff run and works for snapshots written before this change. Right after a rotation it is `null` until the new thread's first check, so the thread id covers that gap.
-- **Running means a turn is open now** (open `main` segment and an update in the last 60 seconds). An idle Chief of Staff waiting for a notice shows `idle`, which is most of the time.
+- **Running means a turn is open now** (open `main` or `main:task:N` segment and an update in the last 60 seconds). An idle Chief of Staff waiting for a notice shows `idle`, which is most of the time.
 - Project manager history is capped at 50 entries, separate from the 500 ticket sessions.
 - Ten project manager rows per page, using the Merged pager.
 - The tab choice lives in `localStorage`, not the URL, so the T3 preview tab keeps it across reloads and restarts without a changed address.
