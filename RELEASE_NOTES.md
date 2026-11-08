@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 show spec-stage tickets in a Speccing dashboard group (CW-182) (#185)
+
+Merged 2026-11-08 05:19 UTC.
+
+Tickets whose spec is still being written now show under "Speccing" in the dashboard, the status pane and the `status` answer, instead of "Other".
+
 ## 2026-11-08 list subagent threads under each Running child (CW-94) (#180)
 
 Merged 2026-11-08 05:09 UTC.
