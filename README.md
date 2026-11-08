@@ -43,6 +43,8 @@ This repo runs its own Chief of Staff the way an app does: from the machine inst
 - Python 3 and `pytest` (for example `uvx pytest`) to run the script tests
 - Superpowers skills used by the ship loop: `brainstorming`, `writing-plans`, `using-git-worktrees`, `executing-plans`, `subagent-driven-development` and `verification-before-completion`
 
+What works on which harness and tracker: [docs/compatibility.md](docs/compatibility.md).
+
 ## Adopt in a repo
 
 An app commits one file from the team: `docs/agents/project.md`. From an empty repo to a running Chief of Staff:
