@@ -35,7 +35,7 @@ AGAIN = "tick --after-reads"
 ROTATION_CHECK = f"run python3 {SCRIPTS}/cos_rotation_check.py"
 STALE_HANDOFF = timedelta(minutes=10)
 MAX_WAKE_MS = 6 * 3600 * 1000
-SAFE = re.compile(r"[A-Za-z0-9._:%@-]+")  # what may be printed into a plan line
+SAFE = re.compile(r"[A-Za-z0-9._:%@][A-Za-z0-9._:%@-]*")  # what may be printed into a plan line
 DAILY = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
 SPEC_USER = "CHIEF OF STAFF: the user approved the spec"
 SPEC_AUTO = "CHIEF OF STAFF: auto-approved the spec"
@@ -51,19 +51,24 @@ def fail(msg):
 
 def safe(value, what):
     """Values from state, a notice or an argument go into plan lines as typed, so a newline or quote must stop the plan."""
-    if value not in (None, "") and not (isinstance(value, (str, int)) and SAFE.fullmatch(str(value))):
+    if value not in (None, "") and not (type(value) in (str, int) and SAFE.fullmatch(str(value))):
         fail(f"unsafe {what} in state or arguments")
 
 
-def check_values(state, thread, trigger):
+def check_args(thread, trigger):
     safe(thread, "thread id")
     safe(trigger.partition(":")[2], "notice thread id")
+
+
+def check_state(state):
     safe(state.get("wakeTaskId"), "wakeTaskId")
     for r in cos_state.dicts(state.get("retiredThreads")):
         if isinstance(r.get("threadId"), str):
             safe(r["threadId"], "retired thread id")
     for tid, t in state["tickets"].items():
         safe(tid, "ticket id")
+        if not cos_state.ID.match(tid):
+            fail("unsafe ticket id in state or arguments")
         if isinstance(t, dict):
             for field in ("childThreadId", "pr", "headSha", "approvalItemId"):
                 safe(t.get(field), field)
@@ -172,6 +177,7 @@ def relay_lines(state, thread, tid, t, lane):
             out.append(f"run python3 {SCRIPTS}/cos_approve_pr.py {tid} --auto")
     elif relay.startswith(SPEC_USER):
         where = re.search(r"^Approval in thread: (\S+)", relay, re.M)
+        safe(where and where.group(1), "approval thread id")
         words = re.search(r'approved the spec: "(.*)"\. Continue', relay, re.S)
         out.append(
             f"user-check {tid} {where.group(1) if where else thread} {t.get('approvalItemId') or '-'} "
@@ -283,9 +289,10 @@ def main(argv=None):
     ap.add_argument("--now", type=time_arg, default=datetime.now(timezone.utc))
     args = ap.parse_args(argv)
     state = load(args.file)
-    check_values(state, args.thread, args.trigger)
+    check_args(args.thread, args.trigger)
     plan = [stops(state, args.thread, args.trigger.partition(":")[0], args.now)]
     if not plan[0]:
+        check_state(state)
         plan = act(state, args.thread, args.trigger, args.now) if args.after_reads else look(state, args.thread, args.trigger)
     print("\n".join(f"{n}. {line}" for n, line in enumerate(plan, 1)))
     return 0
