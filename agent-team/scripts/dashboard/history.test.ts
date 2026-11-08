@@ -22,6 +22,7 @@ test('gantt history rules', () => {
       assert.equal(late.rows[0].end, 9)
       assert.deepEqual(late.rows[0].segments, [[1, 9]])
     }],
+    ['a ticket id that names an Object property does not throw', { sessions: {} }, [['__proto__', sess('p', 1)], ['toString', sess('q', 2)]], (h) => assert.deepEqual(Object.keys(historyByTicket(h)).sort(), ['__proto__', 'toString'])],
   ]
   for (const [name, history, matched, check] of cases) {
     try { check(recordHistory(history, matched.map(([ticket, session]) => ({ ticket, session })))) } catch (e) { throw new Error(`${name}: ${(e as Error).message}`) }

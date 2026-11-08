@@ -177,8 +177,9 @@ test('records spend in the background and writes nothing through a link', async 
         assert.equal(history.sessions.a.session.rows[0].tokens, 40)
         await srv.close()
         rmSync(join(agent, 'gantt/a.json'))
+        writeFileSync(join(agent, 'gantt/b.json'), JSON.stringify({ ...goodSnap, sessionId: 'b', cwd: root, total: 0.5, rows }))
         srv = await startServer({ root, port: 0 })
-        assert.equal(JSON.parse(readFileSync(join(agent, 'gantt-history.json'), 'utf8')).sessions.a.ticket, 'CW-1')
+        assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(agent, 'gantt-history.json'), 'utf8')).sessions).sort(), ['a', 'b'])
       }
     } finally {
       await srv.close()

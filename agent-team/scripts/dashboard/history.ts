@@ -50,8 +50,8 @@ const finish = (s: Session): Session => {
 
 /** Each ticket's sessions, oldest update first, all shown as finished so no bar is drawn running. */
 export function historyByTicket(history: History): Record<string, Session[]> {
-  const out: Record<string, Session[]> = {}
-  for (const { ticket, session } of Object.values(history.sessions)) (out[ticket] ??= []).push(finish(session))
-  for (const list of Object.values(out)) list.sort((a, b) => a.updatedAt - b.updatedAt)
-  return out
+  const out = new Map<string, Session[]>()
+  for (const { ticket, session } of Object.values(history.sessions)) out.set(ticket, [...(out.get(ticket) ?? []), finish(session)])
+  for (const list of out.values()) list.sort((a, b) => a.updatedAt - b.updatedAt)
+  return Object.fromEntries(out)
 }
