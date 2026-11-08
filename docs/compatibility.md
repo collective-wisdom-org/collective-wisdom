@@ -8,12 +8,12 @@ Last checked against the code on 2026-11-08.
 
 | Value | Meaning |
 |---|---|
-| works | The code shows it, or someone has run it and recorded it |
+| works | The code shows it, or the team runs it today. A run that no doc records is named in a note |
 | partial | Part of it works. The cell says what does not |
 | not supported | Nothing here makes it work on this column |
 | untested | Nothing shows it either way. Nobody has recorded a run |
 
-A cell is `works` only where the code or a recorded run shows it. Anything else is `untested`.
+A cell is `works` only where the code shows it or the team runs it today. Anything else is `untested`.
 
 A cell that is not `works` gives a short reason and a gap number such as `G3`. The [Gaps](#gaps) list holds one line per gap with its ticket link, or `none yet` while there is no ticket.
 
@@ -30,11 +30,11 @@ Columns are the places a person runs an agent session. "In T3 Code" means a thre
 | Subagents | works | untested: role file as prompt (G4) | works | untested: role file as prompt (G4) | untested: role file as prompt (G4) |
 | Chief of Staff thread | works | untested (G2) | not supported: needs T3 (G5) | not supported: needs T3 (G5) | not supported: needs T3 (G5) |
 | Ship loop child threads | works | untested (G2) | not supported: needs T3 (G5) | not supported: needs T3 (G5) | not supported: needs T3 (G5) |
-| Ship loop by hand | works | untested (G2) | partial: CI wait needs `t3_background_wait` (G6) | untested (G2) | untested (G3) |
+| Ship loop by hand | works | untested (G2) | partial: CI wait needs `t3_background_wait` (G6) | partial: CI wait needs `t3_background_wait`; rest untested (G6, G2) | partial: CI wait needs `t3_background_wait`; rest untested (G6, G3) |
 | Stop hook (thread rotation) | works | not supported: hook installed for Claude Code only (G7) | works, but only a Chief of Staff needs it | not supported: hook installed for Claude Code only (G7) | not supported: hook installed for Claude Code only (G7) |
 | Usage and cost report | works | not supported: reads Claude Code transcripts only (G8) | works | not supported: reads Claude Code transcripts only (G8) | not supported: reads Claude Code transcripts only (G8) |
 | Local dashboard | works | partial: no gantt rows or spend (G9) | not supported: shows Chief of Staff state, which needs T3 (G5) | not supported: shows Chief of Staff state, which needs T3 (G5) | not supported: shows Chief of Staff state, which needs T3 (G5) |
-| `agent-gantt` | untested: hooks read T3 sessions, pane in T3 not seen (G10) | not supported: Claude Code plugin (G10) | works | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) |
+| `agent-gantt` | partial: hooks run in T3 sessions, pane in T3 not seen (G10) | not supported: Claude Code plugin (G10) | works | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) |
 | `status-pane` | untested: pane in T3 not seen (G10) | not supported: Claude Code plugin (G10) | partial: ticket groups come from Chief of Staff state, which needs T3 (G5) | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) |
 | Security review subagent | works | untested (G4) | works | untested (G4) | partial: needs Cursor's own `review-security` (G11) |
 
@@ -82,7 +82,7 @@ Notes:
 
 ## Keeping it current
 
-A PR that changes support for a cell updates that cell in the same PR. When a cell goes from not `works` to `works`, drop its gap and its reason. A cell moves to `works` only with the code or a recorded run to show it.
+A PR that changes support for a cell updates that cell in the same PR. When a cell goes from not `works` to `works`, drop its gap and its reason. A cell moves to `works` only with the code, or a run the team does today, to show it.
 
 A gap ticket links back to its cell here, by row, column and gap number. When the ticket exists, put its link on the gap's line below, in place of `none yet`.
 
@@ -95,7 +95,7 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G3.** No recorded Cursor run: skills load and the ship loop by hand are unchecked on Cursor. Ticket: none yet.
 - **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, and nobody has recorded doing it. Ticket: none yet.
 - **G5.** The Chief of Staff and the child threads call T3 Code's thread tools, and the dashboard and `status-pane` show the Chief of Staff's state. Nothing replaces them outside T3 Code. Ticket: none yet.
-- **G6.** The ship loop's CI wait calls `t3_background_wait`, which Claude Code alone does not have. Ticket: none yet.
+- **G6.** The ship loop's CI wait calls `t3_background_wait`, which no session outside T3 Code has. Ticket: none yet.
 - **G7.** The rotation Stop hook is installed for Claude Code only. Codex and Cursor get no hook. Ticket: none yet.
 - **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex or Cursor work. Ticket: none yet.
 - **G9.** The dashboard's gantt rows and spend come from `agent-gantt` snapshots, which Codex threads do not produce. Ticket: none yet.

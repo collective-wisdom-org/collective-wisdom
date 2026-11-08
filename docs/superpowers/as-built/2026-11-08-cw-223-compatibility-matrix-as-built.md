@@ -12,3 +12,6 @@
 - `status-pane` on Claude Code alone is `partial`, not `works`: its ticket groups come from `state.json`, which only a Chief of Staff writes.
 - `agent-gantt` on Claude Code in T3 Code stays `untested`; the reason names hooks that read T3 sessions with the pane not seen in T3.
 - Notes under the tables add that a Codex or Cursor child's cost is unknown to `no_hands.py`, so a No Hands run stops.
+- Ship loop by hand on Codex alone and Cursor is `partial`, not `untested`: the CI wait needs `t3_background_wait`, as on Claude Code alone.
+- `agent-gantt` on Claude Code in T3 Code is `partial`, not `untested`: its hooks run in T3 sessions and feed the dashboard's gantt rows, and only the pane in T3 is unseen.
+- The legend lets `works` rest on a run the team does today, with unrecorded runs named in a note (the Linear cells), instead of requiring a recorded verification.
