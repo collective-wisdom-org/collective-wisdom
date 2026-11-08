@@ -317,12 +317,12 @@ export async function startServer(opts: { root: string; port: number }): Promise
   // Every 5 seconds: if the code this server loaded has changed, replace this process with a new one on the same root and port.
   const watch = restartWatch(running)
   let restarting = false
-  const newServerUp = async (): Promise<boolean> => {
+  const newServerUp = async (pid: number | undefined): Promise<boolean> => {
     try {
       const res = await fetch(`http://127.0.0.1:${bound}/health`, { signal: AbortSignal.timeout(500) })
-      const body = (await res.json()) as { root?: unknown; code?: unknown }
+      const body = (await res.json()) as { root?: unknown; code?: unknown; pid?: unknown }
       // Any healthy server on newer code counts, so a second change during the wait doesn't roll back a good server.
-      return body.root === root && typeof body.code === 'string' && body.code !== running
+      return body.root === root && body.pid === pid && typeof body.code === 'string' && body.code !== running
     } catch {
       return false
     }
@@ -344,8 +344,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
     child.once('exit', () => (gone = true))
     child.unref()
     const deadline = Date.now() + 15_000
-    while (Date.now() < deadline && !gone && !(await newServerUp())) await new Promise((r) => setTimeout(r, 100))
-    if (!gone && (await newServerUp())) {
+    while (Date.now() < deadline && !gone && !(await newServerUp(child.pid))) await new Promise((r) => setTimeout(r, 100))
+    if (!gone && (await newServerUp(child.pid))) {
       const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir]) as { environmentId?: unknown } | undefined
       writeJson(agentDir, 'dashboard.json', JSON.stringify({ pid: child.pid, port: bound, environmentId: dash?.environmentId }))
       process.exit(0)

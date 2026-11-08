@@ -29,11 +29,12 @@ const healthy = async (port: number, root: string) => (await health(port, root))
 
 /** The pid to stop for a server on `port`: the one `/health` reports, or for a server from before `/health` had a pid, the pid in dashboard.json when that process is a dashboard server on this port. */
 function serverPid(live: Health, port: number, recorded: unknown): number | null {
-  if (Number.isInteger(live.pid)) return live.pid as number
-  if (!Number.isInteger(recorded)) return null
+  // Either pid is only trusted when `ps` shows a dashboard server on this port; a bare number (0, -1, someone else's pid) is never signalled.
+  const pid = Number.isInteger(live.pid) ? (live.pid as number) : recorded
+  if (!Number.isInteger(pid) || (pid as number) <= 1) return null
   try {
-    const cmd = execFileSync('ps', ['-p', String(recorded), '-o', 'command='], { encoding: 'utf8', timeout: 2000 })
-    return cmd.includes('server.ts') && cmd.includes(`--port ${port}`) ? (recorded as number) : null
+    const cmd = execFileSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8', timeout: 2000 })
+    return cmd.includes('server.ts') && new RegExp(`--port ${port}(\\s|$)`).test(cmd) ? (pid as number) : null
   } catch {
     return null
   }

@@ -225,7 +225,7 @@ test('a healthy server running other code is stopped and replaced on its port', 
     fake,
     `require('http').createServer((q, r) => r.end(JSON.stringify({ ok: true, root: ${JSON.stringify(root)}, code: 'old', pid: process.pid }))).listen(${port}, '127.0.0.1')`,
   )
-  const old = spawn(process.execPath, [fake], { stdio: 'ignore' })
+  const old = spawn(process.execPath, [fake, 'server.ts', '--port', String(port)], { stdio: 'ignore' })
   mkdirSync(join(root, '.agent-team'))
   writeFileSync(join(root, '.agent-team', 'dashboard.json'), JSON.stringify({ pid: old.pid, port, environmentId: 'env-1' }))
   try {
