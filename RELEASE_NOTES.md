@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 cos_tick.py plans a Chief of Staff turn (CW-60) (#196)
+
+Merged 2026-11-08 06:38 UTC.
+
+The Chief of Staff now gets the order of each turn from a script (`cos_tick.py`) instead of working it out from the skill text, so its turns follow the same steps every time. You need do nothing.
+
 ## 2026-11-08 split the Gantt main row into task chunks, show model and harness, leave out waiting time (CW-191) (#194)
 
 Merged 2026-11-08 05:58 UTC.
