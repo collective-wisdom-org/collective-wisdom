@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-08 rename awaiting-spec to awaiting-build and SPEC READY to BUILD READY (CW-177) (#186)
+
+Merged 2026-11-08 05:24 UTC.
+
+The Chief of Staff's waiting stage is now `awaiting-build` and a child's spec report is now `BUILD READY`. State files and children started before this change still work. Nothing to do.
+
+Context size: 178690 to 178835 characters (+145 from main)
+
 ## 2026-11-08 show spec-stage tickets in a Speccing dashboard group (CW-182) (#185)
 
 Merged 2026-11-08 05:19 UTC.
