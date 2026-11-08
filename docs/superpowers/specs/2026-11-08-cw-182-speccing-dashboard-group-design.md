@@ -23,7 +23,7 @@ Facts from `main` at `84987a1`.
 1. **`groups.ts`**: a new group `{ name: 'Speccing', stages: ['spec'] }` right before `Awaiting build approval`. `Other` keeps `spec-queued` and `blocked`.
 2. **`status.md` § Status layout**:
    - The group table gets a `Speccing | spec` row before `Awaiting build approval`. The `Other` row becomes `spec-queued` (in `queue spec:` order), `blocked`.
-   - The sample block's spec-stage ticket moves from `**Other (1)**` to a `**Speccing (1)**` table, in the place the group order puts it. Its Next cell stays `Spec stage since 14:05, no SPEC READY yet.`
+   - The sample block's spec-stage ticket moves from `**Other (1)**` to a `**Speccing (1)**` table, in the place the group order puts it. Its Next cell reads `Spec since 14:05, no SPEC READY yet.`, one word shorter now that the heading says it is the spec stage.
    - The `Other` reasons rule drops `spec stage` and keeps `blocked: <reason>` and gives the spec-slot reason as one phrase, `[changes requested, ]waiting for a spec slot`, which also covers a `spec-queued` row.
 3. **`groups.test.ts`**: the expected view gets `['Speccing', 1, ['CW-6']]` before `Building`, and `Other` becomes `['Other', 1, ['CW-5']]`. No new test: the existing table-driven test covers the group order and the stage mapping.
 
