@@ -62,15 +62,3 @@ def test_unreadable_state(tmp_path, capsys, state, want):
     assert cos_head_check.main(["ABC-1", "--file", str(path)]) == 2
     assert capsys.readouterr().out.splitlines() == [want]
 
-
-def test_setting_unreadable(tmp_path, monkeypatch, capsys):
-    def boom():
-        raise SystemExit("bad row")
-
-    monkeypatch.setattr(cos_head_check.project_config, "review_after_conflict", boom)
-    monkeypatch.setattr(cos_head_check.project_config, "target_branch", lambda: "main")
-    (tmp_path / "state.json").write_text(json.dumps({"tickets": {"ABC-1": {"pr": 5, "headSha": OLD}}}))
-    (tmp_path / "prs.json").write_text(json.dumps({"5": {"headRefOid": OLD, "mergeable": "CONFLICTING"}}))
-    argv = ["ABC-1", "--file", str(tmp_path / "state.json"), "--prs", str(tmp_path / "prs.json")]
-    assert cos_head_check.main(argv) == 2
-    assert capsys.readouterr().out.splitlines() == ["head-check: cannot read the merge target branch or its settings"]

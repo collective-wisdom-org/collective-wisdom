@@ -36,6 +36,14 @@ def ticket(n, state="Backlog", labels=(), priority="No priority", **kw):
     return {"id": f"ABC-{n}", "title": "t", "state": state, "labels": list(labels), "priority": priority, **kw}
 
 
+def gh_issue(n, *labels, **kw):
+    """A GitHub `issue list` entry: number, no id, no named state, no priority."""
+    return {"number": n, "title": "t", "labels": [{"name": x} for x in labels], "updatedAt": OLD_AT, **kw}
+
+
+OLD_AT = "2026-11-01T10:00:00Z"
+
+
 S = {"tickets": {"ABC-9": {}}, "merged": {}, "pm": {"filled": {"ABC-3": ["priority"]}}}
 
 
@@ -54,6 +62,15 @@ S = {"tickets": {"ABC-9": {}}, "merged": {}, "pm": {"filled": {"ABC-3": ["priori
     ("none", [ticket(1, state="Done"), ticket(2, state="Canceled")], None, []),
     ("none", [ticket(4, state="In Review", labels=["agent"])], None, ["ABC-4 fill: priority, type"]),
     ("none", [{"id": "XYZ-1", "state": "Backlog"}], None, []),
+    # GitHub shape: number instead of id, state and priority from labels, type:* labels
+    ("none", [gh_issue(1)], None, ["ABC-1 fill: priority, type"]),
+    ("none", [gh_issue(1, "priority:high", "type:bug")], None, []),
+    ("`web`", [gh_issue(1, "priority:low", "type:feature", "status:todo")], None, ["ABC-1 fill: area"]),
+    ("none", [gh_issue(1, "priority:low", "status:in-review")], None, ["ABC-1 fill: type"]),
+    ("none", [gh_issue(1, state="CLOSED", stateReason="COMPLETED"), gh_issue(2, state="CLOSED", stateReason="NOT_PLANNED")], None, []),
+    ("none", [gh_issue(2, state="OPEN", stateReason="")], None, ["ABC-2 fill: priority, type"]),
+    ("none", [gh_issue(9)], S, []),
+    ("none", [gh_issue(3, "type:bug")], S, []),
 ])
 def test_fill(tmp_path, monkeypatch, capsys, areas, tickets, state, want):
     assert run(tmp_path, monkeypatch, capsys, "fill", tickets, state, areas) == (0, want)
@@ -112,6 +129,19 @@ AGENT_STATE = {"tickets": {}, "merged": {"ABC-1": {"pr": 5, "at": "2026-11-07T11
     ([pr(6)], {"ABC-1": tk("In Progress", "agent")}, None, []),
     # a ticket the get-ticket read did not return is left alone
     ([MERGED], {"ABC-2": tk("In Progress")}, None, []),
+    # GitHub shape: the state comes from state, stateReason and status: labels
+    ([MERGED], {"ABC-1": {"state": "OPEN", "labels": [{"name": "status:in-review"}]}}, None, ["move ABC-1 Done (PR #5 merged)"]),
+    ([MERGED], {"ABC-1": {"state": "OPEN", "labels": []}}, None, ["move ABC-1 Done (PR #5 merged)"]),
+    ([MERGED], {"ABC-1": {"state": "CLOSED", "stateReason": "COMPLETED", "labels": []}}, None, []),
+    ([MERGED], {"ABC-1": {"state": "CLOSED", "stateReason": "NOT_PLANNED", "labels": []}}, None, []),
+    ([pr(6)], {"ABC-1": {"state": "OPEN", "labels": []}}, None, ["move ABC-1 In Review (PR #6 open)"]),
+    ([pr(6)], {"ABC-1": {"state": "OPEN", "labels": [{"name": "status:todo"}]}}, None, ["move ABC-1 In Review (PR #6 open)"]),
+    ([pr(6)], {"ABC-1": {"state": "OPEN", "labels": [{"name": "status:in-progress"}]}}, None, ["move ABC-1 In Review (PR #6 open)"]),
+    ([pr(6)], {"ABC-1": {"state": "OPEN", "labels": [{"name": "status:in-review"}]}}, None, []),
+    ([pr(6)], {"ABC-1": {"state": "OPEN", "labels": [{"name": "status:todo"}, {"name": "status:in-review"}]}}, None, []),
+    ([pr(6)], {"ABC-1": {"state": "CLOSED", "stateReason": "COMPLETED", "labels": []}}, None, []),
+    ([MERGED], {"ABC-1": {"state": "OPEN", "labels": [{"name": "agent"}]}}, None, []),
+    ([MERGED], {"ABC-1": {"state": "OPEN", "labels": [{"name": "agent"}]}}, AGENT_STATE, ["move ABC-1 Done (PR #5 merged)"]),
 ])
 def test_drift(tmp_path, monkeypatch, capsys, prs, tickets, state, want):
     got = run(tmp_path, monkeypatch, capsys, "drift", {"prs": prs, "tickets": tickets}, state, extra=["--since", SINCE])
@@ -155,6 +185,12 @@ STALE_STATE = {"tickets": {"ABC-9": {}}, "merged": {}, "pm": {"flaggedStale": {"
     ([ticket(2, "In Progress", updatedAt="2026-11-04T10:00:00Z")], [], None, STALE_STATE, ["stale ABC-2 In Progress since 2026-11-04"]),
     # Chief of Staff tickets are skipped
     ([ticket(9, "In Progress", updatedAt=OLD)], [], None, STALE_STATE, []),
+    # GitHub shape: no id or named state; the state name comes from the status: label
+    ([gh_issue(1, "status:in-progress")], [], None, None, ["stale ABC-1 In Progress since 2026-11-01"]),
+    ([gh_issue(1, "status:in-review", "status:todo")], [], None, None, ["stale ABC-1 In Review since 2026-11-01"]),
+    ([gh_issue(1, "status:in-review", updatedAt=FRESH)], [], None, None, []),
+    ([gh_issue(9, "status:in-progress")], [], None, STALE_STATE, []),
+    ([gh_issue(2, "status:in-progress")], [], None, STALE_STATE, []),
     # a deleted branch (commit read fails) falls back to the other two times
     ([ticket(1, "In Progress", updatedAt=OLD)], [{"number": 3, "updatedAt": "2026-11-02T10:00:00Z", "headRefName": "gone"}], None, None,
      ["stale ABC-1 In Progress since 2026-11-02"]),

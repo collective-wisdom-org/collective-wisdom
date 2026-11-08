@@ -10,7 +10,10 @@ Usage:
 stdin (the calls the hygiene child already makes). Writes nothing: no state, no tracker. Exit 2 and "pm_hygiene: <what>"
 when state or stdin cannot be read. Tickets in the Chief of Staff's `tickets` are never listed.
 
-fill: stdin is the change check's list-tickets result (a JSON list, fields id, state, labels, priority). For each ticket
+fill: stdin is the change check's list-tickets result as the tracker adapter returns it (a JSON list). Linear shape:
+id, state, labels, priority. GitHub shape: number (id is ABC-<number>), labels, and state, stateReason when present;
+the state is the furthest-along `status:` label (none is Backlog; closed is Done, or Canceled when not planned) and
+the priority is the `priority:` label. For each ticket
 in Backlog, Todo, In Progress or In Review, prints
     ABC-N fill: priority, area, type
 for the fields that are empty and not in pm.filled[ABC-N]. `area` is listed only when project.md's Areas and labels
@@ -21,7 +24,7 @@ drift: --since is pm.lastCheckAt. "prs" is the change check's PR list (number, s
 mergedAt). A PR belongs to ticket ABC-N when abc-N is in its branch or (ABC-N) is in its title. With "tickets" empty
 it prints "get ABC-N #PR" for each PR that could move its ticket: merged after --since, or opened after it and still
 open. The child then reads those tickets (state, labels) and runs it again with "tickets" filled ({"ABC-N": {"state":
-..., "labels": [...]}}); it prints
+..., "labels": [...]}}, in the adapter's shape as for fill; GitHub also stateReason); it prints
     move ABC-N Done (PR #X merged)         merged after --since, ticket not Done, Canceled or Duplicate
     move ABC-N In Review (PR #X open)      opened after --since, still open, ticket in Backlog, Todo or In Progress
 A ticket labelled `agent` is skipped unless it is in `merged` in state, and then only the move to Done applies.
@@ -98,8 +101,19 @@ def ticket_list(text):
             v = v.get("issues") if isinstance(v.get("issues"), list) else v.get("tickets")
         if not isinstance(v, list):
             raise Bad("stdin is not a ticket list")
-        found += [t for t in v if isinstance(t, dict) and isinstance(t.get("id"), str) and cos_state.ID.match(t["id"])]
+        for t in v:
+            tid = ticket_id(t) if isinstance(t, dict) else None
+            if tid:
+                found.append({**t, "id": tid})
     return found
+
+
+def ticket_id(t):
+    """`ABC-N` from the Linear shape's `id`, or from a GitHub issue's `number`; None when neither fits."""
+    tid = t.get("id")
+    if tid is None and type(t.get("number")) is int:
+        tid = f"{project_config.prefix()}-{t['number']}"
+    return tid if isinstance(tid, str) and cos_state.ID.match(tid) else None
 
 
 def name_of(x):
@@ -114,6 +128,22 @@ def labels_of(t):
     if isinstance(labels, dict):  # {"nodes": [...]}
         labels = labels.get("nodes")
     return {name_of(x).lower() for x in labels} if isinstance(labels, list) else set()
+
+
+STATUS_LABELS = (("status:in-review", "In Review"), ("status:in-progress", "In Progress"), ("status:todo", "Todo"))
+
+
+def state_of(t):
+    """The ticket's state name. A named state (Linear) is used as is. A GitHub issue (`state` OPEN or CLOSED, or no
+    `state`) reads from its labels and stateReason: the furthest-along `status:` label, Backlog when it has none,
+    Done when closed as completed, Canceled when closed as not planned."""
+    named = name_of(t.get("state"))
+    if named and named.upper() not in ("OPEN", "CLOSED"):
+        return named
+    if named.upper() == "CLOSED":
+        return "Canceled" if str(t.get("stateReason", "")).upper() == "NOT_PLANNED" else "Done"
+    have = labels_of(t)
+    return next((name for label, name in STATUS_LABELS if label in have), "Backlog")
 
 
 def when(s):
@@ -138,6 +168,8 @@ def area_labels():
 
 
 def priority_empty(t):
+    if any(l in labels_of(t) for l in ("priority:urgent", "priority:high", "priority:medium", "priority:low")):
+        return False
     p = t.get("priority")
     if isinstance(p, dict):
         p = p.get("name") if p.get("name") is not None else p.get("value")
@@ -150,7 +182,7 @@ def fill(state, text):
     areas = area_labels()
     out = []
     for t in ticket_list(text):
-        if t["id"] in state["tickets"] or name_of(t.get("state")) not in ACTIVE:
+        if t["id"] in state["tickets"] or state_of(t) not in ACTIVE:
             continue
         have = labels_of(t)
         empty = [f for f, is_empty in (
@@ -205,7 +237,7 @@ def drift(state, text, since):
         t = tickets.get(tid)
         if not isinstance(t, dict):
             continue
-        status = name_of(t.get("state"))
+        status = state_of(t)
         agent_merged = "agent" in labels_of(t) and tid in state.get("merged", {})
         if "agent" in labels_of(t) and not agent_merged:
             continue
@@ -249,7 +281,7 @@ def stale(state, text):
         newest = max(times)
         date = newest.strftime("%Y-%m-%d")
         if newest < cutoff and str(flagged.get(t["id"], ""))[:10] != date:
-            out.append(f"stale {t['id']} {name_of(t.get('state'))} since {date}")
+            out.append(f"stale {t['id']} {state_of(t)} since {date}")
     return out
 
 

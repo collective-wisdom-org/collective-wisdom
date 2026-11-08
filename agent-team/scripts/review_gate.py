@@ -5,7 +5,8 @@ Usage:
     ~/.collective-wisdom/scripts/review_gate.py <PR number>
 
 Run it from the worktree after wait-for-ci.sh passes. It reads the PR's comments, commits and head through gh, and applies merge_pr.py's own
-review rules (merge_pr.review and merge_pr.stands), so this check and the merge gate cannot disagree. It posts nothing.
+review rules (merge_pr.review and merge_pr.stands), so this check and the merge gate cannot disagree. The head a review was posted on is the newest commit committed before the review
+comment, the same rule merge_pr.py uses. It posts nothing.
 
 Exit 0, last line:
   review-gate: pass head <SHA> code <url> security <url>   both reviews stand at the head; use the URLs in MERGE READY

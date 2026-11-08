@@ -49,7 +49,7 @@ Use only the issues and PRs from the change check.
 
 ### Priority and labels
 
-Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py fill` with the change check's `list-tickets` result on stdin. Each line `<PREFIX>-N fill: <fields>` names the empty fields (`priority`, `area`, `type`) to fill. Tickets in the Chief of Staff's `tickets`, fields in `pm.filled` and area labels the project doesn't have are already left out.
+Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py fill` with the change check's `list-tickets` result on stdin, as the adapter returns it (the script maps the tracker's shape). Each line `<PREFIX>-N fill: <fields>` names the empty fields (`priority`, `area`, `type`) to fill. Fill only those. Tickets in the Chief of Staff's `tickets`, fields in `pm.filled` and area labels the project doesn't have are already left out.
 
 Priority is High, Medium or Low, never Urgent. Area is the one or two labels from `docs/agents/project.md` § Areas and labels that fit. Type is `Bug`, `Feature` or `Improvement`. Read the description with `get-ticket` only when the title doesn't settle it; if the answer is still unclear, leave the field empty. Add labels with `add-label`, never by rewriting the label set. Record what you fill in `pm.filled`.
 
@@ -58,7 +58,7 @@ Report line: `<PREFIX>-N filled: priority Low, <area>, Bug`.
 ### State drift
 
 1. Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py drift --since <pm.lastCheckAt>` with `{"prs": <the change check's PRs>, "tickets": {}}` on stdin. Each `get <PREFIX>-N #X` line names a ticket that PR could move.
-2. `get-ticket` each (fields `id, state, labels`) and run it again with `"tickets": {"<PREFIX>-N": {"state": "…", "labels": ["…"]}}`.
+2. `get-ticket` each (fields `id, state, labels`) and run it again with `"tickets"` set to `{"<PREFIX>-N": <that result, as the adapter returns it>}`.
 3. Make each `move <PREFIX>-N <state> (PR #X …)` line's move.
 
 A comment, a push or an old merge moves nothing, and a state the user set after the PR merged or opened stays. A ticket labelled `agent` is skipped unless it is in `merged`; then only the move to Done applies.
@@ -112,7 +112,7 @@ When § Backlog pick "Dry ranking" or `backlog` runs a ranking, or its child fai
 ## Stale tickets
 
 1. `list-tickets`, scope <TEAM>, state In Progress, then In Review, fields `id, title, state, updatedAt`.
-2. Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py stale` with both lists on stdin. It skips tickets in the Chief of Staff's `tickets` (its stuck check covers them), reads the PRs and branches itself, and prints `stale <PREFIX>-N <state> since <date>` per ticket quiet for over 3 days and not flagged for that date.
+2. Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py stale` with both lists on stdin, as the adapter returns them. It skips tickets in the Chief of Staff's `tickets` (its stuck check covers them), reads the PRs and branches itself, and prints `stale <PREFIX>-N <state> since <date>` per ticket quiet for over 3 days and not flagged for that date.
 3. For each line, save the date in `pm.flaggedStale[<PREFIX>-N]`. Don't change its state.
 
 Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.

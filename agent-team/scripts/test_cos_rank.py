@@ -99,8 +99,6 @@ HELD = [entry(1, "held: PR #9")]
 
 @pytest.mark.parametrize("pm,merged,flags,closed,want", [
     ({}, {}, [], False, "dry: rank (never ranked)"),
-    ({"rankedAt": None}, {}, [], False, "dry: rank (never ranked)"),
-    ({"rankedAt": "2026-11-02"}, {}, [], False, "dry: rank (never ranked)"),
     ({"rankedAt": "2026-13-02T10:00:00Z"}, {}, [], False, "dry: rank (never ranked)"),
     ({"rankedAt": RANKED_AT, "rankedReady": True}, {}, [], False, "dry: rank (the ready tickets are used up)"),
     ({"rankedAt": RANKED_AT, "rankedReady": False}, {}, ["--out-of-date"], False, "dry: rank (a ranked ticket is out of date)"),

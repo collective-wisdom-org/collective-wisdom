@@ -15,7 +15,8 @@ Prints the relay to send (none for `ok`), then a last line, exit 0:
                                            relay, which carries it, to the merge lane)
     head-check: conflict withdraw          (setting on, or --no-approval: send the relay, which carries none, to the
                                            build lane)
-Exit 2 prints "head-check: cannot <what>" when the state, gh or the setting can't be read.
+A failed read of `Review after conflict resolution` counts as `on` (`conflict withdraw`). Exit 2 prints "head-check: cannot <what>" when
+the state is unreadable, a gh read fails, or the merge target branch is missing or unusable.
 --no-approval is for a ticket with no approval to carry (`approve N` on `awaiting-review`): a conflict is then
 always `conflict withdraw`.
 """
@@ -91,7 +92,7 @@ def check(pr, stored, live, mergeable, no_approval, setting):
     try:
         target, rule = project_config.target_branch(), setting()
     except SystemExit:
-        raise Cannot("read the merge target branch or its settings")
+        raise Cannot("read the merge target branch")
     if rule == "off" and not no_approval:
         return CONFLICT_APPROVED.format(target=target, head=live[:7]), "head-check: conflict keep"
     return CONFLICT.format(target=target), "head-check: conflict withdraw"

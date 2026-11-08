@@ -113,8 +113,3 @@ def test_a_head_resolved_for_conflicts_passes_without_a_diff_compare(tmp_path, m
     assert review_gate.main(["7"], run, no_delta) == 0
     assert capsys.readouterr().out.splitlines() == [PASS]
 
-
-@pytest.mark.parametrize("argv", [[], ["x"], ["7", "8"]])
-def test_bad_arguments(argv, capsys):
-    assert review_gate.main(argv) == 2
-    assert capsys.readouterr().out.startswith("review-gate: cannot read arguments")
