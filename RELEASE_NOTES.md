@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 redesign the dashboard Details section, render markdown, pick details by stage (CW-240) (#244)
+
+Merged 2026-11-08 21:52 UTC.
+
+The dashboard's Details section is easier to scan, shows the spec and PR text as formatted markdown, and adds a Spec link next to the PR link. Merged tickets now have a Details section too. Nothing to do on your side.
+
 ## 2026-11-08 back up the dashboard spend ledger and gantt history (CW-238) (#243)
 
 Merged 2026-11-08 21:50 UTC.
