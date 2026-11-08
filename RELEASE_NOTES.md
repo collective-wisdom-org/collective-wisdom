@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-08 T3 Code harness columns in the compatibility matrix (CW-226) (#229)
+
+Merged 2026-11-08 20:13 UTC.
+
+The compatibility page now lists four harness columns, each running in T3 Code: Claude Code, Codex, Cursor and Antigravity, and gains an Azure DevOps column for trackers. Every cell starts with a colored circle so the page reads at a glance. Nothing to do; Cursor, Antigravity and Azure DevOps cells are `untested`, `partial` or `not supported` until someone runs them; every Azure DevOps cell is `not supported` because there is no adapter.
+
+Context size: pass skipped (no agent files changed)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 gantt task rows show only their own work, bars get tooltips (CW-225) (#228)
 
 Merged 2026-11-08 20:06 UTC.
