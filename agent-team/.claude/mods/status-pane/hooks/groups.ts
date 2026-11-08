@@ -7,10 +7,11 @@ const GROUPS: { name: string; stages: string[] }[] = [
   { name: 'Awaiting teammate review', stages: ['awaiting-review'] },
   { name: 'Merging', stages: ['merge'] },
   { name: 'Queued to merge', stages: ['merge-queued'] },
+  { name: 'Speccing', stages: ['spec'] },
   { name: 'Awaiting build approval', stages: ['awaiting-spec'] },
   { name: 'Building', stages: ['build'] },
   { name: 'Queued to build', stages: ['build-queued'] },
-  { name: 'Other', stages: ['spec', 'spec-queued', 'blocked'] },
+  { name: 'Other', stages: ['spec-queued', 'blocked'] },
 ]
 
 const NO_RISK = 'not rated yet'
