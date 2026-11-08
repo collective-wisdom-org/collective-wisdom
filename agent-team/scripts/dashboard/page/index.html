@@ -62,9 +62,12 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline:2px solid
 button:disabled { opacity:.5; cursor:default; }
 button.copy { margin-left:auto; }
 .pager { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3); margin-top:var(--s3); color:var(--muted); }
-details.chart { margin-top:var(--s1); }
-details.chart > summary { cursor:pointer; color:var(--muted); font-size:var(--t-small); width:fit-content; }
-details.chart > summary:hover { color:var(--fg); }
+details.chart, details.info { margin-top:var(--s1); }
+details.chart > summary, details.info > summary { cursor:pointer; color:var(--muted); font-size:var(--t-small); width:fit-content; }
+details.chart > summary:hover, details.info > summary:hover { color:var(--fg); }
+.info-list { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:var(--s1) var(--s3); margin:var(--s2) 0 0; font-size:var(--t-small); }
+.info-list dt { color:var(--muted); }
+.info-list dd { margin:0; min-width:0; overflow-wrap:anywhere; }
 .gantt { container-type:inline-size; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:var(--s2) var(--s3); margin-top:var(--s2); }
 .grow { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; grid-template-areas:"name dur cost" "track track track"; gap:var(--s1) var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); }
 .grow:first-child { border-top:0; }

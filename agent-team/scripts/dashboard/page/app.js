@@ -30,10 +30,38 @@ const BANDS = [
 const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
 const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
 
+const stageWords = (stage) => STAGE_WORDS.get(stage) ?? stage.replace(/-/g, ' ')
+
+/** The `Details` body: a line per known fact, in a fixed order, or one quiet line when none is known. */
+export function renderDetails(r, now) {
+  const lines = []
+  const add = (label, html) => lines.push(`<dt>${label}</dt><dd>${html}</dd>`)
+  if (r.stage) add('Stage', esc(stageWords(r.stage)))
+  if (r.risk) add('Risk', esc(r.risk))
+  if (r.next) add('Next', esc(r.next))
+  if (isHttp(r.issueUrl)) add('Issue', link(r.issueUrl, r.issueUrl))
+  if (isHttp(r.prUrl)) add('PR', link(r.prUrl, r.prUrl))
+  if (r.threadLink) add('Thread', `<code>${esc(r.threadLink)}</code>`)
+  if (r.gantt && r.gantt.length > 0) {
+    const items = ganttTasks(r.gantt, now)
+    const drawn = items.flatMap((i) => [i, ...i.kids])
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+    const subagents = drawn.filter((d) => d.r.kind === 'agent').length
+    const agents = [plural(r.gantt.length, 'session'), items.length ? plural(items.length, 'task') : '', subagents ? plural(subagents, 'subagent') : '']
+    add('Agents', esc(agents.filter(Boolean).join(', ')))
+    add('Tokens', esc(tokens(drawn.reduce((n, d) => n + (d.r.tokens || 0), 0))))
+    const cost = ganttCost(items)
+    if (typeof cost === 'number') add('Cost', esc(dollars(cost)))
+    const newest = r.gantt.reduce((a, s) => (s.updatedAt > a.updatedAt ? s : a))
+    add('Last update', esc(`${stamp(newest.updatedAt)}${newest.stale ? ' (stale)' : ''}`))
+  }
+  return lines.length ? `<dl class="info-list">${lines.join('')}</dl>` : '<p class="quiet">Nothing more known yet</p>'
+}
+
 /** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */
-function ticket(r, { flat, other, open }) {
+function ticket(r, { flat, other, open, info }) {
   const copy = r.threadLink ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>` : ''
-  const stage = other && r.stage ? `<span class="badge stage">${esc(STAGE_WORDS.get(r.stage) ?? r.stage.replace(/-/g, ' '))}</span>` : ''
+  const stage = other && r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}</span>` : ''
   const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
   const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
   return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
@@ -41,10 +69,12 @@ function ticket(r, { flat, other, open }) {
   <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
   ${flat ? '' : next}
   ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
+  <details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>
 </li>`
 }
 
-export function renderStatus(groups, open = new Set(), collapsed = new Set()) {
+/** `open` holds the ids of tickets whose `Agents` chart is open, `info` those whose `Details` is open. */
+export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set()) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   return BANDS.map((band) => {
     const mine = groups.filter((g) => band.has(g.name))
@@ -52,7 +82,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set()) {
     const flat = band.slug === 'queued'
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open })).join('\n')
+        const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open, info })).join('\n')
         return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
       })
       .join('\n')
@@ -124,6 +154,12 @@ const union = (spans) => {
 }
 
 const sumCost = (list) => (list.some((c) => typeof c !== 'number') ? null : list.reduce((n, c) => n + c, 0))
+
+/** A task's cost with the rows under it; null when any of them is unpriced. */
+const itemCost = (i) => sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])
+
+/** The chart's Total: the sum over its tasks, null when any row is unpriced. */
+const ganttCost = (items) => sumCost(items.map(itemCost))
 
 /** The row's working spans with open ends closed at the session's clock; a row with none draws one span from start to end. */
 function spansOf(r, clockNow) {
@@ -203,10 +239,9 @@ export function renderGantt(sessions, now) {
   <span class="num cost">${dollars(cost)}</span>
 </div>`
   const rows = items.map((i) => {
-    const cost = sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])
-    return [line(i, i.spans, cost, 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
+    return [line(i, i.spans, itemCost(i), 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
   })
-  const sum = sumCost(items.map((i) => sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])))
+  const sum = ganttCost(items)
   const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null
   const note =
     sum !== null && reported !== null && Math.abs(reported - sum) >= 0.01 - 1e-9
@@ -240,6 +275,7 @@ if (typeof document !== 'undefined') {
   }
   let last = null
   let shownStatus = null
+  const shownInfo = new Map()
   const draw = () => {
     if (!last) return
     const now = Date.now()
@@ -247,6 +283,16 @@ if (typeof document !== 'undefined') {
     for (const body of document.querySelectorAll('.chart-body[data-ticket]')) {
       const row = rows.get(body.dataset.ticket)
       if (row) body.innerHTML = renderGantt(row.gantt, now)
+    }
+    // Rewrite a details body only when its html changed, so a selection inside an open one survives the tick.
+    for (const body of document.querySelectorAll('.info-body[data-ticket]')) {
+      const row = rows.get(body.dataset.ticket)
+      if (!row) continue
+      const html = renderDetails(row, now)
+      if (shownInfo.get(row.id) !== html) {
+        shownInfo.set(row.id, html)
+        body.innerHTML = html
+      }
     }
     const merged = new Map(last.merged.map((e) => [e.id, e]))
     for (const body of document.querySelectorAll('.chart-body[data-merged]')) {
@@ -281,7 +327,9 @@ if (typeof document !== 'undefined') {
       if (json !== shownStatus) {
         shownStatus = json
         const open = new Set([...document.querySelectorAll('details.chart[data-ticket][open]')].map((d) => d.dataset.ticket))
-        document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed())
+        const info = new Set([...document.querySelectorAll('details.info[data-ticket][open]')].map((d) => d.dataset.ticket))
+        shownInfo.clear()
+        document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed(), info)
         document.getElementById('cta').innerHTML = renderBadges(last.status)
       }
       draw()
