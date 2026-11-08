@@ -240,6 +240,19 @@ export function drawCharts(root, data, now, apply) {
   for (const body of root.querySelectorAll('.chart-body[data-merged]')) draw(body, merged.get(body.dataset.merged))
 }
 
+/** Returns `seen(version)`: true when a page version differs from the first one seen. Anything but a non-empty string is ignored. */
+export function versionWatch() {
+  let baseline = null
+  return (version) => {
+    if (typeof version !== 'string' || !version) return false
+    if (baseline === null) {
+      baseline = version
+      return false
+    }
+    return version !== baseline
+  }
+}
+
 if (typeof document !== 'undefined') {
   // Updates a chart in place so the element under the pointer survives a tick and its native tooltip can show.
   const patchChart = (body, html) => {
@@ -304,12 +317,17 @@ if (typeof document !== 'undefined') {
       draw()
     }
   }
+  const seen = versionWatch()
   const poll = async () => {
     const err = document.getElementById('error')
     try {
       const res = await fetch('/api', { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       last = await res.json()
+      if (seen(last.version)) {
+        location.reload()
+        return
+      }
       err.textContent = ''
       // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
       // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.

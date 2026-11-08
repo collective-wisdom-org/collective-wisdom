@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderStatus, renderGantt, renderBadges, renderMerged, drawCharts } from './app.js'
+import { esc, renderStatus, renderGantt, renderBadges, renderMerged, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -275,5 +275,18 @@ test('drawCharts writes a chart body only when its html changed; a body with no 
     const calls = new Map(Object.values(bodies).map((b) => [b, 0]))
     for (const now of nows) drawCharts(root, data, now, (b) => calls.set(b, calls.get(b) + 1))
     assert.deepEqual([...calls.values()], want, name)
+  }
+})
+
+test('versionWatch asks for a reload only when a later version differs from the first', () => {
+  const cases = [
+    [[undefined, 'a', 'a', 'b'], [false, false, false, true]],
+    [['a', 'a', 'a'], [false, false, false]],
+    [[null, 'a'], [false, false]],
+    [['a', null, '', 7, 'a'], [false, false, false, false, false]],
+  ]
+  for (const [input, want] of cases) {
+    const seen = versionWatch()
+    assert.deepEqual(input.map(seen), want, JSON.stringify(input))
   }
 })
