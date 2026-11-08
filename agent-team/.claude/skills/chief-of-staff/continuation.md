@@ -20,6 +20,8 @@ The steps below apply to both cases.
 - Save the new `firstTaskId` and `childThreadId`, set `parentThreadId` to this thread's ID and `lastPosition` to 0, and set the lane's active stage and `status` as for any send, plus the keys of a `set:` line `cos_route.py` printed. The old child stays idle and is never sent to again. Its worktree and branch stay.
 - Report under Moving: `<PREFIX>-N moved to a new child (old one under a retired thread)`.
 
+A merge-lane relay that goes to the old child gets the "I may not hear" line and starts the merge wait (SKILL.md § Merge wait).
+
 These still go to the old child: a running child (it can't be moved), a child with a pending request (its run is open), and any child whose worktree check fails (unpushed or uncommitted work, or a worktree the check can't read). Its notices still go through the old thread's forwarding, and the sweep's parent check (SKILL.md § Sweep) full-reads it in case a forward is lost.
 
 ```
