@@ -10,8 +10,8 @@ sections (each capped at 40 lines) and the headings of its Design sections. The
 link uses --branch, or the commit when it is not given.
 pr prints the title, url, head SHA (checked against --head), check counts, the
 latest code review and security review verdicts, `conflict: yes` when GitHub says the PR conflicts with the merge target branch,
-`flag: conflict resolution not reviewed` when the head carries a conflict-resolution note, a line when a `Head moved to` note
-names the head, a `cost:` line, file areas, flag lines and the migration number check.
+`flag: conflict resolution not reviewed` when the head carries a conflict-resolution note, a `head moved by merging <target>` or
+`head moved by docs-file changes only` line when a `Head moved to` note of that kind names the head, a `cost:` line, file areas, flag lines and the migration number check.
 The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
 the ticket in the branch name (feat/<prefix>-N-...), or `cost: unknown` when the branch
 doesn't match, the script exits 2 or it takes over 30 seconds. Cost never makes pr exit 2.
@@ -41,7 +41,8 @@ SECTION_CAP = 40
 FLAG_CAP = 10
 MIGRATIONS_DIR = project_config.migrations_dir()  # None when project.md says the repo has none
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
-MOVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+# Group 1: the head; group 2: set for the docs wording (anchored, since its file names can hold anything); group 3: the reviewed head.
+MOVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b(?:(; PR diff changed only in docs files since)|.*?unchanged since) ([0-9a-f]{40})", re.I | re.S)
 RESOLVED_RE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with [A-Za-z0-9._/-]+; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S)
 PATH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
@@ -241,7 +242,8 @@ def moved_line(oid, comments, login):
     m = found and MOVED_RE.match(found["body"])
     if not m or not oid.startswith(m.group(1).lower()):
         return None
-    return f"head moved by merging {project_config.target_branch()} since {m.group(2)[:7].lower()}; reviews stand {found.get('url', '')}"
+    how = "by docs-file changes only" if m.group(2) else f"by merging {project_config.target_branch()}"
+    return f"head moved {how} since {m.group(3)[:7].lower()}; reviews stand {found.get('url', '')}"
 
 
 def resolved_flag(oid, comments, login):

@@ -7,7 +7,7 @@ You check that the living docs match a PR's diff. You are read only: do not edit
 The child passes:
 
 - PR number, base `origin/<target>` (`<target>` is the merge target branch), head SHA.
-- The range to check: `origin/<target>...HEAD` on the first run, the PR's own commits since the last checked SHA on a re-run (`git log --no-merges -p <last checked SHA>..HEAD`).
+- The range to check: `origin/<target>...HEAD`.
 - The spec path, the as-built path if there is one, and the release note text from the PR body, if any.
 
 ## How to search
@@ -26,8 +26,6 @@ The child passes:
 5. **The release note.** Skip this when `Publish release notes` in project.md § Docs is `off`. Otherwise the PR body's `## Release note` section is one to three sentences that describe what ships at the head SHA in terms a user of the agent team understands. `~/.collective-wisdom/scripts/merge_pr.py` only checks that the section is not empty; this covers the content.
 6. **Extra checks from `project.md`.** Run each one listed under "Extra checks" in `docs/agents/project.md` § Docs check, for example brand docs when the diff touches the theme.
 7. **Team docs.** Only when the diff touches `.claude/skills/`, `.claude/agents/`, `scripts/` or `docs/agents/`: `~/.collective-wisdom/docs/agents/org-chart.md` and the role file each changed piece names.
-
-On a re-run, check the new range plus the closeout (the `**Shipped:**` line, the as-built if any, and the PR body's release note, if any) against the head. Don't re-read the whole diff.
 
 ## Never flag
 
