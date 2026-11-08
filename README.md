@@ -158,7 +158,7 @@ Run it by hand after a batch of merges you want machines to take. Apps do not pi
 
 ## Agent pane
 
-`mods/agent-gantt/` is a Claude Code mod that opens a pane beside the chat and draws this session's agents as a Gantt chart. Each row shows the agent's name, repo, start, end, tokens, cost and model, with a bar that covers only the time the agent was working (waiting for a subagent, a background command or you is a gap). There is one row per task (one per prompt you send, named after the prompt), a subagent sits under the task it was spawned in, and main's usage that no task carries gets an `outside a task` row. Running bars grow while you watch. It is per person, not per app: install it once per machine at the user scope and it works in every repo and worktree you open. `install.sh` does not install it.
+`mods/agent-gantt/` is a Claude Code mod that opens a pane beside the chat and draws this session's agents as a Gantt chart. Each row shows the agent's name, repo, start, end, tokens, cost and model, with a bar that covers only the time the agent was working (waiting for a subagent, a background command or you is a gap). There is one row per task (one per prompt you send, named after the prompt's first line; a ship-loop child shows its stage, `Spec`, `Build` or `Merge`, and a ticket helper, backlog ranking or hygiene child shows its role), a subagent sits under the task it was spawned in, and main's usage that no task carries gets an `outside a task` row. Running bars grow while you watch. It is per person, not per app: install it once per machine at the user scope and it works in every repo and worktree you open. `install.sh` does not install it.
 
 At the prompt of a terminal session:
 

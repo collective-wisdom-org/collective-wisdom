@@ -67,14 +67,14 @@ for (const c of cases) {
 
 test('taskName takes the first real line, skips the T3 preamble, collapses space and cuts to 60', () => {
   const cases: [string, string][] = [
-    ['Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
+    ['Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Spec CW-9: fix'],
     ['\n  fix   the\tbug \nmore', 'fix the bug'],
     ['x'.repeat(80), 'x'.repeat(60)],
     ['  \n\n', 'task'],
-    ['Act as the implementation sub-agent for this task.\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
+    ['Act as the implementation sub-agent for this task.\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Spec CW-9: fix'],
     ['Act as the build subagent for this task\nfix it', 'fix it'],
     ['TEAM MODE.\nBuild CW-9', 'Build CW-9'],
-    ['Act as the implementation sub-agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-216: Redesign the agent gantt', 'Run /ship-loop for CW-216: Redesign the agent gantt'],
+    ['Act as the implementation sub-agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-216: Redesign the agent gantt', 'Spec CW-216: Redesign the agent gantt'],
     ['Act as the implementation sub-agent for this task. TEAM MODE. CONTINUE. Run /ship-loop. Do the build stage.', 'Run /ship-loop. Do the build stage.'],
     ['TEAM MODE. CONTINUE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
     ['Continued work on the parser', 'Continued work on the parser'],
@@ -83,6 +83,28 @@ test('taskName takes the first real line, skips the T3 preamble, collapses space
   ]
   for (const [text, want] of cases) assert.equal(taskName(text), want)
   assert.equal(run([['open', 7]]).tasks[0]?.name, 'task')
+})
+
+test('taskName labels a ship-loop child with its stage and a helper with its role', () => {
+  const url = 'https://github.com/o/r/issues/227'
+  const first = `Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-227: Add an expandable details section. ${url}.`
+  const cont = (stage: string) => `TEAM MODE. CONTINUE. Run /ship-loop for CW-227: Add details. ${url}.\n\nFollow ship-loop. Do the ${stage} stage (the lane's active stage).`
+  const cases: [string, string, string[]?][] = [
+    [first, 'Spec CW-227: Add an expandable details section'],
+    [cont('build'), 'Build CW-227: Add details'],
+    [cont('merge'), 'Merge CW-227: Add details'],
+    [`TEAM MODE. CONTINUE. Run /ship-loop for CW-227: Add details. ${url}.`, 'Run /ship-loop for CW-227: Add details. https://github.com/o'],
+    [`TEAM MODE. Run /ship-loop for CW-227: ${'x'.repeat(80)}`, `Spec CW-227: ${'x'.repeat(47)}`],
+    ['TICKET HELPER. Chief of Staff thread: abc', 'Ticket helper'],
+    ['TICKET HELPER. Chief of Staff thread: abc\nRequest: file a ticket for CW-12 and UTF-8', 'Ticket helper CW-12'],
+    ['BACKLOG RANKING. One-shot, read only.\nTeam tickets in flight:\nCW-201 build PR #5', 'Backlog ranking'],
+    ['TICKET HELPER. Chief of Staff thread: abc Observation.\nSaw CW-88 stall', 'Ticket helper'],
+    ['PROJECT MANAGER HYGIENE. One-shot.', 'Hygiene'],
+    ['Please run /ship-loop for CW-9: fix', 'Please run /ship-loop for CW-9: fix'],
+    ['fix the bug', 'fix the bug'],
+    ['CHIEF OF STAFF: the user approved the spec: "ok".', 'CW-216 build', ['Spec CW-216: Redesign the agent gantt']],
+  ]
+  for (const [text, want, earlier] of cases) assert.equal(taskName(text, earlier), want)
 })
 
 test('taskName names a Chief of Staff relay by the newest earlier ticket and the work asked', () => {
