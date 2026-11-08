@@ -88,3 +88,26 @@ def test_changes_relayed_is_a_validated_record_the_script_never_clears(op, want)
             cos_state.apply_ops(state, [op])
     else:
         assert cos_state.apply_ops(state, [op])[0]["tickets"]["ABC-1"]["changesRelayed"] == want
+
+
+@pytest.mark.parametrize(
+    "stage_now, op, want",
+    [
+        ("merge", set_(noApproval=True), True),
+        ("blocked", set_(noApproval=True), True),
+        ("awaiting-merge", set_(noApproval=True), "reject"),
+        ("merge", set_(noApproval=False), "reject"),
+        ("merge", set_(noApproval=None), "reject"),
+        ("merge", stage("blocked"), True),  # kept so the resumed run still carries no approval
+        ("merge", stage("awaiting-merge"), None),
+    ],
+)
+def test_no_approval_belongs_to_the_merge_lane(stage_now, op, want):
+    t = {"stage": stage_now, "headSha": A, "lastSeenAt": OLD, "status": "s", "noApproval": True}
+    state = {"tickets": {"ABC-1": {k: v for k, v in t.items() if k != "noApproval"} if op["op"] == "set" else t}}
+    if want == "reject":
+        with pytest.raises(cos_state.Reject):
+            cos_state.apply_ops(state, [op])
+        return
+    new, _, _ = cos_state.apply_ops(state, [op])
+    assert new["tickets"]["ABC-1"].get("noApproval") == want

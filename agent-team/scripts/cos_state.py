@@ -42,6 +42,9 @@ changesRelayed ({"head", "at"}: the head and time a reviewer's changes request w
 set in any stage and is never cleared by the script; null clears it. It must be an object with a full 40-hex
 head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
+noApproval (true only) marks a merge-lane run that carries no user approval (a conflict sent to the merge lane while
+reviews stand). It is allowed only in merge, merge-queued and blocked, and a stage op to any other stage clears it.
+
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
 """
@@ -72,6 +75,7 @@ TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
     "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
+    "noApproval",
 }
 STAGES = (
     "spec", "awaiting-build", "spec-queued", "build-queued", "build",
@@ -177,6 +181,11 @@ def check(t):
         and getattr(parse(relayed.get("at")), "tzinfo", None) is not None
     ):
         raise Reject("changesRelayed needs an object with a full head and an at time with a zone")
+    if "noApproval" in t:
+        if t["noApproval"] is not True:
+            raise Reject("noApproval must be true")
+        if t["stage"] not in NO_APPROVAL_STAGES:
+            raise Reject(f"noApproval only belongs to merge, merge-queued or blocked, not {t['stage']}")
     held = t.get("heldApproval")
     if held:
         if t["stage"] != "awaiting-review":
@@ -211,6 +220,7 @@ def op_start(s, op):
     s["lastRelayAt"] = now()
 
 
+NO_APPROVAL_STAGES = ("merge", "merge-queued", "blocked")
 STAMPED = ("awaiting-build", "awaiting-review", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
 
 
@@ -236,6 +246,8 @@ def op_stage(s, op):
     had_held = bool(t.get("heldApproval"))
     if new != "awaiting-review":
         t.pop("heldApproval", None)
+    if new not in NO_APPROVAL_STAGES:
+        t.pop("noApproval", None)
     old_head = t.get("headSha")
     merge_set(t, sets)
     if t.get("headSha") != old_head and "heldApproval" not in sets:

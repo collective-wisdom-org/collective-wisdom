@@ -29,7 +29,9 @@ KEPT = (
         (NEW, "CONFLICTING", "off", [], [MOVED, "head-check: moved aaaaaaa bbbbbbb"], 0),
         (OLD, "CONFLICTING", "off", [], [KEPT, "head-check: conflict keep"], 0),
         (OLD, "CONFLICTING", "on", [], [PLAIN, "head-check: conflict withdraw"], 0),
-        (OLD, "CONFLICTING", "off", ["--no-approval"], [PLAIN, "head-check: conflict withdraw"], 0),
+        (OLD, "CONFLICTING", "off", ["--no-approval"], [PLAIN, "head-check: conflict stand"], 0),
+        (OLD, "CONFLICTING", "on", ["--no-approval"], [PLAIN, "head-check: conflict withdraw"], 0),
+        (OLD, "CONFLICTING", "off", ["state-no-approval"], [PLAIN, "head-check: conflict stand"], 0),
         (NEW, "MERGEABLE", "off", ["--no-approval"], [MOVED, "head-check: moved aaaaaaa bbbbbbb"], 0),
         ("junk", "MERGEABLE", "off", [], ["head-check: cannot read the PR"], 2),
         (OLD, None, "off", [], ["head-check: cannot read the PR"], 2),
@@ -38,7 +40,9 @@ KEPT = (
 def test_head_check(tmp_path, monkeypatch, capsys, live, mergeable, rule, flags, want, code):
     monkeypatch.setattr(cos_head_check.project_config, "review_after_conflict", lambda: rule)
     monkeypatch.setattr(cos_head_check.project_config, "target_branch", lambda: "main")
-    (tmp_path / "state.json").write_text(json.dumps({"tickets": {"ABC-1": {"stage": "awaiting-merge", "pr": 5, "headSha": OLD}}}))
+    extra = {"noApproval": True} if "state-no-approval" in flags else {}  # a merge-lane run that carries no approval
+    flags = [f for f in flags if f != "state-no-approval"]
+    (tmp_path / "state.json").write_text(json.dumps({"tickets": {"ABC-1": {"stage": "awaiting-merge", "pr": 5, "headSha": OLD, **extra}}}))
     (tmp_path / "prs.json").write_text(json.dumps({"5": {"headRefOid": live, "mergeable": mergeable}}))
     argv = ["ABC-1", "--file", str(tmp_path / "state.json"), "--prs", str(tmp_path / "prs.json"), *flags]
     assert cos_head_check.main(argv) == code
