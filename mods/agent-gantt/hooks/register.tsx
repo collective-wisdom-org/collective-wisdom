@@ -356,7 +356,7 @@ export const register: Register = on => {
     const room = e.props.bodyColumns - FIXED - 1
     const isInline = room >= 16
     const width = isInline ? room : Math.max(10, e.props.bodyColumns - 1)
-    const t0 = rows[0]?.start ?? now
+    const t0 = rows.length ? Math.min(...rows.map(r => r.start)) : now
     const t1 = Math.max(now, t0 + 1)
 
     const head = [fit('agent', NAME), fit('repo', 10), fit('start', 5), fit('end', 7), 'tokens'.padStart(6), 'cost'.padStart(6), fit('model', 10)].join(' ')
