@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 add a Chief of Staff tab to the dashboard (CW-247) (#251)
+
+Merged 2026-11-08 23:08 UTC.
+
+The dashboard now has a Chief of Staff tab next to the Ship loop tab. It shows the Chief of Staff and the project manager's ranking and hygiene threads with their gantt charts. Update the agent-gantt mod (`/plugin`) to fill the project manager list; the Chief of Staff card works without it.
+
 ## 2026-11-08 close the gap between a merge and the ticket leaving the merge stage (CW-245) (#249)
 
 Merged 2026-11-08 22:40 UTC.
