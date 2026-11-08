@@ -40,7 +40,7 @@ All in `taskName`. It stays pure, and `register.tsx` does not change.
    | `BACKLOG RANKING.` | `Backlog ranking` |
    | `PROJECT MANAGER HYGIENE.` | `Hygiene` |
 
-   If the prompt names a ticket id (the first `\b[A-Z][A-Z0-9]*-\d+\b` anywhere in it), it is added after the role: `Ticket helper CW-12`.
+   For the ticket helper only, if the prompt names a ticket id (the first `\b[A-Z][A-Z0-9]*-\d+\b` anywhere in it), it is added after the role: `Ticket helper CW-12`. The ranking prompt lists every ticket in flight and an observation helper (first line ends `Observation.`) files a ticket of its own, so those two never carry an id.
 3. **Everything else** is as today, including relays, prompts with no marker and subagent rows (subagents are not named by `taskName`).
 
 **Rows already stored** keep their names. The prompt is not stored, so there is nothing to re-derive from, and the dashboard does not re-derive on read. The PR says so. A machine on an older mod version keeps writing the old names until it updates.
@@ -75,7 +75,7 @@ The cases go in the existing `taskName` table test in `mods/agent-gantt/hooks/ti
 - **The ticket URL is dropped from the name.** The ticket asked to keep the 60-character cut, not the URL; with a short title the URL used to fill the rest of the row.
 - **A `CONTINUE` prompt with no stage line keeps today's name** instead of guessing Build.
 - **The stage is read anywhere in the prompt**, not just the first line, because `Do the <stage> stage` sits further down in the continuation template. The first match wins.
-- **Helper ticket id: the first ticket-shaped id anywhere in the prompt.** The helper templates put no id on the first line; a request may name one in its task text. A word like `UTF-8` in the request would also match; that only changes a label.
+- **Helper ticket id, ticket helper only: the first ticket-shaped id anywhere in the prompt.** (Changed from the ticket's wording in review: ranking lists all in-flight tickets, so an id there misleads. The ticket's "keeping any ticket id" is kept for the helper only.) The helper templates put no id on the first line; a request may name one in its task text. A word like `UTF-8` in the request would also match; that only changes a label.
 - **Hygiene is named `Hygiene`**, the ticket's own example, not `Project manager hygiene`.
 - **Only a line that starts `Run /ship-loop for <ticket>:`** gets a stage. A prompt that mentions `/ship-loop` some other way is left alone.
 - **Mod version bump to 0.1.8**, as CW-219 did, so installed copies can update.
