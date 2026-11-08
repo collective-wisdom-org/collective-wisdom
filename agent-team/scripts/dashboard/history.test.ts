@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { historyByTicket, parseHistory, recordHistory } from './history.ts'
+import { historyByTicket, parseHistory, recordHistory, recordTeamHistory, teamHistory } from './history.ts'
 import type { History } from './history.ts'
 import type { Session } from './api.ts'
 
@@ -42,4 +42,28 @@ test('parseHistory drops bad entries, cleans rows and gives empty for bad files'
   const priced = parseHistory(JSON.stringify({ sessions: { a: good('a', { pricing: 2 }), b: good('b'), c: good('c', { pricing: 'x' }) } }))
   assert.deepEqual(['a', 'b', 'c'].map((id) => priced.sessions[id].session.pricing), [2, null, null])
   for (const text of ['', '{"sessions":', 'null', '[]', '{"sessions":[]}', '{"sessions":5}']) assert.deepEqual(parseHistory(text), { sessions: {} }, text)
+})
+
+test('project manager entries parse next to ticket entries, keep their own cap and never push ticket sessions out', () => {
+  const body = (id: string, over: Record<string, unknown> = {}) => ({ sessionId: id, cwd: '/r', updatedAt: 3, total: 1, rows: [], ...over })
+  const file = JSON.stringify({ sessions: {
+    t: { ticket: 'CW-1', session: body('t') },
+    r: { role: 'ranking', session: body('r', { threadId: 'thread:x%3Ay' }) },
+    h: { role: 'hygiene', session: body('h', { threadId: 'bad id' }) },
+    bad: { role: 'chief', session: body('bad') },
+    both: { ticket: 'x', role: 'ranking', session: body('both') },
+    none: { session: body('none') },
+  } })
+  const parsed = parseHistory(file)
+  assert.deepEqual(Object.keys(parsed.sessions).sort(), ['h', 'r', 't'])
+  assert.equal(parsed.sessions.r.session.threadId, 'thread:x%3Ay')
+  assert.equal(parsed.sessions.h.session.threadId, undefined)
+  assert.deepEqual(Object.keys(historyByTicket(parsed)), ['CW-1'])
+
+  let history: History = recordHistory({ sessions: {} }, Array.from({ length: 500 }, (_, i) => ({ ticket: 'CW-1', session: sess(`t${i}`, 1000 + i) })))
+  history = recordTeamHistory(history, Array.from({ length: 51 }, (_, i) => ({ role: 'ranking' as const, session: sess(`p${i}`, i, [row(null)]) })))
+  assert.equal(Object.keys(history.sessions).length, 550)
+  assert.ok(!('p0' in history.sessions) && 'p1' in history.sessions && 't0' in history.sessions)
+  assert.equal(teamHistory(history).length, 50)
+  assert.equal(teamHistory(history)[0].session.rows[0].end, teamHistory(history)[0].session.updatedAt)
 })

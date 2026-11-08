@@ -6,13 +6,18 @@ import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; pricing: number | null; rows: SnapshotRow[] }
-export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; pricing: number | null; rows: SnapshotRow[] }
+export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; pricing: number | null; rows: SnapshotRow[]; threadId?: string | null; heading?: string | null }
+export type TeamRole = 'ranking' | 'hygiene'
+type TeamState = 'running' | 'idle' | 'paused'
+type PmRow = { sessionId: string; role: TeamRole; state: 'running' | 'finished'; threadLink?: string; gantt: Session[] }
 type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
   status: { name: string; count: number; rows: StatusRow[] }[]
   merged: MergedEntry[]
+  chief: { state: TeamState; threadLink?: string; gantt?: Session[] }
+  pm: PmRow[]
 }
 type Repo = { url: string; isGithubIssues: boolean }
 
@@ -22,6 +27,10 @@ const NAME_MAX = 60
 const LABEL_MAX = 40
 const SEGMENTS_MAX = 500
 const KINDS = ['session', 'task', 'agent']
+const RUNNING_MS = 60_000
+const THREAD_MAX = 200
+const HEADING_MAX = 40
+const HEADINGS: Record<string, TeamRole> = { 'BACKLOG RANKING': 'ranking', 'PROJECT MANAGER HYGIENE': 'hygiene' }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const str = (x: unknown): string => (typeof x === 'string' ? x : '')
@@ -93,17 +102,58 @@ export function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null
   }
 }
 
-export function cleanSnapshot(s: unknown, now: number): Session | null {
-  if (!isObj(s) || !Array.isArray(s.rows) || !isWorktree(str(s.cwd))) return null
+/** A thread id safe to put in a `t3-thread://` link, else null. */
+export function cleanThreadId(x: unknown): string | null {
+  return typeof x === 'string' && x.length <= THREAD_MAX && /^[A-Za-z0-9:%._-]+$/.test(x) ? x : null
+}
+
+/** Cleans a snapshot whose cwd passes `keep`. `open` is true when the main row's last segment is still open, which the closing rules below would hide. */
+function cleanWith(s: unknown, now: number, keep: (cwd: string) => boolean): { session: Session; open: boolean } | null {
+  if (!isObj(s) || !Array.isArray(s.rows) || !keep(str(s.cwd))) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
   const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
+  const open = cleaned.find((r) => r.id === 'main')?.segments.at(-1)?.[1] === null
   // The main row and its task rows never end while the session lives, so only the other agents say whether it is stale.
   const working = cleaned.some((r) => r.kind === 'agent' && r.id !== 'main' && r.end === null)
   const stale = now - updatedAt > STALE_MS && working
   const close = (r: SnapshotRow): SnapshotRow => ({ ...r, end: updatedAt, segments: r.segments.map(([a, b]) => [a, b === null ? Math.max(a, updatedAt) : b]) })
   const rows = cleaned.map((r) => (r.end === null && (stale || (!working && (r.id === 'main' || r.kind === 'task'))) ? close(r) : r))
-  return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), pricing: numOrNull(s.pricing), rows }
+  return { session: { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), pricing: numOrNull(s.pricing), rows }, open }
+}
+
+export const cleanSnapshot = (s: unknown, now: number): Session | null => cleanWith(s, now, isWorktree)?.session ?? null
+
+/** Like cleanSnapshot, but for a session outside any worktree (the root checkout), with its thread id and heading. */
+export function cleanTeamSnapshot(s: unknown, now: number): { session: Session; open: boolean } | null {
+  const got = cleanWith(s, now, (cwd) => !isWorktree(cwd))
+  if (!got || !isObj(s)) return null
+  const heading = typeof s.heading === 'string' && s.heading.length <= HEADING_MAX ? s.heading : null
+  return { open: got.open, session: { ...got.session, threadId: cleanThreadId(s.threadId), heading } }
+}
+
+/** The chief of staff, a project manager child, or null for any other session. The chief is matched by state first, then the heading. */
+export function teamRole(session: Session, state: unknown): 'chief' | TeamRole | null {
+  const st = isObj(state) ? state : {}
+  if ((typeof st.chiefSessionId === 'string' && st.chiefSessionId && session.sessionId === st.chiefSessionId) || (typeof st.chiefThreadId === 'string' && st.chiefThreadId && session.threadId === st.chiefThreadId)) return 'chief'
+  return Object.hasOwn(HEADINGS, session.heading ?? '') ? HEADINGS[session.heading!] : null
+}
+
+type TeamItem = { role: 'chief' | TeamRole; session: Session; open: boolean }
+
+function teamItems(snapshots: unknown[], state: unknown, now: number): TeamItem[] {
+  const out: TeamItem[] = []
+  for (const raw of snapshots) {
+    const got = cleanTeamSnapshot(raw, now)
+    const role = got && teamRole(got.session, state)
+    if (got && role) out.push({ role, ...got })
+  }
+  return out
+}
+
+/** The project manager sessions among the snapshots, for the history. */
+export function teamSessions(input: { snapshots: unknown[]; state: unknown; now: number }): { role: TeamRole; session: Session }[] {
+  return teamItems(input.snapshots, input.state, input.now).flatMap((i) => (i.role === 'chief' ? [] : [{ role: i.role, session: i.session }]))
 }
 
 /** The ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `feat/<prefix>-N-`. With `onBoard` only those tickets count; with null any ticket id from the branch does. */
@@ -143,8 +193,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found> }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {}, details = {} } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; teamHistory?: { role: TeamRole; session: Session }[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {}, details = {}, teamHistory = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
@@ -188,5 +238,28 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     }
     return out
   }
-  return { generatedAt: now, status, merged: merged.map(withExtras) }
+  const link = (id: string | null) => (environmentId && id ? `<t3-thread://v2/${environmentId}/${id}>` : undefined)
+  const isRunning = (i: TeamItem) => i.open && now - i.session.updatedAt <= RUNNING_MS
+  const team = teamItems(snapshots, state, now)
+  const live = team.filter((i) => i.role === 'chief').sort((a, b) => b.session.updatedAt - a.session.updatedAt)[0]
+  const st = isObj(state) ? state : {}
+  const chiefLink = link(cleanThreadId(st.chiefThreadId))
+  const chief: Api['chief'] = { state: st.paused === true ? 'paused' : live && isRunning(live) ? 'running' : 'idle' }
+  if (chiefLink) chief.threadLink = chiefLink
+  if (live) chief.gantt = [live.session]
+  const pm = new Map<string, TeamItem>()
+  for (const { role, session } of teamHistory) pm.set(session.sessionId, { role, session, open: false })
+  for (const i of team) {
+    const old = pm.get(i.session.sessionId)
+    if (i.role !== 'chief' && i.session.sessionId && (!old || i.session.updatedAt >= old.session.updatedAt)) pm.set(i.session.sessionId, i)
+  }
+  const pmRows = [...pm.values()]
+    .sort((a, b) => b.session.updatedAt - a.session.updatedAt)
+    .map((i): PmRow => {
+      const row: PmRow = { sessionId: i.session.sessionId, role: i.role as TeamRole, state: isRunning(i) ? 'running' : 'finished', gantt: [i.session] }
+      const threadLink = link(cleanThreadId(i.session.threadId))
+      if (threadLink) row.threadLink = threadLink
+      return row
+    })
+  return { generatedAt: now, status, merged: merged.map(withExtras), chief, pm: pmRows }
 }
