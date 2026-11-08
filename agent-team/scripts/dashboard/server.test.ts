@@ -34,6 +34,9 @@ function wtRoot(): string {
   return root
 }
 
+const sessionIds = (api: any): string[] =>
+  api.status.flatMap((g: any) => g.rows).flatMap((row: any) => row.gantt ?? []).map((s: { sessionId: string }) => s.sessionId)
+
 const goodSnap = { sessionId: 'good', cwd: '', updatedAt: Date.now(), total: null, rows: [] }
 const outsideDirs: string[] = []
 const goodState = { tickets: { 'CW-1': { title: 'one', stage: 'build', status: 'coding', branch: 'main' } } }
@@ -130,18 +133,10 @@ test('degraded inputs still answer', async () => {
     c.setup(root)
     const srv = await startServer({ root, port: 0 })
     try {
-      // The worktree list loads in the background; give it a moment before the first read.
-      await sleep(300)
-      let api: any
-      for (let i = 0; i < 30; i++) {
-        const r = await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)
-        assert.equal(r.status, 200, c.name)
-        api = JSON.parse(r.body)
-        const got = api.status.flatMap((g: any) => g.rows).flatMap((row: any) => row.gantt ?? []).map((s: { sessionId: string }) => s.sessionId)
-        if (got.length === c.sessions.length) break
-        await sleep(100)
-      }
-      const got = api.status.flatMap((g: any) => g.rows).flatMap((row: any) => row.gantt ?? []).map((s: { sessionId: string }) => s.sessionId)
+      const r = await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)
+      assert.equal(r.status, 200, c.name)
+      const api = JSON.parse(r.body)
+      const got = sessionIds(api)
       assert.deepEqual(got, c.sessions, c.name)
       assert.ok(!('gantt' in api), c.name)
       assert.deepEqual(api.merged, [], c.name)

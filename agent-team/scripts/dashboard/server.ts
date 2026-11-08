@@ -42,21 +42,30 @@ export async function startServer(opts: { root: string; port: number }): Promise
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
 
-  // Worktree list for matching sessions to tickets: read in the background, cached 30s, last good list kept.
+  // Worktree list for matching sessions to tickets: read once at start, then refreshed in the background, cached 30s, last good list kept.
   let worktrees: Worktree[] = []
   let worktreesAt = 0
   let worktreesBusy = false
-  const refreshWorktrees = () => {
-    if (worktreesBusy || Date.now() - worktreesAt < 30_000) return
+  const refreshWorktrees = (): Promise<void> => {
+    if (worktreesBusy || Date.now() - worktreesAt < 30_000) return Promise.resolve()
     worktreesBusy = true
     worktreesAt = Date.now()
-    execFile('git', ['-C', root, 'worktree', 'list', '--porcelain'], { timeout: 5000 }, (err, out) => {
-      worktreesBusy = false
-      if (!err) worktrees = parseWorktrees(out)
+    return new Promise((resolve) => {
+      const done = (out?: string) => {
+        worktreesBusy = false
+        if (out !== undefined) worktrees = parseWorktrees(out)
+        resolve()
+      }
+      try {
+        execFile('git', ['-C', root, 'worktree', 'list', '--porcelain'], { timeout: 5000 }, (err, out) => done(err ? undefined : out))
+      } catch {
+        done()
+      }
     })
   }
 
-  refreshWorktrees()
+  // The first read finishes before the server answers, so the first /api already has the list.
+  await refreshWorktrees()
 
   const api = () => {
     const state = readJson(join(agentDir, 'state.json'), [agentDir])
@@ -99,7 +108,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
       trackerTitles.want(blank, titleCfg)
     }
     merged.want(mergedCfg)
-    refreshWorktrees()
+    void refreshWorktrees()
     return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get() })
   }
 

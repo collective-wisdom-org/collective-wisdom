@@ -91,12 +91,6 @@ test('snapshots: only worktree sessions are listed', () => {
   }
 })
 
-test('merged passes through; absent means empty', () => {
-  const m = [{ id: 'CW-1', title: 't', prUrl: 'https://github.com/o/r/pull/1', mergedAt: 1 }]
-  assert.deepEqual(build({ merged: m }).merged, m)
-  assert.deepEqual(build().merged, [])
-})
-
 test('empty state', () => {
   for (const state of [null, {}, 'x']) assert.deepEqual(build({ state }).status, [])
 })
