@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Which Chief of Staff children may have reported MERGE READY or SPEC READY.
+"""Which Chief of Staff children may have reported MERGE READY or BUILD READY.
 
 Usage:
     ~/.collective-wisdom/scripts/cos_ready_check.py [--file STATE] [--prs FILE] [--refs FILE]
@@ -234,7 +234,7 @@ def check(state, prs=None, refs=None):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Which Chief of Staff children may have reported MERGE READY or SPEC READY."
+        description="Which Chief of Staff children may have reported MERGE READY or BUILD READY."
     )
     ap.add_argument("--file", type=Path, default=ROOT / ".agent-team" / "state.json")
     ap.add_argument("--prs", type=Path)

@@ -19,7 +19,7 @@ next to the file. init writes an empty state file if there is none. prune drops 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
     stage     ticket, stage, status; optional set (a stage change needs a status line)
-              awaiting-spec, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
+              awaiting-build, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
               user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
               with headSha unchanged keeps it. awaiting-review holds no lane slot.
     set       ticket, set (ticket fields other than stage)
@@ -74,7 +74,7 @@ TICKET = {
     "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
 }
 STAGES = (
-    "spec", "awaiting-spec", "spec-queued", "build-queued", "build",
+    "spec", "awaiting-build", "spec-queued", "build-queued", "build",
     "awaiting-review", "awaiting-merge", "merge-queued", "merge", "blocked",
 )
 ACTIVE = ("spec", "build", "merge")
@@ -211,7 +211,7 @@ def op_start(s, op):
     s["lastRelayAt"] = now()
 
 
-STAMPED = ("awaiting-spec", "awaiting-review", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
+STAMPED = ("awaiting-build", "awaiting-review", "awaiting-merge", "blocked")  # lastSeenAt here is the approval cut-off
 
 
 def op_stage(s, op):
@@ -450,6 +450,10 @@ def load(path):
     if not isinstance(state, dict):
         print("cos_state: unreadable state file", file=sys.stderr)
         sys.exit(2)
+    tickets = state.get("tickets")
+    for x in tickets.values() if isinstance(tickets, dict) else ():
+        if isinstance(x, dict) and x.get("stage") == "awaiting-spec":  # the pre-CW-177 name
+            x["stage"] = "awaiting-build"
     return state
 
 
@@ -520,7 +524,7 @@ def show(s):
         f"rotationHeldUntil={t(s.get('rotationHeldUntil'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)
-        + f" active={len(by(*ACTIVE))} awaiting-spec={len(by('awaiting-spec'))}"
+        + f" active={len(by(*ACTIVE))} awaiting-build={len(by('awaiting-build'))}"
         f" awaiting-review={len(by('awaiting-review'))} awaiting-merge={len(by('awaiting-merge'))} blocked={len(by('blocked'))}",
     ]
     for lane in ("spec", "build", "merge"):
