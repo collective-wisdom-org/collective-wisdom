@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 show the agent gantt on merged PRs in the dashboard (CW-213) (#214)
+
+Merged 2026-11-08 17:42 UTC.
+
+A merged PR in the dashboard now has an "Agents" section that opens to the same agent gantt a ticket card has. It shows only tickets that ran while the dashboard was running; nothing is needed from you.
+
 ## 2026-11-08 show agent spend on merged PRs in the dashboard (CW-209) (#211)
 
 Merged 2026-11-08 08:39 UTC.
