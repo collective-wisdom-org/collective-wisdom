@@ -1,6 +1,7 @@
 # CW-181: Nest each agent Gantt chart under its status card in the dashboard
 
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #184, as specified
 **Ticket:** [#181](https://github.com/collective-wisdom-org/collective-wisdom/issues/181)
 **Related:** CW-178 (#178), which decides which sessions get a chart at all. It is in spec at the same time and touches the same files.
 
