@@ -1,6 +1,7 @@
 # CW-199: Run the docs check once, after the code and security reviews pass
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #202, as specified
 **Ticket:** [#199](https://github.com/collective-wisdom-org/collective-wisdom/issues/199)
 **Related:** CW-197 (#197, open) compacts the same skills. Whichever merges second rebases its text edits.
 
