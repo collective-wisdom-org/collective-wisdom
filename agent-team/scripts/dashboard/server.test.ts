@@ -13,13 +13,13 @@ function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
 }
 
-function call(port: number, method: string, path: string, host?: string): Promise<{ status: number; body: string }> {
+function call(port: number, method: string, path: string, host?: string): Promise<{ status: number; body: string; headers: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = host === undefined ? {} : { Host: host }
     const req = request({ host: '127.0.0.1', port, method, path, headers, setHost: host !== undefined }, (res) => {
       let body = ''
       res.on('data', (c) => (body += c))
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body, headers: res.headers }))
     })
     req.on('error', reject)
     req.end()
@@ -62,6 +62,8 @@ test('method and routes', async () => {
     assert.equal((await call(srv.port, 'GET', '/nope', host)).status, 404)
     const h = await call(srv.port, 'GET', '/health', host)
     assert.deepEqual(JSON.parse(h.body), { ok: true, root })
+    assert.equal(h.headers['x-content-type-options'], 'nosniff')
+    assert.match(String((await call(srv.port, 'GET', '/', host)).headers['content-security-policy']), /default-src 'self'/)
   } finally {
     await srv.close()
     rmSync(root, { recursive: true, force: true })

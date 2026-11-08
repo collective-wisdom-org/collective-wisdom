@@ -44,14 +44,16 @@ export async function startServer(opts: { root: string; port: number }): Promise
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
     const send = (status: number, body: string, type = 'text/plain; charset=utf-8') => {
-      res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' })
+      const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
+      if (path === '/') headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'"
+      res.writeHead(status, headers)
       res.end(body)
     }
+    const path = (req.url ?? '/').split('?')[0]
     const port = (server.address() as { port: number }).port
     const host = req.headers.host
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return send(403, 'forbidden')
     if (req.method !== 'GET') return send(405, 'method not allowed')
-    const path = (req.url ?? '/').split('?')[0]
     try {
       if (path === '/health') return send(200, JSON.stringify({ ok: true, root }), 'application/json')
       if (path === '/api') return send(200, JSON.stringify(api()), 'application/json')
