@@ -1,14 +1,16 @@
 import { groupTickets } from '../../.claude/mods/status-pane/hooks/groups.ts'
+import type { MergedEntry } from './merged.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; childCount: number }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; rows: SnapshotRow[] }
-type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Api['gantt'] }
+export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; rows: SnapshotRow[] }
+type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Session[] }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
   status: { name: string; count: number; rows: StatusRow[] }[]
-  gantt: { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; rows: SnapshotRow[] }[]
+  merged: MergedEntry[]
 }
 type Repo = { url: string; isGithubIssues: boolean }
 
@@ -54,7 +56,7 @@ function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null {
   }
 }
 
-function cleanSnapshot(s: unknown, now: number): Api['gantt'][number] | null {
+function cleanSnapshot(s: unknown, now: number): Session | null {
   if (!isObj(s) || !Array.isArray(s.rows) || !isWorktree(str(s.cwd))) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
@@ -82,8 +84,8 @@ function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, un
   return id && onBoard.has(id) ? id : null
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
@@ -102,12 +104,10 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
   const cleaned = snapshots.map((s) => cleanSnapshot(s, now)).filter((s): s is NonNullable<typeof s> => s !== null)
   const rowById = new Map(status.flatMap((g) => g.rows).map((r) => [r.id, r]))
   const onBoard = new Set(rowById.keys())
-  const gantt: Api['gantt'] = []
   for (const s of cleaned) {
     const row = rowById.get(ticketOf(s.cwd, worktrees, tickets, onBoard, prefix) ?? '')
     if (row) (row.gantt ??= []).push(s)
-    else gantt.push(s)
   }
   for (const r of rowById.values()) r.gantt?.sort((a, b) => a.updatedAt - b.updatedAt)
-  return { generatedAt: now, status, gantt }
+  return { generatedAt: now, status, merged }
 }
