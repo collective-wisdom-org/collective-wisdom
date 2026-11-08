@@ -49,18 +49,7 @@ CmdError, GH, fetch, run = (
 )
 
 SMALL_MAX = 200  # changed lines outside docs files; the one constant to tune
-AGENT_CONFIG = ("claude.md", "claude.local.md", "agents.md")  # lowercase: tools read these from subfolders
-REGULAR = ("100644", "000000")  # 000000: the file is absent on that side
-
-
-def is_docs(path, modes):
-    low = path.lower()  # case-insensitive checkouts: docs/Agents/ lands on docs/agents/
-    in_docs = path == "README.md" or (low.startswith("docs/") and not low.startswith("docs/agents/"))
-    # ASCII only: a lookalike such as docs/agentſ/ also lands on docs/agents/ on a case-insensitive checkout
-    parts = low.split("/")
-    # Agent config is not a record: hidden folders (docs/.claude/skills/) and CLAUDE.md or AGENTS.md at any depth
-    config = any(p.startswith(".") for p in parts) or parts[-1] in AGENT_CONFIG
-    return path.isascii() and path.endswith(".md") and in_docs and not config and all(m in REGULAR for m in modes)
+is_docs = pr_diff_delta.is_docs  # the rule lives in pr_diff_delta.py
 
 
 DIFF_FLAGS = ["-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--ignore-submodules=none"]

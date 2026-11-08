@@ -11,7 +11,8 @@ comment, the same rule merge_pr.py uses. It posts nothing.
 Exit 0, last line:
   review-gate: pass head <SHA> code <url> security <url>   both reviews stand at the head; use the URLs in MERGE READY
   review-gate: note head <SHA> reviewed <SHA>               the head moved only by merging the merge target branch and the PR diff is
-                                                            unchanged; the line before it is the reviews-stand note. Post it with
+                                                            unchanged, or the PR diff changed only in docs files (the docs-file rule in
+                                                            pr_diff_delta.py); the line before it is the reviews-stand note. Post it with
                                                             gh.sh pr comment (as the builder), then run this again: it prints pass
   review-gate: rerun <code|security|both>: <why>            a review is missing, not PASS, stale, or the diff changed; run it on the head
   review-gate: ci                                           project.md's Review mode is ci; this check does not apply
@@ -73,8 +74,11 @@ def verdict(f, delta):
         kind, files = delta(f, reviewed)
     except merge_pr.CmdError as e:
         return rerun(bad, all_why=f"cannot compare diff since {reviewed[:7]}: {e}"), None
-    if kind != "same":
+    if kind not in ("same", "docs"):
         return rerun(bad, all_why=f"diff changed since {reviewed[:7]}: {', '.join(repr(x) for x in files[:10])}"), None
+    if kind == "docs":
+        note = f"Head moved to {head}; PR diff changed only in docs files since {reviewed}: {merge_pr.pr_diff_delta.show(files)}. Reviews from {reviewed} stand."
+        return f"review-gate: note head {head} reviewed {reviewed}", note
     note = f"Head moved to {head} by merging {project_config.target_branch()}; PR diff unchanged since {reviewed}. Reviews from {reviewed} stand."
     return f"review-gate: note head {head} reviewed {reviewed}", note
 

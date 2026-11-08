@@ -24,19 +24,21 @@ def moved_check(removed):
 
 
 @pytest.mark.parametrize(
-    "main_files, resolved, pr_files, changed",
+    "main_files, resolved, pr_files, expected",
     [
-        ({"other.txt": "x\n"}, None, {}, []),
-        ({"a.py": lines(l1="main edit")}, None, {}, ["a.py"]),
-        ({"a.py": lines(l25="main edit")}, {"a.py": lines(l25="both")}, {}, ["a.py"]),
-        ({}, None, {"a.py": lines(l25="PR edit", l26="more")}, ["a.py"]),
-        ({}, None, {"new.py": "x\n"}, ["new.py"]),
-        ({}, None, {"a.py": lines(l25="PR  edit")}, ["a.py"]),
-        ({}, None, {"dup.py": moved_check(1)}, ["dup.py"]),
-        ({}, None, {"a.py": lines(l25="PR edit\r")}, ["a.py"]),
+        ({"other.txt": "x\n"}, None, {}, ("same", [])),
+        ({"a.py": lines(l1="main edit")}, None, {}, ("changed", ["a.py"])),
+        ({"a.py": lines(l25="main edit")}, {"a.py": lines(l25="both")}, {}, ("changed", ["a.py"])),
+        ({}, None, {"a.py": lines(l25="PR edit", l26="more")}, ("changed", ["a.py"])),
+        ({}, None, {"new.py": "x\n"}, ("changed", ["new.py"])),
+        ({}, None, {"a.py": lines(l25="PR  edit")}, ("changed", ["a.py"])),
+        ({}, None, {"dup.py": moved_check(1)}, ("changed", ["dup.py"])),
+        ({}, None, {"a.py": lines(l25="PR edit\r")}, ("changed", ["a.py"])),
+        ({}, None, {"docs/superpowers/specs/x.md": "x\n"}, ("docs", ["docs/superpowers/specs/x.md"])),
+        ({}, None, {"docs/superpowers/specs/x.md": "x\n", "a.py": lines(l25="PR edit", l26="more")}, ("changed", ["a.py", "docs/superpowers/specs/x.md"])),
     ],
 )
-def test_delta(tmp_path, main_files, resolved, pr_files, changed):
+def test_delta(tmp_path, main_files, resolved, pr_files, expected):
     def git(*args, check=True):
         return subprocess.run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
@@ -45,6 +47,7 @@ def test_delta(tmp_path, main_files, resolved, pr_files, changed):
 
     def write_commit(files):
         for path, text in files.items():
+            (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
             (tmp_path / path).write_bytes(text.encode())
         git("add", "-A")
         git("commit", "-m", "c")
@@ -71,4 +74,4 @@ def test_delta(tmp_path, main_files, resolved, pr_files, changed):
     def run(cmd):
         return subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True, check=True).stdout
 
-    assert pr_diff_delta.delta(reviewed, head, run) == (("changed", changed) if changed else ("same", []))
+    assert pr_diff_delta.delta(reviewed, head, run) == expected

@@ -1,6 +1,6 @@
 ---
 name: documenter
-description: Checks a PR diff against the living docs and reports stale ones. Read only; the child applies the fixes. Use in the ship loop after closeout docs and before code review.
+description: Checks a PR diff against the living docs and reports stale ones. Read only; the child applies the fixes. Use in the ship loop after the code and security reviews pass.
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
