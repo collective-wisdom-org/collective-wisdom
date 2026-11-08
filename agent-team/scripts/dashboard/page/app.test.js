@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderStatus, renderGantt } from './app.js'
+import { esc, renderStatus, renderGantt, renderBadges } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -33,6 +33,25 @@ test('threadLink becomes a copy button carrying the exact link', () => {
 test('empty inputs show quiet lines', () => {
   assert.match(renderStatus([]), /No state yet/)
   assert.match(renderGantt([], 0), /No sessions yet/)
+})
+
+test('header badges count the three groups, hide empty alerts and use the singular for one', () => {
+  const g = (merge, build, queue) =>
+    [['Awaiting merge approval', merge], ['Awaiting build approval', build], ['Queued to build', queue]]
+      .filter(([, count]) => count !== undefined)
+      .map(([name, count]) => ({ name, count, rows: [] }))
+  const text = (html) => [...html.matchAll(/<span class="(badge[^"]*)">([^<]*)<\/span>/g)].map((m) => `${m[1]}|${m[2]}`)
+  const none = 'badge|No tickets in the build queue'
+  const cases = [
+    [g(0, 0, 0), [none]],
+    [g(undefined, undefined, undefined), [none]],
+    [g(1, 1, 1), ['badge cta-high|1 thread awaiting merge approval', 'badge cta-medium|1 thread awaiting build approval', 'badge|1 ticket in the build queue']],
+    [g(3, 2, 5), ['badge cta-high|3 threads awaiting merge approval', 'badge cta-medium|2 threads awaiting build approval', 'badge|5 tickets in the build queue']],
+    [g(undefined, 2, undefined), ['badge cta-medium|2 threads awaiting build approval', none]],
+  ]
+  for (const [groups, want] of cases) assert.deepEqual(text(renderBadges(groups)), want)
+  assert.equal(renderBadges(undefined), '')
+  assert.equal(renderBadges(null), '')
 })
 
 const T = Date.UTC(2026, 10, 7, 12, 0, 0)
