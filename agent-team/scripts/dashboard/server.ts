@@ -1,8 +1,10 @@
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
+import { execFile } from 'node:child_process'
 import { join } from 'node:path'
-import { buildApi, repoUrlFromProject } from './api.ts'
+import { buildApi, parseWorktrees, repoUrlFromProject } from './api.ts'
+import type { Worktree } from './api.ts'
 import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
@@ -37,6 +39,20 @@ export async function startServer(opts: { root: string; port: number }): Promise
   let lastState: unknown = null
   const trackerTitles = createTitles({ run: ghRunner(root) })
 
+  // Worktree list for matching sessions to tickets: read in the background, cached 30s, last good list kept.
+  let worktrees: Worktree[] = []
+  let worktreesAt = 0
+  let worktreesBusy = false
+  const refreshWorktrees = () => {
+    if (worktreesBusy || Date.now() - worktreesAt < 30_000) return
+    worktreesBusy = true
+    worktreesAt = Date.now()
+    execFile('git', ['-C', root, 'worktree', 'list', '--porcelain'], { timeout: 5000 }, (err, out) => {
+      worktreesBusy = false
+      if (!err) worktrees = parseWorktrees(out)
+    })
+  }
+
   const api = () => {
     const state = readJson(join(agentDir, 'state.json'), [agentDir])
     if (state !== undefined) lastState = state
@@ -55,11 +71,12 @@ export async function startServer(opts: { root: string; port: number }): Promise
     const envId = (dash as { environmentId?: unknown } | undefined)?.environmentId
     let repo = null
     let titleCfg: TitleConfig | null = null
+    let prefix: string | null = null
     try {
       const text = readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
       if (text !== undefined) {
         repo = repoUrlFromProject(text)
-        const prefix = prefixFromProject(text)
+        prefix = prefixFromProject(text)
         const slug = repo?.isGithubIssues ? slugFromUrl(repo.url) : null
         if (prefix && slug) titleCfg = { prefix, slug }
       }
@@ -72,7 +89,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
       }).map(([id]) => id)
       trackerTitles.want(blank, titleCfg)
     }
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now() })
+    refreshWorktrees()
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

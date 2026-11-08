@@ -34,6 +34,9 @@ ul.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%
 .badge.risk-high { background:var(--b-high); color:var(--b-high-fg); }
 button.copy { margin-left:auto; font:inherit; font-size:.8rem; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:.1rem .5rem; cursor:pointer; }
 .session { container-type:inline-size; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.5rem .75rem; margin-bottom:1rem; }
+.ticket details.chart { margin-top:.3rem; }
+.ticket details.chart > summary { cursor:pointer; }
+details.chart .session { margin-bottom:0; margin-top:.5rem; }
 .session.stale { opacity:.5; }
 .grow { display:grid; grid-template-columns:minmax(0, 1fr) auto; grid-template-areas:"name cost" "track track" "meta meta"; gap:.25rem .6rem; align-items:center; padding:.45rem 0; border-top:1px solid var(--line); }
 .grow.head { display:none; }
