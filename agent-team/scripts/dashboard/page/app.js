@@ -14,6 +14,11 @@ const clock = (ms) => {
 const tokens = (n) => (n >= 999_950 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(1)}k` : String(n))
 const dollars = (c) => (c === null || c === undefined ? '–' : `$${c.toFixed(2)}`)
 
+const riskClass = (risk) => {
+  const w = /^[a-z]+/.exec(String(risk ?? '').trim().toLowerCase())
+  return w && ['low', 'medium', 'high'].includes(w[0]) ? ` risk-${w[0]}` : ''
+}
+
 export function renderStatus(groups) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   return groups
@@ -24,16 +29,19 @@ export function renderStatus(groups) {
             ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>`
             : ''
           return `<li class="ticket">
-  <span class="id">${link(r.issueUrl, r.id)}</span>
-  <span class="title">${esc(r.title)}</span>
-  <span class="risk">${esc(r.risk)}</span>
-  <span class="next">${esc(r.next)}</span>
-  <span class="pr">${r.prUrl ? link(r.prUrl, 'PR') : ''}</span>
-  <span class="act">${copy}</span>
+  <div class="top">
+    <span class="id">${link(r.issueUrl, r.id)}</span>
+    ${r.stage ? `<span class="badge stage">${esc(r.stage)}</span>` : ''}
+    <span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>
+    ${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}
+    ${copy}
+  </div>
+  ${r.title ? `<div class="title">${esc(r.title)}</div>` : ''}
+  ${r.next ? `<div class="next">${esc(r.next)}</div>` : ''}
 </li>`
         })
         .join('\n')
-      return `<section class="group"><h3>${esc(g.name)} <span class="count">${esc(g.count)}</span></h3><ul>${rows}</ul></section>`
+      return `<section class="group"><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3><ul class="cards">${rows}</ul></section>`
     })
     .join('\n')
 }
@@ -54,18 +62,20 @@ export function renderGantt(sessions, now) {
           const width = Math.min(100 - left, Math.max(0.5, ((endOf(r) - r.start) / span) * 100))
           return `<div class="grow">
   <span class="name" style="padding-left:${Math.max(0, r.depth) * 1.2}em">${esc(r.name)}</span>
-  <span class="repo">${esc(r.repo)}</span>
-  <span class="num">${clock(r.start)}</span>
-  <span class="num">${running && !s.stale ? 'running' : clock(endOf(r))}</span>
-  <span class="num">${tokens(r.tokens)}</span>
-  <span class="num">${dollars(r.cost)}</span>
-  <span class="num">${esc(r.childCount)}</span>
+  <span class="num cost">${dollars(r.cost)}</span>
   <span class="track"><span class="bar${running && !s.stale ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span></span>
+  <span class="meta">
+    <span class="repo">${esc(r.repo)}</span>
+    <span class="num t0">${clock(r.start)}</span>
+    <span class="num t1">${running && !s.stale ? 'running' : clock(endOf(r))}</span>
+    <span class="num tok">${tokens(r.tokens)}</span>
+    <span class="num kids">${esc(r.childCount)}</span>
+  </span>
 </div>`
         })
         .join('\n')
       return `<section class="session${s.stale ? ' stale' : ''}">
-  <h3>${esc(s.cwd)} <span class="total">${dollars(s.total)}</span>${s.stale ? ' <span class="count">stale</span>' : ''}</h3>
+  <h3>${esc(s.cwd)} <span class="total">${dollars(s.total)}</span>${s.stale ? ' <span class="pill">stale</span>' : ''}</h3>
   <div class="grow head"><span>Agent</span><span>Repo</span><span class="num">Start</span><span class="num">End</span><span class="num">Tokens</span><span class="num">Cost</span><span class="num">Kids</span><span>Timeline</span></div>
   ${rows}
 </section>`

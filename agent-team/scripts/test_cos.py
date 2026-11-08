@@ -33,7 +33,7 @@ STATE = {
     "scheduledTaskId": "x",
 }
 START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "parentThreadId": "t9",
-         "status": "s"}
+         "status": "s", "title": "Add X"}
 QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q",
          "set": {"pendingRelay": "go"}}
 
@@ -126,7 +126,8 @@ def test_invalid_op_changes_nothing(tmp_path, bad):
 
 @pytest.mark.parametrize("ops, title, code", [
     ([{**START, "title": "  Add X  "}], "Add X", 0),
-    ([START], "", 0),
+    ([{k: v for k, v in START.items() if k != "title"}], None, 1),
+    ([{**START, "title": "  "}], None, 1),
     ([START, {"op": "set", "ticket": "ABC-3", "set": {"title": "  Later  "}}], "Later", 0),
     ([{**START, "title": "A\x1b]8;;x\x07B\nC"}], "A ]8;;x B C", 0),
     ([{**START, "title": "x" * 300}], "x" * 200, 0),
