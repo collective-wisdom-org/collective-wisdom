@@ -1,6 +1,7 @@
 # CW-212: Remove the leftover pieces of features we have dropped
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #217, with differences: [as-built](../as-built/2026-11-08-cw-212-remove-dropped-leftovers-as-built.md)
 **Ticket:** [#212](https://github.com/collective-wisdom-org/collective-wisdom/issues/212)
 
 ## Goal

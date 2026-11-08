@@ -1,6 +1,6 @@
 # As-built: Remove the leftover pieces of features we have dropped
 
-**Shipped:** in PR #PRNUM
+**Shipped:** in PR #217
 **Ticket:** CW-212
 **Spec:** [2026-11-08-cw-212-remove-dropped-leftovers-design.md](../specs/2026-11-08-cw-212-remove-dropped-leftovers-design.md)
 
