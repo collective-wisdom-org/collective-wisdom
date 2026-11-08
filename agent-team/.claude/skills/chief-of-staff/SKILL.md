@@ -27,7 +27,7 @@ On every turn, read state first. What state is trusted for: `~/.collective-wisdo
 - `stop paused`: `paused` is set (not for `status`). Answer commands only.
 - The new thread of an unfinished handoff (`take over`, `start the team`) skips the first two, and so do a run-started notice and a project manager run-finished notice (both need no tool calls, § Tick "Not run through the tick"); the conditions are in rotation.md § Thread rotation: Retired thread.
 
-You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), or the rate-limit wake (§ Rate limit). There is no timer.
+You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), a merge wait that ends (§ Merge wait), or the rate-limit wake (§ Rate limit). There is no timer.
 
 - `start the team`, the rate-limit wake, a user command that runs a pass, a child's run finishing, `status`, `where's <PREFIX>-N?` and a user question: run the tick with that trigger (§ Tick).
 - `take over`, `resume` and resume mode run the lean take-over pass instead (rotation.md § Thread rotation "Take over" step 4). Each also starts the dashboard (startup.md Setup step 4).
