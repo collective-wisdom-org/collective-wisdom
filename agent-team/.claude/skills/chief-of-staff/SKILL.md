@@ -196,6 +196,7 @@ Exit 2 prints `cos_tick: <what>`: fix the call for bad arguments, or rebuild sta
 **Rerun rule.** When a line fails or does not go as planned (a head check that moved, a user check that rejects, a readiness check that fails, a continuation that starts a new child), write what happened to state, run `--after-reads` again, and follow the new plan from its line 1. Each `send` and each start is saved to state before the next line, so a rerun never sends or starts the same ticket twice.
 
 `status`, `where's <PREFIX>-N?` and a user question run no slot fill unless a read changed a stage; then run `--trigger notice:<this thread's id> --after-reads`, which prints the slot fill, `observe`, `report`, `archive` and the rotation check, with no hygiene and no rate-limit clearing. The slot fill is decided from state alone: the act plan prints no send or start when the overall count is at the cap or no lane has both room and a queued ticket, and `start-todo` for each free spec slot, since Todo is not visible from state.
+
 | Trigger | When you run it |
 |---|---|
 | `start` | `start the team`. Empty state: startup.md § Setup and § Start-up clean-up, then the full-pass lines. Tickets in state: the one line `follow rotation.md § Thread rotation: Resume mode`, nothing else. |
@@ -207,7 +208,8 @@ Exit 2 prints `cos_tick: <what>`: fix the call for bad arguments, or rebuild sta
 Not run through the tick:
 
 - A run-started notice: no tool calls, no message.
-- A run-finished notice for the project manager children (`Backlog ranking`, `Project manager hygiene`): no tool calls, no message, no slot fill (`project-manager` § Ranking child, [project-manager/reference.md](../project-manager/reference.md) § Hygiene child). They are the thread ids `delegate_task` returned for them in this thread, or a notice titled that way. A forwarded `CHIEF OF STAFF NOTICE:` for one carries only the id, so it takes the `notice` path: one extra slot fill, which is bounded.- The ticket helper and cross-repo turns that run no full pass (§ Commands, `CHIEF OF STAFF REQUEST` and `REPLY`).
+- A run-finished notice for the project manager children (`Backlog ranking`, `Project manager hygiene`): no tool calls, no message, no slot fill (`project-manager` § Ranking child, [project-manager/reference.md](../project-manager/reference.md) § Hygiene child). They are the thread ids `delegate_task` returned for them in this thread, or a notice titled that way. A forwarded `CHIEF OF STAFF NOTICE:` for one carries only the id, so it takes the `notice` path: one extra slot fill, which is bounded.
+- The ticket helper and cross-repo turns that run no full pass (§ Commands, `CHIEF OF STAFF REQUEST` and `REPLY`).
 - `take over` and `resume` (rotation.md § Thread rotation "Take over", kill-switch.md § Resume).
 
 | Plan line | What you do |
