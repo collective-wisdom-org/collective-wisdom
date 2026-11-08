@@ -49,6 +49,4 @@ The Chief of Staff status table now links each ticket's child thread under its I
 
 - a spec in the PR has `**Status:** Shipped`;
 - a spec has `**Shipped:** in PR #N, as specified`, or the PR adds a file under `as-built/`;
-- unless `Publish release notes` in project.md § Docs is `off`: the PR body has a non-empty `## Release note` section, or the PR adds a `release-notes/` file; any added `release-notes/` file must start with a dated heading.
-
-The file branches keep PRs opened under the old rules mergeable.
+- unless `Publish release notes` in project.md § Docs is `off`: the PR body has a non-empty `## Release note` section.

@@ -19,13 +19,6 @@ NOTEMD = "docs/superpowers/release-notes/x.md"
 SHIPPED = "**Status:** Shipped\n**Shipped:** in PR #7, as specified\n"
 
 
-def old_shape(f, note="\n# 2026-11-03 X-1: a title\n\nbody\n"):
-    """As-built and release note as files, no release note body section."""
-    f["body"] = "## Proof\n\nNot proven: nothing\n"
-    f["docs"] = {SPECMD: "**Status:** Shipped\n", NOTEMD: note}
-    f["files"] += [{"path": ASBUILT, "changeType": "ADDED"}, {"path": NOTEMD, "changeType": "ADDED"}]
-
-
 def review(title, verdict="PASS", at="2026-11-02T10:00:00Z", who="me"):
     return {
         "author": {"login": who},
@@ -97,10 +90,7 @@ def reviews(**kw):
         (lambda f: f.update(body="## Release note\n\nA note.\n"), 'no "## Proof" section'),
         (lambda f: f.update(body="## Release note\n\nA note.\n\n## Proof\n\n## Test plan\n\ny\n"), 'no "## Proof" section'),
         (lambda f: f.update(body="## Release note\n\nA note.\n\n## Proof\n\nran it\n"), 'has no "Not proven" line'),
-        (old_shape, None),
-        (lambda f: old_shape(f, "# A title\n"), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
-        (lambda f: (old_shape(f), f["files"].pop()), 'no "## Release note" section'),
-        (lambda f: (old_shape(f, "# A title\n"), f.update(body="## Release note\n\nx\n")), f"release note {NOTEMD} has no '# YYYY-MM-DD"),
+        (lambda f: f.update(body="## Proof\n\nNot proven: nothing\n", files=f["files"] + [{"path": NOTEMD, "changeType": "ADDED"}]), 'no "## Release note" section'),
         (lambda f: f.update(root_branch="feat/y"), "root checkout is on feat/y"),
         (lambda f: f.update(state="MERGED", approved="bbbbbbb"), None),
     ],
