@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 remove leftovers of dropped features (CW-212) (#217)
+
+Merged 2026-11-08 18:12 UTC.
+
+A leftover Chief of Staff heartbeat task from the old design is no longer cleaned up automatically; delete one by hand if you still have it. The merge gate now needs the `## Release note` section in the PR body, and a dated release note file no longer stands in for it. `install.sh` now refuses any argument except `--dry-run`, with the same message that names the removal command.
+
 ## 2026-11-08 No Hands mode that works the Backlog with no approvals (CW-159) (#215)
 
 Merged 2026-11-08 17:42 UTC.
