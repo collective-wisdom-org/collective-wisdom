@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 gantt task rows show only their own work, bars get tooltips (CW-225) (#228)
+
+Merged 2026-11-08 20:06 UTC.
+
+On the dashboard gantt, a task's row now shows only the time the task itself worked, not the time it waited on its subagents. Hovering a bar shows its name, start and end, length and model.
+
 ## 2026-11-08 compatibility matrix for harnesses and trackers (CW-223) (#224)
 
 Merged 2026-11-08 19:56 UTC.
