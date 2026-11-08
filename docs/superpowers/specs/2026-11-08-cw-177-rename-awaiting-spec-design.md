@@ -1,6 +1,7 @@
 # CW-177: Rename the awaiting-spec stage to awaiting-build, and SPEC READY to BUILD READY
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #PRN, as specified
 **Ticket:** [#177](https://github.com/collective-wisdom-org/collective-wisdom/issues/177)
 
 ## Goal
