@@ -12,3 +12,4 @@
 - **Response headers.** The server also sends `X-Content-Type-Options: nosniff` on every response and a `Content-Security-Policy` on `/`. The spec does not mention them.
 - **Status redraw.** The page redraws the Gantt every second but the status section only after a poll that changed it, so the "Copied" label and text selection survive.
 - **Startup step.** The dashboard step sits in `startup.md` Setup step 4, before the full pass, and resume mode gets it through take-over step 4.1, not a separate run.
+- **Symlinked snapshot folders.** The spec does not cover them. Shipped: the start-up prune, `/api` and the mod's snapshot write leave a symlinked `.agent-team` or `.agent-team/gantt` folder alone, and the prune deletes only old regular `.json` files.
