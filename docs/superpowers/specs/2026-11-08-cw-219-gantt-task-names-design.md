@@ -29,8 +29,8 @@ Facts from `main` at `73eefd9`.
 
 `taskName(text, earlier)` takes the names of `main`'s earlier tasks as a second argument. `register.tsx` passes `r.tasks.map(k => k.name)`. The function stays pure.
 
-1. **Preamble as a prefix.** `PREAMBLE` matches at the start of a line, not the whole line: `/^Act as the [\w -]*agent for this task\.?\s*/i`. It is stripped, and the rest of the line, if any, is used.
-2. **Team markers.** After the preamble, a leading `TEAM MODE.` and then a leading `CONTINUE.` are dropped. `TEAM MODE. CONTINUE. Run /ship-loop for CW-9: fix` is named `Run /ship-loop for CW-9: fix`.
+1. **Preamble as a prefix.** `PREAMBLE` matches at the start of a line, not the whole line: `/^Act as the [\w -]*agent for this task(?:\.\s*|$)/i`: the sentence must end at `task`, so prose that continues (`... for this task and check X`) is kept. It is stripped, and the rest of the line, if any, is used.
+2. **Team markers.** After the preamble, a leading `TEAM MODE.` is dropped, and only then a leading `CONTINUE` word (so a user's `continue` or `Continued work` is not touched). `TEAM MODE. CONTINUE. Run /ship-loop for CW-9: fix` is named `Run /ship-loop for CW-9: fix`.
 3. **Relays.** A line that starts `CHIEF OF STAFF:` is named `<ticket> <work>`:
    - `<ticket>` is the last ticket id (`[A-Z][A-Z0-9]*-\d+`) found in the earlier names, newest first. None found: no ticket, and the name is just `<work>`.
    - `<work>` comes from the first rule in this table that matches the relay (case-insensitive):
