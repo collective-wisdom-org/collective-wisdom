@@ -1,7 +1,8 @@
 # CW-115: Move more skill logic into scripts to shrink the files agents load
 
 **Ticket:** [CW-115](https://github.com/collective-wisdom-org/collective-wisdom/issues/115)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #190, with differences: [as-built](../as-built/2026-11-08-cw-115-skill-logic-into-scripts-as-built.md)
 
 ## Goal
 
