@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 redesign the agent gantt as a waterfall by task, active time only (CW-216) (#218)
+
+Merged 2026-11-08 18:14 UTC.
+
+The Agents chart in the dashboard is now one waterfall per ticket, with a row per task showing how long the agent actually worked and what it cost. Time spent waiting on your approvals no longer counts. Restart the dashboard and the agent-gantt mod to see it.
+
 ## 2026-11-08 remove leftovers of dropped features (CW-212) (#217)
 
 Merged 2026-11-08 18:12 UTC.
