@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-08 reload the open dashboard page when its files change (CW-230) (#234)
+
+Merged 2026-11-08 20:23 UTC.
+
+An open dashboard tab now reloads itself within about 5 seconds when the page files change. A tab opened before this ships needs one hard refresh; restarting the server after a server-side change is still manual.
+
+Context size: pass skipped (no agent files changed)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 T3 Code harness columns in the compatibility matrix (CW-226) (#229)
 
 Merged 2026-11-08 20:13 UTC.
