@@ -34,49 +34,153 @@ const stageWords = (stage) => STAGE_WORDS.get(stage) ?? stage.replace(/-/g, ' ')
 
 const list = (x) => (Array.isArray(x) ? x.filter((e) => typeof e === 'object' && e !== null) : [])
 
-/** What the spec or the PR says, as plain text. It comes from agents, so every string is escaped and only an http(s) url becomes an anchor. */
+const MARKER = /^( *)([-*+]|\d{1,9}[.)])\s+(\S.*)$/
+
+/**
+ * Inline markdown for one run of text: code spans, then `[label](url)` links, then bold and italic.
+ * Every piece of text goes through esc() before a tag is built around it, and a link goes through link(), so only an http(s) url becomes an anchor.
+ */
+function inline(raw) {
+  const emphasis = (t) =>
+    t
+      .replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, (_, a, b) => `<strong>${a ?? b}</strong>`)
+      .replace(/(^|[^\w*])\*(?=\S)([^*]+?)\*(?![\w*])/g, '$1<em>$2</em>')
+      .replace(/(^|[^\w_])_(?=\S)([^_]+?)_(?![\w_])/g, '$1<em>$2</em>')
+  const text = String(raw)
+  const re = /`([^`]+)`|\[([^\]]+)\]\(([^)\s]*)\)/g
+  let out = ''
+  let at = 0
+  for (let m; (m = re.exec(text)); at = re.lastIndex) {
+    out += emphasis(esc(text.slice(at, m.index)))
+    out += m[1] !== undefined ? `<code>${esc(m[1])}</code>` : link(m[3], m[2])
+  }
+  return out + emphasis(esc(text.slice(at)))
+}
+
+const listHtml = (l) => {
+  const items = (tag, list) => `<${tag}>${list.join('')}</${tag}>`
+  return items(l.tag, l.items.map((it) => `<li>${inline(it.text)}${it.sub ? items(it.sub.tag, it.sub.items.map((s) => `<li>${inline(s)}</li>`)) : ''}</li>`))
+}
+
+/**
+ * Markdown to markup for the spec and PR text, which comes from agents and PR authors. No dependency.
+ * Covers headings, bullet and numbered lists (one nested level), fenced code, quotes, paragraphs and `|` tables (shown as preformatted text); the rest shows as plain text.
+ */
+export function renderMarkdown(text) {
+  const lines = String(text ?? '').replace(/\r\n?/g, '\n').replace(/^\t+/gm, (t) => '    '.repeat(t.length)).split('\n')
+  const out = []
+  let para = []
+  let quote = []
+  let list = null
+  const endText = () => {
+    if (para.length) out.push(`<p>${inline(para.join(' '))}</p>`)
+    if (quote.length) out.push(`<blockquote>${inline(quote.join(' '))}</blockquote>`)
+    para = []
+    quote = []
+  }
+  const endList = () => {
+    if (list) out.push(listHtml(list))
+    list = null
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const fence = line.match(/^\s*(```|~~~)/)
+    const marker = line.match(MARKER)
+    if (line.trim() === '') endText()
+    else if (marker) {
+      const tag = /\d/.test(marker[2]) ? 'ol' : 'ul'
+      endText()
+      if (list && marker[1].length >= 2) (list.items.at(-1).sub ??= { tag, items: [] }).items.push(marker[3])
+      else {
+        if (list && list.tag !== tag) endList()
+        list ??= { tag, items: [] }
+        list.items.push({ text: marker[3], sub: null })
+      }
+    } else if (list && !fence && /^ {2,}\S/.test(line)) {
+      const last = list.items.at(-1)
+      if (last.sub) last.sub.items.push(`${last.sub.items.pop()} ${line.trim()}`)
+      else last.text += ` ${line.trim()}`
+    } else {
+      endList()
+      const heading = line.match(/^ {0,3}#{1,6}\s+(.*?)(?:\s+#+)?\s*$/)
+      const quoted = line.match(/^ {0,3}>\s?(.*)$/)
+      const table = /^\s*\|/.test(line)
+      if (fence || heading || table) endText()
+      if (fence) {
+        const code = []
+        while (++i < lines.length && !lines[i].trim().startsWith(fence[1])) code.push(lines[i])
+        out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`)
+      } else if (heading) out.push(`<p class="md-h">${inline(heading[1])}</p>`)
+      else if (table) {
+        const rows = [line]
+        while (/^\s*\|/.test(lines[i + 1] ?? '')) rows.push(lines[++i])
+        out.push(`<pre class="md-table">${esc(rows.join('\n'))}</pre>`)
+      } else if (quoted) {
+        if (para.length) endText()
+        quote.push(quoted[1])
+      } else {
+        if (quote.length) endText()
+        para.push(line.trim())
+      }
+    }
+  }
+  endText()
+  endList()
+  return out.join('')
+}
+
+/** What the spec or the PR says. It comes from agents, so the text goes through renderMarkdown, every other string is escaped and only an http(s) url becomes an anchor. */
 function renderDetail(d) {
   const sections = list(d?.sections)
   const files = list(d?.files)
   const reviews = list(d?.reviews)
   if (sections.length === 0 && files.length === 0 && reviews.length === 0 && !(d?.moreFiles > 0)) return ''
-  const open = isHttp(d.url) ? ` <span class="detail-open">${link(d.url, 'Open')}</span>` : ''
-  const out = [`<h4 class="detail-head">${d.kind === 'changes' ? 'Changes' : 'Spec'}${open}</h4>`]
-  for (const s of sections) out.push(`<h4>${esc(s.name)}</h4><p class="detail-text">${esc(s.text)}</p>`)
-  for (const v of reviews) out.push(`<p class="detail-review">${esc(v.name)}: ${link(v.url, v.verdict)}</p>`)
+  const open = isHttp(d.url) ? `<span class="detail-open">${link(d.url, 'Open')}</span>` : ''
+  const out = [`<header class="detail-head"><span>${d.kind === 'changes' ? 'Changes' : 'Spec'}</span>${open}</header>`]
+  for (const s of sections) out.push(`<div class="detail-block"><h4>${esc(s.name)}</h4><div class="detail-section">${renderMarkdown(s.text)}</div></div>`)
+  if (reviews.length) out.push(`<div class="detail-reviews">${reviews.map((v) => `<span class="badge ${v.verdict === 'PASS' ? 'pass' : 'fail'}">${link(v.url, `${v.name} ${v.verdict}`)}</span>`).join('')}</div>`)
   if (files.length || d.moreFiles > 0) {
-    const items = files.map((f) => `<li>${esc(f.path)} <span class="add">+${esc(Number(f.add) || 0)}</span> <span class="del">\u2212${esc(Number(f.del) || 0)}</span></li>`)
-    if (d.moreFiles > 0) items.push(`<li>and ${esc(d.moreFiles)} more ${d.moreFiles === 1 ? 'file' : 'files'}</li>`)
-    out.push(`<ul class="detail-files">${items.join('')}</ul>`)
+    const rows = files.map((f) => `<span class="path">${esc(f.path)}</span><span class="delta"><span class="add">+${esc(Number(f.add) || 0)}</span> <span class="del">−${esc(Number(f.del) || 0)}</span></span>`)
+    const more = d.moreFiles > 0 ? `<p class="detail-more">and ${esc(d.moreFiles)} more ${d.moreFiles === 1 ? 'file' : 'files'}</p>` : ''
+    out.push(`<div class="detail-block"><h4>Files (${files.length + (d.moreFiles > 0 ? d.moreFiles : 0)})</h4><div class="detail-files">${rows.join('')}</div>${more}</div>`)
   }
-  return out.join('')
+  return `<section class="detail">${out.join('')}</section>`
 }
 
-/** The `Details` body: a line per known fact, in a fixed order, or one quiet line when none is known. */
+/** `Spec` as a link beside `PR`, or nothing when the url is missing or not http(s). */
+const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')}</span>` : '')
+
+/** The `Details` body: a links line, the ticket and usage facts, then the spec or PR text. Each part is left out when empty; with none, one quiet line. */
 export function renderDetails(r, now) {
-  const lines = []
-  const add = (label, html) => lines.push(`<dt>${label}</dt><dd>${html}</dd>`)
-  if (r.stage) add('Stage', esc(stageWords(r.stage)))
-  if (r.risk) add('Risk', esc(r.risk))
-  if (r.next) add('Next', esc(r.next))
-  if (isHttp(r.issueUrl)) add('Issue', link(r.issueUrl, r.issueUrl))
-  if (isHttp(r.prUrl)) add('PR', link(r.prUrl, r.prUrl))
-  if (r.threadLink) add('Thread', `<code>${esc(r.threadLink)}</code>`)
+  const num = (u) => String(u).match(/(\d+)\/?$/)?.[1]
+  const numbered = (word, u) => link(u, num(u) ? `${word} #${num(u)}` : word)
+  const links = []
+  if (isHttp(r.issueUrl)) links.push(numbered('Issue', r.issueUrl))
+  if (isHttp(r.specUrl)) links.push(link(r.specUrl, 'Spec'))
+  if (isHttp(r.prUrl)) links.push(numbered('PR', r.prUrl))
+  if (r.threadLink) links.push(`<code>${esc(r.threadLink)}</code>`)
+  const ticketFacts = []
+  if (r.stage) ticketFacts.push(['Stage', esc(stageWords(r.stage))])
+  if (r.risk) ticketFacts.push(['Risk', esc(r.risk)])
+  if (r.next) ticketFacts.push(['Next', esc(r.next), 'wide'])
+  const usage = []
   if (r.gantt && r.gantt.length > 0) {
     const items = ganttTasks(r.gantt, now)
     const drawn = items.flatMap((i) => [i, ...i.kids])
     const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
     const subagents = drawn.filter((d) => d.r.kind === 'agent').length
     const agents = [plural(r.gantt.length, 'session'), items.length ? plural(items.length, 'task') : '', subagents ? plural(subagents, 'subagent') : '']
-    add('Agents', esc(agents.filter(Boolean).join(', ')))
-    add('Tokens', esc(tokens(drawn.reduce((n, d) => n + (d.r.tokens || 0), 0))))
+    usage.push(['Agents', esc(agents.filter(Boolean).join(', '))])
+    usage.push(['Tokens', esc(tokens(drawn.reduce((n, d) => n + (d.r.tokens || 0), 0)))])
     const cost = ganttCost(items)
-    if (typeof cost === 'number') add('Cost', esc(dollars(cost)))
+    if (typeof cost === 'number') usage.push(['Cost', esc(dollars(cost))])
     const newest = r.gantt.reduce((a, s) => (s.updatedAt > a.updatedAt ? s : a))
-    add('Last update', esc(`${stamp(newest.updatedAt)}${newest.stale ? ' (stale)' : ''}`))
+    usage.push(['Last update', esc(`${stamp(newest.updatedAt)}${newest.stale ? ' (stale)' : ''}`)])
   }
-  const facts = lines.length ? `<dl class="info-list">${lines.join('')}</dl>` : ''
-  return facts + renderDetail(r.detail) || '<p class="quiet">Nothing more known yet</p>'
+  const grid = (facts) => (facts.length ? `<dl class="info-grid">${facts.map(([k, v, cls]) => `<div${cls ? ` class="${cls}"` : ''}><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : '')
+  const facts = grid(ticketFacts) + grid(usage)
+  const html = (links.length ? `<p class="info-links">${links.join(' · ')}</p>` : '') + (facts ? `<div class="info-facts">${facts}</div>` : '') + renderDetail(r.detail)
+  return html || '<p class="quiet">Nothing more known yet</p>'
 }
 
 /** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */
@@ -87,7 +191,7 @@ function ticket(r, { flat, other, open, info }) {
   const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
   return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
   <div class="head"><span class="id">${link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}</div>
-  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
+  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
   ${flat ? '' : next}
   ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
   <details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>
@@ -132,8 +236,8 @@ const stamp = (ms) => {
 
 const spent = (s) => (s ? `${typeof s.cost === 'number' ? `<span class="num cost">${dollars(s.cost)}</span>` : ''}<span class="meta">${tokens(s.tokens)} tokens</span>` : '')
 
-/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged charts to keep open. */
-export function renderMerged(list, page, size = 10, open = new Set()) {
+/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged charts to keep open, `info` those of Details sections (whose body is filled here only when open, else by the shell). */
+export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const pages = Math.ceil(list.length / size)
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
@@ -142,8 +246,9 @@ export function renderMerged(list, page, size = 10, open = new Set()) {
     .map(
       (e) => `<li class="row">
   <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
-  <div class="sub"><span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
+  <div class="sub">${specSpan(e.specUrl)}<span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
   ${e.gantt && taskCount(e.gantt) ? `<details class="chart" data-merged="${esc(e.id)}"${open.has(e.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(e.gantt))}</span></summary><div class="chart-body" data-merged="${esc(e.id)}"></div></details>` : ''}
+  <details class="info" data-merged="${esc(e.id)}"${info.has(e.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-merged="${esc(e.id)}">${info.has(e.id) ? renderDetails(e, Date.now()) : ''}</div></details>
 </li>`,
     )
     .join('\n')
@@ -357,23 +462,28 @@ if (typeof document !== 'undefined') {
   let last = null
   let shownStatus = null
   const shownInfo = new Map()
+  const shownMergedInfo = new Map()
   const draw = () => {
     if (!last) return
     const now = Date.now()
     drawCharts(document, last, now, patchChart)
     // Rewrite a details body only when its html changed, so a selection inside an open one survives the tick.
     const rows = new Map(last.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
-    for (const body of document.querySelectorAll('.info-body[data-ticket]')) {
-      const row = rows.get(body.dataset.ticket)
-      if (!row) continue
-      const html = renderDetails(row, now)
-      if (shownInfo.get(row.id) !== html) {
-        shownInfo.set(row.id, html)
-        body.innerHTML = html
+    const fill = (selector, entries, shown) => {
+      for (const body of document.querySelectorAll(selector)) {
+        const entry = entries.get(body.dataset.ticket ?? body.dataset.merged)
+        if (!entry) continue
+        const html = renderDetails(entry, now)
+        if (shown.get(entry.id) !== html) {
+          shown.set(entry.id, html)
+          body.innerHTML = html
+        }
       }
     }
+    fill('.info-body[data-ticket]', rows, shownInfo)
+    fill('.info-body[data-merged]', new Map(last.merged.map((e) => [e.id, e])), shownMergedInfo)
   }
-  // The merged list is redrawn only when its html changed (compared with every chart closed, so opening one is not a change), so a poll keeps the page and any selection.
+  // The merged list is redrawn only when its html changed (compared with every chart and Details closed, so opening one is not a change), so a poll keeps the page and any selection.
   let mergedPage = 0
   let shownMerged = null
   const drawMerged = () => {
@@ -382,8 +492,9 @@ if (typeof document !== 'undefined') {
     mergedPage = r.page
     if (r.html !== shownMerged) {
       shownMerged = r.html
-      const open = new Set([...document.querySelectorAll('details.chart[data-merged][open]')].map((d) => d.dataset.merged))
-      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, open).html
+      const opened = (selector) => new Set([...document.querySelectorAll(selector)].map((d) => d.dataset.merged))
+      shownMergedInfo.clear()
+      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('details.chart[data-merged][open]'), opened('details.info[data-merged][open]')).html
       draw()
     }
   }
@@ -391,7 +502,7 @@ if (typeof document !== 'undefined') {
   const poll = async () => {
     const err = document.getElementById('error')
     try {
-      const res = await fetch('/api', { cache: 'no-store' })
+      const res = await fetch(`/api?mergedPage=${mergedPage}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       last = await res.json()
       if (seen(last.version)) {
@@ -422,6 +533,7 @@ if (typeof document !== 'undefined') {
     if (pager) {
       mergedPage = Number(pager.dataset.page)
       drawMerged()
+      poll()
       return
     }
     const btn = target?.closest('button[data-copy]')
@@ -443,6 +555,7 @@ if (typeof document !== 'undefined') {
     'toggle',
     (ev) => {
       const d = ev.target
+      if (d instanceof Element && d.matches('details.info')) draw()
       if (!(d instanceof Element) || !d.matches('details.group')) return
       const names = readCollapsed()
       if (d.open) names.delete(d.dataset.group)

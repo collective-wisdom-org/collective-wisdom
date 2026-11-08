@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderStatus, renderGantt, renderBadges, renderMerged, drawCharts, versionWatch } from './app.js'
+import { esc, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -207,26 +207,24 @@ test('each ticket has a closed Details section that lists what is known, escaped
   const html = renderStatus(group([full, bare]))
 
   const got = lines(section(html, 'CW-1'))
-  assert.deepEqual(got.slice(0, 9), [
+  assert.deepEqual(got.slice(0, 6), [
     ['Stage', 'spec queued'],
     ['Risk', 'medium: &lt;i&gt;touches&lt;/i&gt; the api'],
     ['Next', 'ship &lt;b&gt;it&lt;/b&gt; &amp; wait'],
-    ['Issue', 'https://x.test/issues/1'],
-    ['PR', 'https://x.test/pull/2'],
-    ['Thread', 't3-thread://v2/env/&lt;th&gt;'],
     ['Agents', '2 sessions, 2 tasks, 1 subagent'],
     ['Tokens', '3.5k'],
     ['Cost', '$1.75'],
   ])
-  assert.equal(got.length, 10)
-  assert.match(got[9][1], /^\d{4}-\d\d-\d\d \d\d:\d\d \(stale\)$/)
-  assert.match(section(html, 'CW-1'), /<a href="https:\/\/x\.test\/issues\/1"[^>]*>[^<]*<\/a>[\s\S]*<a href="https:\/\/x\.test\/pull\/2"/)
+  assert.equal(got.length, 7)
+  assert.match(got[6][1], /^\d{4}-\d\d-\d\d \d\d:\d\d \(stale\)$/)
+  const links = section(html, 'CW-1').match(/<p class="info-links">([\s\S]*?)<\/p>/)[1]
+  assert.equal(links.replace(/<a href="([^"]*)"[^>]*>/g, '[$1]').replace(/<\/a>/g, ''), '[https://x.test/issues/1]Issue #1 \u00b7 [https://x.test/pull/2]PR #2 \u00b7 <code>t3-thread://v2/env/&lt;th&gt;</code>')
   assert.ok(!section(html, 'CW-1').includes('<i>') && !section(html, 'CW-1').includes('<th>'))
 
   const none = section(html, 'CW-2')
   assert.ok(none.startsWith('<details class="info" data-ticket="CW-2"><summary>Details</summary>'))
   assert.match(none, /<p class="quiet">Nothing more known yet<\/p>/)
-  assert.doesNotMatch(none, /<dt>|href=|<dd><\/dd>/)
+  assert.doesNotMatch(none, /<dt>|href=|<dd><\/dd>|info-links|info-facts/)
 
   assert.match(renderStatus(group([full]), new Set(), new Set(), new Set(['CW-1'])), /<details class="info" data-ticket="CW-1" open>/)
 })
@@ -244,18 +242,86 @@ test('a spec or changes detail shows its sections, files and reviews as escaped 
   const html = renderStatus(group([row({ id: 'CW-1', stage: '', risk: '', next: '', detail: spec }), row({ id: 'CW-2', stage: '', risk: '', next: '', detail: changes })]))
   const section = (id) => html.match(new RegExp(`<details class="info" data-ticket="${id}"[^>]*>[\\s\\S]*?</details>`))[0]
   const a = section('CW-1')
-  assert.match(a, /<h4 class="detail-head">Spec <span class="detail-open"><a href="https:\/\/x\.test\/blob\/a\.md"/)
-  assert.match(a, /<h4>Goal<\/h4><p class="detail-text">ship &lt;b&gt;it&lt;\/b&gt;\nline two<\/p><h4>Touches<\/h4><p class="detail-text">a &amp; b<\/p>/)
+  assert.match(a, /<header class="detail-head"><span>Spec<\/span><span class="detail-open"><a href="https:\/\/x\.test\/blob\/a\.md"/)
+  assert.match(a, /<h4>Goal<\/h4><div class="detail-section"><p>ship &lt;b&gt;it&lt;\/b&gt; line two<\/p><\/div>/)
+  assert.match(a, /<h4>Touches<\/h4><div class="detail-section"><p>a &amp; b<\/p><\/div>/)
   assert.doesNotMatch(a, /Nothing more known|<dl/)
   const b = section('CW-2')
-  assert.match(b, /<h4 class="detail-head">Changes<\/h4>/)
+  assert.match(b, /<header class="detail-head"><span>Changes<\/span><\/header>/)
   assert.match(b, /&lt;img src=x onerror=alert\(1\)&gt;/)
-  assert.match(b, /Code review: <a href="https:\/\/x\.test\/c"[^>]*>PASS<\/a>/)
-  assert.match(b, /Security review: CHANGES NEEDED</)
-  assert.match(b, /<li>a\/&lt;b&gt;\.ts <span class="add">\+3<\/span> <span class="del">\u22121<\/span><\/li><li>and 4 more files<\/li>/)
+  assert.match(b, /<span class="badge pass"><a href="https:\/\/x\.test\/c"[^>]*>Code review PASS<\/a><\/span>/)
+  assert.match(b, /<span class="badge fail">Security review CHANGES NEEDED<\/span>/)
+  assert.match(b, /<h4>Files \(5\)<\/h4><div class="detail-files"><span class="path">a\/&lt;b&gt;\.ts<\/span><span class="delta"><span class="add">\+3<\/span> <span class="del">\u22121<\/span><\/span><\/div><p class="detail-more">and 4 more files<\/p>/)
   assert.doesNotMatch(b, /javascript:|data:x|<img/)
   const bare = renderStatus(group([row({ id: 'CW-3', stage: '', risk: '', next: '', detail: { kind: 'changes', sections: [], files: [{ path: 'f.ts', add: 1, del: 0 }] } })]))
-  assert.match(bare, /<li>f\.ts /)
+  assert.match(bare, /<span class="path">f\.ts<\/span>/)
+})
+
+test('markdown renders the elements it covers', () => {
+  const cases = [
+    ['## Goal', '<p class="md-h">Goal</p>'],
+    ['a **b** and __c__, *d* and _e_, snake_case_name', '<p>a <strong>b</strong> and <strong>c</strong>, <em>d</em> and <em>e</em>, snake_case_name</p>'],
+    ['use `a <b> **c**` here', '<p>use <code>a &lt;b&gt; **c**</code> here</p>'],
+    ['```js\nif (a < b) {}\n\n```\nafter', '<pre><code>if (a &lt; b) {}\n</code></pre><p>after</p>'],
+    ['~~~\nopen fence', '<pre><code>open fence</code></pre>'],
+    ['- one\n  more\n  - nested\n* two\n\nend', '<ul><li>one more<ul><li>nested</li></ul></li><li>two</li></ul><p>end</p>'],
+    ['1. a\n2) b\n- c', '<ol><li>a</li><li>b</li></ol><ul><li>c</li></ul>'],
+    ['see [the spec](https://x.test/a?b=1&c=2) now', '<p>see <a href="https://x.test/a?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">the spec</a> now</p>'],
+    ['line one\nline two\n\nnext', '<p>line one line two</p><p>next</p>'],
+    ['> quoted\n> twice', '<blockquote>quoted twice</blockquote>'],
+    ['| a | b |\n|---|---|\n| 1 | 2 |', '<pre class="md-table">| a | b |\n|---|---|\n| 1 | 2 |</pre>'],
+    ['https://bare.test stays text', '<p>https://bare.test stays text</p>'],
+    ['', ''],
+  ]
+  for (const [input, want] of cases) assert.equal(renderMarkdown(input), want, input)
+})
+
+test('hostile markdown comes out inert: no tag, no event attribute, no link that is not http(s)', () => {
+  const inputs = [
+    '<script>alert(1)</script>',
+    '<img src=x onerror=alert(1)>',
+    '[x](javascript:alert(1))',
+    '[x](JaVaScRiPt:alert(1)) [y](data:text/html,<b>) [z](vbscript:x)',
+    '[x](https://a.test/"onmouseover="alert(1))',
+    '`<b>onerror=x</b>` **<i onclick=x>**',
+    '# <script>x</script>\n- <script>y</script>\n> <svg onload=x>\n| <iframe |\n```\n<script>z</script>\n```',
+  ]
+  for (const input of inputs) {
+    const html = renderMarkdown(input)
+    assert.ok(!/<(script|img|svg|iframe|b|i)[\s>]/.test(html), html)
+    assert.ok(!/<[^>]*\son\w+=/.test(html), html)
+    for (const [, href] of html.matchAll(/href="([^"]*)"/g)) assert.match(href, /^https?:\/\//, html)
+  }
+  assert.equal(renderMarkdown('[x](javascript:alert(1))'), '<p>x)</p>')
+  assert.match(renderMarkdown('[x](https://a.test/"onmouseover="alert(1))'), /href="https:\/\/a\.test\/&quot;onmouseover=&quot;alert\(1"/)
+})
+
+test('a Spec link sits right before PR on a card, a flat row and a merged row; it is left out without an http(s) url', () => {
+  const sub = (html) => html.match(/<div class="sub">([\s\S]*?)<\/div>/)[1]
+  const anchors = (html) => [...sub(html).matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[2]}=${m[1]}`)
+  const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
+  const renders = {
+    card: (specUrl) => renderStatus(group([row({ prUrl: 'https://x.test/pull/1', specUrl })])),
+    row: (specUrl) => renderStatus([{ name: 'Queued to build', count: 1, rows: [row({ prUrl: 'https://x.test/pull/1', specUrl })] }]),
+    merged: (specUrl) => renderMerged([{ ...e, specUrl }], 0).html,
+  }
+  for (const [name, render] of Object.entries(renders)) {
+    assert.deepEqual(anchors(render('https://x.test/blob/a.md')), ['Spec=https://x.test/blob/a.md', 'PR=https://x.test/pull/1'], name)
+    for (const bad of [undefined, 'javascript:alert(1)']) {
+      assert.deepEqual(anchors(render(bad)), ['PR=https://x.test/pull/1'], name)
+      assert.ok(!render(bad).includes('class="spec"'), name)
+    }
+  }
+})
+
+test('a merged row has a closed Details section filled only when open; it shows the links line and the PR text', () => {
+  const e = { id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/9', issueUrl: 'https://x.test/issues/9', specUrl: 'https://x.test/blob/s.md', mergedAt: 0, detail: { kind: 'changes', sections: [{ name: 'Summary', text: 'Did **it**' }] } }
+  const closed = renderMerged([e], 0).html
+  assert.match(closed, /<details class="info" data-merged="CW-9"><summary>Details<\/summary><div class="info-body" data-merged="CW-9"><\/div><\/details>/)
+  const open = renderMerged([e], 0, 10, new Set(), new Set(['CW-9'])).html
+  assert.match(open, /<details class="info" data-merged="CW-9" open>/)
+  assert.match(open, /<p class="info-links">[^]*Issue #9[^]*Spec[^]*PR #9[^]*<\/p>/)
+  assert.match(open, /<p>Did <strong>it<\/strong><\/p>/)
 })
 
 test('status sections draw open unless collapsed; a closed one keeps its heading and count; the name is escaped', () => {
@@ -325,9 +391,9 @@ test('merged row with sessions has a closed Agents chart that stays open when it
   const html = (gantt, open) => renderMerged([{ ...e, ...(gantt ? { gantt } : {}) }, { ...e, id: 'CW-2' }], 0, 10, open).html
   assert.match(html([sess(), sess()]), /<details class="chart" data-merged="CW-1"><summary>Agents <span class="pill">2<\/span><\/summary><div class="chart-body" data-merged="CW-1"><\/div>/)
   assert.match(html([sess()], new Set(['CW-1'])), /<details class="chart" data-merged="CW-1" open>/)
-  assert.equal(html([sess()]).match(/<details/g).length, 1)
-  assert.doesNotMatch(html([]), /<details|Agents/)
-  assert.doesNotMatch(html(), /<details|Agents/)
+  assert.equal(html([sess()]).match(/<details class="chart"/g).length, 1)
+  assert.doesNotMatch(html([]), /<details class="chart"|Agents/)
+  assert.doesNotMatch(html(), /<details class="chart"|Agents/)
 })
 
 test('drawCharts writes a chart body only when its html changed; a body with no entry is never written', () => {
