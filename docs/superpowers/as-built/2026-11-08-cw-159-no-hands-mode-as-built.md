@@ -26,3 +26,4 @@
   - Known limit: the ticket cap is enforced by the Chief of Staff (it starts at most `cap - N` tickets per turn), not by a script; the cost cap is the hard limit.
 - Hands path also covers an extensionless last part under `scripts/` named like a module (a symlink to a package) and test config files at any depth under `scripts/`.
 - Hands path also covers directories above a listed path (a symlink such as `.claude` added with its target), root-level `*.py`, more pytest config names and `.gitattributes`.
+- Hands path also covers `.claude/rules/`, `.cursor/rules/`, `.cursorrules` (instruction files loaded into every session) and repo-root directories named like a stdlib module or pytest.

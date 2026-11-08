@@ -64,14 +64,14 @@ HANDS_TESTS = {"scripts/test_" + re.sub(r"\W", "_", n.removesuffix(".py")) + ".p
 TEST_CONFIG = {"conftest.py", "pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "pyproject.toml", "setup.cfg", "tox.ini"}  # change how CI runs the tests, at the repo root or under agent-team/
 HANDS_PATH = frozenset(
     TEST_CONFIG | {"docs/agents/project.md", "templates/project.md", "templates/machine-instruction.md", "install.sh", "tag-release.sh",
-     ".cursor/hooks.json", ".cursor/mcp.json", ".mcp.json",
+     ".cursor/hooks.json", ".cursor/mcp.json", ".mcp.json", ".cursorrules",
      "docs/agents/security-review.md", "docs/agents/code-review.md", "docs/agents/chief-of-staff.md", "docs/agents/github-auth.md",
      ".claude/agents/code-reviewer.md", ".claude/agents/security-reviewer.md"}
     | {f"scripts/{n}" for n in HANDS_SCRIPTS} | HANDS_TESTS
 )
 HANDS_DIRS = (
     *(f".claude/skills/{n}/" for n in ("chief-of-staff", "ship-loop", "open-pr", "security-review", "merge-pr", "owasp-security", "agent-security", "auditing-security")),
-    ".codex/", ".claude-plugin/", "mods/", ".claude/mods/", ".claude/hooks/",  # agent config, the marketplace and the mods
+    ".codex/", ".claude-plugin/", "mods/", ".claude/mods/", ".claude/hooks/", ".claude/rules/", ".cursor/rules/",  # agent config, rule files loaded into every session, the marketplace and the mods
 )
 
 
@@ -112,6 +112,7 @@ def on_approval_path(path):
 
 SHADOWS = frozenset(sys.stdlib_module_names) | {"sitecustomize", "usercustomize", "conftest"}
 HANDS_STEMS = frozenset(n.split(".")[0] for n in HANDS_SCRIPTS)
+ROOT_SHADOWS = SHADOWS | {"pytest", "_pytest", "pluggy"}  # a repo-root directory with one of these names shadows it for `python3 -m pytest` in CI
 PYTHONISH = (".py", ".so", ".pyd", ".pyc", ".pth")  # file types Python imports or loads
 
 
@@ -147,7 +148,7 @@ def on_hands_path(path):
     p, name, instructions = _norm(path)
     settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
     return (p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
-            or p in HANDS_PARENTS or name == ".gitattributes" or ("/" not in p and name.endswith(".py")) or shadows_imports(p, name))
+            or p in HANDS_PARENTS or p.split("/")[0] in ROOT_SHADOWS and "/" in p or name == ".gitattributes" or ("/" not in p and name.endswith(".py")) or shadows_imports(p, name))
 
 
 def _verdict(kind, who, level, setting, ticket=None):
