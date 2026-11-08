@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-08 label gantt task rows by stage and helper role (CW-233) (#237)
+
+Merged 2026-11-08 21:04 UTC.
+
+On a ticket's Agents chart, each child thread's row now starts with its stage (`Spec CW-N: ...`, `Build CW-N: ...`, `Merge CW-N: ...`), and the ticket helper, backlog ranking and hygiene children show their role. Run `/plugin update agent-gantt@collective-wisdom` to get it; rows already recorded keep their old names.
+
+Context size: pass skipped (no agent files changed)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 expandable Details section on each dashboard ticket (CW-227) (#231)
 
 Merged 2026-11-08 20:47 UTC.
