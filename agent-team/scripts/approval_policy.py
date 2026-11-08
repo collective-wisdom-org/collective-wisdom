@@ -144,11 +144,18 @@ def _ancestors(entries):
 HANDS_PARENTS = frozenset(_ancestors(HANDS_PATH | set(HANDS_DIRS) | {".claude/settings.json", ".github/x"}) | {d.rstrip("/") for d in HANDS_DIRS} | {".claude", ".github"})
 
 
+def nested_rules(p):
+    """A rule file or rule directory (or a link to one) in any directory: `<dir>/.cursor/rules`, `<dir>/.claude/rules`, `<dir>/.cursorrules`."""
+    parts = p.split("/")
+    return parts[-1] == ".cursorrules" or any(parts[i:i + 2] in ([".cursor", "rules"], [".claude", "rules"]) for i in range(len(parts) - 1)) \
+        or parts[-1] in (".cursor", ".claude") and len(parts) > 1 or parts[-2:] in ([".cursor", "rules"], [".claude", "rules"])
+
+
 def on_hands_path(path):
     p, name, instructions = _norm(path)
     settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
     return (p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
-            or p in HANDS_PARENTS or p.split("/")[0] in ROOT_SHADOWS and "/" in p or name == ".gitattributes" or ("/" not in p and name.endswith(".py")) or shadows_imports(p, name))
+            or p in HANDS_PARENTS or p.split("/")[0] in ROOT_SHADOWS or nested_rules(p) or name == ".gitattributes" or ("/" not in p and name.endswith(".py")) or shadows_imports(p, name))
 
 
 def _verdict(kind, who, level, setting, ticket=None):
