@@ -46,9 +46,11 @@ test('row title: state wins, else tracker title, else empty', () => {
   for (const [name, extra, titles, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), titles }).title, want, name)
 })
 
+const WT = '/Users/me/.t3/worktrees/repo/t3-1'
+
 test('snapshots', () => {
   const row = (end: number | null, name = 'n') => ({ id: 'a', depth: 0, name, repo: 'r', start: 1, end, tokens: 1, cost: null, childCount: 0 })
-  const snap = (age: number, rows: unknown) => ({ sessionId: 's', cwd: '/c', updatedAt: NOW - age, total: null, rows })
+  const snap = (age: number, rows: unknown) => ({ sessionId: 's', cwd: WT, updatedAt: NOW - age, total: null, rows })
   const H = 3_600_000
   const cases: [string, unknown, (g: any[]) => void][] = [
     ['23h kept', snap(23 * H, [row(2)]), (g) => assert.equal(g.length, 1)],
@@ -65,12 +67,24 @@ test('snapshots', () => {
       assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['childCount', 'cost', 'depth', 'end', 'id', 'name', 'repo', 'start', 'tokens'])
     }],
     ['string', 'x', (g) => assert.equal(g.length, 0)],
-    ['no rows', { sessionId: 's', cwd: '/c', updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
+    ['no rows', { sessionId: 's', cwd: WT, updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
     ['rows not array', snap(1, 'x'), (g) => assert.equal(g.length, 0)],
     ['long name', snap(1, [row(2, 'x'.repeat(80))]), (g) => assert.equal(g[0].rows[0].name.length, 60)],
   ]
   for (const [name, s, check] of cases) {
     try { check(build({ snapshots: [s] }).gantt) } catch (e) { throw new Error(`${name}: ${(e as Error).message}`) }
+  }
+})
+
+test('snapshots: only worktree sessions are listed', () => {
+  const cases: [string, string, number][] = [
+    ['T3 worktree', '/Users/me/.t3/worktrees/repo/t3-1', 1],
+    ['.worktrees checkout', '/Users/me/repo/.worktrees/feat', 1],
+    ['root checkout', '/Users/me/repo', 0],
+  ]
+  for (const [name, cwd, want] of cases) {
+    const snap = { sessionId: 's', cwd, updatedAt: NOW, total: null, rows: [] }
+    assert.equal(build({ snapshots: [snap] }).gantt.length, want, name)
   }
 })
 
@@ -88,21 +102,20 @@ test('snapshots join the card of their worktree branch; the rest stay in the Age
   const porcelain = [
     'worktree /r\nHEAD a\nbranch refs/heads/main',
     'worktree /r/.worktrees/x\nHEAD b\nbranch refs/heads/feat/cw-7-thing',
-    'worktree /w/t3-1\nHEAD c\nbranch refs/heads/odd-name',
-    'worktree /w/t3-2\nHEAD d\nbranch refs/heads/feat/cw-9-off-board',
-    'worktree /w/t3-3\nHEAD e\ndetached',
+    'worktree /h/.t3/worktrees/r/t3-1\nHEAD c\nbranch refs/heads/odd-name',
+    'worktree /h/.t3/worktrees/r/t3-2\nHEAD d\nbranch refs/heads/feat/cw-9-off-board',
+    'worktree /h/.t3/worktrees/r/t3-3\nHEAD e\ndetached',
   ].join('\n\n')
   const worktrees = parseWorktrees(porcelain)
-  assert.deepEqual(worktrees.map((w) => w.path), ['/r', '/r/.worktrees/x', '/w/t3-1', '/w/t3-2'])
+  assert.deepEqual(worktrees.map((w) => w.path), ['/r', '/r/.worktrees/x', '/h/.t3/worktrees/r/t3-1', '/h/.t3/worktrees/r/t3-2'])
   const state = { tickets: { 'CW-7': { title: 't', stage: 'build', status: 'going. Risk: low' }, 'CW-8': { title: 't', stage: 'build', status: 'going. Risk: low', branch: 'odd-name' } } }
   const snap = (cwd: string, age = 0) => ({ sessionId: cwd, cwd, updatedAt: NOW - age, total: null, rows: [] })
   const cases: [string, string, string | null][] = [
     ['equal cwd, nested beats root, pattern', '/r/.worktrees/x', 'CW-7'],
     ['under worktree', '/r/.worktrees/x/src', 'CW-7'],
-    ['state branch', '/w/t3-1/a', 'CW-8'],
-    ['root on main', '/r', null],
-    ['not on board', '/w/t3-2', null],
-    ['detached skipped', '/w/t3-3', null],
+    ['state branch', '/h/.t3/worktrees/r/t3-1/a', 'CW-8'],
+    ['not on board', '/h/.t3/worktrees/r/t3-2', null],
+    ['detached skipped', '/h/.t3/worktrees/r/t3-3', null],
     ['sibling folder prefix', '/r/.worktrees/xy', null],
   ]
   for (const [name, cwd, want] of cases) {

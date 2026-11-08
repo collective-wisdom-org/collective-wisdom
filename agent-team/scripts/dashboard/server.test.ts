@@ -26,7 +26,7 @@ function call(port: number, method: string, path: string, host?: string): Promis
   })
 }
 
-const goodSnap = { sessionId: 'good', cwd: '/x', updatedAt: Date.now(), total: null, rows: [] }
+const goodSnap = { sessionId: 'good', cwd: '/Users/me/.t3/worktrees/repo/t3-1', updatedAt: Date.now(), total: null, rows: [] }
 const outsideDirs: string[] = []
 const goodState = { tickets: { 'CW-1': { title: 'one', stage: 'build', status: 'coding' } } }
 
