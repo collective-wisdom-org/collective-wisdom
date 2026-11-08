@@ -422,7 +422,7 @@ Characters, `python3 ~/.collective-wisdom/scripts/compact_check.py` after mergin
 |---|---|---|---|---|---|
 | chief-of-staff/SKILL.md | 84364 | 68494 | -15870 | 15000 | yes |
 | chief-of-staff/adopt.md (new) | 0 | 1613 | +1613 | none | n/a |
-| chief-of-staff/approvals.md | 13192 | 11358 | -1834 | 1500 | yes |
+| chief-of-staff/approvals.md | 13192 | 11530 | -1662 | 1500 | yes |
 | chief-of-staff/review.md (new) | 0 | 4145 | +4145 | none | n/a |
 | chief-of-staff/rotation.md | 15548 | 14044 | -1504 | 1500 | yes |
 | chief-of-staff/startup.md | 6982 | 7590 | +608 | none | n/a |
@@ -435,7 +435,7 @@ Characters, `python3 ~/.collective-wisdom/scripts/compact_check.py` after mergin
 | ship-loop/reference.md | 1503 | 2061 | +558 | none | n/a |
 | docs/agents/chief-of-staff.md | 8172 | 6831 | -1341 | 1000 | yes |
 | docs/agents/org-chart.md | 12872 | 11784 | -1088 | 800 | yes |
-| **Total** | **226643** | **208750** | **-17893** | 15000 | yes |
+| **Total** | **226643** | **208922** | **-17721** | 15000 | yes |
 
 The new reference files count in the total, so text moved out of a skill shows only in that file's line. The spec's total line quoted 348854 as the starting figure; `compact_check.py` measures 226068 on this branch, so the target is read as the 15000 reduction, not the absolute number.
 
