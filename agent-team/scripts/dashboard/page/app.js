@@ -183,25 +183,28 @@ export function renderGantt(sessions, now) {
     }
     return before
   }
-  const bars = (spans, stale) =>
+  const bars = (row, spans) =>
     union(spans)
       .map(([a, b, open]) => {
         const left = Math.min(99, (pos(a) / scale) * 100)
         const width = Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100))
-        return `<span class="bar${open && !stale ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span>`
+        const running = open && !row.s.stale
+        const range = running ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`
+        const meta = [range, duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
+        const title = esc(`${row.r.name}\n${meta.join(' · ')}`)
+        return `<span class="bar${running ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${title}"></span>`
       })
       .join('')
   const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
   const line = (row, spans, cost, depth) => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
   <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
-  <span class="track">${bars(spans, row.s.stale)}</span>
+  <span class="track">${bars(row, spans)}</span>
   <span class="num dur">${duration(length(spans))}</span>
   <span class="num cost">${dollars(cost)}</span>
 </div>`
   const rows = items.map((i) => {
-    const all = [...i.spans, ...i.kids.flatMap((k) => k.spans)]
     const cost = sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])
-    return [line(i, all, cost, 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
+    return [line(i, i.spans, cost, 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
   })
   const sum = sumCost(items.map((i) => sumCost([i.r.cost, ...i.kids.map((k) => k.r.cost)])))
   const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null

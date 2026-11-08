@@ -109,13 +109,14 @@ test('renderGantt draws one waterfall of active time', () => {
       bars: [[[0, 50]], [[50, 50]], []],
     },
     {
-      name: 'a task row includes its subagents once even when they run in parallel; a subagent row shows its own share',
+      name: 'a task row shows only its own time; a subagent row shows its own share; cost and Total still cover all',
       html: one([
         task({ name: 't', cost: 1, segments: [[T, T + 2 * MIN]] }),
         sub({ name: 'x', start: T + MIN, cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] }),
         sub({ name: 'y', start: T + MIN, cost: 0.25, segments: [[T + MIN, T + 2 * MIN]] }),
       ]),
-      want: ['t|3m 00s|$1.75', 'x|2m 00s|$0.50', 'y|1m 00s|$0.25', 'Total|3m 00s|$1.75'],
+      want: ['t|2m 00s|$1.75', 'x|2m 00s|$0.50', 'y|1m 00s|$0.25', 'Total|3m 00s|$1.75'],
+      bars: [[[0, 66.67]], [[33.33, 66.67]], [[33.33, 33.33]], []],
       classes: ['', 'sub', 'sub', 'gtotal'],
     },
     {
@@ -149,6 +150,14 @@ test('renderGantt draws one waterfall of active time', () => {
   const stale = renderGantt([sess({ stale: true, updatedAt: T + MIN, rows: [task({ end: null, segments: [[T, null]] })] })], T + 90 * MIN)
   assert.match(stale, /<span class="pill">stale<\/span>/)
   assert.ok(!/bar running/.test(stale))
+})
+
+test('each bar has an escaped tooltip with its own range, length and the row model; a running bar says running', () => {
+  const html = renderGantt([sess({ rows: [task({ name: '<b>t</b>', model: 'opus-5-5', end: null, segments: [[T, T + MIN], [T + 5 * MIN, null]] })] })], T + 8 * MIN)
+  const titles = [...html.matchAll(/class="bar[^"]*"[^>]*title="([^"]*)"/g)].map((m) => m[1])
+  assert.equal(titles.length, 2)
+  assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d to \d\d:\d\d · 1m 00s · opus-5-5$/)
+  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d, running · 3m 00s · opus-5-5$/)
 })
 
 test('the engine total shows as a note only when it differs from the row sum by a cent or more', () => {
