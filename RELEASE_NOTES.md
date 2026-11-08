@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-08 compact skills and role docs, add cos_route, cos_restart, cos_todo (CW-197) (#207)
+
+Merged 2026-11-08 08:13 UTC.
+
+The Chief of Staff skill and the role docs are about 18 thousand characters smaller. Three new scripts (`cos_route.py`, `cos_restart.py`, `cos_todo.py`) now work out the lane for a relay, the stuck-child restart and the Todo start order, so the Chief of Staff runs them instead of working it out. Rules, gates and commands are unchanged, with the two small exceptions under Behaviour changes. Nothing for you to do after `./install.sh`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 collapsible dashboard status sections (CW-200) (#204)
 
 Merged 2026-11-08 07:15 UTC.
