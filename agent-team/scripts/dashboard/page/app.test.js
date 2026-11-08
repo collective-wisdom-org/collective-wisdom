@@ -254,6 +254,8 @@ test('a spec or changes detail shows its sections, files and reviews as escaped 
   assert.match(b, /Security review: CHANGES NEEDED</)
   assert.match(b, /<li>a\/&lt;b&gt;\.ts <span class="add">\+3<\/span> <span class="del">\u22121<\/span><\/li><li>and 4 more files<\/li>/)
   assert.doesNotMatch(b, /javascript:|data:x|<img/)
+  const bare = renderStatus(group([row({ id: 'CW-3', stage: '', risk: '', next: '', detail: { kind: 'changes', sections: [], files: [{ path: 'f.ts', add: 1, del: 0 }] } })]))
+  assert.match(bare, /<li>f\.ts /)
 })
 
 test('status sections draw open unless collapsed; a closed one keeps its heading and count; the name is escaped', () => {

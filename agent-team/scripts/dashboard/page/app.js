@@ -37,12 +37,13 @@ const list = (x) => (Array.isArray(x) ? x.filter((e) => typeof e === 'object' &&
 /** What the spec or the PR says, as plain text. It comes from agents, so every string is escaped and only an http(s) url becomes an anchor. */
 function renderDetail(d) {
   const sections = list(d?.sections)
-  if (sections.length === 0) return ''
+  const files = list(d?.files)
+  const reviews = list(d?.reviews)
+  if (sections.length === 0 && files.length === 0 && reviews.length === 0 && !(d?.moreFiles > 0)) return ''
   const open = isHttp(d.url) ? ` <span class="detail-open">${link(d.url, 'Open')}</span>` : ''
   const out = [`<h4 class="detail-head">${d.kind === 'changes' ? 'Changes' : 'Spec'}${open}</h4>`]
   for (const s of sections) out.push(`<h4>${esc(s.name)}</h4><p class="detail-text">${esc(s.text)}</p>`)
-  for (const v of list(d.reviews)) out.push(`<p class="detail-review">${esc(v.name)}: ${link(v.url, v.verdict)}</p>`)
-  const files = list(d.files)
+  for (const v of reviews) out.push(`<p class="detail-review">${esc(v.name)}: ${link(v.url, v.verdict)}</p>`)
   if (files.length || d.moreFiles > 0) {
     const items = files.map((f) => `<li>${esc(f.path)} <span class="add">+${esc(Number(f.add) || 0)}</span> <span class="del">\u2212${esc(Number(f.del) || 0)}</span></li>`)
     if (d.moreFiles > 0) items.push(`<li>and ${esc(d.moreFiles)} more ${d.moreFiles === 1 ? 'file' : 'files'}</li>`)
