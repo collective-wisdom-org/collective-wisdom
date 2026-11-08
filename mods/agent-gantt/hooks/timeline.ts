@@ -4,13 +4,15 @@ import type { AgentRecord, Segment } from '../types/index.d.ts'
 const NAME_MAX = 60
 // A list keeps its last spans only, so a long session stays small.
 const SEGMENTS_MAX = 500
-// T3 Code puts this line first in a delegated task: `Act as the implementer agent for this task.`
-const PREAMBLE = /^Act as the .* agent for this task\.?$/i
+// T3 Code puts this line first in a delegated task: `Act as the implementer agent for this task.` (also `sub-agent`, `subagent`).
+const PREAMBLE = /^Act as the .*agent for this task\.?$/i
+// The team's mode marker opens a delegated prompt; the name starts after it.
+const TEAM_MODE = /^TEAM MODE\.?\s*/i
 
-/** The task's name: the prompt's first line that is not T3's preamble, whitespace collapsed, cut to 60 characters. */
+/** The task's name: the prompt's first line that is not T3's preamble, whitespace collapsed, a leading `TEAM MODE.` dropped, cut to 60 characters. */
 export function taskName(text: string): string {
   for (const raw of text.split('\n')) {
-    const line = raw.replace(/\s+/g, ' ').trim()
+    const line = raw.replace(/\s+/g, ' ').trim().replace(TEAM_MODE, '')
     if (line === '' || PREAMBLE.test(line)) continue
     return line.length > NAME_MAX ? line.slice(0, NAME_MAX) : line
   }

@@ -67,10 +67,13 @@ for (const c of cases) {
 
 test('taskName takes the first real line, skips the T3 preamble, collapses space and cuts to 60', () => {
   const cases: [string, string][] = [
-    ['Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-9: fix', 'TEAM MODE. Run /ship-loop for CW-9: fix'],
+    ['Act as the implementer agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
     ['\n  fix   the\tbug \nmore', 'fix the bug'],
     ['x'.repeat(80), 'x'.repeat(60)],
     ['  \n\n', 'task'],
+    ['Act as the implementation sub-agent for this task.\nTEAM MODE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
+    ['Act as the build subagent for this task\nfix it', 'fix it'],
+    ['TEAM MODE.\nBuild CW-9', 'Build CW-9'],
   ]
   for (const [text, want] of cases) assert.equal(taskName(text), want)
   assert.equal(run([['open', 7]]).tasks[0]?.name, 'task')
