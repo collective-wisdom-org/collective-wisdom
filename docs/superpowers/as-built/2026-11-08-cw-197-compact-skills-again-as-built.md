@@ -257,3 +257,194 @@ From cos/SKILL.md § Commands (the table and "On a ticket that is already queued
 | 3. Repo invariants | 48 (I1 to I48) |
 | 4. `cos_state.py` ops | 17 (S1 to S17: 12 ops, 5 subcommands) |
 | 5. Chief of Staff user commands | 32 (C1 to C32) |
+
+## Inventory after
+
+Measured on the tree at the Task 4 commit, row by row against `## Inventory before` (193 rows: A1 to A54, M1 to M42, I1 to I48, S1 to S17, C1 to C32). Same path shorthand as above, plus `cos/review.md` and `cos/adopt.md`, the two files this ticket added. A file the cuts did not touch keeps its old section, so the row repeats the old location. "Script and test" means the rule is enforced and tested there and the skill states only the action. Result: no rule was lost; every row has a home. Two small pointers were added while checking (see the end of this section).
+
+### Approval gates
+
+| IDs | Now stated in |
+|---|---|
+| A1 to A7 | cos/SKILL.md § Commands (last two paragraphs: strict check, whole-message check, `--after`, negation, exit-2 fallback, verbatim relay); A1 also docs/chief-of-staff.md § What it trusts; A3 also cos/state-keys.md § State keys (`lastSeenAt`) and the scripts/cos_state.py header |
+| A8 | skills/ship-loop/SKILL.md § Approvals; docs/org-chart.md § How approval travels (shorter, same check) |
+| A9 | cos/SKILL.md § Send or queue; skills/ship-loop/SKILL.md § Approvals |
+| A10 | skills/ship-loop/SKILL.md § Approvals; skills/ship-loop/reference.md § Relay chain walk (unchanged) |
+| A11, A12 | cos/SKILL.md § Send or queue (queued re-read), § Commands (item id kept for `approvalItemId`); cos/state-keys.md § State keys (`approvalItemId`); scripts/cos_route.py docstring (`stage:` line: a queue adds `pendingRelay` and, for a user spec approval, `approvalItemId`) |
+| A13 | skills/ship-loop/SKILL.md § Approvals; cos/SKILL.md § Child task template (last paragraph) |
+| A14 | skills/ship-loop/SKILL.md § Continuation tasks; cos/continuation.md § Continuation child (unchanged) |
+| A15 to A17 | skills/ship-loop/SKILL.md § Approvals (tightened, same checks); A17 also cos/SKILL.md § Guardrails, § Child task template; docs/chief-of-staff.md § What it trusts; docs/org-chart.md § How approval travels (pointer to What it trusts) |
+| A18, A19 | cos/SKILL.md § Guardrails; § Child task template |
+| A20 | skills/ship-loop/SKILL.md § Approvals; skills/merge-pr/SKILL.md § Gate, § Do not; skills/open-pr/SKILL.md § Forbidden; skills/security-review/SKILL.md § Forbidden; docs/code-review.md § Rules |
+| A21, A22 | cos/SKILL.md § Send or queue (Verify a merge approval, merge relay), § Commands; docs/github-auth.md § Merge gate; scripts/cos_approve_pr.py and test_cos_approve_pr.py |
+| A23 | cos/startup.md § State rebuild (Queued ticket with no relay, added this ticket; text moved from SKILL.md § Tick `rebuild-relay`); cos/SKILL.md § Tick (`rebuild-relay` row points there) |
+| A24 | skills/ship-loop/SKILL.md § Approvals; skills/merge-pr/SKILL.md § Gate; cos/continuation.md § Continuation child; docs/github-auth.md § Merge gate |
+| A25, A27 | cos/review.md § approve N on awaiting-review, § Review check (`approved` row); cos/SKILL.md § Commands (table row points there); docs/org-chart.md § Where the user approves |
+| A26, A28 | cos/state-keys.md § State keys (`heldApproval`, `lastSeenAt`); cos/SKILL.md § Child path; scripts/cos_state.py header and test_cos.py |
+| A29 | cos/approvals.md § Ticket comment on approval; cos/SKILL.md § Commands |
+| A30, A31 | cos/SKILL.md § Commands (table rows `hold N`, `cancel N`, `changes N`, and "On a ticket that is already queued") |
+| A32 | cos/SKILL.md § Send or queue (Head check for a merge approval); scripts/cos_head_check.py and test_cos_head_check.py |
+| A33 to A36 | cos/approvals.md § Approval requests (script output shapes now in scripts/cos_brief.py header); A36 also cos/SKILL.md § Report format, § Lean turns; cos/status.md § Status layout; A35 also cos/SKILL.md § Child path (Marker) |
+| A37 | cos/approvals.md § Risk level; cos/SKILL.md § State file |
+| A38 | scripts/approval_policy.py header (tolerance table, fail-closed, read from `origin/<target>`) and test_approval_policy.py (`test_setting_reads_origin_main_and_fails_closed`, `test_decide`); cos/approvals.md § Auto-approval names the rule; project.md § Identity |
+| A39 | cos/approvals.md § Auto-approval; docs/chief-of-staff.md § Scope; docs/org-chart.md (intro) |
+| A40 | scripts/approval_policy.py (`PATH_FILES`, `PATH_DIRS`) and test_approval_policy.py (`test_approval_path`); cos/approvals.md § Auto-approval (The approval path: categories and the rename rule) |
+| A41 | cos/approvals.md § Auto-approval (Observation tickets); cos/SKILL.md § Guardrails; cos/ticket-helper.md § Observation tickets; docs/chief-of-staff.md § What it trusts |
+| A42, A43 | cos/approvals.md § Auto-approval (A spec, A merge); cos/SKILL.md § Commands, § Send or queue (Verify an auto-approved merge); docs/github-auth.md § Merge gate; scripts/cos_approve_pr.py (`flag:`, migration path, `FILES_CAP` 100, `changeType`, conflict note) and test_cos_approve_pr.py |
+| A44, A45 | cos/SKILL.md § Send or queue (queued auto relay); cos/approvals.md § Auto-approval |
+| A46, A47 | skills/ship-loop/SKILL.md § Approvals; docs/org-chart.md § How approval travels (shorter, points to approvals.md § Auto-approval); cos/approvals.md § Auto-approval; docs/github-auth.md § Merge gate |
+| A48, A49 | scripts/cos_route.py (`ROUTES` is the caller table; the room, cap and empty-queue test) and test_cos_route.py; cos/SKILL.md § Send or queue (callers, relay texts), § Lanes. "The stuck-check restart is not a caller" stays in § Send or queue |
+| A50 | cos/SKILL.md § Models (step 2), § Send or queue (`approve-spec` caller) |
+| A51 | cos/continuation.md § Continuation child (unchanged); cos/SKILL.md § Send or queue (Continuation child); `cos_route.py` `route: continuation` |
+| A52 | cos/cross-repo.md § Cross-repo requests; cos/ticket-helper.md § Helper test; cos/SKILL.md § Guardrails, § Sweep; skills/project-manager/SKILL.md § Guardrails (and intro: Todo is theirs); project.md § Identity |
+| A53 | cos/setup.md § The PR walk-through, § Endings; docs/chief-of-staff.md § Scope |
+| A54 | cos/SKILL.md § Guardrails; skills/ship-loop/SKILL.md § Blocked, § Workflow files; skills/project-manager/SKILL.md § Guardrails |
+
+### Merge gates
+
+| IDs | Now stated in |
+|---|---|
+| M1 to M4 | skills/ship-loop/SKILL.md § Phase gates, § Phases 3, 4; skills/open-pr/SKILL.md § Agent review comment loop, § Done when; skills/security-review/SKILL.md § PR comment loop, § Done when, § Prerequisite; docs/code-review.md; docs/security-review.md § PR gate; skills/merge-pr/SKILL.md § Gate |
+| M5 to M7 | skills/ship-loop/SKILL.md § Phase gates, § Phases 5 (Invoke, tightened); skills/merge-pr/SKILL.md (description), § Gate, § Do not; cos/SKILL.md § Guardrails; skills/open-pr/SKILL.md § Done when, § Forbidden. open-pr § Next was deleted: its two lines are in § Done when and ship-loop § Phase gates |
+| M8, M9 | skills/ship-loop/SKILL.md § Phases 4; scripts/review_gate.py, merge_pr.py (reviews-stand note); skills/open-pr/SKILL.md § Docs check; cos/approvals.md § Approval requests (step 3) |
+| M10 to M13 | skills/ship-loop/SKILL.md § Phase gates (Review mode), § Phases 4; skills/open-pr/SKILL.md § CI review mode, § Review scope, § Agent review comment loop; skills/merge-pr/SKILL.md § Pre-merge checks; docs/code-review.md; docs/security-review.md |
+| M14, M15 | skills/open-pr/SKILL.md § Docs check, § Closeout docs, § Proof; skills/merge-pr/SKILL.md § Pre-merge checks (Closeout in PR, now a pointer to open-pr); skills/ship-loop/SKILL.md § Phases 6. The dated-heading rule for an added `release-notes/` file: scripts/release_notes.py and test_release_notes.py, and agent-team/docs/superpowers/README.md |
+| M16 | skills/ship-loop/SKILL.md § CI waits, § Run endings (the `unmatched` rule now lives once, in § Run endings); skills/open-pr/SKILL.md § Create PR; skills/merge-pr/SKILL.md § Do not; scripts/merge_pr.py; project.md § Commands |
+| M17, M18 | skills/merge-pr/SKILL.md § Gate (Reference head, Head moved), § Merge; skills/ship-loop/SKILL.md § Approvals, § Phases 5; docs/github-auth.md § Merge gate; scripts/merge_pr.py |
+| M19 | cos/SKILL.md § Send or queue (Head check); scripts/cos_head_check.py and test_cos_head_check.py |
+| M20, M21 | skills/open-pr/SKILL.md § Conflict resolution; skills/merge-pr/SKILL.md § Gate (One exception); skills/ship-loop/SKILL.md § Phases 5 (now points to merge-pr § Gate), § Phases 4; docs/github-auth.md § Merge gate (carries the resolved-head rule that org-chart.md no longer repeats); project.md § Identity; cos/approvals.md § Approval requests |
+| M22, M23 | scripts/merge_pr.py header; docs/github-auth.md § Merge gate; skills/ship-loop/SKILL.md § Phases 4; cos/setup.md § The questions |
+| M24, M25 | cos/review.md § Review check (all six lines, the `changes` relay and `changesRelayed`); cos/state-keys.md § State keys (`changesRelayed`); scripts/cos_review_check.py header; skills/ship-loop/SKILL.md § Changes requested |
+| M26 to M30 | scripts/merge_pr.py header; skills/merge-pr/SKILL.md § Merge, § Pre-merge checks, § Migration heads check, § Do not; skills/open-pr/SKILL.md § Forbidden; skills/build-from-plan/SKILL.md § Git; docs/github-auth.md § Merge gate; project.md § Commands |
+| M31 | cos/SKILL.md § Lanes, § Send or queue; cos_route.py reads the limit from `cos_tick.LIMITS` |
+| M32, M33 | skills/merge-pr/SKILL.md § Merge, § After merge, § Done when (tightened, same rules); scripts/merge_pr.py header; project.md § Docs |
+| M34 | skills/ship-loop/SKILL.md § Run endings |
+| M35 | cos/SKILL.md § Child path (Marker, `BLOCKED:`) |
+| M36 to M40 | unchanged: skills/ship-loop/SKILL.md § Phase gates, § Phases 1; skills/open-pr/SKILL.md § Verify, § Create PR, § Agent review comment loop; skills/build-from-plan/SKILL.md § Testing, § Compaction pass; skills/kickoff-feature/SKILL.md § Steps; AGENTS.md § Workflow; docs/code-review.md § Rules; docs/security-review.md; docs/documenter.md |
+| M41 | skills/ship-loop/SKILL.md § Blocked, § Rate limits |
+| M42 | skills/merge-pr/SKILL.md § Done when |
+
+### Repo invariants
+
+| IDs | Now stated in |
+|---|---|
+| I1 to I7 | project.md § Repo invariants, § Docs; AGENTS.md § Secrets, § Product; skills/kickoff-feature/SKILL.md § Do not (all unchanged) |
+| I8 to I16 | cos/SKILL.md § Child task template (the `Never` list and data rules, unchanged and in full); cos/continuation.md § Continuation child; cos/SKILL.md § Guardrails; docs/org-chart.md § Roles (child never `delegate_task`, kept in the ship-loop child row) |
+| I17 | cos/ticket-helper.md § Ticket helper, § Observation tickets; skills/write-ticket/SKILL.md § Labels, § Placement; cos/cross-repo.md § Cross-repo requests; docs/org-chart.md § Roles (ticket helper row, shortened) |
+| I18 to I30 | AGENTS.md § Workflow, § Testing, § GitHub, § Product, § Agent config, § Commits, intro; project.md § Git and GitHub, § Commands, § Product rules; skills/ship-loop/SKILL.md § Repo invariants; skills/kickoff-feature/SKILL.md § Scope; skills/build-from-plan/SKILL.md § Testing (all unchanged) |
+| I31, I32 | project.md § Security overlays; docs/trackers/README.md; docs/trackers/github.md; scripts/cos_untracked_check.py header (trusted logins) |
+| I33, I37 | cos/SKILL.md intro, § Guardrails; docs/chief-of-staff.md § Scope |
+| I34 | cos/SKILL.md § Guardrails, § State file; cos/state-keys.md § State keys (`note`); skills/project-manager/SKILL.md § Guardrails (now points to cos § Guardrails); skills/ship-loop/SKILL.md § Workflow files |
+| I35 | skills/ship-loop/SKILL.md § Workflow files |
+| I36 | cos/SKILL.md § State file, § Working set; cos/state-keys.md § State keys |
+| I38 | cos/SKILL.md § Guardrails, § Rate limit; cos/startup.md § Start-up clean-up |
+| I39 | cos/SKILL.md § Tools, § Guardrails; skills/project-manager/SKILL.md § Guardrails |
+| I40 | cos/SKILL.md § Report format (the Guardrails copy was a duplicate and is gone) |
+| I41 | skills/project-manager/SKILL.md § Guardrails, § Hygiene pass, § Backlog pick, § State; cos/SKILL.md § Guardrails |
+| I42, I43, I45 | skills/write-ticket/SKILL.md § Links, § Labels; skills/build-from-plan/SKILL.md § Preconditions, § Git, § Testing; skills/merge-pr/SKILL.md § After merge (unchanged) |
+| I44 | skills/open-pr/SKILL.md intro (now "edit only there (the root checkout stays on the merge target branch)", moved up from § Primary loop); skills/security-review/SKILL.md § Prerequisite |
+| I46 | skills/ship-loop/SKILL.md § GitHub account; docs/org-chart.md § Roles |
+| I47 | skills/ship-loop/SKILL.md (intro, § Repo invariants); first line of each other skill (open-pr, merge-pr and project-manager checked after the cuts) |
+| I48 | cos/SKILL.md § Models; project.md § Models; skills/ship-loop/SKILL.md § Models (now points to cos § Models) |
+
+### `cos_state.py` ops
+
+The op list is no longer copied into cos/SKILL.md § State file. It lives in the scripts/cos_state.py header (Usage and Operations) with the tests in scripts/test_cos.py and test_cos_state.py; § State file says so.
+
+| IDs | Now stated in |
+|---|---|
+| S1 `start` | scripts/cos_state.py header; cos/SKILL.md § Readiness check and start (step 3 save fields); cos/state-keys.md § State keys; cos/startup.md § State rebuild |
+| S2, S3 `stage`, `set` | scripts/cos_state.py header; cos/SKILL.md § Child path, § Send or queue, § Commands; cos/state-keys.md § State keys; cos/review.md |
+| S4 `merged` | scripts/cos_state.py header; cos/SKILL.md § Child path (`MERGED #N`), § Merged check; cos/state-keys.md § State keys (`merged`) |
+| S5 `drop` | scripts/cos_state.py header; cos/SKILL.md § Commands (`cancel N`) |
+| S6 `top` | scripts/cos_state.py header; cos/SKILL.md § Child path (Rate limit), § Rate limit; cos/state-keys.md § State keys; cos/kill-switch.md; cos/rotation.md |
+| S7 `pm` | scripts/cos_state.py header; cos/state-keys.md § State keys (`pm`); skills/project-manager/SKILL.md § State |
+| S8 to S10 `retire`, `archive`, `unretire` | scripts/cos_state.py header; cos/rotation.md § Thread rotation, Failed handoff, Resume mode; cos/SKILL.md § Tick (`archive` line) |
+| S11, S16 `prune` | scripts/cos_state.py header; cos/SKILL.md § Tick (`prune` line, `unknown keys:`), § State file; cos/state-keys.md § Unknown keys and prune; cos/startup.md § Start-up clean-up |
+| S12 `observe` | scripts/cos_state.py header and test_cos.py (`test_observe_files_on_repeat_within_caps`, `test_prune_drops_observed_older_than_a_week`); cos/SKILL.md § Child path (Observe), § Tick (`observe` line), § Guardrails; cos/ticket-helper.md § Observation tickets (the kinds, moved there). § State file now says "`observe` included" and points to § Child path (it was the one op the old list left out) |
+| S13, S14 `show`, `get` | cos/SKILL.md § Working set, § Tools, § Tick; cos/review.md (`get` before a stage op); skills/project-manager/SKILL.md § State |
+| S15 `apply` | cos/SKILL.md § State file, § Tools; cos/startup.md § State rebuild |
+| S17 `init` | cos/startup.md § Setup step 2 |
+
+The script-enforced rules under the table in `## Inventory before` (held approval, `changesRelayed`, `awaiting-review` holds no slot, `pendingRelay`, `lastRelayAt`) are unchanged: scripts/cos_state.py and test_cos.py, cos/state-keys.md § State keys, cos/SKILL.md § Lanes.
+
+### Chief of Staff user commands
+
+| IDs | Now stated in |
+|---|---|
+| C1 | cos/startup.md § Setup, § Start-up clean-up; cos/SKILL.md intro, § Tick (`start` trigger), § When to read a reference file |
+| C2, C4, C5, C6 | cos/SKILL.md § Commands, § Send or queue (`approve-spec`, `approve-merge` callers); cos/approvals.md § Auto-approval |
+| C3 | cos/SKILL.md § Commands; cos/review.md § approve N on awaiting-review; cos/state-keys.md § State keys |
+| C7 | cos/adopt.md § Adopt (moved out of SKILL.md); cos/SKILL.md § Commands, § When to read a reference file, § Sweep (untracked) |
+| C8 | cos/SKILL.md § Commands; `cos_route.py` (`changes`: spec lane from `awaiting-build`, build lane from the other two) |
+| C9 | cos/SKILL.md § Commands |
+| C10 | cos/SKILL.md § Commands (`hold N` row: queued approval, held approval, nothing queued or held). `hold N` is in the table and in § Tick's `user` trigger row; the frontmatter `description` never listed it, so no change there |
+| C11 | cos/status.md § Answering status, § Status layout; cos/SKILL.md § Tick (`status` trigger), § Commands |
+| C12 | cos/setup.md; cos/SKILL.md § Commands; cos/startup.md § Setup step 0 |
+| C13 | cos/SKILL.md § Commands; skills/project-manager/SKILL.md § Ranking child; skills/project-manager/reference.md § Ranking child, § Hygiene child |
+| C14, C15 | cos/kill-switch.md § Kill switch, § Resume; cos/SKILL.md § Commands |
+| C16, C17 | cos/SKILL.md § Commands, § Tick (`wake` trigger); cos/startup.md § Start-up clean-up, § Legacy heartbeat prompt |
+| C18 | cos/rotation.md § Thread rotation (Take over); cos/SKILL.md § Commands |
+| C19, C20 | cos/SKILL.md § Commands; cos/ticket-helper.md § Ticket helper |
+| C21, C22 | cos/SKILL.md § Commands, § Guardrails; cos/cross-repo.md § Cross-repo requests |
+| C23 | cos/SKILL.md § Commands (`answer` caller) |
+| C24 | cos/SKILL.md intro (a message that is not a command) |
+| C25 to C29 | cos/SKILL.md § Commands ("On a ticket that is already queued"). C26 checked against `cos_route.py` (see below) |
+| C30 | cos/SKILL.md § Commands (last two paragraphs) |
+| C31 | docs/org-chart.md § Who reports to whom (unchanged) |
+| C32 | cos/SKILL.md frontmatter `description` (unchanged) |
+
+### Checks the task named
+
+- **`changes N` on a queued approval (A30, C26).** `cos_route.py` routes `changes` only from `awaiting-build` (spec lane) and `awaiting-review` or `awaiting-merge` (build lane). The rewritten § Commands text sets the stage back to `awaiting-build` or `awaiting-merge` first and then runs `changes`, so a queued spec approval goes to the spec lane and a queued merge approval to the build lane, as the old text said. A queued non-approval relay is replaced in place and `cos_route.py` is not run (nothing is sent).
+- **I44.** The worktree line now sits in the open-pr intro, so it covers the Primary loop and everything after it.
+- **org-chart.md "resolved head".** The clause is gone from org-chart.md; docs/github-auth.md § Merge gate states it in full, and the org-chart bullet that lost it ends with that pointer.
+- **Intro stop bullets.** cos/SKILL.md now has one line per stop reason and points to rotation.md § Thread rotation: Failed handoff and § Thread rotation: Retired thread, which own the conditions, the successor rules and the replies. The three `stop` lines `cos_tick.py` prints (`stop failed-handoff`, `stop retired`, `stop paused`) are unchanged, and the § Tick table row still sends the reader to the intro.
+- **Restored or added.** Nothing restored; the rule text was all present. One pointer added: § State file names `observe` and sends the reader to § Child path.
+
+## Differs from the spec
+
+- `open-pr/SKILL.md` missed its 2000 target: 588 smaller. Most of its text sits in CW-199's sections, which this ticket leaves alone; the sections left are short and mostly gates, so I tightened wording, deleted § Next and moved nothing structural. The total target is still met.
+- `conflict-withdraw` always routes to the build lane, because `cos_head_check.py` says so (its relay carries no approval and tells the child to resolve and report `MERGE READY`). The old caller table read "build (`on`), merge (`off`)" for that row, which contradicted the head check's own text. `conflict-keep` is the merge-lane caller; it prints `route: no` when `Review after conflict resolution` is `on`.
+- `cos_restart.py` has a `--spec <path>` flag the spec's signature left out: in `spec` the restart message names the spec path when the child's last message gave one.
+- `cos_restart.py --wait 2` exits 2 (`restart: cannot ...`): the model reads the child once more and passes the new result, or `2twice` if that read is unreadable too. `2twice` restarts a ticket with `restarts[stage]` 0 and never blocks it (it prints the `cleanup:` line); on a ticket already restarted it prints `restart: unreadable`.
+- `cos_todo.py` reads blockers from `relations.blockedBy` (also `blocked_by`, `blockers`) and from `relations` entries whose `type` says blocked by. A blocker is open unless Done, Canceled or Duplicate, and a bare id with no state counts as open. Priority comes from a `priority:<name>` label, a name, or Linear's 1 to 4. The spec only said "blocked tickets dropped".
+- `cos_route.py` prints a `fallback:` line for a continuation (the "I may not hear" Moving line, to copy only if the continuation falls back to sending to the old child). The spec said a continuation gets no such line. A plain `send` prints `moving:` only when the ticket has no known `parentThreadId`.
+- `ship-loop/reference.md` already existed (§ Relay chain walk), so § Running one phase by hand was added to it instead of creating the file.
+- `open-pr/SKILL.md` § Next was deleted (not on the spec's tighten list). What it said is in § Done when, § Forbidden and ship-loop § Phase gates.
+- The legacy notes (heartbeat row, old `SPEC READY`, `scheduledTaskId`) stayed in cos/SKILL.md; the spec said to move them to startup.md. They are one clause each and § Commands, § Child path and § Tick need them where they are.
+
+## Sizes
+
+Characters, `python3 ~/.collective-wisdom/scripts/compact_check.py` at the Task 4 commit. "Delta" is after minus before; "target" is how much smaller the spec asked the file to be.
+
+| File | Before | After | Delta | Target | Met |
+|---|---|---|---|---|---|
+| chief-of-staff/SKILL.md | 84364 | 68286 | -16078 | 15000 | yes |
+| chief-of-staff/adopt.md (new) | 0 | 1613 | +1613 | none | n/a |
+| chief-of-staff/approvals.md | 12951 | 11151 | -1800 | 1500 | yes |
+| chief-of-staff/review.md (new) | 0 | 4145 | +4145 | none | n/a |
+| chief-of-staff/rotation.md | 15548 | 14044 | -1504 | 1500 | yes |
+| chief-of-staff/startup.md | 6982 | 7590 | +608 | none | n/a |
+| chief-of-staff/state-keys.md | 7909 | 9277 | +1368 | none | n/a |
+| chief-of-staff/ticket-helper.md | 8504 | 9379 | +875 | none | n/a |
+| merge-pr/SKILL.md | 9035 | 8222 | -813 | 800 | yes |
+| open-pr/SKILL.md | 19410 | 18822 | -588 | 2000 | no (see above) |
+| project-manager/SKILL.md | 15525 | 14003 | -1522 | 1500 | yes |
+| ship-loop/SKILL.md | 23238 | 20738 | -2500 | 2500 | yes |
+| ship-loop/reference.md | 1503 | 2061 | +558 | none | n/a |
+| docs/agents/chief-of-staff.md | 8172 | 6831 | -1341 | 1000 | yes |
+| docs/agents/org-chart.md | 12927 | 11848 | -1079 | 800 | yes |
+| **Total** | **226068** | **208010** | **-18058** | 15000 | yes |
+
+The new reference files count in the total, so text moved out of a skill shows only in that file's line. The spec's total line quoted 348854 as the starting figure; `compact_check.py` measures 226068 on this branch, so the target is read as the 15000 reduction, not the absolute number.
+
+New scripts and the tests that cover the logic moved into them (lines, not counted by `compact_check.py`):
+
+| Script | Lines | Test | Lines | Covers |
+|---|---|---|---|---|
+| scripts/cos_route.py | 146 | scripts/test_cos_route.py | 113 | the caller table, full lane, cap, non-empty queue, continuation, conflict rows with the setting `off` and `on`, a caller that does not apply |
+| scripts/cos_restart.py | 196 | scripts/test_cos_restart.py | 100 | the stuck cases, wait-check results, first stall versus second, PR and `ci` text, continuation wording |
+| scripts/cos_todo.py | 111 | scripts/test_cos_todo.py | 72 | priority and age order, `agent-skip`, open blockers, `todo: none` |
+
+Test lines (285) stay under the script lines (453), per `AGENTS.md` § Testing.
