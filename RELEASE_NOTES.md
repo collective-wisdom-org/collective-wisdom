@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 sort dashboard sections by last updated (CW-198) (#201)
+
+Merged 2026-11-08 06:40 UTC.
+
+On GitHub-issue boards, dashboard sections now list the most recently updated ticket first. The two queued sections keep their start order. Nothing to do.
+
 ## 2026-11-08 cos_tick.py plans a Chief of Staff turn (CW-60) (#196)
 
 Merged 2026-11-08 06:38 UTC.
