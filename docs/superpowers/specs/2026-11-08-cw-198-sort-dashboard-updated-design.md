@@ -1,6 +1,7 @@
 # CW-198: Sort dashboard tickets in each section by last updated
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #201, as specified
 **Ticket:** [#198](https://github.com/collective-wisdom-org/collective-wisdom/issues/198)
 **Related:** #195 changes the page markup and layout; this ticket changes only the order of rows that `/api` returns.
 
