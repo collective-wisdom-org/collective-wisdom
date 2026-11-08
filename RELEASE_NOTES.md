@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 run CI on pull requests only (CW-103) (#193)
+
+Merged 2026-11-08 05:42 UTC.
+
+CI no longer runs again on `main` after a merge, so `main` is tested only through its pull requests. A merge can still leave `main` red when another PR merged first, and nothing reports that today.
+
 ## 2026-11-08 dashboard header badges and tighter heading (CW-188) (#192)
 
 Merged 2026-11-08 05:38 UTC.
