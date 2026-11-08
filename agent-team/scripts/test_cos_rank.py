@@ -91,3 +91,35 @@ def test_ranked_ready_comes_from_entries(tmp_path, monkeypatch):
     for ranked, ready in (([entry(1, "needs: why"), entry(2, "held: PR #9")], False), ([entry(1, "needs: why"), entry(2)], True)):
         _, _, path = run(tmp_path, monkeypatch, json.dumps(ranked))
         assert json.loads(path.read_text())["pm"]["rankedReady"] is ready
+
+
+RANKED_AT = "2026-11-02T10:00:00Z"
+HELD = [entry(1, "held: PR #9")]
+
+
+@pytest.mark.parametrize("pm,merged,flags,closed,want", [
+    ({}, {}, [], False, "dry: rank (never ranked)"),
+    ({"rankedAt": None}, {}, [], False, "dry: rank (never ranked)"),
+    ({"rankedAt": "2026-11-02"}, {}, [], False, "dry: rank (never ranked)"),
+    ({"rankedAt": "2026-13-02T10:00:00Z"}, {}, [], False, "dry: rank (never ranked)"),
+    ({"rankedAt": RANKED_AT, "rankedReady": True}, {}, [], False, "dry: rank (the ready tickets are used up)"),
+    ({"rankedAt": RANKED_AT, "rankedReady": False}, {}, ["--out-of-date"], False, "dry: rank (a ranked ticket is out of date)"),
+    ({"rankedAt": RANKED_AT}, {"ABC-3": {"pr": 5, "at": "2026-11-02T10:00:01Z"}}, [], False, "dry: rank (a PR merged since the last ranking)"),
+    ({"rankedAt": RANKED_AT}, {"ABC-3": {"pr": 5, "at": "2026-11-02T09:59:59Z"}}, [], False, f"dry: check backlog since {RANKED_AT}"),
+    ({"rankedAt": RANKED_AT}, {"ABC-3": 5}, [], False, "dry: rank (a PR merged since the last ranking)"),
+    ({"rankedAt": RANKED_AT, "ranked": HELD}, {}, [], True, "dry: rank (a PR closed since the last ranking)"),
+    ({"rankedAt": RANKED_AT, "ranked": HELD}, {}, [], False, f"dry: check backlog since {RANKED_AT}"),
+    ({"rankedAt": RANKED_AT, "ranked": [entry(2, "needs: why")]}, {}, [], True, f"dry: check backlog since {RANKED_AT}"),
+    ({"rankedAt": RANKED_AT, "rankedReady": False, "ranked": []}, {}, [], True, f"dry: check backlog since {RANKED_AT}"),
+])
+def test_dry_ranking_test(tmp_path, monkeypatch, capsys, pm, merged, flags, closed, want):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps({**STATE, "pm": pm, "merged": merged}))
+    before = path.read_bytes()
+    reads = []
+    monkeypatch.setattr(cos_rank, "closed_prs_since", lambda at: reads.append(at) or closed)
+    assert cos_rank.main(["dry", "--file", str(path), *flags]) == 0
+    assert capsys.readouterr().out.strip() == want
+    assert path.read_bytes() == before
+    # the closed-PR read happens only when a held entry and a well-formed rankedAt reach that step
+    assert bool(reads) == (want.startswith("dry: rank (a PR closed") or (want.startswith("dry: check") and pm.get("ranked") == HELD))

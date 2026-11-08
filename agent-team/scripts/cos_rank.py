@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Check the Backlog ranking child's list and save it as pm.ranked.
+"""Check the Backlog ranking child's list and save it as pm.ranked, or say whether a dry pick needs a new ranking.
 
 Usage:
     ~/.collective-wisdom/scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] < child_message
+    ~/.collective-wisdom/scripts/cos_rank.py dry [--file PATH] [--out-of-date]
 
 --started is the time the ranking began (YYYY-MM-DDTHH:MM:SSZ); it becomes pm.rankedAt.
 --backlog-count is the number of Backlog tickets that are neither agent-skip nor an epic,
@@ -20,6 +21,15 @@ the Backlog ranking post. On a failed check it writes nothing, prints
 "cos_rank: <reason>" and exits 2. That includes an empty list when --backlog-count is 1 or
 more, and a --backlog-count that is not a whole number of 0 to 9999. An empty list without
 --backlog-count writes nothing and exits 3, which means "count the Backlog and run again".
+
+dry is the project-manager skill's Dry ranking test. It reads pm.rankedAt, pm.rankedReady, pm.ranked and merged
+from state, writes nothing, and prints one line: "dry: rank (<reason>)" or "dry: check backlog since <pm.rankedAt>".
+It checks in order: pm.rankedAt null or not YYYY-MM-DDTHH:MM:SSZ (never ranked); pm.rankedReady (ready tickets used
+up); --out-of-date (the pick found a ranked ticket moved, labelled agent-skip, blocked or held); a merged entry whose
+`at` is after pm.rankedAt (a bare number counts as merged now); a held entry in pm.ranked and one
+`~/.collective-wisdom/scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number`
+that returns a PR (a failed read counts as none). Otherwise the agent makes one Backlog list-tickets since that time:
+a ticket back means rank, none means the Backlog is dry. Exit 2 and "cos_rank: <reason>" when state cannot be read.
 """
 
 import argparse
@@ -27,6 +37,7 @@ import contextlib
 import io
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -87,7 +98,52 @@ def post(ranked):
     return "\n".join(out)
 
 
+def closed_prs_since(ranked_at):
+    """True when a PR closed at or after ranked_at (one GET read). A failed read is False."""
+    cmd = [
+        str(Path(__file__).absolute().parent / "gh.sh"), "pr", "list", "--state", "closed", "--limit", "1",
+        "--search", f"closed:>={ranked_at}", "--json", "number",
+    ]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        found = json.loads(p.stdout) if p.returncode == 0 else []
+    except (subprocess.SubprocessError, OSError, ValueError):
+        return False
+    return isinstance(found, list) and bool(found)
+
+
+def dry(argv):
+    ap = argparse.ArgumentParser(prog="cos_rank.py dry")
+    ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
+    ap.add_argument("--out-of-date", action="store_true")
+    a = ap.parse_args(argv)
+    state = cos_state.load(a.file)
+    pm = state.get("pm") if isinstance(state.get("pm"), dict) else {}
+    at = pm.get("rankedAt")
+    since = cos_state.parse(at) if isinstance(at, str) and STARTED.match(at) else None
+    if since is None:
+        return "dry: rank (never ranked)"
+    if pm.get("rankedReady") is True:
+        return "dry: rank (the ready tickets are used up)"
+    if a.out_of_date:
+        return "dry: rank (a ranked ticket is out of date)"
+    merged = state.get("merged") if isinstance(state.get("merged"), dict) else {}
+    for m in merged.values():
+        when = cos_state.parse(m.get("at")) if isinstance(m, dict) else None
+        if not isinstance(m, dict) or when is None or when > since:  # a bare number is a PR merged now
+            return "dry: rank (a PR merged since the last ranking)"
+    ranked = pm.get("ranked") if isinstance(pm.get("ranked"), list) else []
+    held = any(isinstance(e, dict) and str(e.get("readiness")).startswith("held: ") for e in ranked)
+    if held and closed_prs_since(at):
+        return "dry: rank (a PR closed since the last ranking)"
+    return f"dry: check backlog since {at}"
+
+
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["dry"]:
+        print(dry(argv[1:]))
+        return 0
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("--started", required=True)
