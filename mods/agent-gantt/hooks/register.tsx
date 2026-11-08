@@ -2,9 +2,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer, TurnUsage } from 'claude-code'
 
 import type { AgentRecord, PriceState, Prices, Tokens } from '../types/index.d.ts'
-import { bar, clock, dollars, fit, tokens } from './format.ts'
+import { bars, clock, dollars, fit, tokens } from './format.ts'
 import { buildRows, MAIN } from './rows.ts'
 import { buildSnapshot, snapshotName } from './snapshot.ts'
+import { closeSegment, isWorking, openSegment, startTask, taskName } from './timeline.ts'
 
 const PANE = 'agent-gantt'
 const TICK_MS = 5000
@@ -18,13 +19,15 @@ const SNAPSHOT_DIR = '.agent-team/gantt'
 
 // Change a tag when the fields of its value change: an older value is read as the initial.
 const records = atom({ plugin: 'agent-gantt', key: 'records' } as const, [] as AgentRecord[], {
-  shape: 'records-1',
+  shape: 'records-2',
 })
 const prices = atom(
   { plugin: 'agent-gantt', key: 'prices' } as const,
   { isLoaded: false, table: null, note: '' } as PriceState,
   { shape: 'prices-1' },
 )
+// Where the session runs; read once at session.start. Empty until then.
+const harness = atom({ plugin: 'agent-gantt', key: 'harness' } as const, '', { shape: 'harness-1' })
 const clockAtom = atom({ plugin: 'agent-gantt', key: 'now' } as const, 0)
 
 // The tick lives and dies with this module, like every timer.
@@ -42,6 +45,20 @@ function addUsage(prev: Record<string, Tokens>, u: TurnUsage): Record<string, To
       read: t.read + (u.cache_read_input_tokens ?? 0),
       write: t.write + (u.cache_creation_input_tokens ?? 0),
     },
+  }
+}
+
+/** Applies `fn` to the record with this id; a record that is not there stays unmade. */
+const updateRecord = ($: EngineInterface, id: string, fn: (r: AgentRecord) => AgentRecord) =>
+  update($, records, list => list.map(r => (r.id === id ? fn(r) : r)))
+
+/** The usage of a finished turn, added to the agent and, on `main`, to its current task. */
+function withUsage(r: AgentRecord, u: TurnUsage): AgentRecord {
+  const last = r.tasks.length - 1
+  return {
+    ...r,
+    usage: addUsage(r.usage, u),
+    tasks: r.tasks.map((k, i) => (i === last ? { ...k, usage: addUsage(k.usage, u) } : k)),
   }
 }
 
@@ -66,7 +83,7 @@ async function ensureMain($: EngineInterface, t: number) {
   await update($, records, list =>
     list.some(r => r.id === MAIN)
       ? list
-      : [{ id: MAIN, parentId: null, name: 'main', type: 'main', cwd, start: t, end: null, last: t, usage: {} }, ...list],
+      : [{ id: MAIN, parentId: null, name: 'main', type: 'main', cwd, start: t, end: null, last: t, usage: {}, segments: [], tasks: [], taskIndex: null }, ...list],
   )
 }
 
@@ -130,12 +147,27 @@ async function writeSnapshot($: EngineInterface) {
     if (name === null) return
     if ((await isUnsafeDir($, `${dir}/.agent-team`)) || (await isUnsafeDir($, `${dir}/${SNAPSHOT_DIR}`))) return
     if (await isLink($, `${dir}/${SNAPSHOT_DIR}/${name}`)) return
-    const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table)
+    const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)
     const total = (await $.session.usage()).cost?.usd ?? null
     const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows })
     await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
   } catch {
     // the dashboard is optional: skip this write
+  }
+}
+
+/** Closes the agent's span while `run` waits, and reopens it when `run` settles. */
+async function pauseWhile<R>($: EngineInterface, agentId: string | undefined, run: () => Promise<R>): Promise<R> {
+  const id = agentId ?? MAIN
+  const before = await $.clock.now()
+  await updateRecord($, id, r => closeSegment(r, before))
+  await refresh($)
+  try {
+    return await run()
+  } finally {
+    const after = await $.clock.now()
+    await updateRecord($, id, r => openSegment(r, after))
+    await refresh($)
   }
 }
 
@@ -148,7 +180,7 @@ async function refresh($: EngineInterface) {
     list.map(r => {
       if (r.id === MAIN) return r
       if (active.has(r.id)) return r.end === null ? r : { ...r, end: null }
-      return r.end !== null ? r : { ...r, end: r.last }
+      return r.end !== null ? r : { ...closeSegment(r, r.last), end: r.last }
     }),
   )
   const isRunning = (await read($, records)).some(r => r.id !== MAIN && r.end === null)
@@ -175,6 +207,8 @@ export const register: Register = on => {
       description: 'Show this session\'s agents as a Gantt chart in a pane',
     })
     await ensureMain($, await $.clock.now())
+    const isT3 = Boolean(await $.env.get('T3CODE_THREAD_ID'))
+    await update($, harness, () => (isT3 ? 'T3 Code' : 'Claude Code'))
     await loadPrices($)
     await refresh($)
     return next(e)
@@ -206,11 +240,43 @@ export const register: Register = on => {
       end: null,
       last: t,
       usage: {},
+      // The agent works from its spawn; its turn.start may have come before this record.
+      segments: [[t, null]],
+      tasks: [],
+      taskIndex: null,
     }
-    await update($, records, list => (list.some(r => r.id === id) ? list : [...list, record]))
+    await update($, records, list => {
+      if (list.some(r => r.id === id)) return list
+      // A subagent of the main loop nests under the task that is current now.
+      const main = list.find(r => r.id === MAIN)
+      const taskIndex = record.parentId === MAIN && main && main.tasks.length > 0 ? main.tasks.length - 1 : null
+      return [...list, { ...record, taskIndex }]
+    })
     await refresh($)
     if (isFirst) await openPane($)
     return out
+  })
+
+  on('prompt.submit', async ($, e, next) => {
+    const out = await next(e)
+    if (e.isMeta || out.drop !== undefined) return out
+    const t = await $.clock.now()
+    await ensureMain($, t)
+    // next(e) resolves once the turn has started, so its span is open: it moves into the new task.
+    await updateRecord($, MAIN, r => {
+      const started = startTask(r, taskName(e.text), t)
+      return isWorking(r) ? openSegment(started, t) : started
+    })
+    await refresh($)
+    return out
+  })
+
+  on('turn.start', async ($, e, next) => {
+    const id = e.agentId ?? MAIN
+    const t = await $.clock.now()
+    if (id === MAIN) await ensureMain($, t)
+    await updateRecord($, id, r => openSegment(r, t))
+    return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -219,30 +285,39 @@ export const register: Register = on => {
     const id = e.agentId ?? MAIN
     if (id === MAIN) await ensureMain($, t)
     const { usage } = e
-    await update($, records, list =>
-      list.map(r => (r.id !== id ? r : { ...r, last: t, end: r.end === null ? null : t, usage: usage ? addUsage(r.usage, usage) : r.usage })),
-    )
+    await updateRecord($, id, r => {
+      const done = closeSegment(r, t)
+      const counted = usage ? withUsage(done, usage) : done
+      return { ...counted, last: t, end: r.end === null ? null : t }
+    })
     await refresh($)
     return out
   })
+
+  // A foreground subagent and a question to the person are waits inside a turn.
+  on('tool.call', { tool: 'AskUserQuestion' }, ($, e, next) => pauseWhile($, e.agentId, () => next(e)))
+  on('tool.call', { tool: 'Agent' }, ($, e, next) =>
+    e.run_in_background === true ? next(e) : pauseWhile($, e.agentId, () => next(e)),
+  )
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
     const list = await read($, records)
     const { table, note } = await read($, prices)
     const now = await read($, clockAtom)
-    const rows = buildRows(list, await $.agent.list(), table)
+    const where = (await read($, harness)) || null
+    const rows = buildRows(list, await $.agent.list(), table, where)
     const total = (await $.session.usage()).cost?.usd
 
     const NAME = 18
-    const FIXED = NAME + 10 + 5 + 7 + 6 + 6 + 2 + 6 // the seven columns and the spaces between them
+    const FIXED = NAME + 10 + 5 + 7 + 6 + 6 + 10 + 6 // the seven columns and the spaces between them
     const room = e.props.bodyColumns - FIXED - 1
     const isInline = room >= 16
     const width = isInline ? room : Math.max(10, e.props.bodyColumns - 1)
     const t0 = rows[0]?.start ?? now
     const t1 = Math.max(now, t0 + 1)
 
-    const head = [fit('agent', NAME), fit('repo', 10), fit('start', 5), fit('end', 7), 'tokens'.padStart(6), 'cost'.padStart(6), 'ch'].join(' ')
+    const head = [fit('agent', NAME), fit('repo', 10), fit('start', 5), fit('end', 7), 'tokens'.padStart(6), 'cost'.padStart(6), fit('model', 10)].join(' ')
 
     return (
       <Box flexDirection="column">
@@ -256,9 +331,9 @@ export const register: Register = on => {
             fit(row.end === null ? 'running' : clock(row.end), 7),
             tokens(row.tokens).padStart(6),
             dollars(row.cost).padStart(6),
-            String(row.childCount).padStart(2),
+            fit(row.model ?? '–', 10),
           ].join(' ')
-          const line = bar(row.start, row.end ?? t1, t0, t1, width)
+          const line = bars(row.segments, t0, t1, width)
           const color = row.end === null ? 'success' : 'inactive'
           return (
             <Box key={row.id} flexDirection={isInline ? 'row' : 'column'}>
@@ -267,7 +342,7 @@ export const register: Register = on => {
             </Box>
           )
         })}
-        <Text dimColor>{`Session total ${dollars(total)}`}</Text>
+        <Text dimColor>{`Session total ${dollars(total)}${where === null ? '' : ` · ${where}`}`}</Text>
         {table === null && note !== '' && <Text dimColor>{`Costs hidden: ${note}`}</Text>}
       </Box>
     )

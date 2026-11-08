@@ -1,15 +1,18 @@
-import type { AgentRecord, Prices, Tokens } from '../types/index.d.ts'
+import type { AgentRecord, Prices, Segment, Tokens } from '../types/index.d.ts'
 
 export type Row = {
   id: string
-  depth: number // 0 for main, 1 for its children, and so on
+  depth: number // 0 for the session row, 1 for its tasks, 2 for the subagents of a task, and so on
+  kind: 'session' | 'task' | 'agent'
   name: string
   repo: string
   start: number // ms since epoch
   end: number | null // null while running
   tokens: number // input + output + cache read + cache write
   cost: number | null // dollars; null without a price table or for an unknown model family
-  childCount: number
+  segments: Segment[] // working spans; the gaps between them are waiting
+  model: string | null // the model with the most output tokens, without its `claude-` prefix
+  harness: string | null // `T3 Code` or `Claude Code`
 }
 
 /** The part of an `$.agent.list()` entry the builder reads. */
@@ -44,10 +47,10 @@ function modelCost(model: string, t: Tokens, prices: Prices): number | null {
   return (t.input * p.input + t.output * p.output + t.read * p.read + t.write * p.write_5m) / 1e6
 }
 
-function costOf(record: AgentRecord, prices: Prices | null): number | null {
+function costOf(usage: Record<string, Tokens>, prices: Prices | null): number | null {
   if (!prices) return null
   let sum = 0
-  for (const [model, t] of Object.entries(record.usage)) {
+  for (const [model, t] of Object.entries(usage)) {
     const c = modelCost(model, t, prices)
     if (c === null) return null
     sum += c
@@ -55,11 +58,27 @@ function costOf(record: AgentRecord, prices: Prices | null): number | null {
   return sum
 }
 
-/** The rows of the chart: depth first, each parent followed by its children sorted by start. */
+/** The model id with the most output tokens, `claude-` dropped; null without usage. */
+function topModel(usage: Record<string, Tokens>): string | null {
+  let best: string | null = null
+  let most = -1
+  for (const [model, t] of Object.entries(usage)) {
+    if (t.output > most) {
+      best = model
+      most = t.output
+    }
+  }
+  return best === null ? null : best.replace(/^claude-/, '')
+}
+
+const tokensOf = (usage: Record<string, Tokens>) => Object.values(usage).reduce((n, t) => n + total(t), 0)
+
+/** The rows of the chart, depth first: the session row, a row per task with the subagents spawned in it, then subagents the mod could not place. */
 export function buildRows(
   records: AgentRecord[],
   agents: ListedAgent[],
   prices: Prices | null,
+  harness: string | null = null,
 ): Row[] {
   const known = new Set(records.map(r => r.id))
   const parentOf = (r: AgentRecord) =>
@@ -71,27 +90,64 @@ export function buildRows(
     kids.set(parent, [...(kids.get(parent) ?? []), r])
   }
   const listed = new Map(agents.map(a => [a.id, a]))
-  const childCount = (id: string) =>
-    agents.filter(a => (a.parentId ?? MAIN) === id).length
+  const byStart = (list: AgentRecord[]) => [...list].sort((a, b) => a.start - b.start)
 
   const rows: Row[] = []
-  const walk = (r: AgentRecord, depth: number) => {
+  const base = (r: AgentRecord) => ({ repo: repoOf(r.cwd), harness })
+  const agentRow = (r: AgentRecord, depth: number) => {
     rows.push({
+      ...base(r),
       id: r.id,
       depth,
+      kind: 'agent',
       name: listed.get(r.id)?.name || r.name,
-      repo: repoOf(r.cwd),
       start: r.start,
       end: r.end,
-      tokens: Object.values(r.usage).reduce((n, t) => n + total(t), 0),
-      cost: costOf(r, prices),
-      childCount: childCount(r.id),
+      tokens: tokensOf(r.usage),
+      cost: costOf(r.usage, prices),
+      // A run no hook saw has no spans: draw it as one bar, as before.
+      segments: r.segments.length === 0 ? [[r.start, r.end]] : r.segments,
+      model: topModel(r.usage),
     })
-    const sorted = [...(kids.get(r.id) ?? [])].sort((a, b) => a.start - b.start)
-    for (const k of sorted) walk(k, depth + 1)
+    for (const k of byStart(kids.get(r.id) ?? [])) agentRow(k, depth + 1)
   }
   const main = records.find(r => r.id === MAIN)
-  if (main) walk(main, 0)
-  else for (const k of [...(kids.get(MAIN) ?? [])].sort((a, b) => a.start - b.start)) walk(k, 1)
+  if (!main) {
+    for (const k of byStart(kids.get(MAIN) ?? [])) agentRow(k, 1)
+    return rows
+  }
+  rows.push({
+    ...base(main),
+    id: MAIN,
+    depth: 0,
+    kind: 'session',
+    name: listed.get(MAIN)?.name || main.name,
+    start: main.start,
+    end: main.end,
+    tokens: tokensOf(main.usage),
+    cost: costOf(main.usage, prices),
+    segments: main.segments,
+    model: topModel(main.usage),
+  })
+  const top = byStart(kids.get(MAIN) ?? [])
+  const placed = (r: AgentRecord) => r.taskIndex !== null && r.taskIndex >= 0 && r.taskIndex < main.tasks.length
+  main.tasks.forEach((task, i) => {
+    const last = task.segments[task.segments.length - 1]
+    rows.push({
+      ...base(main),
+      id: `${MAIN}:task:${i}`,
+      depth: 1,
+      kind: 'task',
+      name: task.name,
+      start: task.start,
+      end: last === undefined ? task.start : last[1],
+      tokens: tokensOf(task.usage),
+      cost: costOf(task.usage, prices),
+      segments: task.segments,
+      model: topModel(task.usage),
+    })
+    for (const k of top) if (k.taskIndex === i) agentRow(k, 2)
+  })
+  for (const k of top) if (!placed(k)) agentRow(k, 1)
   return rows
 }

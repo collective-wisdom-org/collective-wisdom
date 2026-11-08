@@ -23,10 +23,18 @@ export const dollars = (c: number | null | undefined) =>
 export const fit = (s: string, width: number) =>
   s.length > width ? `${s.slice(0, Math.max(0, width - 1))}…` : s.padEnd(width)
 
-/** A bar `width` cells wide on the axis t0..t1: spaces up to `start`, then blocks to `end`. At least one block. */
-export const bar = (start: number, end: number, t0: number, t1: number, width: number) => {
+/** `width` cells on the axis t0..t1: spaces, with a run of blocks per segment (at least one cell each). An open segment runs to t1. */
+export const bars = (segments: [number, number | null][], t0: number, t1: number, width: number) => {
   const span = Math.max(1, t1 - t0)
-  const from = Math.min(width - 1, Math.max(0, Math.floor(((start - t0) / span) * width)))
-  const to = Math.min(width, Math.max(from + 1, Math.ceil(((end - t0) / span) * width)))
-  return ' '.repeat(from) + '█'.repeat(to - from)
+  const cells = Array.from({ length: width }, () => ' ')
+  for (const [start, end] of segments) {
+    const from = Math.min(width - 1, Math.max(0, Math.floor(((start - t0) / span) * width)))
+    const to = Math.min(width, Math.max(from + 1, Math.ceil((((end ?? t1) - t0) / span) * width)))
+    for (let i = from; i < to; i++) cells[i] = '█'
+  }
+  return cells.join('').trimEnd()
 }
+
+/** A bar `width` cells wide on the axis t0..t1: spaces up to `start`, then blocks to `end`. At least one block. */
+export const bar = (start: number, end: number, t0: number, t1: number, width: number) =>
+  bars([[start, end]], t0, t1, width)
