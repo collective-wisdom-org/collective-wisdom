@@ -1,6 +1,7 @@
 # CW-175: Fit the dashboard to a narrow side pane and show a title on every ticket row
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #176, as specified
 **Ticket:** [#175](https://github.com/collective-wisdom-org/collective-wisdom/issues/175)
 **Follows:** CW-173 (#174), which added the local dashboard.
 
