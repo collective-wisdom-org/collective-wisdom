@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 match prices.json to the published rates and Claude Code's session cost (CW-220) (#222)
+
+Merged 2026-11-08 19:33 UTC.
+
+The cost the agent gantt and the dashboard show for a session now matches Claude Code's own figure to within a cent in most cases. Sonnet cache reads and subagent cache writes were overpriced before. Sessions recorded earlier keep their old costs, and the dashboard says so.
+
 ## 2026-11-08 name gantt tasks by what the work is (CW-219) (#221)
 
 Merged 2026-11-08 18:34 UTC.
