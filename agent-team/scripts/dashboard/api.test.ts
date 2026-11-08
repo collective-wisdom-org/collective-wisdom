@@ -47,6 +47,9 @@ test('row title: state wins, else tracker title, else empty', () => {
 })
 
 const WT = '/Users/me/.t3/worktrees/repo/t3-1'
+/** The charts the card CW-1 gets from snapshots, when its branch lives in the worktree at `path`. */
+const charts = (snapshots: unknown[], path = WT) =>
+  (build({ state: stateOf('CW-1', { branch: 'b' }), snapshots, worktrees: [{ path, branch: 'b' }] }).status[0].rows[0] as any).gantt ?? []
 
 test('snapshots', () => {
   const row = (end: number | null, name = 'n') => ({ id: 'a', depth: 0, name, repo: 'r', start: 1, end, tokens: 1, cost: null, childCount: 0 })
@@ -72,7 +75,7 @@ test('snapshots', () => {
     ['long name', snap(1, [row(2, 'x'.repeat(80))]), (g) => assert.equal(g[0].rows[0].name.length, 60)],
   ]
   for (const [name, s, check] of cases) {
-    try { check(build({ snapshots: [s] }).gantt) } catch (e) { throw new Error(`${name}: ${(e as Error).message}`) }
+    try { check(charts([s])) } catch (e) { throw new Error(`${name}: ${(e as Error).message}`) }
   }
 })
 
@@ -84,7 +87,7 @@ test('snapshots: only worktree sessions are listed', () => {
   ]
   for (const [name, cwd, want] of cases) {
     const snap = { sessionId: 's', cwd, updatedAt: NOW, total: null, rows: [] }
-    assert.equal(build({ snapshots: [snap] }).gantt.length, want, name)
+    assert.equal(charts([snap], cwd).length, want, name)
   }
 })
 
@@ -98,7 +101,7 @@ test('repoUrlFromProject', () => {
   assert.equal(repoUrlFromProject('# nothing here\n'), null)
 })
 
-test('snapshots join the card of their worktree branch; the rest stay in the Agents list', () => {
+test('snapshots join the card of their worktree branch; the rest are dropped', () => {
   const porcelain = [
     'worktree /r\nHEAD a\nbranch refs/heads/main',
     'worktree /r/.worktrees/x\nHEAD b\nbranch refs/heads/feat/cw-7-thing',
@@ -122,7 +125,7 @@ test('snapshots join the card of their worktree branch; the rest stay in the Age
     const api = build({ state, snapshots: [snap(cwd)], worktrees, prefix: 'CW' })
     const rows = api.status.flatMap((g) => g.rows) as any[]
     assert.equal(rows.find((r) => r.gantt)?.id ?? null, want, name)
-    assert.equal(api.gantt.length, want ? 0 : 1, name)
+    assert.ok(!('gantt' in api), name)
   }
   const two = build({ state, snapshots: [snap('/r/.worktrees/x', 0), snap('/r/.worktrees/x/b', 5000)], worktrees, prefix: 'CW' })
   assert.deepEqual((two.status[0].rows.find((r: any) => r.id === 'CW-7') as any).gantt.map((s: any) => s.sessionId), ['/r/.worktrees/x/b', '/r/.worktrees/x'])

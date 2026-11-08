@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderStatus, renderGantt, renderBadges } from './app.js'
+import { esc, renderStatus, renderGantt, renderBadges, renderMerged } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -86,4 +86,29 @@ test('a card with sessions gets a closed chart that reopens when its id is in th
   assert.match(html(), /<details class="chart" data-ticket="CW-1"><summary>Agents <span class="pill">1<\/span>/)
   assert.match(html(new Set(['CW-1'])), /<details class="chart" data-ticket="CW-1" open>/)
   assert.equal(html().match(/<details/g).length, 1)
+})
+
+test('merged list pages by ten, clamps the page, disables the pager ends and escapes text', () => {
+  const list = Array.from({ length: 25 }, (_, i) => ({ id: `CW-${i + 1}`, title: `t${i + 1}`, prUrl: `https://x.test/pull/${i + 1}`, mergedAt: new Date(2026, 0, 2, 3, 4).getTime() }))
+  const cards = (html) => (html.match(/<li class="ticket">/g) ?? []).length
+  const cases = [
+    [0, 0, 10, 'Page 1 of 3', /data-page="-1" disabled/],
+    [1, 1, 10, 'Page 2 of 3', /data-page="0">Newer[\s\S]*data-page="2">Older/],
+    [2, 2, 5, 'Page 3 of 3', /data-page="3" disabled/],
+    [99, 2, 5, 'Page 3 of 3', /disabled/],
+    [-4, 0, 10, 'Page 1 of 3', /disabled/],
+  ]
+  for (const [page, want, count, label, rx] of cases) {
+    const r = renderMerged(list, page)
+    assert.equal(r.page, want, `page ${page}`)
+    assert.equal(cards(r.html), count, `page ${page}`)
+    assert.ok(r.html.includes(label), `page ${page}`)
+    assert.match(r.html, rx, `page ${page}`)
+  }
+  const one = renderMerged(list.slice(0, 3), 0)
+  assert.ok(!one.html.includes('pager'))
+  assert.match(one.html, /merged 2026-01-02 03:04/)
+  assert.match(renderMerged([], 5).html, /Nothing merged yet/)
+  const bad = renderMerged([{ id: '<b>', title: '<script>x</script>', prUrl: 'javascript:1', issueUrl: 'javascript:2', mergedAt: 0 }], 0).html
+  assert.ok(!bad.includes('<script') && !bad.includes('<b>') && !bad.includes('href='))
 })
