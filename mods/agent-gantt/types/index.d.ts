@@ -1,5 +1,5 @@
-/** Tokens of one kind of use, summed over an agent's turns. */
-export type Tokens = { input: number; output: number; read: number; write: number }
+/** Tokens of one kind of use, summed over an agent's turns. A record stored by an older mod has `write` (priced as 1h) in place of the two write fields. */
+export type Tokens = { input: number; output: number; read: number; write_5m: number; write_1h: number }
 
 /** A working span in ms since epoch. The end is null while the span is open. */
 export type Segment = [number, number | null]

@@ -3,8 +3,8 @@ import type { MergedEntry } from './merged.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
-export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; rows: SnapshotRow[] }
-export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; rows: SnapshotRow[] }
+export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; pricing: number | null; rows: SnapshotRow[] }
+export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; pricing: number | null; rows: SnapshotRow[] }
 type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Session[] }
 export type Worktree = { path: string; branch: string }
 export type Api = {
@@ -101,7 +101,7 @@ export function cleanSnapshot(s: unknown, now: number): Session | null {
   const stale = now - updatedAt > STALE_MS && working
   const close = (r: SnapshotRow): SnapshotRow => ({ ...r, end: updatedAt, segments: r.segments.map(([a, b]) => [a, b === null ? Math.max(a, updatedAt) : b]) })
   const rows = cleaned.map((r) => (r.end === null && (stale || (!working && (r.id === 'main' || r.kind === 'task'))) ? close(r) : r))
-  return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), rows }
+  return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), pricing: numOrNull(s.pricing), rows }
 }
 
 /** The ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `feat/<prefix>-N-`. With `onBoard` only those tickets count; with null any ticket id from the branch does. */

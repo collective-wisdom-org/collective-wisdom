@@ -1,9 +1,9 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer, TurnUsage } from 'claude-code'
 
-import type { AgentRecord, PriceState, Prices, Tokens } from '../types/index.d.ts'
+import type { AgentRecord, PriceState, Prices } from '../types/index.d.ts'
 import { bars, clock, dollars, fit, tokens } from './format.ts'
-import { buildRows, MAIN } from './rows.ts'
+import { addUsage, buildRows, MAIN } from './rows.ts'
 import { buildSnapshot, snapshotName } from './snapshot.ts'
 import { beginTask, closeSegment, createWaits, openSegment, taskName } from './timeline.ts'
 
@@ -19,7 +19,7 @@ const SNAPSHOT_DIR = '.agent-team/gantt'
 
 // Change a tag when the fields of its value change: an older value is read as the initial.
 const records = atom({ plugin: 'agent-gantt', key: 'records' } as const, [] as AgentRecord[], {
-  shape: 'records-2',
+  shape: 'records-3',
 })
 const prices = atom(
   { plugin: 'agent-gantt', key: 'prices' } as const,
@@ -33,21 +33,6 @@ const clockAtom = atom({ plugin: 'agent-gantt', key: 'now' } as const, 0)
 // The tick lives and dies with this module, like every timer.
 let tick: Timer | null = null
 
-const ZERO: Tokens = { input: 0, output: 0, read: 0, write: 0 }
-
-function addUsage(prev: Record<string, Tokens>, u: TurnUsage): Record<string, Tokens> {
-  const t = prev[u.model] ?? ZERO
-  return {
-    ...prev,
-    [u.model]: {
-      input: t.input + (u.input_tokens ?? 0),
-      output: t.output + (u.output_tokens ?? 0),
-      read: t.read + (u.cache_read_input_tokens ?? 0),
-      write: t.write + (u.cache_creation_input_tokens ?? 0),
-    },
-  }
-}
-
 /** Applies `fn` to the record with this id; a record that is not there stays unmade. */
 const updateRecord = ($: EngineInterface, id: string, fn: (r: AgentRecord) => AgentRecord) =>
   update($, records, list => list.map(r => (r.id === id ? fn(r) : r)))
@@ -57,8 +42,8 @@ function withUsage(r: AgentRecord, u: TurnUsage): AgentRecord {
   const last = r.tasks.length - 1
   return {
     ...r,
-    usage: addUsage(r.usage, u),
-    tasks: r.tasks.map((k, i) => (i === last ? { ...k, usage: addUsage(k.usage, u) } : k)),
+    usage: addUsage(r.usage, u, r.id),
+    tasks: r.tasks.map((k, i) => (i === last ? { ...k, usage: addUsage(k.usage, u, r.id) } : k)),
   }
 }
 

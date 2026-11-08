@@ -83,9 +83,10 @@ test('snapshots', () => {
     ['main plus running subagent, 5s', snap(5_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, false); assert.deepEqual(g[0].rows.map((r: any) => r.end), [null, null]) }],
     ['bad end counts as running', snap(31_000, [{ ...row(null), end: 'x' }]), (g) => assert.equal(g[0].stale, true)],
     ['extra keys dropped', { ...snap(1, [{ ...row(2), secret: 'x' }]), prompt: 'p' }, (g) => {
-      assert.deepEqual(Object.keys(g[0]).sort(), ['cwd', 'rows', 'sessionId', 'stale', 'total', 'updatedAt'])
+      assert.deepEqual(Object.keys(g[0]).sort(), ['cwd', 'pricing', 'rows', 'sessionId', 'stale', 'total', 'updatedAt'])
       assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['cost', 'depth', 'end', 'harness', 'id', 'kind', 'model', 'name', 'repo', 'segments', 'start', 'tokens'])
     }],
+    ['pricing kept, else null', { ...snap(1, [row(2)]), pricing: 2 }, (g) => assert.deepEqual([g[0].pricing, charts([snap(1, [row(2)])])[0].pricing], [2, null])],
     ['string', 'x', (g) => assert.equal(g.length, 0)],
     ['no rows', { sessionId: 's', cwd: WT, updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
     ['rows not array', snap(1, 'x'), (g) => assert.equal(g.length, 0)],

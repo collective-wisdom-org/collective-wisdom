@@ -22,6 +22,6 @@ test('snapshotName accepts only safe session ids', () => {
 test('buildSnapshot writes the session fields and the row fields', () => {
   const row: Row = { id: 'main', depth: 0, kind: 'session', name: 'main', repo: 'app', start: 1, end: null, tokens: 5, cost: null, segments: [[1, null]], model: null, harness: null }
   const got = JSON.parse(buildSnapshot({ sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, rows: [row] }))
-  assert.deepEqual(got, { sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, rows: [row] })
+  assert.deepEqual(got, { sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, pricing: 2, rows: [row] })
   assert.deepEqual(Object.keys(got.rows[0]).sort(), ['cost', 'depth', 'end', 'harness', 'id', 'kind', 'model', 'name', 'repo', 'segments', 'start', 'tokens'])
 })

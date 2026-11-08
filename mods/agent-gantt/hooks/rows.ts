@@ -37,14 +37,43 @@ export function repoOf(cwd: string): string {
   return path.split('/').filter(Boolean).pop() ?? ''
 }
 
-const total = (t: Tokens) => t.input + t.output + t.read + t.write
+/** A stored record from before CW-220 has `write` in place of the two write fields; it reads as 1h writes. */
+function writes(t: Tokens): { w5m: number; w1h: number } {
+  const old = (t as Tokens & { write?: number }).write
+  return { w5m: t.write_5m ?? 0, w1h: t.write_1h ?? old ?? 0 }
+}
 
-/** Dollars for one model's tokens, or null when its family is not in the table. Cache writes use the 1h rate: TurnUsage has no 5m/1h split, and the sessions checked wrote only 1h entries. */
-function modelCost(model: string, t: Tokens, prices: Prices): number | null {
+const total = (t: Tokens) => t.input + t.output + t.read + writes(t).w5m + writes(t).w1h
+
+/** The part of a finished turn's usage the mod adds up. */
+export type Turn = { model: string; input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }
+
+const ZERO: Tokens = { input: 0, output: 0, read: 0, write_5m: 0, write_1h: 0 }
+
+/** `prev` with a turn added. TurnUsage has no 5m/1h split, so a turn on `main` writes 1h entries and any other agent's turn writes 5m entries, as the transcripts show. */
+export function addUsage(prev: Record<string, Tokens>, u: Turn, agentId: string): Record<string, Tokens> {
+  const t = prev[u.model] ?? ZERO
+  const w = writes(t)
+  const written = u.cache_creation_input_tokens ?? 0
+  return {
+    ...prev,
+    [u.model]: {
+      input: t.input + (u.input_tokens ?? 0),
+      output: t.output + (u.output_tokens ?? 0),
+      read: t.read + (u.cache_read_input_tokens ?? 0),
+      write_5m: w.w5m + (agentId === MAIN ? 0 : written),
+      write_1h: w.w1h + (agentId === MAIN ? written : 0),
+    },
+  }
+}
+
+/** Dollars for one model's tokens, or null when its family is not in the table. */
+export function modelCost(model: string, t: Tokens, prices: Prices): number | null {
   const family = Object.keys(prices).find(f => model.includes(f))
   const p = family === undefined ? undefined : prices[family]
   if (!p) return null
-  return (t.input * p.input + t.output * p.output + t.read * p.read + t.write * p.write_1h) / 1e6
+  const { w5m, w1h } = writes(t)
+  return (t.input * p.input + t.output * p.output + t.read * p.read + w5m * p.write_5m + w1h * p.write_1h) / 1e6
 }
 
 function costOf(usage: Record<string, Tokens>, prices: Prices | null): number | null {
@@ -77,14 +106,17 @@ const tokensOf = (usage: Record<string, Tokens>) => Object.values(usage).reduce(
 function minusUsage(all: Record<string, Tokens>, parts: Record<string, Tokens>[]): Record<string, Tokens> {
   const left: Record<string, Tokens> = {}
   for (const [model, t] of Object.entries(all)) {
-    const d: Tokens = { input: t.input, output: t.output, read: t.read, write: t.write }
+    const w = writes(t)
+    const d: Tokens = { input: t.input, output: t.output, read: t.read, write_5m: w.w5m, write_1h: w.w1h }
     for (const part of parts) {
       const p = part[model]
       if (p === undefined) continue
+      const pw = writes(p)
       d.input -= p.input
       d.output -= p.output
       d.read -= p.read
-      d.write -= p.write
+      d.write_5m -= pw.w5m
+      d.write_1h -= pw.w1h
     }
     if (total(d) > 0) left[model] = d
   }
