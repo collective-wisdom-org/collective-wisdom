@@ -1,8 +1,9 @@
 # CW-191: Split the Gantt main row into task chunks, show model and harness per row, and leave out waiting time
 
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #194, as specified
 **Ticket:** [#191](https://github.com/collective-wisdom-org/collective-wisdom/issues/191)
-**Related:** CW-188 (#188, dashboard header badges) is building now and edits `page/app.js` and `page/index.html` too. This change stays inside `renderGantt()` and the `.grow` chart CSS, so the rebase after CW-188 merges should be small. CW-187 (#187) merged. History mode (#98) and opening a row's transcript (#97) stay out.
+**Related:** CW-188 (#188, dashboard header badges) merged and edited `page/app.js` and `page/index.html` too. This change stays inside `renderGantt()` and the `.grow` chart CSS, so the merge with it was small. CW-187 (#187) merged. History mode (#98) and opening a row's transcript (#97) stay out.
 
 ## Goals
 
