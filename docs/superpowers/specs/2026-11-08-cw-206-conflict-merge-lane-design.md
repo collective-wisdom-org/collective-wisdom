@@ -1,6 +1,7 @@
 # CW-206: Send a conflict found at MERGE READY to the merge lane when reviews stand
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #210, as specified
 **Ticket:** [#206](https://github.com/collective-wisdom-org/collective-wisdom/issues/206)
 **Related:** CW-197 (#207) compacted the Chief of Staff skill files and moved the routing table into `cos_route.py`. CW-199 changed review-stand handling in `review_gate.py`; it does not touch the head check.
 
