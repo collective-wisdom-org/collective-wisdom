@@ -1,6 +1,7 @@
 # CW-187: Replace the dashboard Agents pane with a paginated Merged list
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #189, as specified
 **Ticket:** [#187](https://github.com/collective-wisdom-org/collective-wisdom/issues/187)
 **Related:** CW-181 (#184, nested charts), CW-178 (#183), CW-175 (#176, narrow pane), #98 (Gantt history, out of scope)
 
