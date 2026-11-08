@@ -111,3 +111,33 @@ def test_no_approval_belongs_to_the_merge_lane(stage_now, op, want):
         return
     new, _, _ = cos_state.apply_ops(state, [op])
     assert new["tickets"]["ABC-1"].get("noApproval") == want
+
+
+RUN = {"startedAt": OLD, "itemId": "turn-item:message:m1", "started": [], "drain": None, "endedAt": None, "endReason": None}
+START = {"op": "start", "ticket": "ABC-2", "firstTaskId": "t", "childThreadId": "c", "parentThreadId": "p", "status": "s", "title": "x"}
+
+
+# The noHands run record: only the no-hands op writes it, and the start op appends to it while the run has not ended.
+@pytest.mark.parametrize(
+    "state, ops, err, started",
+    [
+        ({}, [{"op": "no-hands", "set": RUN}], None, []),
+        ({"noHands": RUN}, [{"op": "no-hands", "set": {"drain": "ticket-cap"}}], None, []),
+        ({"noHands": RUN}, [START, START], None, ["ABC-2"]),
+        ({"noHands": {**RUN, "endedAt": OLD}}, [START], None, []),
+        ({}, [START], None, None),
+        ({}, [{"op": "no-hands", "set": {"drain": "x"}}], "needs all of", None),
+        ({}, [{"op": "no-hands", "set": {**RUN, "startedAt": "2026-11-08"}}], "time with a zone", None),
+        ({}, [{"op": "no-hands", "set": {**RUN, "started": ["nope"]}}], "list of ticket ids", None),
+        ({}, [{"op": "no-hands", "set": {**RUN, "drain": 3}}], "null or a string", None),
+        ({}, [{"op": "no-hands", "set": {**RUN, "cap": 99}}], "unknown noHands key", None),
+        ({}, [{"op": "top", "set": {"noHands": RUN}}], "unknown top-level key noHands", None),
+    ],
+)
+def test_no_hands_record(state, ops, err, started):
+    if err:
+        with pytest.raises(cos_state.Reject, match=err):
+            cos_state.apply_ops(state, ops)
+        return
+    new = cos_state.apply_ops(state, ops)[0]
+    assert new.get("noHands", {}).get("started") == started

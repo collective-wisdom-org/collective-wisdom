@@ -33,6 +33,7 @@ Operations (each {"op": NAME, ...}):
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
               observation ticket helper) or hold. The only op that writes "observed".
     prune
+    no-hands  set (the No Hands run record, merged into "noHands"). Only no_hands.py uses it; no other op writes "noHands".
 
 heldApproval ({"head", "itemId", "at"}: the user's approve N, held until a teammate approves) is allowed only
 in awaiting-review, must carry a full head, an itemId and an at, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
@@ -44,6 +45,11 @@ head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
 noApproval (true only) marks a merge-lane run that carries no user approval (a conflict sent to the merge lane while
 reviews stand). It is allowed only in merge, merge-queued and blocked, and a stage op to any other stage clears it.
+
+noHands is the No Hands run record: {"startedAt", "itemId", "started", "drain", "endedAt", "endReason"}. The no-hands op
+merges its set into it and rejects a record without all six keys, a startedAt or endedAt without a time zone, an itemId that
+is not a non-empty string, a started that is not a list of ticket ids, or a drain or endReason that is neither null nor a
+string. The start op appends its ticket to started while a run has no endedAt.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
@@ -69,7 +75,7 @@ DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
     "retiredThreads", "rotation", "rotationHeldUntil", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
-    "merged", "tickets", "pm", "observed",
+    "merged", "tickets", "pm", "observed", "noHands",
 }
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
@@ -218,6 +224,9 @@ def op_start(s, op):
         "restarts": {"spec": 0}, "note": "",
     }
     s["lastRelayAt"] = now()
+    run = s.get("noHands")
+    if isinstance(run, dict) and run.get("startedAt") and not run.get("endedAt") and tid not in run.get("started", []):
+        run["started"] = [*run.get("started", []), tid]
 
 
 NO_APPROVAL_STAGES = ("merge", "merge-queued", "blocked")
@@ -303,8 +312,29 @@ def op_drop(s, op):
 
 def op_top(s, op):
     need(op, "set")
-    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed"}, "top-level")
+    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed", "noHands"}, "top-level")
     s.update(op["set"])
+
+
+NO_HANDS = ("startedAt", "itemId", "started", "drain", "endedAt", "endReason")
+
+
+def op_no_hands(s, op):
+    need(op, "set")
+    keys_ok(op["set"], set(NO_HANDS), "noHands")
+    run = {**(s.get("noHands") if isinstance(s.get("noHands"), dict) else {}), **op["set"]}
+    if set(run) != set(NO_HANDS):
+        raise Reject(f"noHands needs all of {', '.join(NO_HANDS)}")
+    zoned = lambda x: isinstance(x, str) and getattr(parse(x), "tzinfo", None) is not None  # noqa: E731
+    if not (zoned(run["startedAt"]) and (run["endedAt"] is None or zoned(run["endedAt"]))):
+        raise Reject("noHands startedAt and endedAt need a time with a zone")
+    if not (isinstance(run["itemId"], str) and run["itemId"]):
+        raise Reject("noHands itemId must be a non-empty string")
+    if not (isinstance(run["started"], list) and all(isinstance(x, str) and ID.fullmatch(x) for x in run["started"])):
+        raise Reject("noHands started must be a list of ticket ids")
+    if any(run[k] is not None and not isinstance(run[k], str) for k in ("drain", "endReason")):
+        raise Reject("noHands drain and endReason must be null or a string")
+    s["noHands"] = run
 
 
 def op_pm(s, op):
@@ -411,7 +441,7 @@ def op_prune(s, op, notes=None):
 OPS = {
     "start": op_start, "stage": op_stage, "set": op_set, "merged": op_merged, "drop": op_drop,
     "top": op_top, "pm": op_pm, "retire": op_retire, "archive": op_archive,
-    "unretire": op_unretire, "prune": op_prune, "observe": op_observe,
+    "unretire": op_unretire, "prune": op_prune, "observe": op_observe, "no-hands": op_no_hands,
 }
 
 
