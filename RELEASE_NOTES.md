@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 read the dashboard tracker from the Tracker row (CW-205) (#208)
+
+Merged 2026-11-08 08:18 UTC.
+
+The dashboard shows GitHub issue links only for repos whose `Tracker` row is `github`. Repos on Linear or Jira that still carry the template's tracker text no longer get wrong issue links. Nothing to do.
+
 ## 2026-11-08 compact skills and role docs, add cos_route, cos_restart, cos_todo (CW-197) (#207)
 
 Merged 2026-11-08 08:13 UTC.
