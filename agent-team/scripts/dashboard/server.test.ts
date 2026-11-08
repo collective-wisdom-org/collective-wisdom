@@ -161,16 +161,24 @@ test('records spend in the background and writes nothing through a link', async 
     writeFileSync(join(agent, 'state.json'), JSON.stringify(goodState))
     const rows = [{ id: 'main', depth: 0, name: 'm', repo: 'r', start: 1, end: 2, tokens: 40, cost: 0.5, kind: 'session' }, { id: 't', depth: 1, name: 't', repo: 'r', start: 1, end: 2, tokens: 99, cost: 0.1, kind: 'task' }]
     writeFileSync(join(agent, 'gantt/a.json'), JSON.stringify({ ...goodSnap, sessionId: 'a', cwd: root, total: 0.5, rows }))
-    const srv = await startServer({ root, port: 0 })
+    let srv = await startServer({ root, port: 0 })
     try {
       const file = join(outside, 'spend.json')
       if (c.link) {
         assert.ok(!existsSync(file), c.name)
         assert.deepEqual(readdirSync(outside).sort(), ['gantt', 'state.json'], c.name)
+        assert.ok(!existsSync(join(outside, 'gantt-history.json')), c.name)
       } else {
         const ledger = JSON.parse(readFileSync(join(agent, 'spend.json'), 'utf8'))
         assert.deepEqual(ledger.sessions.a, { ticket: 'CW-1', cost: 0.5, tokens: 40, updatedAt: goodSnap.updatedAt })
-        assert.deepEqual(readdirSync(agent).sort(), ['gantt', 'spend.json', 'state.json'], c.name)
+        assert.deepEqual(readdirSync(agent).sort(), ['gantt', 'gantt-history.json', 'spend.json', 'state.json'], c.name)
+        const history = JSON.parse(readFileSync(join(agent, 'gantt-history.json'), 'utf8'))
+        assert.equal(history.sessions.a.ticket, 'CW-1')
+        assert.equal(history.sessions.a.session.rows[0].tokens, 40)
+        await srv.close()
+        rmSync(join(agent, 'gantt/a.json'))
+        srv = await startServer({ root, port: 0 })
+        assert.equal(JSON.parse(readFileSync(join(agent, 'gantt-history.json'), 'utf8')).sessions.a.ticket, 'CW-1')
       }
     } finally {
       await srv.close()

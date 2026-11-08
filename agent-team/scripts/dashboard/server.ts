@@ -11,6 +11,7 @@ import { createUpdated } from './updated.ts'
 import { createMerged } from './merged.ts'
 import type { MergedConfig } from './merged.ts'
 import { parseLedger, recordSpend, spendByTicket } from './spend.ts'
+import { historyByTicket, parseHistory, recordHistory } from './history.ts'
 
 const PAGES: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -37,10 +38,10 @@ function readJson(file: string, dirs: string[]): unknown {
   }
 }
 
-/** Writes the ledger through a temp file and a rename. Nothing is written unless `.agent-team` is a real folder and `spend.json` is absent or a regular file. */
-function writeSpend(agentDir: string, text: string): boolean {
-  const file = join(agentDir, 'spend.json')
-  const tmp = join(agentDir, `spend.json.${process.pid}.tmp`)
+/** Writes a file of `.agent-team` through a temp file and a rename. Nothing is written unless `.agent-team` is a real folder and the file is absent or a regular file. */
+function writeJson(agentDir: string, name: string, text: string): boolean {
+  const file = join(agentDir, name)
+  const tmp = join(agentDir, `${name}.${process.pid}.tmp`)
   try {
     if (!lstatSync(agentDir).isDirectory()) return false
     try {
@@ -115,18 +116,31 @@ export async function startServer(opts: { root: string; port: number }): Promise
     return snapshots
   }
 
-  // The spend ledger: loaded at start, updated every 30 seconds whether or not the page polls, rewritten only when it changed.
+  // The spend ledger and the gantt history: loaded at start, updated every 30 seconds whether or not the page polls, each rewritten only when it changed.
   let ledger = parseLedger(readRegular(join(agentDir, 'spend.json'), [agentDir]) ?? '')
-  let written = JSON.stringify(ledger)
+  let history = parseHistory(readRegular(join(agentDir, 'gantt-history.json'), [agentDir]) ?? '')
+  const written: Record<string, string> = { 'spend.json': JSON.stringify(ledger), 'gantt-history.json': JSON.stringify(history) }
+  const save = (name: string, value: unknown) => {
+    try {
+      const next = JSON.stringify(value)
+      if (next !== written[name] && writeJson(agentDir, name, next)) written[name] = next
+    } catch {}
+  }
   const recordRound = () => {
+    let matched: ReturnType<typeof ledgerSessions> = []
     try {
       const text = projectText()
       void refreshWorktrees()
-      const matched = ledgerSessions({ snapshots: readSnapshots(), worktrees, state: readState(), prefix: text === undefined ? null : prefixFromProject(text), now: Date.now() })
-      ledger = recordSpend(ledger, matched)
-      const next = JSON.stringify(ledger)
-      if (next !== written && writeSpend(agentDir, next)) written = next
+      matched = ledgerSessions({ snapshots: readSnapshots(), worktrees, state: readState(), prefix: text === undefined ? null : prefixFromProject(text), now: Date.now() })
     } catch {}
+    try {
+      ledger = recordSpend(ledger, matched)
+    } catch {}
+    try {
+      history = recordHistory(history, matched)
+    } catch {}
+    save('spend.json', ledger)
+    save('gantt-history.json', history)
   }
   recordRound()
   const spendTimer = setInterval(recordRound, 30_000)
@@ -164,7 +178,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     merged.want(mergedCfg)
     updated.want(titleCfg)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger) })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history) })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
