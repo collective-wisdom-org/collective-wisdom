@@ -1,7 +1,8 @@
+import type { Session } from './api.ts'
 import type { TitleConfig } from './titles.ts'
 
 export type MergedConfig = TitleConfig & { issueUrls: boolean }
-export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; spend?: { cost: number | null; tokens: number } }
+export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; spend?: { cost: number | null; tokens: number }; gantt?: Session[] }
 type Run = (args: string[]) => Promise<string>
 
 const REFRESH_MS = 60_000

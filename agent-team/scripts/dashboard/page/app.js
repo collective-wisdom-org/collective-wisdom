@@ -81,8 +81,8 @@ const stamp = (ms) => {
 
 const spent = (s) => (s ? `${typeof s.cost === 'number' ? `<span class="num cost">${dollars(s.cost)}</span>` : ''}<span class="meta">${tokens(s.tokens)} tokens</span>` : '')
 
-/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped. */
-export function renderMerged(list, page, size = 10) {
+/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged charts to keep open. */
+export function renderMerged(list, page, size = 10, open = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const pages = Math.ceil(list.length / size)
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
@@ -92,6 +92,7 @@ export function renderMerged(list, page, size = 10) {
       (e) => `<li class="row">
   <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
   <div class="sub"><span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
+  ${e.gantt && e.gantt.length ? `<details class="chart" data-merged="${esc(e.id)}"${open.has(e.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(e.gantt.length)}</span></summary><div class="chart-body" data-merged="${esc(e.id)}"></div></details>` : ''}
 </li>`,
     )
     .join('\n')
@@ -163,12 +164,17 @@ if (typeof document !== 'undefined') {
     if (!last) return
     const now = Date.now()
     const rows = new Map(last.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
-    for (const body of document.querySelectorAll('.chart-body')) {
+    for (const body of document.querySelectorAll('.chart-body[data-ticket]')) {
       const row = rows.get(body.dataset.ticket)
       if (row) body.innerHTML = renderGantt(row.gantt, now)
     }
+    const merged = new Map(last.merged.map((e) => [e.id, e]))
+    for (const body of document.querySelectorAll('.chart-body[data-merged]')) {
+      const entry = merged.get(body.dataset.merged)
+      if (entry) body.innerHTML = renderGantt(entry.gantt, now)
+    }
   }
-  // The merged list is redrawn only when its html changed, so a poll keeps the page and any selection.
+  // The merged list is redrawn only when its html changed (compared with every chart closed, so opening one is not a change), so a poll keeps the page and any selection.
   let mergedPage = 0
   let shownMerged = null
   const drawMerged = () => {
@@ -177,7 +183,9 @@ if (typeof document !== 'undefined') {
     mergedPage = r.page
     if (r.html !== shownMerged) {
       shownMerged = r.html
-      document.getElementById('merged').innerHTML = r.html
+      const open = new Set([...document.querySelectorAll('details.chart[data-merged][open]')].map((d) => d.dataset.merged))
+      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, open).html
+      draw()
     }
   }
   const poll = async () => {
@@ -192,7 +200,7 @@ if (typeof document !== 'undefined') {
       const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? v.map((s) => s.sessionId) : v))
       if (json !== shownStatus) {
         shownStatus = json
-        const open = new Set([...document.querySelectorAll('details.chart[open]')].map((d) => d.dataset.ticket))
+        const open = new Set([...document.querySelectorAll('details.chart[data-ticket][open]')].map((d) => d.dataset.ticket))
         document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed())
         document.getElementById('cta').innerHTML = renderBadges(last.status)
       }
