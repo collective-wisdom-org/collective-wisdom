@@ -21,7 +21,7 @@ Unless this turn's full pass already read every active child, run the idle check
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec stage since 14:05, no SPEC READY yet. |
+| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 14:05, no SPEC READY yet. |
 
 **Building (2)**
 
@@ -58,7 +58,7 @@ Groups, in this order, by stage:
 Rules:
 
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
-- Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`blocked: <reason>`, `queued for a spec slot`, `changes requested, waiting for a spec slot`).
+- Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`blocked: <reason>`, `[changes requested, ]waiting for a spec slot`).
 - An `Awaiting teammate review` row's Next reads `PR #N, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>` (names from this turn's sweep `waiting` line, else the status line), plus `; your approval is held` when `heldApproval` is set.
 - The Ticket cell is `**<PREFIX>-N** title`, then `<br>` and the link to the ticket's child thread (`childThreadId` in state). A row with no `childThreadId` (or a null one) has no `<br>` and no link. The link is never repeated in Next.
 - The detail cell ends with `$X so far`, the dollar figure from one `python3 ~/.collective-wisdom/scripts/agent_usage.py --ticket <PREFIX>-N` per row, whatever the stage. On exit 2 it adds nothing.
