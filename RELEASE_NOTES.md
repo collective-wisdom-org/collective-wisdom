@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 match the dashboard dark colors to T3 Code dark (CW-248) (#250)
+
+Merged 2026-11-08 23:09 UTC.
+
+The dashboard's dark mode now uses the same black and neutral greys as T3 Code's dark theme instead of GitHub's navy. Light mode is unchanged and nothing needs doing.
+
 ## 2026-11-08 add a Chief of Staff tab to the dashboard (CW-247) (#251)
 
 Merged 2026-11-08 23:08 UTC.
