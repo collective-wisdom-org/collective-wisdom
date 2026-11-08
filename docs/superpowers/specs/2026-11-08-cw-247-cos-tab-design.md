@@ -1,6 +1,7 @@
 # CW-247: Add a Chief of Staff tab to the dashboard
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #251, as specified
 **Ticket:** [#247](https://github.com/collective-wisdom-org/collective-wisdom/issues/247)
 
 ## Goal
