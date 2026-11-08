@@ -1,7 +1,8 @@
 # CW-195: Overhaul the dashboard layout so it is easy to read
 
-**Status:** Spec
+**Status:** Shipped
 **Ticket:** [#195](https://github.com/collective-wisdom-org/collective-wisdom/issues/195)
+**Shipped:** in PR #203, with differences: [as-built](../as-built/2026-11-08-cw-195-dashboard-layout-overhaul-as-built.md)
 **Related:** #198 (sort by last updated, merged in #201), #200
 
 ## Goal
