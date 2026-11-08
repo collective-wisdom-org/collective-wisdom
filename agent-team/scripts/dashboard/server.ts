@@ -321,7 +321,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     try {
       const res = await fetch(`http://127.0.0.1:${bound}/health`, { signal: AbortSignal.timeout(500) })
       const body = (await res.json()) as { root?: unknown; code?: unknown; pid?: unknown }
-      // Any healthy server on newer code counts, so a second change during the wait doesn't roll back a good server.
+      // Only the child just spawned counts, on any code but ours, so a second change during the wait does not roll back a good server.
       return body.root === root && body.pid === pid && typeof body.code === 'string' && body.code !== running
     } catch {
       return false

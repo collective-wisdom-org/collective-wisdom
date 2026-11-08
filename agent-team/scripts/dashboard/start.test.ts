@@ -245,3 +245,25 @@ test('a healthy server running other code is stopped and replaced on its port', 
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('a pid that ps does not show as a dashboard server on the port is never signalled', async () => {
+  const root = tmpRoot()
+  const port = await freePort()
+  const fake = join(root, 'fake.js')
+  writeFileSync(
+    fake,
+    `require('http').createServer((q, r) => r.end(JSON.stringify({ ok: true, root: ${JSON.stringify(root)}, code: 'old', pid: process.pid }))).listen(${port}, '127.0.0.1')`,
+  )
+  const other = spawn(process.execPath, [fake], { stdio: 'ignore' })
+  mkdirSync(join(root, '.agent-team'))
+  writeFileSync(join(root, '.agent-team', 'dashboard.json'), JSON.stringify({ pid: other.pid, port }))
+  try {
+    for (let i = 0; i < 50 && (await fetch(`http://127.0.0.1:${port}/health`).catch(() => null)) === null; i++) await new Promise((r) => setTimeout(r, 50))
+    const r = await startDashboard({ root })
+    assert.equal(r.started, false)
+    assert.equal(other.exitCode ?? other.signalCode, null)
+  } finally {
+    other.kill()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
