@@ -11,9 +11,9 @@ Last checked against the code on 2026-11-08.
 | works | The code shows it, or the team runs it today. A run that no doc records is named in a note |
 | partial | Part of it works. The cell says what does not |
 | not supported | Nothing here makes it work on this column |
-| untested | Nothing shows it either way. Nobody has recorded a run |
+| untested | Nothing shows it either way: the code does not show it and the team does not run it |
 
-A cell is `works` only where the code shows it or the team runs it today. Anything else is `untested`.
+A cell is `works` only where the code shows it or the team runs it today. Anything not shown either way is `untested`.
 
 A cell that is not `works` gives a short reason and a gap number such as `G3`. The [Gaps](#gaps) list holds one line per gap with its ticket link, or `none yet` while there is no ticket.
 
@@ -71,7 +71,7 @@ Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` ca
 Notes:
 
 - GitHub Issues: `trackers/github.md` says it was verified on 2026-11-03.
-- Linear: `trackers/linear.md` has no verification line. The cells say `works` because the team runs on Linear on one maintainer's machine, which is not a recorded verification. If you want `works` to mean a recorded verification like the GitHub adapter's, treat the Linear cells as `untested` (G16).
+- Linear: `trackers/linear.md` has no verification line. Its `works` cells rest on the team running on Linear on one maintainer's machine, which is not a recorded verification; this covers every Linear `works` cell, not only the two marked. If you want `works` to mean a recorded verification like the GitHub adapter's, treat the Linear cells as `untested` (G16).
 - Jira: `trackers/jira.md` is marked UNTESTED and its list of assumptions is unticked.
 
 ### Full compatibility
