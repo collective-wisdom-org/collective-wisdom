@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { bars } from './format.ts'
-import { buildRows } from './rows.ts'
+import { addUsage, buildRows, modelCost } from './rows.ts'
 import type { AgentRecord, Prices, Tokens } from '../types/index.d.ts'
 
 const M = 1_000_000
 const PRICES: Prices = {
   opus: { input: 4, output: 20, read: 0.2, write_1h: 8, write_5m: 5 },
 }
-const none: Tokens = { input: 0, output: 0, read: 0, write: 0 }
+const none: Tokens = { input: 0, output: 0, read: 0, write_5m: 0, write_1h: 0 }
 
 const rec = (id: string, over: Partial<AgentRecord> = {}): AgentRecord => ({
   id,
@@ -129,9 +130,9 @@ const cases: {
     ],
   },
   {
-    name: 'cost is tokens times the family rates, with cache writes at the 1h rate',
+    name: 'cost is tokens times the family rates; a record stored with only `write` prices it at the 1h rate',
     records: [
-      rec('main', { usage: { 'claude-opus-5-5': { input: M, output: M, read: M, write: M } } }),
+      rec('main', { usage: { 'claude-opus-5-5': { input: M, output: M, read: M, write: M } as unknown as Tokens } }),
     ],
     agents: [],
     prices: PRICES,
@@ -170,4 +171,18 @@ for (const c of cases) {
 test('bars draws a run per segment and leaves the gap between them empty', () => {
   assert.equal(bars([[0, 10], [50, null]], 0, 100, 10), '█    █████')
   assert.equal(bars([[0, 0]], 0, 100, 10), '█')
+})
+
+const shared = JSON.parse(readFileSync(new URL('../../../agent-team/scripts/price_fixture.json', import.meta.url), 'utf8'))
+const real: Prices = JSON.parse(readFileSync(new URL('../../../agent-team/scripts/prices.json', import.meta.url), 'utf8'))
+
+test('modelCost gives the dollars of the cases test_prices.py checks agent_usage.costs against', () => {
+  for (const c of shared.cases) assert.ok(Math.abs(modelCost(c.model, c.tokens, real)! - c.dollars) < 1e-9, c.model)
+})
+
+test('a cache write is 1h on main, 5m on any other agent, and 1h in a record stored with only `write`', () => {
+  const turn = { model: 'claude-opus-5-5', cache_creation_input_tokens: M }
+  const old = { 'claude-opus-5-5': { input: 0, output: 0, read: 0, write: M } as unknown as Tokens }
+  const cases: [Record<string, Tokens>, number][] = [[addUsage({}, turn, 'main'), 8], [addUsage({}, turn, 'a1b2'), 5], [addUsage(old, turn, 'a1b2'), 13]]
+  for (const [usage, want] of cases) assert.equal(modelCost('claude-opus-5-5', usage['claude-opus-5-5']!, PRICES), want)
 })

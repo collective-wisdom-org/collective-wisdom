@@ -86,8 +86,7 @@ test('snapshots', () => {
       assert.deepEqual(Object.keys(g[0]).sort(), ['cwd', 'pricing', 'rows', 'sessionId', 'stale', 'total', 'updatedAt'])
       assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['cost', 'depth', 'end', 'harness', 'id', 'kind', 'model', 'name', 'repo', 'segments', 'start', 'tokens'])
     }],
-    ['pricing kept as a number, else null', { ...snap(1, [row(2)]), pricing: 2 }, (g) => assert.equal(g[0].pricing, 2)],
-    ['no pricing reads as null', snap(1, [row(2)]), (g) => assert.equal(g[0].pricing, null)],
+    ['pricing kept, else null', { ...snap(1, [row(2)]), pricing: 2 }, (g) => assert.deepEqual([g[0].pricing, charts([snap(1, [row(2)])])[0].pricing], [2, null])],
     ['string', 'x', (g) => assert.equal(g.length, 0)],
     ['no rows', { sessionId: 's', cwd: WT, updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
     ['rows not array', snap(1, 'x'), (g) => assert.equal(g.length, 0)],

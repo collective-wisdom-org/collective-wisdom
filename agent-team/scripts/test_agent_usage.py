@@ -239,24 +239,3 @@ def test_ticket_line(tmp_path, capsys, monkeypatch, user_md, ticket, usage, want
         return
     agent_usage.main()
     assert capsys.readouterr().out.strip() == want
-
-
-@pytest.mark.parametrize(
-    "model, want",
-    [
-        # 1M tokens of each kind, with the cache writes split 1h and 5m: the dollars the old in-code table gave.
-        ("claude-opus-5-5", 4 + 20 + 0.20 + 8 + 5),
-        ("claude-sonnet-5-5", 2 + 10 + 0.20 + 4 + 2.5),
-        ("claude-haiku-5", 0.10 + 0.50 + 0.01 + 0.20 + 0.125),
-        ("claude-fable-1", 10 + 50 + 0.25 + 20 + 12.5),
-    ],
-)
-def test_prices_json_prices_a_usage_as_before(model, want):
-    m = 1_000_000
-    usage = {
-        "input_tokens": m,
-        "output_tokens": m,
-        "cache_read_input_tokens": m,
-        "cache_creation": {"ephemeral_1h_input_tokens": m, "ephemeral_5m_input_tokens": m},
-    }
-    assert sum(agent_usage.costs(model, usage).values()) == pytest.approx(want)
