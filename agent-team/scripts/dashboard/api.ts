@@ -146,9 +146,12 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
 export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found> }): Api {
   const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {}, details = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
-  const status = groupTickets(state).map((g) => ({
+  // A ticket whose PR is already in `merged` shows there only, even while state still has it in a stage.
+  const mergedPrs = new Set(merged.filter((e) => e.number !== undefined).map((e) => `${e.id}#${e.number}`))
+  const open = groupTickets(state).map((g) => ({ ...g, rows: g.rows.filter((r) => !mergedPrs.has(`${r.id}#${numOrNull(isObj(tickets[r.id]) ? tickets[r.id].pr : null)}`)) })).filter((g) => g.rows.length)
+  const status = open.map((g) => ({
     name: g.name,
-    count: g.count,
+    count: g.rows.length,
     rows: newestFirst(g.rows.map((r) => {
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
       const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }

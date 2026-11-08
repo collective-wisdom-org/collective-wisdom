@@ -161,6 +161,11 @@ TODO = ["observe", "report (filling stopped: spec slot free)", ROTATION]
             {"ABC-1": queued("merge-queued", AUTO_MERGE, "1", pr=5, headSha="b" * 40), "ABC-2": BUILD, "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")},
             ["head-check ABC-1 pr=5 head=" + "b" * 40, f"run python3 {S}/cos_approve_pr.py ABC-1 --auto", f"send ABC-1 merge {json.dumps(AUTO_MERGE)}", *TAIL],
         ),
+        # no parent thread: no finish notice will come, so a merge send starts the merge wait; a build send does not
+        (
+            {"ABC-1": queued("merge-queued", CHANGES, "1", parentThreadId=None), "ABC-2": queued("build-queued", CHANGES, "2", parentThreadId=None)},
+            [f"send ABC-1 merge {json.dumps(CHANGES)}", "merge-wait ABC-1", f"send ABC-2 build {json.dumps(CHANGES)}", "start-todo", "start-todo", *TODO],
+        ),
         # a ticket under an older thread continues in a new child; a queued ticket with no relay is rebuilt
         (
             {"ABC-1": queued("build-queued", USER_SPEC, "1", approvalItemId="it1", parentThreadId="old"), "ABC-2": BUILD, "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")},

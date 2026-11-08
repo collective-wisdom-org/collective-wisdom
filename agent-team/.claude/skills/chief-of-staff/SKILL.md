@@ -8,7 +8,7 @@ description: >-
   child notices, and keeps starting work until the lanes are full or
   the Backlog has no ready ticket. Acts only on
   start-up, the user's messages, child notices, requests and replies from another
-  repo's Chief of Staff, and a rate-limit wake; it has no
+  repo's Chief of Staff, a merge wait that ends, and a rate-limit wake; it has no
   schedule. Use when the user says start the team, set up this repo, approve N,
   adopt N, changes N, cancel N, status, where's <PREFIX>-N, backlog, stop
   everything, resume, take over, new ticket, or edit ticket, in the Chief of
@@ -27,7 +27,7 @@ On every turn, read state first. What state is trusted for: `~/.collective-wisdo
 - `stop paused`: `paused` is set (not for `status`). Answer commands only.
 - The new thread of an unfinished handoff (`take over`, `start the team`) skips the first two, and so do a run-started notice and a project manager run-finished notice (both need no tool calls, § Tick "Not run through the tick"); the conditions are in rotation.md § Thread rotation: Retired thread.
 
-You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), or the rate-limit wake (§ Rate limit). There is no timer.
+You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), a merge wait that ends (§ Merge wait), or the rate-limit wake (§ Rate limit). There is no timer.
 
 - `start the team`, the rate-limit wake, a user command that runs a pass, a child's run finishing, `status`, `where's <PREFIX>-N?` and a user question: run the tick with that trigger (§ Tick).
 - `take over`, `resume` and resume mode run the lean take-over pass instead (rotation.md § Thread rotation "Take over" step 4). Each also starts the dashboard (startup.md Setup step 4).
@@ -57,9 +57,9 @@ Reference files are in this directory. Read one when its trigger happens.
 
 ## Tools
 
-- T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`. `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
+- T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`, `t3_background_wait` (§ Merge wait only). `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
 - Tracker: the operations are in `~/.collective-wisdom/docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
-- Bash, `python3 ~/.collective-wisdom/scripts/<name>.py`. Flags, output lines and exit codes are in each script's docstring; exit 0 is ok, 1 a check failed or an edit was rejected, 2 could not read its input. `cos_tick.py` (§ Tick), `cos_state.py` (`show`, `get`, `apply`: every state read and write), `cos_route.py` (§ Send or queue), `cos_restart.py` (§ Child path), `cos_todo.py` (§ Tick), `cos_brief.py` (`spec`, `pr`: approval inputs), `agent_usage.py --ticket <PREFIX>-N` (the cost line; exit 2 means `cost unknown`), `cos_user_check.py` (`latest`, `item`; § Commands), `cos_head_check.py`, `cos_approve_pr.py` (§ Send or queue), `approval_policy.py auto <PREFIX>-N spec` (approvals.md § Auto-approval), `cos_rotation_check.py` (§ Rotation check), `cos_idle_check.py` (§ Tick), `cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'` (continuation.md), `cos_sweep.py --thread <this thread's id>` (§ Sweep; it runs the merged, ready, parent, untracked and review checks), `cos_untracked_check.py` (adopt.md), `cos_review_check.py --route <PR> --head <sha>` (§ Child path), `cos_parent_check.py --thread <this thread's id>` alone (archiving only, rotation.md § Thread rotation "Archiving"), and the take-over `sleep`.
+- Bash, `python3 ~/.collective-wisdom/scripts/<name>.py`. Flags, output lines and exit codes are in each script's docstring; exit 0 is ok, 1 a check failed or an edit was rejected, 2 could not read its input. `cos_tick.py` (§ Tick), `cos_state.py` (`show`, `get`, `apply`: every state read and write), `cos_route.py` (§ Send or queue), `cos_restart.py` (§ Child path), `cos_todo.py` (§ Tick), `cos_brief.py` (`spec`, `pr`: approval inputs), `agent_usage.py --ticket <PREFIX>-N` (the cost line; exit 2 means `cost unknown`), `cos_user_check.py` (`latest`, `item`; § Commands), `cos_head_check.py`, `cos_approve_pr.py` (§ Send or queue), `approval_policy.py auto <PREFIX>-N spec` (approvals.md § Auto-approval), `cos_rotation_check.py` (§ Rotation check), `cos_idle_check.py` (§ Tick), `cos_merge_wait.py <PREFIX>-N` (§ Merge wait), `cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'` (continuation.md), `cos_sweep.py --thread <this thread's id>` (§ Sweep; it runs the merged, ready, parent, untracked and review checks), `cos_untracked_check.py` (adopt.md), `cos_review_check.py --route <PR> --head <sha>` (§ Child path), `cos_parent_check.py --thread <this thread's id>` alone (archiving only, rotation.md § Thread rotation "Archiving"), and the take-over `sleep`.
 - GitHub, read only: `~/.collective-wisdom/scripts/gh.sh pr list`, `pr view` and `api` GET requests (the project manager, approvals.md § Approval requests, the sweep's checks).
 - Cross-repo: `t3_project_list` and `python3 ~/.collective-wisdom/scripts/cos_peer.py` (`find`, `check`, `reply`), for cross-repo.md § Cross-repo requests only.
 
@@ -187,7 +187,8 @@ Not run through the tick:
 | `user-check <PREFIX>-N <thread> <itemId> words="…"` | The queued spec approval re-read in § Send or queue (the words on stdin through a quoted heredoc whose delimiter is not in them). An auto-approved spec instead gets `run … approval_policy.py auto <PREFIX>-N spec`, handled the same way. |
 | `configure <child> claude-sonnet-5-5 effort=high` | The § Models switch, just before the spec approval send. |
 | `continuation <PREFIX>-N <lane>` | continuation.md § Continuation child, in place of `send`. It gets no "I may not hear" line. |
-| `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send) |
+| `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
+| `merge-wait <PREFIX>-N` | Start that ticket's merge wait (§ Merge wait). `cos_route.py` prints `merge-wait: <PREFIX>-N` for an immediate merge send; its `fallback:` line adds "and start the merge wait". |
 | `run … no_hands.py check` | no-hands.md § What each `check` line means. Read its line before the lines after it: on `drain` or `stop` the `start-todo` lines below are not run. |
 | `start-todo` | One start from Todo (**Todo start**, below), printed once per free spec slot. |
 | `observe` | § Child path "Observe". |
@@ -335,9 +336,19 @@ Reports:
 
 A child can merge and its finish notice never reach this thread, which leaves the ticket in `merge` and holds the only merge slot. `cos_merged_check.py --apply` finds those by PR number and branch and writes the `merged` op for each. It runs as part of the sweep (§ Sweep), never alone. Its lines:
 
-- `merged <PREFIX>-N #PR at <time>`: the ticket has left the team, as for `MERGED #N`. Report it under Moving as `<PREFIX>-N merged (#PR), found by the merged check`. The turn's slot fill (§ Tick) runs with `(merged #X)` as the slot reason. Later child reads in the turn skip that ticket. A finish notice that arrives later for its child finds no ticket and takes the generic path, as after `cancel N`.
+- `merged <PREFIX>-N #PR at <time>`: the ticket has left the team, as for `MERGED #N`. Report it under Moving as `<PREFIX>-N merged (#PR), found by the merged check`. The turn's slot fill (§ Tick) runs with `(merged #X)` as the slot reason. Later child reads in the turn skip that ticket. A finish notice that arrives later for its child finds no ticket and takes the generic path, as after `cancel N`. A merge wait (§ Merge wait) ends in a tick that runs this check.
 - `mismatch <PREFIX>-N #PR head <branch>` and `unreadable <PREFIX>-N #PR`: nothing written. One Cleanup line.
 - Exit 2: the sweep's rule for a part that didn't run applies (§ Sweep).
+
+## Merge wait
+
+A merge sent to a ticket with no known parent thread ends with no finish notice and no tick soon after, so the ticket would hold the only merge slot until the user writes. A merge wait is `cos_merge_wait.py` (read only): it polls the PR every 30 seconds for 30 minutes and ends when the PR is merged or closed or the ticket has left `merge`. It starts for a `merge-wait <PREFIX>-N` plan line, a `merge-wait:` line of `cos_route.py`, a `fallback:` line that says so, and in take over and resume for each `merge` ticket whose `parentThreadId` is not this thread (rotation.md § Thread rotation "Take over" step 4.2).
+
+1. Run `python3 ~/.collective-wisdom/scripts/cos_merge_wait.py <PREFIX>-N` with the Bash tool's background option (never `&`) and keep the task ID.
+2. Call `t3_background_wait` on that ID once, just before the turn's last tool call (the rotation check stays last). If the ID is `unmatched`, start the command again and wait again; a second `unmatched` adds one Cleanup line, `Merge wait for <PREFIX>-N did not start`.
+3. When it exits, the thread wakes. `merged` or `closed`: run the tick with `--trigger 'notice:<childThreadId>'`, the child from `cos_state.py get <PREFIX>-N`: the same plan as the finish notice that never came (child read, idle check, sweep with the merged check, slot fill). `still open`: run that tick once and start no new wait; the Moving line already told the user to say `status`. `left merge`: nothing (no tick, no message). Exit 2: one Cleanup line in the next report, `Merge wait for <PREFIX>-N: <its line>`, and nothing else.
+
+Two waits on one ticket are harmless: both only read, and the second tick finds the ticket gone. Only the merged check writes the `merged` op.
 
 ## Sweep
 
