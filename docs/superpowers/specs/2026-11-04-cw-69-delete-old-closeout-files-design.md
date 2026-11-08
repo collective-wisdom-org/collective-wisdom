@@ -1,7 +1,8 @@
 # CW-69: Delete the old-shape CW-55 and CW-51 closeout files
 
 **Ticket:** [CW-69](https://github.com/dbeallor/collective-wisdom/issues/69)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #179, as specified
 
 ## Goal
 
