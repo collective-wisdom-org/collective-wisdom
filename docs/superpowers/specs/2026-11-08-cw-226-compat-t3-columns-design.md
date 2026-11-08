@@ -1,6 +1,7 @@
 # CW-226: Harness matrix with T3 Code columns only
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #229, as specified
 **Ticket:** [#226](https://github.com/collective-wisdom-org/collective-wisdom/issues/226)
 
 ## Goal
