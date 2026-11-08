@@ -394,6 +394,8 @@ if (typeof document !== 'undefined') {
       const res = await fetch('/api', { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       last = await res.json()
+      if (last.theme === 'dark' || last.theme === 'light') document.documentElement.dataset.theme = last.theme
+      else delete document.documentElement.dataset.theme
       if (seen(last.version)) {
         location.reload()
         return

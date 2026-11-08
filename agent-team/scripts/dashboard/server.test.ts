@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { codeFiles, codeVersion, pageVersion, restartWatch, startServer } from './server.ts'
+import { codeFiles, codeVersion, pageVersion, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -323,5 +323,31 @@ test('restartWatch asks for a restart only for a new version seen twice, never a
       else got.push(w.check(step === 'null' ? null : step))
     }
     assert.deepEqual(got, c.want, c.steps.join(','))
+  }
+})
+
+test('systemScheme reads the macOS setting and says nothing elsewhere', () => {
+  const cases: [string, { code: number | null; out: string } | null, 'dark' | 'light' | null][] = [
+    ['darwin', { code: 0, out: 'Dark' }, 'dark'],
+    ['darwin', { code: 0, out: 'Dark\n' }, 'dark'],
+    ['darwin', { code: 1, out: '' }, 'light'],
+    ['darwin', null, null],
+    ['linux', { code: 0, out: 'Dark' }, null],
+  ]
+  for (const [platform, result, want] of cases) assert.equal(systemScheme(platform, result), want, `${platform} ${JSON.stringify(result)}`)
+})
+
+test('the page and /api carry the system scheme when it is known', async () => {
+  for (const scheme of ['dark', 'light', null] as const) {
+    const srv = await startServer({ root: tmpRoot(), port: 0, scheme: async () => scheme })
+    try {
+      const host = `127.0.0.1:${srv.port}`
+      const html = (await call(srv.port, 'GET', '/', host)).body
+      assert.equal(html.includes('<html lang="en" data-theme="'), scheme !== null)
+      if (scheme) assert.ok(html.includes(`<html lang="en" data-theme="${scheme}">`))
+      assert.equal(JSON.parse((await call(srv.port, 'GET', '/api', host)).body).theme, scheme)
+    } finally {
+      await srv.close()
+    }
   }
 })
