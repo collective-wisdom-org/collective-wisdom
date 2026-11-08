@@ -13,12 +13,15 @@ Prints the relay to send (none for `ok`), then a last line, exit 0:
     head-check: moved <old> <new>          (short SHAs; withdraw the approval, send the relay to the build lane)
     head-check: conflict keep              (head unchanged, conflicting, setting off: keep the approval, send the
                                            relay, which carries it, to the merge lane)
-    head-check: conflict withdraw          (setting on, or --no-approval: send the relay, which carries none, to the
-                                           build lane)
+    head-check: conflict stand             (setting off, no approval to carry: reviews stand; send the relay, which
+                                           carries none, to the merge lane)
+    head-check: conflict withdraw          (setting on, with or without --no-approval: send the relay, which carries
+                                           none, to the build lane)
 A failed read of `Review after conflict resolution` counts as `on` (`conflict withdraw`). Exit 2 prints "head-check: cannot <what>" when
 the state is unreadable, a gh read fails, or the merge target branch is missing or unusable.
---no-approval is for a ticket with no approval to carry (`approve N` on `awaiting-review`): a conflict is then
-always `conflict withdraw`.
+--no-approval is for a ticket with no approval to carry (`approve N` on `awaiting-review`, a MERGE READY conflict).
+The ticket's `noApproval: true` in state does the same for a merge-lane run that carries none. With either, a
+conflict under `off` is `conflict stand`, never `conflict keep`; under `on` it is `conflict withdraw`.
 """
 
 import argparse
@@ -74,13 +77,13 @@ def read_pr(n, prs):
 def read_ticket(path, tid):
     try:
         info = json.loads(Path(path).read_text())["tickets"][tid]
-        pr, head = info["pr"], info["headSha"]
+        pr, head, no_approval = info["pr"], info["headSha"], info.get("noApproval") is True
         pr = int(pr) if isinstance(pr, str) and re.fullmatch(r"[0-9]+", pr) else pr
     except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError):
         raise Cannot("read the ticket in state")
     if not (type(pr) is int and isinstance(head, str) and FULL_SHA.fullmatch(head)):
         raise Cannot("read pr and headSha in state")
-    return pr, head
+    return pr, head, no_approval
 
 
 def check(pr, stored, live, mergeable, no_approval, setting):
@@ -93,7 +96,9 @@ def check(pr, stored, live, mergeable, no_approval, setting):
         target, rule = project_config.target_branch(), setting()
     except SystemExit:
         raise Cannot("read the merge target branch")
-    if rule == "off" and not no_approval:
+    if rule == "off":
+        if no_approval:
+            return CONFLICT.format(target=target), "head-check: conflict stand"
         return CONFLICT_APPROVED.format(target=target, head=live[:7]), "head-check: conflict keep"
     return CONFLICT.format(target=target), "head-check: conflict withdraw"
 
@@ -108,7 +113,7 @@ def main(argv=None):
     try:
         if not TICKET.fullmatch(args.ticket):
             raise Cannot("use a ticket id like <PREFIX>-N")
-        pr, stored = read_ticket(args.file, args.ticket)
+        pr, stored, ticket_no_approval = read_ticket(args.file, args.ticket)
         prs = None
         if args.prs:
             try:
@@ -116,7 +121,7 @@ def main(argv=None):
             except (OSError, UnicodeDecodeError, ValueError):
                 raise Cannot("read the PR file")
         live, mergeable = read_pr(pr, prs)
-        relay, last = check(pr, stored, live, mergeable, args.no_approval, project_config.review_after_conflict)
+        relay, last = check(pr, stored, live, mergeable, args.no_approval or ticket_no_approval, project_config.review_after_conflict)
     except Cannot as e:
         print(f"head-check: cannot {e}")
         return 2
