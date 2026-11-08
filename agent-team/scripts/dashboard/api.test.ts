@@ -306,3 +306,18 @@ test('chief state and the newest-first project manager list with live and histor
   ])
   assert.equal(api.pm[0].gantt[0].updatedAt, NOW - 1000)
 })
+
+test('a ticket whose PR is already in merged is dropped from status; its group goes when empty', () => {
+  const t = (stage: string, pr: number) => ({ title: 't', stage, status: 'x. Risk: low', pr })
+  const entry = (id: string, number: number) => ({ id, title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1, number })
+  const cases: [string, Record<string, unknown>, ReturnType<typeof entry>[], [string, number, string[]][]][] = [
+    ['same id and PR: row and group go', { 'CW-1': t('merge', 243) }, [entry('CW-1', 243)], []],
+    ['same id, other PR: stays', { 'CW-1': t('merge', 243) }, [entry('CW-1', 200)], [['Merging', 1, ['CW-1']]]],
+    ['same PR, other id: stays', { 'CW-1': t('merge', 243) }, [entry('CW-2', 243)], [['Merging', 1, ['CW-1']]]],
+    ['a second ticket keeps the group, count 1', { 'CW-1': t('merge', 243), 'CW-2': t('merge', 244) }, [entry('CW-1', 243)], [['Merging', 1, ['CW-2']]]],
+  ]
+  for (const [name, tickets, merged, want] of cases) {
+    const { status } = build({ state: { tickets }, merged })
+    assert.deepEqual(status.map((g) => [g.name, g.count, g.rows.map((r) => r.id)]), want, name)
+  }
+})

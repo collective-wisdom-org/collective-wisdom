@@ -111,6 +111,23 @@ def test_parent_thread_decides_continuation_and_the_moving_line(tmp_path, capsys
     assert any(x.startswith("fallback: ") for x in out) == (last.startswith("route: continuation"))
 
 
+@pytest.mark.parametrize(
+    "caller, stage, parent, last, wait, fallback",
+    [
+        ("approve-merge", "awaiting-merge", None, "route: send merge", True, False),  # no finish notice will come
+        ("approve-merge", "awaiting-merge", ME, "route: send merge", False, False),
+        ("approve-merge", "awaiting-merge", "old", "route: continuation merge", False, True),
+        ("reviewer-changes", "awaiting-review", None, "route: send build", False, False),  # the build lane has its own coverage
+        ("reviewer-changes", "awaiting-review", "old", "route: continuation build", False, False),
+    ],
+)
+def test_the_merge_lane_starts_the_merge_wait(tmp_path, capsys, monkeypatch, caller, stage, parent, last, wait, fallback):
+    _, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": {"stage": stage, "parentThreadId": parent}}, caller)
+    assert out[-1] == last
+    assert ("merge-wait: ABC-1" in out) == wait
+    assert any(x.startswith("fallback: ") and x.endswith("and start the merge wait") for x in out) == fallback
+
+
 @pytest.mark.parametrize("ticket, caller", [("ABC-1", "nope"), ("bad", "resume"), ("ABC-5", "resume")])
 def test_bad_arguments_and_unknown_tickets_exit_2(tmp_path, capsys, monkeypatch, ticket, caller):
     monkeypatch.setattr(project_config, "review_after_conflict", lambda: "off")
