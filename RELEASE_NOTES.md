@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-08 move skill logic into scripts (CW-115) (#190)
+
+Merged 2026-11-08 05:45 UTC.
+
+Four more checks the agents did by reading prose are now scripts: the review check before `MERGE READY`, the head check before a merge approval, the project manager's hygiene rules and its Dry ranking test. The Chief of Staff, ship-loop, project-manager and merge-pr skills are about 4 KB smaller. Nothing to do on your side; behavior is the same, with the small differences listed in the as-built.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 run CI on pull requests only (CW-103) (#193)
 
 Merged 2026-11-08 05:42 UTC.
