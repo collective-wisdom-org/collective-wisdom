@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { startServer } from './server.ts'
+import { pageVersion, startServer } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -59,6 +59,39 @@ test('host check', async () => {
         assert.equal(r.status, want, `${route} Host=${host}`)
       }
     }
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('page version changes with either page file and is null when one is missing', () => {
+  const dir = tmpRoot()
+  try {
+    writeFileSync(join(dir, 'index.html'), 'a')
+    writeFileSync(join(dir, 'app.js'), 'b')
+    const base = pageVersion(dir)
+    assert.match(String(base), /^[0-9a-f]{16}$/)
+    assert.equal(pageVersion(dir), base)
+    writeFileSync(join(dir, 'app.js'), 'c')
+    const js = pageVersion(dir)
+    writeFileSync(join(dir, 'index.html'), 'd')
+    const html = pageVersion(dir)
+    assert.equal(new Set([base, js, html]).size, 3)
+    rmSync(join(dir, 'app.js'))
+    assert.equal(pageVersion(dir), null)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('/api carries the version of the served page files', async () => {
+  const root = tmpRoot()
+  const srv = await startServer({ root, port: 0 })
+  try {
+    const body = JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body)
+    assert.equal(body.version, pageVersion(join(import.meta.dirname, 'page')))
+    assert.ok(body.version)
   } finally {
     await srv.close()
     rmSync(root, { recursive: true, force: true })

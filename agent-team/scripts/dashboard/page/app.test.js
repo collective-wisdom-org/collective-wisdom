@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderStatus, renderGantt, renderBadges, renderMerged } from './app.js'
+import { esc, renderStatus, renderGantt, renderBadges, renderMerged, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -257,4 +257,17 @@ test('merged row with sessions has a closed Agents chart that stays open when it
   assert.equal(html([sess()]).match(/<details/g).length, 1)
   assert.doesNotMatch(html([]), /<details|Agents/)
   assert.doesNotMatch(html(), /<details|Agents/)
+})
+
+test('versionWatch asks for a reload only when a later version differs from the first', () => {
+  const cases = [
+    [[undefined, 'a', 'a', 'b'], [false, false, false, true]],
+    [['a', 'a', 'a'], [false, false, false]],
+    [[null, 'a'], [false, false]],
+    [['a', null, '', 7, 'a'], [false, false, false, false, false]],
+  ]
+  for (const [input, want] of cases) {
+    const seen = versionWatch()
+    assert.deepEqual(input.map(seen), want, JSON.stringify(input))
+  }
 })

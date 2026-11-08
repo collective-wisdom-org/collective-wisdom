@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 import { lstatSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -16,6 +17,17 @@ import { historyByTicket, parseHistory, recordHistory } from './history.ts'
 const PAGES: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+}
+
+/** A short hash of the page files, in `PAGES` order, so an open page can tell its files changed. `null` when any file can't be read. */
+export function pageVersion(dir: string): string | null {
+  try {
+    const hash = createHash('sha256')
+    for (const [file] of Object.values(PAGES)) hash.update(readFileSync(join(dir, file))).update('\0')
+    return hash.digest('hex').slice(0, 16)
+  } catch {
+    return null
+  }
 }
 
 /** Reads a file only when it is a regular file and every folder in `dirs` is a real folder (no links). */
@@ -195,7 +207,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     if (req.method !== 'GET') return send(405, 'method not allowed')
     try {
       if (path === '/health') return send(200, JSON.stringify({ ok: true, root }), 'application/json')
-      if (path === '/api') return send(200, JSON.stringify(api()), 'application/json')
+      if (path === '/api') return send(200, JSON.stringify({ ...api(), version: pageVersion(join(import.meta.dirname, 'page')) }), 'application/json')
       const page = Object.hasOwn(PAGES, path) ? PAGES[path] : undefined
       if (page) {
         try {
