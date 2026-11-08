@@ -104,8 +104,6 @@ def test_changes_relayed_is_a_validated_record_the_script_never_clears(op, want)
 )
 def test_no_approval_belongs_to_the_merge_lane(stage_now, op, want):
     t = {"stage": stage_now, "headSha": A, "lastSeenAt": OLD, "status": "s", "noApproval": True}
-    if stage_now == "merge-queued":
-        t["pendingRelay"] = "x"
     state = {"tickets": {"ABC-1": {k: v for k, v in t.items() if k != "noApproval"} if op["op"] == "set" else t}}
     if want == "reject":
         with pytest.raises(cos_state.Reject):
