@@ -8,23 +8,19 @@ usage() {
   exit 2
 }
 
-# The forms that used to install into an app: a target path, --update, --check, --to, --from, --force.
-OLD=0 DRY=0
+# Any other argument is a form that used to install into an app (a target path, --update, --to, ...): refuse it.
+DRY=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
-    --update|--check|--force) OLD=1 ;;
-    --to|--from) [ "$#" -ge 2 ] || usage; OLD=1; shift ;;
     -h|--help) usage ;;
-    -*) echo "unknown option: $1" >&2; usage ;;
-    *) OLD=1 ;;
+    *)
+      case "$1" in -*) echo "unknown option: $1" >&2 ;; esac
+      echo "install.sh no longer installs into an app. Run ./install.sh with no path to install on this machine. To remove an old copy from an app, run ~/.collective-wisdom/scripts/remove_app_copies.py in it." >&2
+      exit 2 ;;
   esac
   shift
 done
-if [ "$OLD" -eq 1 ]; then
-  echo "install.sh no longer installs into an app. Run ./install.sh with no path to install on this machine. To remove an old copy from an app, run ~/.collective-wisdom/scripts/remove_app_copies.py in it." >&2
-  exit 2
-fi
 
 # --- Machine install: no target path. Links this clone into $HOME; touches no app. ---
 
