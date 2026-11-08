@@ -141,6 +141,17 @@ test('repoUrlFromProject', () => {
   const md = readFileSync(join(import.meta.dirname, '../../../docs/agents/project.md'), 'utf8')
   assert.deepEqual(repoUrlFromProject(md), { url: 'https://github.com/collective-wisdom-org/collective-wisdom', isGithubIssues: true })
   assert.equal(repoUrlFromProject('# nothing here\n'), null)
+  const repo = '| Repo | <https://github.com/o/r> |'
+  const cases: [string, boolean][] = [
+    ['| Tracker | `github` |', true],
+    ['| Tracker (issues) | `GitHub` |', true],
+    ['| Tracker | `linear` |', false],
+    ['| Branch | `x` |', false],
+    ['| Tracker | `linear` |\nTickets are GitHub issues', false],
+  ]
+  for (const [row, isGithubIssues] of cases) {
+    assert.deepEqual(repoUrlFromProject(`${repo}\n${row}\n`), { url: 'https://github.com/o/r', isGithubIssues }, row)
+  }
 })
 
 test('snapshots join the card of their worktree branch; the rest are dropped', () => {
