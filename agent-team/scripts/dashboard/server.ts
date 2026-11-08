@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
-import { readFileSync, readdirSync, realpathSync } from 'node:fs'
+import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildApi, repoUrlFromProject } from './api.ts'
 
@@ -27,10 +27,18 @@ export async function startServer(opts: { root: string; port: number }): Promise
     if (state !== undefined) lastState = state
     const snapshots: unknown[] = []
     try {
-      for (const f of readdirSync(join(agentDir, 'gantt'))) {
-        if (!f.endsWith('.json')) continue
-        const s = readJson(join(agentDir, 'gantt', f))
-        if (s !== undefined) snapshots.push(s)
+      const dir = join(agentDir, 'gantt')
+      if (lstatSync(agentDir).isDirectory() && lstatSync(dir).isDirectory()) {
+        for (const f of readdirSync(dir)) {
+          if (!f.endsWith('.json')) continue
+          try {
+            if (!lstatSync(join(dir, f)).isFile()) continue
+          } catch {
+            continue
+          }
+          const s = readJson(join(dir, f))
+          if (s !== undefined) snapshots.push(s)
+        }
       }
     } catch {}
     const dash = readJson(join(agentDir, 'dashboard.json'))

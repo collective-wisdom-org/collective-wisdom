@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
-import { mkdirSync, readFileSync, readdirSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const DAY_MS = 24 * 3600 * 1000
@@ -38,12 +38,16 @@ function readDashboard(file: string): { pid?: number; port?: number; environment
   }
 }
 
-function pruneSnapshots(dir: string) {
+function pruneSnapshots(agentDir: string) {
   try {
+    const dir = join(agentDir, 'gantt')
+    if (!lstatSync(agentDir).isDirectory() || !lstatSync(dir).isDirectory()) return
     for (const f of readdirSync(dir)) {
       try {
+        if (!f.endsWith('.json')) continue
         const p = join(dir, f)
-        if (Date.now() - statSync(p).mtimeMs > DAY_MS) unlinkSync(p)
+        const st = lstatSync(p)
+        if (st.isFile() && Date.now() - st.mtimeMs > DAY_MS) unlinkSync(p)
       } catch {}
     }
   } catch {}
@@ -58,7 +62,7 @@ export async function startDashboard(opts: {
   const agentDir = join(root, '.agent-team')
   const file = join(agentDir, 'dashboard.json')
   mkdirSync(agentDir, { recursive: true })
-  pruneSnapshots(join(agentDir, 'gantt'))
+  pruneSnapshots(agentDir)
 
   const existing = readDashboard(file)
   if (existing && Number.isInteger(existing.port) && (await healthy(existing.port!, root))) {

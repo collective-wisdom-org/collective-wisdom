@@ -101,6 +101,16 @@ async function resolveRoot($: EngineInterface): Promise<string> {
   return root
 }
 
+/** True when the path exists as a link or as anything but a folder; a missing path is fine. */
+async function isUnsafeDir($: EngineInterface, path: string): Promise<boolean> {
+  try {
+    const st = await $.fs.stat(path)
+    return st.isLink || st.kind !== 'dir'
+  } catch {
+    return false
+  }
+}
+
 /** Writes this session's rows for the local dashboard. A failed write never reaches the session. */
 async function writeSnapshot($: EngineInterface) {
   try {
@@ -112,6 +122,7 @@ async function writeSnapshot($: EngineInterface) {
     const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table)
     const total = (await $.session.usage()).cost?.usd ?? null
     const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows })
+    if ((await isUnsafeDir($, `${dir}/.agent-team`)) || (await isUnsafeDir($, `${dir}/${SNAPSHOT_DIR}`))) return
     await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
   } catch {
     // the dashboard is optional: skip this write

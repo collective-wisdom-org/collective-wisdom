@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { portFor, startDashboard } from './start.ts'
@@ -104,5 +104,71 @@ test('start prunes snapshots older than 24 hours only', async () => {
   } finally {
     kill(root)
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start prunes only old regular .json files inside real folders', async () => {
+  const old = new Date(Date.now() - 25 * 3600 * 1000)
+  const aged = (f: string) => {
+    writeFileSync(f, '{}')
+    utimesSync(f, old, old)
+  }
+  const cases: { name: string; setup: (root: string, outside: string) => string[]; gone: string[] }[] = [
+    {
+      name: 'symlinked gantt folder',
+      setup: (root, outside) => {
+        mkdirSync(join(root, '.agent-team'))
+        symlinkSync(outside, join(root, '.agent-team', 'gantt'))
+        aged(join(outside, 'old.json'))
+        aged(join(outside, 'old.txt'))
+        return [join(outside, 'old.json'), join(outside, 'old.txt')]
+      },
+      gone: [],
+    },
+    {
+      name: 'symlinked .agent-team folder',
+      setup: (root, outside) => {
+        mkdirSync(join(outside, 'gantt'))
+        symlinkSync(outside, join(root, '.agent-team'))
+        aged(join(outside, 'gantt', 'old.json'))
+        return [join(outside, 'gantt', 'old.json')]
+      },
+      gone: [],
+    },
+    {
+      name: 'non-json old file in a real gantt folder',
+      setup: (root) => {
+        mkdirSync(join(root, '.agent-team', 'gantt'), { recursive: true })
+        aged(join(root, '.agent-team', 'gantt', 'old.txt'))
+        aged(join(root, '.agent-team', 'gantt', 'old.json'))
+        return [join(root, '.agent-team', 'gantt', 'old.txt')]
+      },
+      gone: ['old.json'],
+    },
+    {
+      name: 'old symlink entry in a real gantt folder',
+      setup: (root, outside) => {
+        mkdirSync(join(root, '.agent-team', 'gantt'), { recursive: true })
+        aged(join(outside, 'target.json'))
+        symlinkSync(join(outside, 'target.json'), join(root, '.agent-team', 'gantt', 'link.json'))
+        return [join(outside, 'target.json')]
+      },
+      gone: [],
+    },
+  ]
+  for (const c of cases) {
+    const root = tmpRoot()
+    const outside = tmpRoot()
+    const basePort = await freePort()
+    const survivors = c.setup(root, outside)
+    try {
+      await startDashboard({ root, basePort })
+      for (const f of survivors) assert.equal(existsSync(f), true, `${c.name}: ${f} survives`)
+      for (const f of c.gone) assert.equal(existsSync(join(root, '.agent-team', 'gantt', f)), false, `${c.name}: ${f} pruned`)
+    } finally {
+      kill(root)
+      rmSync(root, { recursive: true, force: true })
+      rmSync(outside, { recursive: true, force: true })
+    }
   }
 })

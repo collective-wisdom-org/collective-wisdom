@@ -90,6 +90,16 @@ test('degraded inputs still answer', async () => {
       },
       sessions: ['good'],
     },
+    {
+      name: 'symlinked gantt folder',
+      setup: (r) => {
+        const outside = tmpRoot()
+        writeFileSync(join(outside, 'good.json'), JSON.stringify(goodSnap))
+        mkdirSync(join(r, '.agent-team'))
+        symlinkSync(outside, join(r, '.agent-team/gantt'))
+      },
+      sessions: [],
+    },
   ]
   for (const c of cases) {
     const root = tmpRoot()
