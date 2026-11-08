@@ -52,9 +52,9 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("approve-merge", "awaiting-merge", QUEUED_BUILD, "off", "send merge"),
         ("approve-merge", "awaiting-merge", OVER_CAP, "off", "queue merge"),
         ("changes", "awaiting-build", ONE_EACH, "off", "send spec"),
-        # a ticket that holds the merge slot does not block its own send; the queue it sits in is not "someone waiting"
+        # a ticket that holds the merge slot does not block its own send; a ticket queued before this one still does
         ("conflict-withdraw", "merge", {}, "off", "send build"),
-        ("conflict-keep", "merge-queued", {"ABC-8": tk("merge-queued", pendingRelay="x")}, "off", "queue merge"),
+        ("conflict-keep", "merge-queued", {"ABC-8": tk("merge-queued", queuedAt="2026-11-01T00:00:00Z")}, "off", "queue merge"),
         # callers that do not apply from the stage
         ("approve-merge", "awaiting-build", {}, "off", "no"),
         ("changes", "build", {}, "off", "no"),
@@ -63,13 +63,20 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
     ],
 )
 def test_lane_and_send_or_queue(tmp_path, capsys, monkeypatch, caller, stage, others, setting, want):
-    code, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": tk(stage), **others}, caller, setting)
+    code, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": tk(stage, queuedAt="2026-11-02T00:00:00Z"), **others}, caller, setting)
     assert out[-1].startswith(f"route: {want}")
     assert code == (1 if want == "no" else 0)
     ops = [json.loads(x[len("stage: "):]) for x in out if x.startswith("stage: ")]
     if want != "no":
         lane = want.split()[1]
         assert ops == [{"op": "stage", "ticket": "ABC-1", "stage": lane if want.startswith("send") else f"{lane}-queued", "status": "<status line>"}]
+
+
+@pytest.mark.parametrize("ticket, want", [("ABC-1", "send merge"), ("ABC-2", "queue merge")])
+def test_a_queued_ticket_waits_only_for_older_queue_entries(tmp_path, capsys, monkeypatch, ticket, want):
+    both = {"ABC-1": tk("merge-queued", queuedAt="2026-11-01T00:00:00Z"), "ABC-2": tk("merge-queued", queuedAt="2026-11-02T00:00:00Z")}
+    _, out = run(tmp_path, capsys, monkeypatch, both, "conflict-keep", ticket=ticket)
+    assert out[-1] == f"route: {want}"
 
 
 @pytest.mark.parametrize(

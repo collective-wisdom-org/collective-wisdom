@@ -13,7 +13,8 @@ an object holding an `issues` or `tickets` list. Tickets are tried by priority (
 First pass (the list alone): drops tickets labelled `agent-skip`, prints `get <ID>` for each one left, in order. Make that
 `get-ticket` call (fields id, state, labels, relations) once per ticket and run the second pass.
 Second pass (--relations): `tickets` holds each get-ticket result. A ticket with an open blocker is dropped. A blocker is
-open unless its state is Done, Canceled or Duplicate; a bare id or number with no state counts as open. Blockers are
+open unless its state (`state`, or `status` as Linear names it) is Done, Canceled or Duplicate; a bare id or number, or an
+object with no state, counts as open: the caller puts each blocker's state in the input. Blockers are
 `relations.blockedBy` (also `blocked_by`, `blockers`) or the `relations` entries whose `type` says blocked by. Prints
 `start <ID>` for each ticket left, in order: run the readiness check on each until one starts.
 Either pass ends `todo: none` when nothing is left (then project-manager § Backlog pick). Exit 0.
@@ -68,7 +69,10 @@ def blockers(got):
 
 
 def is_open(blocker):
-    return not isinstance(blocker, dict) or pm_hygiene.state_of(blocker) not in pm_hygiene.FINISHED
+    if not isinstance(blocker, dict):
+        return True
+    named = blocker if "state" in blocker else {**blocker, "state": blocker.get("status")}  # Linear says `status`
+    return pm_hygiene.state_of(named) not in pm_hygiene.FINISHED
 
 
 def plan(text, relations):

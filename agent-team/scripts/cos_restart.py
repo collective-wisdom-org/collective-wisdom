@@ -3,14 +3,15 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_restart.py <PREFIX>-N --run completed|failed|interrupted|running --updated-at ISO
-        [--marker] [--wait 0|1|2|2twice] [--step TEXT] [--missing TEXT] [--spec PATH] [--file STATE] [--now ISO]
+        [--marker] [--wait 0|1|2|2twice] [--step TEXT] [--missing TEXT] [--spec PATH] [--file STATE] [--thread ID] [--now ISO]
 
 Read only: sends, cancels and writes nothing. The model reads the child (t3_thread_read, the wait check) and passes what
 it found: --run is recentRuns[0].status, --updated-at the thread's updatedAt, --marker that the last assistant message has
 a marker, --wait the exit code of `cos_idle_check.py --wait` (0 waiting, 1 stalled, 2 unreadable; `2twice` when a second
 read is unreadable too), --step the last step the child finished (one line), --missing the next step (one line) and --spec
 the spec path when the child's last message gave one. Reads the ticket's stage, restarts, parentThreadId, pr and the
-chiefThreadId from .agent-team/state.json (under the repo root unless --file is given), the review mode from project_config,
+chiefThreadId from .agent-team/state.json (under the repo root unless --file is given; --thread is this thread's ID, used as
+the Chief of Staff thread when state has no chiefThreadId, as in cos_route.py), the review mode from project_config,
 and, in `build` or `merge` with a PR, the PR facts by calling cos_brief.cmd_pr (what `cos_brief.py pr <N>` prints).
 
 A ticket in spec, build or merge is stuck when the run failed or was interrupted; when it completed with no marker and the
@@ -150,7 +151,7 @@ def judge(state, tid, args, now):
         return cancel, f"restart: blocked restarted already; {why}"
     if not (args.step and args.missing):
         raise Cannot("restart without --step and --missing")
-    parent, chief = ticket.get("parentThreadId"), state.get("chiefThreadId")
+    parent, chief = ticket.get("parentThreadId"), state.get("chiefThreadId") or args.thread
     continuation = bool(parent and parent != chief)
     pr = ticket.get("pr") if stage in ("build", "merge") and ticket.get("pr") else None
     if pr is not None and not (isinstance(pr, int) or str(pr).isdigit()):
@@ -179,6 +180,7 @@ def main(argv=None):
     ap.add_argument("--missing")
     ap.add_argument("--spec")
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
+    ap.add_argument("--thread")
     ap.add_argument("--now")
     args = ap.parse_args(argv)
     try:

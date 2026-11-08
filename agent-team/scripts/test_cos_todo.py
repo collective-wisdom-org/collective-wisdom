@@ -54,6 +54,8 @@ def got(*blockers, rel="blockedBy"):
         ([t(1), t(2)], {"ABC-1": {"relations": None}, "ABC-2": {"relations": {"blocks": [{"id": "ABC-1", "state": "Todo"}]}}}, ["start ABC-1", "start ABC-2"]),
         # github blockers are issues with OPEN or CLOSED
         ([t(1), t(2)], {"ABC-1": got({"number": 3, "state": "OPEN"}), "ABC-2": got({"number": 3, "state": "CLOSED", "stateReason": "COMPLETED"})}, ["start ABC-2"]),
+        # `state` and `status` name the blocker's state alike; a bare number has none and stays open
+        ([t(1), t(2), t(3)], {"ABC-1": got({"number": 3, "state": "closed"}), "ABC-2": got({"id": "ABC-9", "status": "Done"}), "ABC-3": got(3)}, ["start ABC-1", "start ABC-2"]),
         ([t(1)], {"ABC-1": got({"id": "ABC-9", "state": "Todo"})}, ["todo: none"]),
         ([], {}, ["todo: none"]),
         ([t(1, labels=["agent-skip"])], {}, ["todo: none"]),

@@ -25,8 +25,9 @@ The caller and the ticket's stage give the lane:
     answer, resume,    blocked                                     the lane of the ticket's resumeStage
     rate-limit
 
-The ticket's own slot and queue entry do not count against it. The relay is sent when the lane is under its limit, the
-overall count is under the cap and no other ticket waits in the lane's queue; otherwise it is queued. A send to a ticket
+The ticket's own slot does not count against it. The relay is sent when the lane is under its limit, the overall count
+is under the cap and no ticket waits ahead of it in the lane's queue (any queued ticket, or, for a ticket already in that
+queue, one with an older queuedAt; a missing queuedAt sorts last, as in cos_tick); otherwise it is queued. A send to a ticket
 whose parentThreadId is known and is not the Chief of Staff thread is a continuation instead (continuation.md).
 Prints lines the caller acts on, then a last line, exit 0 unless noted:
     stage: <JSON stage op>                  to apply (a send: the lane's active stage; a queue: <lane>-queued, to which
@@ -93,6 +94,11 @@ def lane_for(caller, ticket, setting):
     return lane
 
 
+def queue_key(t):
+    """cos_tick's queue order: oldest queuedAt first, a missing one last."""
+    return (not isinstance(t.get("queuedAt"), str), t.get("queuedAt") or "")
+
+
 def route(state, tid, caller, thread, setting):
     """(lines, last line, exit code)."""
     ticket = state["tickets"].get(tid)
@@ -103,11 +109,10 @@ def route(state, tid, caller, thread, setting):
         return [], f"route: no {caller} does not apply from {ticket.get('stage')}", 1
     others = [(i, t) for i, t in state["tickets"].items() if i != tid and isinstance(t, dict)]
     count = lambda *stages: sum(t.get("stage") in stages for _, t in others)  # noqa: E731
-    room = (
-        count(lane) < cos_tick.LIMITS[lane]
-        and count(*cos_state.ACTIVE) < cos_tick.CAP
-        and not count(f"{lane}-queued")
-    )
+    waiting = count(f"{lane}-queued")
+    if ticket.get("stage") == f"{lane}-queued":  # in the queue itself, only a ticket queued before it waits ahead
+        waiting = sum(queue_key(t) < queue_key(ticket) for _, t in others if t.get("stage") == f"{lane}-queued")
+    room = count(lane) < cos_tick.LIMITS[lane] and count(*cos_state.ACTIVE) < cos_tick.CAP and not waiting
     op = {"op": "stage", "ticket": tid, "stage": lane if room else f"{lane}-queued", "status": "<status line>"}
     if not room:
         return [f"stage: {json.dumps(op)}"], f"route: queue {lane}", 0

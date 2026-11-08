@@ -15,7 +15,7 @@ NOT_POSTED = [x for x in AGENTS if "security" not in x] + ["security review: not
 CI = ["pr #7 Title", "head: abcd1234…", "ci: not green at " + "a" * 40, "ci-review: #7 bot: 1 fixed, 2 answered and resolved, 3 unresolved"]
 
 
-def run(tmp_path, capsys, monkeypatch, stage="build", restarts=None, pr=7, parent="me", brief=AGENTS, mode="agents", **kw):
+def run(tmp_path, capsys, monkeypatch, stage="build", restarts=None, pr=7, parent="me", brief=AGENTS, mode="agents", chief="me", **kw):
     flags = {"run": "failed", "updated-at": "2026-11-08T11:30:00Z", "step": "pushed the branch", "missing": "open the PR", **kw}
     args = ["ABC-1", "--file", str(tmp_path / "s.json"), "--now", NOW]
     for k, v in flags.items():
@@ -24,7 +24,7 @@ def run(tmp_path, capsys, monkeypatch, stage="build", restarts=None, pr=7, paren
         elif v is not None:
             args += [f"--{k}", v]
     ticket = {"stage": stage, "restarts": restarts or {}, "parentThreadId": parent, "pr": pr}
-    (tmp_path / "s.json").write_text(json.dumps({"chiefThreadId": "me", "tickets": {"ABC-1": ticket}}))
+    (tmp_path / "s.json").write_text(json.dumps({**({"chiefThreadId": chief} if chief else {}), "tickets": {"ABC-1": ticket}}))
     monkeypatch.setattr(project_config, "review_mode", lambda: mode)
     monkeypatch.setattr(cos_brief, "cmd_pr", lambda a: print("\n".join(brief)) if brief else (_ for _ in ()).throw(SystemExit(2)))
     code = cos_restart.main(args)
@@ -52,6 +52,8 @@ def run(tmp_path, capsys, monkeypatch, stage="build", restarts=None, pr=7, paren
         ({"run": "completed", "wait": "2twice"}, "restart: send build"),
         # a continuation ticket gets the relay line
         ({"parent": "old"}, "restart: continuation build"),
+        ({"chief": None, "parent": "old", "thread": "old"}, "restart: send build"),  # --thread stands in for a missing chiefThreadId
+        ({"chief": None, "parent": "old", "thread": "me"}, "restart: continuation build"),
     ],
 )
 def test_stuck_cases_and_the_restart_decision(tmp_path, capsys, monkeypatch, kw, last):
