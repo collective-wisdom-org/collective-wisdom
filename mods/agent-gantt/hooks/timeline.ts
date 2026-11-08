@@ -60,3 +60,36 @@ export function beginTask(main: AgentRecord, name: string, since: number, t: num
   const started = startTask(main, name, t)
   return isWorking(main) ? openSegment(started, t) : started
 }
+
+/** The clock stamps of one wait: `before` is when the first of the overlapping waits began. */
+type Wait = { count: number; before: number }
+
+/**
+ * Counts waits per agent id. Waits can overlap (parallel tool calls): the span closes at the first and reopens when the last settles.
+ * `begin` and `end` return the change to make to the record, or null when the span stays as it is.
+ */
+export function createWaits(): {
+  begin: (id: string, now: number) => ((r: AgentRecord) => AgentRecord) | null
+  end: (id: string, now: number) => ((r: AgentRecord) => AgentRecord) | null
+} {
+  const open = new Map<string, Wait>()
+  return {
+    begin(id, now) {
+      const wait = open.get(id)
+      const before = wait?.before ?? now
+      open.set(id, { count: (wait?.count ?? 0) + 1, before })
+      return wait === undefined ? r => closeSegment(r, before) : null
+    },
+    end(id, now) {
+      const wait = open.get(id)
+      if (wait === undefined) return null
+      if (wait.count > 1) {
+        open.set(id, { ...wait, count: wait.count - 1 })
+        return null
+      }
+      open.delete(id)
+      // A turn.complete or an end stamp that landed during the wait wins: no span is left open on a finished agent.
+      return r => (r.end === null && r.last <= wait.before ? openSegment(r, now) : r)
+    },
+  }
+}
