@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, drawCharts, versionWatch } from './app.js'
+import { esc, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -407,7 +407,7 @@ test('drawCharts writes a chart body only when its html changed; a body with no 
   ]
   for (const { name, gantt, nows, want, ids = ['CW-1', 'CW-2'] } of cases) {
     const bodies = { '.chart-body[data-ticket]': { dataset: { ticket: ids[0] } }, '.chart-body[data-merged]': { dataset: { merged: ids[1] } } }
-    const root = { querySelectorAll: (sel) => [bodies[sel]] }
+    const root = { querySelectorAll: (sel) => (bodies[sel] ? [bodies[sel]] : []) }
     const data = { status: [{ rows: [{ id: 'CW-1', gantt }] }], merged: [{ id: 'CW-2', gantt }] }
     const calls = new Map(Object.values(bodies).map((b) => [b, 0]))
     for (const now of nows) drawCharts(root, data, now, (b) => calls.set(b, calls.get(b) + 1))
@@ -426,4 +426,32 @@ test('versionWatch asks for a reload only when a later version differs from the 
     const seen = versionWatch()
     assert.deepEqual(input.map(seen), want, JSON.stringify(input))
   }
+})
+
+test('the Chief of Staff tab renders the card, the empty list, escaped role rows and a pager; an unknown saved tab opens Ship loop', () => {
+  const empty = renderChief({ chief: { state: 'idle' }, pm: [] }).html
+  assert.match(empty, /No Chief of Staff session in the last 24 hours\./)
+  assert.match(empty, /No project manager threads yet\./)
+  assert.ok(!empty.includes('data-chief'))
+  const link = '<t3-thread://v2/env/th1>'
+  const hostile = '<img src=x onerror=1>'
+  const pm = (i, o = {}) => ({ sessionId: `s${i}`, role: 'ranking', state: 'finished', gantt: [sess({ sessionId: `s${i}`, rows: [task({ segments: [[T, T + MIN]] })] })], ...o })
+  const api = { chief: { state: 'running', threadLink: link, gantt: [sess()] }, pm: [pm(1, { role: hostile, state: hostile, sessionId: hostile, threadLink: link }), pm(2, { role: 'hygiene' }), ...Array.from({ length: 10 }, (_, i) => pm(i + 3))] }
+  const first = renderChief(api, 0, new Set([hostile]))
+  assert.match(first.html, /state-running/)
+  assert.match(first.html, /data-chief/)
+  assert.match(first.html, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
+  assert.match(first.html, /Hygiene/)
+  assert.ok(!first.html.includes('<img'))
+  assert.ok(/<details class="chart" data-pm="&lt;img[^>]* open>/.test(first.html))
+  assert.equal([...first.html.matchAll(/<li class="row">/g)].length, 10)
+  assert.match(first.html, /Page 1 of 2/)
+  const last = renderChief(api, 99)
+  assert.equal(last.page, 1)
+  assert.equal([...last.html.matchAll(/<li class="row">/g)].length, 2)
+  assert.deepEqual(['cos', 'ship', null, undefined, 'x', 'COS', 5].map(tabFromStorage), ['cos', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
+  const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
+  const drawn = []
+  drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
+  assert.deepEqual(drawn, [['s2', true], ['chief', true]])
 })
