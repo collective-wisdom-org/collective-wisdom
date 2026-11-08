@@ -2,38 +2,32 @@ name: ci
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
-# A new push to a PR cancels that PR's older run. On main each push gets its own group, so nothing is cancelled.
+# A new push to a PR cancels that PR's older run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      # depth 2: on a pull_request the checkout is GitHub's merge commit, so HEAD^1 is the base tip
+      # depth 2: the checkout is GitHub's merge commit, so HEAD^1 is the base tip
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      # Which steps this change needs. Anything unsure (push, script error, no ci-scope line) runs both.
+      # Which steps this change needs. Anything unsure (script error, no ci-scope line) runs both.
       - name: ci scope
         id: scope
-        env:
-          EVENT: ${{ github.event_name }}
         run: |
           tests=run
           shellcheck=run
-          if [ "$EVENT" = pull_request ]; then
-            out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
-            echo "$out"
-            line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
-            if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
-              tests=${BASH_REMATCH[1]}
-              shellcheck=${BASH_REMATCH[2]}
-            fi
+          out=$(python3 agent-team/scripts/review_scope.py --ci HEAD^1 HEAD) || true
+          echo "$out"
+          line=$(printf '%s\n' "$out" | grep '^ci-scope: ' | tail -n 1)
+          if [[ "$line" =~ ^ci-scope:\ tests=(run|skip)\ shellcheck=(run|skip)$ ]]; then
+            tests=${BASH_REMATCH[1]}
+            shellcheck=${BASH_REMATCH[2]}
           fi
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
           echo "shellcheck=$shellcheck" >> "$GITHUB_OUTPUT"

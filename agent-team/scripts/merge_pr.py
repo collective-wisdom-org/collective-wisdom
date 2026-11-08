@@ -4,9 +4,24 @@
 Usage:
     ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA>
 
-Run it from the root checkout (`cd <root checkout> && python3 ~/.collective-wisdom/scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
-the checks list of the merge-pr skill (gh signed in as the login user.md maps to this repo among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
+Run it from the root checkout (`cd <root checkout> && python3 ~/.collective-wisdom/scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every check
+below must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
+
+Checks (the merge target branch is the `Merge target branch` row of project.md, default `main`; `<target>` below):
+  - run from the root checkout, not a feature worktree
+  - gh is signed in as the login user.md maps to this repo (github-auth.md § Account per repo), or as a user on the `*` line of .github/CODEOWNERS (case-insensitive)
+  - the PR is open, not a draft, not from a fork, and based on <target>
+  - the head equals the approved SHA
+  - no GitHub-required review is pending (the stop line names the requested reviewers), unless the signed-in user is a codeowner, who may merge past a missing review (the PR is then BLOCKED for that reason only)
+  - when project.md's `Require teammate approval` is `on`: an approving review on the head from someone other than the PR author who is an owner, member or collaborator of the repo, and no standing
+    changes-requested review from anyone else
+  - mergeable and CLEAN (BLOCKED for a codeowner past a missing review)
+  - every check is green (CheckRun and StatusContext)
+  - the latest code review and security review by the logged-in gh user each end in `Verdict: PASS` (bold or plain) and are newer than the head commit (a reviews-stand note or a conflict-resolution
+    note can cover an older one); with Review mode `ci` both are skipped, and an unresolved thread by the CI review bot stops the merge instead
+  - closeout docs are in the PR (a Shipped spec and its as-built or "as specified" line, the release note unless `Publish release notes` is `off`, and a `## Proof` section with a `Not proven` line)
+  - the root checkout is on a clean <target> with an upstream and no local commits
 
 When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. With `off` it does neither. A failed publish prints
 `merge-pr: warn <reason>` before the last line and changes neither the exit code nor the last line.
