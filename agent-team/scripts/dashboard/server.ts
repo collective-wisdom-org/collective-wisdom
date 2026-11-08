@@ -14,6 +14,7 @@ import { createMerged } from './merged.ts'
 import { createDetails, gitRunner } from './details.ts'
 import type { DetailWant } from './details.ts'
 import type { MergedConfig } from './merged.ts'
+import { backup } from './backup.ts'
 import { parseLedger, recordSpend, spendByTicket } from './spend.ts'
 import { historyByTicket, parseHistory, recordHistory } from './history.ts'
 
@@ -30,6 +31,18 @@ export function pageVersion(dir: string): string | null {
     return hash.digest('hex').slice(0, 16)
   } catch {
     return null
+  }
+}
+
+/** True when a dashboard for `root` answers on `port`. */
+export async function healthy(port: number, root: string): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(500) })
+    if (!res.ok) return false
+    const body = (await res.json()) as { ok?: unknown; root?: unknown }
+    return body.ok === true && body.root === root
+  } catch {
+    return false
   }
 }
 
@@ -169,6 +182,21 @@ function writeJson(agentDir: string, name: string, text: string): boolean {
   }
 }
 
+const MERGED_PAGE_SIZE = 10
+const MERGED_PAGES = 20
+const DETAIL_STAGES = ['awaiting-build', 'build', 'build-queued', 'awaiting-merge', 'merge', 'merge-queued']
+
+/** The merged page the browser shows, from `?mergedPage=N` of a request url: an integer from 0 to 19, else 0. */
+export function mergedPageOf(url: string): number {
+  try {
+    const raw = new URL(url, 'http://localhost').searchParams.get('mergedPage') ?? ''
+    const n = /^\d{1,3}$/.test(raw) ? Number(raw) : 0
+    return n < MERGED_PAGES ? n : 0
+  } catch {
+    return 0
+  }
+}
+
 export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
@@ -271,9 +299,16 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const spendTimer = setInterval(recordRound, 30_000)
   spendTimer.unref()
 
+  // A backup of the ledger, the history and the state once a day, for a dashboard that runs for days; a failure is ignored.
+  const backupTimer = setInterval(() => {
+    try {
+      backup({ root, now: new Date() })
+    } catch {}
+  }, 24 * 3600 * 1000)
+  backupTimer.unref()
   let restartError: string | null = null
 
-  const api = () => {
+  const api = (mergedPage: number) => {
     readState()
     const snapshots = readSnapshots()
     const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir])
@@ -304,11 +339,13 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
       trackerTitles.want(blank, titleCfg)
       for (const [id, t] of Object.entries(tickets)) {
         const { stage, specPath, specSha, pr } = (t ?? {}) as Record<string, unknown>
-        if (stage === 'awaiting-build' || stage === 'awaiting-merge') wants.push({ id, stage, specPath, specSha, pr })
+        if (typeof stage === 'string' && DETAIL_STAGES.includes(stage)) wants.push({ id, stage, specPath, specSha, pr })
       }
     }
-    details.want(wants, mergedCfg)
     merged.want(mergedCfg)
+    const shown = merged.get().slice(mergedPage * MERGED_PAGE_SIZE, (mergedPage + 1) * MERGED_PAGE_SIZE)
+    for (const e of shown) wants.push({ id: e.id, stage: 'merged', pr: e.number, merged: true })
+    details.want(wants, mergedCfg)
     updated.want(titleCfg)
     void refreshWorktrees()
     return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get() })
@@ -328,7 +365,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     if (req.method !== 'GET') return send(405, 'method not allowed')
     try {
       if (path === '/health') return send(200, JSON.stringify({ ok: true, root, code: running, pid: process.pid }), 'application/json')
-      if (path === '/api') return send(200, JSON.stringify({ ...api(), version: pageVersion(join(import.meta.dirname, 'page')), restartError, theme }), 'application/json')
+      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')), restartError, theme }), 'application/json')
       const page = Object.hasOwn(PAGES, path) ? PAGES[path] : undefined
       if (page) {
         try {
@@ -417,6 +454,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(spendTimer)
+        clearInterval(backupTimer)
         clearInterval(codeTimer)
         server.close(() => resolve())
         server.closeAllConnections()

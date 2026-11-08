@@ -212,23 +212,47 @@ test('merged entries get their ticket sessions; one with none has no gantt key',
   for (const i of [1, 2, 3]) assert.ok(!('gantt' in merged[i]))
 })
 
-test('a row gets the detail kept for its id; the spec detail links to the spec on its branch, the changes detail to the PR', () => {
+test('a row gets the detail kept for its id; the spec detail links to the spec commit, the changes detail to the PR', () => {
   const spec = { kind: 'spec' as const, sections: [{ name: 'Goal', text: 'g' }] }
   const changes = { kind: 'changes' as const, sections: [{ name: 'Summary', text: 's' }] }
-  const on = { branch: 'feat/cw-1-x', specPath: 'docs/a.md', pr: 7 }
+  const on = { specPath: 'docs/superpowers/specs/a.md', specSha: 'a'.repeat(40), pr: 7 }
+  const url = `https://github.com/o/r/blob/${'a'.repeat(40)}/docs/superpowers/specs/a.md`
   const cases: [string, Record<string, unknown>, typeof spec | typeof changes, Partial<Parameters<typeof buildApi>[0]>, string | undefined][] = [
-    ['spec', on, spec, {}, 'https://github.com/o/r/blob/feat/cw-1-x/docs/a.md'],
+    ['spec', on, spec, {}, url],
     ['spec, no repo', on, spec, { repo: null }, undefined],
-    ['spec, no branch', { ...on, branch: undefined }, spec, {}, undefined],
-    ['spec, odd branch', { ...on, branch: 'a?b#c' }, spec, {}, undefined],
-    ['spec, bad path', { ...on, specPath: 'docs/../a.md' }, spec, {}, undefined],
+    ['spec, no sha', { ...on, specSha: undefined }, spec, {}, undefined],
     ['changes', on, changes, {}, 'https://github.com/o/r/pull/7'],
     ['changes, no pr', { ...on, pr: null }, changes, {}, undefined],
   ]
-  for (const [name, extra, detail, over, url] of cases) {
+  for (const [name, extra, detail, over, link] of cases) {
     const r = firstRow({ state: stateOf('CW-1', extra), details: { 'CW-1': detail }, ...over })
-    assert.deepEqual(r.detail, url ? { ...detail, url } : detail, name)
+    assert.deepEqual(r.detail, link ? { ...detail, url: link } : detail, name)
   }
   assert.ok(!('detail' in firstRow({ state: stateOf('CW-1', on), details: { 'CW-2': spec, toString: spec } })))
   assert.ok(!('url' in spec), 'the shared detail is not changed')
+})
+
+test('specUrl on a row: a spec path and a 7 to 40 hex sha of the cos_handoff rules, with a repo', () => {
+  const path = 'docs/superpowers/specs/a.md'
+  const cases: [string, Record<string, unknown>, Partial<Parameters<typeof buildApi>[0]>, string | undefined][] = [
+    ['valid', { specPath: path, specSha: 'a'.repeat(40) }, {}, `https://github.com/o/r/blob/${'a'.repeat(40)}/${path}`],
+    ['short sha', { specPath: path, specSha: 'abc1234' }, {}, `https://github.com/o/r/blob/abc1234/${path}`],
+    ['any stage', { stage: 'merge', specPath: path, specSha: 'abc1234' }, {}, `https://github.com/o/r/blob/abc1234/${path}`],
+    ['no sha', { specPath: path }, {}, undefined],
+    ['bad sha', { specPath: path, specSha: 'abc123g' }, {}, undefined],
+    ['sha too short', { specPath: path, specSha: 'abc123' }, {}, undefined],
+    ['bad path', { specPath: 'docs/a.md', specSha: 'abc1234' }, {}, undefined],
+    ['dots in path', { specPath: 'docs/superpowers/specs/../a.md', specSha: 'abc1234' }, {}, undefined],
+    ['no repo', { specPath: path, specSha: 'abc1234' }, { repo: null }, undefined],
+  ]
+  for (const [name, extra, over, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), ...over }).specUrl, want, name)
+})
+
+test('a merged entry gets its detail and the spec link from the merge commit; the PR number stays internal', () => {
+  const entry = { id: 'CW-1', title: 't', prUrl: 'https://github.com/o/r/pull/9', mergedAt: 1, number: 9 }
+  const found = { kind: 'changes' as const, sections: [], spec: { path: 'docs/superpowers/specs/a.md', sha: 'b'.repeat(40) } }
+  const [withIt] = build({ merged: [entry], details: { 'CW-1#9': found, 'CW-1': { kind: 'changes' as const, sections: [] } } }).merged as any[]
+  assert.deepEqual(withIt, { id: 'CW-1', title: 't', prUrl: entry.prUrl, mergedAt: 1, detail: { kind: 'changes', sections: [], url: entry.prUrl }, specUrl: `https://github.com/o/r/blob/${'b'.repeat(40)}/docs/superpowers/specs/a.md` })
+  const [bare] = build({ merged: [entry] }).merged as any[]
+  assert.ok(!('number' in bare) && !('detail' in bare) && !('specUrl' in bare))
 })

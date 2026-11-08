@@ -64,17 +64,39 @@ button.copy { margin-left:auto; }
 details.chart, details.info { margin-top:var(--s1); }
 details.chart > summary, details.info > summary { cursor:pointer; color:var(--muted); font-size:var(--t-small); width:fit-content; }
 details.chart > summary:hover, details.info > summary:hover { color:var(--fg); }
-.info-list { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:var(--s1) var(--s3); margin:var(--s2) 0 0; font-size:var(--t-small); }
-.info-list dt { color:var(--muted); }
-.info-list dd { margin:0; min-width:0; overflow-wrap:anywhere; }
-.info-body h4 { margin:var(--s2) 0 0; font-size:var(--t-small); color:var(--muted); font-weight:600; }
-.info-body h4.detail-head { color:var(--fg); font-weight:700; }
-.detail-open { font-weight:400; }
-.detail-text { white-space:pre-wrap; margin:0; overflow-wrap:anywhere; font-size:var(--t-small); }
-.detail-review { margin:var(--s1) 0 0; font-size:var(--t-small); }
-.detail-files { margin:var(--s1) 0 0; font-size:var(--t-small); overflow-wrap:anywhere; }
+.info-body { display:flex; flex-direction:column; gap:var(--s3); margin-top:var(--s2); font-size:var(--t-small); }
+.info-links { margin:0; }
+.info-facts { display:flex; flex-direction:column; gap:var(--s2); }
+.info-grid { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s4); margin:0; }
+.info-grid > div { min-width:0; }
+.info-grid .wide { flex:1 1 14rem; }
+.info-grid dt { color:var(--muted); font-size:var(--t-small); text-transform:uppercase; letter-spacing:.04em; }
+.info-grid dd { margin:0; overflow-wrap:anywhere; }
+.detail { display:flex; flex-direction:column; gap:var(--s2); padding-top:var(--s2); border-top:1px solid var(--line); }
+.detail-head { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s2); font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+.detail-open { font-weight:400; text-transform:none; letter-spacing:0; }
+.detail-block h4 { margin:0 0 var(--s1); font-size:var(--t-small); font-weight:700; }
+.detail-section { max-width:72ch; max-height:30em; overflow:auto; padding-left:var(--s3); border-left:2px solid var(--line); line-height:1.5; overflow-wrap:anywhere; }
+.detail-section > :first-child { margin-top:0; }
+.detail-section > :last-child { margin-bottom:0; }
+.detail-section p, .detail-section ul, .detail-section ol, .detail-section blockquote, .detail-section pre { margin:var(--s2) 0; }
+.detail-section ul { list-style:disc; padding-left:1.25rem; }
+.detail-section ol { padding-left:1.5rem; }
+.detail-section li ul, .detail-section li ol { margin:0; }
+.detail-section .md-h { font-weight:700; }
+.detail-section blockquote { padding-left:var(--s3); border-left:2px solid var(--line); color:var(--muted); }
+.detail-section code, .detail-files .path, .info-links code { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.9em; }
+.detail-section code { padding:0 .25em; border-radius:3px; background:var(--b-neutral); }
+.detail-section pre { padding:var(--s2); border:1px solid var(--line); border-radius:4px; background:var(--card); overflow:auto; line-height:1.4; }
+.detail-section pre code { padding:0; background:none; }
+.detail-reviews { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s2); }
+.badge.pass { background:var(--b-low); color:var(--b-low-fg); }
+.badge.fail { background:var(--b-high); color:var(--b-high-fg); }
+.detail-files { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:var(--s1) var(--s3); }
+.detail-files .delta { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .detail-files .add { color:var(--b-low-fg); }
 .detail-files .del { color:var(--b-high-fg); }
+.detail-more { margin:var(--s1) 0 0; color:var(--muted); }
 .gantt { container-type:inline-size; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:var(--s2) var(--s3); margin-top:var(--s2); }
 .grow { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; grid-template-areas:"name dur cost" "track track track"; gap:var(--s1) var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); }
 .grow:first-child { border-top:0; }

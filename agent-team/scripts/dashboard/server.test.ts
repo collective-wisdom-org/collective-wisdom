@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { codeFiles, codeVersion, pageVersion, restartWatch, startServer, systemScheme } from './server.ts'
+import { codeFiles, codeVersion, mergedPageOf, pageVersion, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -96,6 +96,11 @@ test('/api carries the version of the served page files', async () => {
     await srv.close()
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('mergedPage: an integer from 0 to 19, anything else reads as 0', () => {
+  const cases: [string, number][] = [['/api', 0], ['/api?mergedPage=2', 2], ['/api?mergedPage=19', 19], ['/api?mergedPage=20', 0], ['/api?mergedPage=99', 0], ['/api?mergedPage=-1', 0], ['/api?mergedPage=abc', 0], ['/api?mergedPage=1.5', 0], ['/api?mergedPage=', 0], ['/api?mergedPage=3&mergedPage=4', 3]]
+  for (const [url, want] of cases) assert.equal(mergedPageOf(url), want, url)
 })
 
 test('method and routes', async () => {

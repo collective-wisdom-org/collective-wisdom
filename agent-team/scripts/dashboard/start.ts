@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { backup } from './backup.ts'
 import { codeFiles, codeVersion, readRegular } from './server.ts'
 
 const DAY_MS = 24 * 3600 * 1000
@@ -97,6 +98,12 @@ export async function startDashboard(opts: {
   const st = lstatSync(agentDir, { throwIfNoEntry: false })
   if (!st) mkdirSync(agentDir, { recursive: true })
   else if (!st.isDirectory()) throw new Error('.agent-team is not a real folder')
+  try {
+    const saved = backup({ root, now: new Date() })
+    if (saved.error) console.error(`dashboard backup skipped: ${saved.error}`)
+  } catch (e) {
+    console.error(`dashboard backup failed: ${(e as Error).message}`)
+  }
   pruneSnapshots(agentDir)
 
   const serverPath = join(import.meta.dirname, 'server.ts')
