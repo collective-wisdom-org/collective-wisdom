@@ -1,7 +1,7 @@
 # CW-240: Redesign the dashboard Details section, render its markdown, pick spec or PR details by stage
 
 **Status:** Shipped
-**Shipped:** in PR #244, as specified
+**Shipped:** in PR #244, with differences: [as-built](../as-built/2026-11-08-cw-240-details-redesign-as-built.md)
 **Ticket:** [#240](https://github.com/collective-wisdom-org/collective-wisdom/issues/240)
 **Related:** CW-227 (Details section, PR #231). Supersedes CW-235 (its `specUrl` field and `Spec` link are folded in here).
 
