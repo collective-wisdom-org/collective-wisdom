@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 dashboard header badges and tighter heading (CW-188) (#192)
+
+Merged 2026-11-08 05:38 UTC.
+
+The dashboard header now has badges at the top right: threads awaiting merge approval (red), threads awaiting build approval (yellow) and the build queue size. The `Status` sub header is gone and there is less space under the heading. Nothing to do.
+
 ## 2026-11-08 replace the dashboard Agents pane with a paginated Merged list (CW-187) (#189)
 
 Merged 2026-11-08 05:32 UTC.
