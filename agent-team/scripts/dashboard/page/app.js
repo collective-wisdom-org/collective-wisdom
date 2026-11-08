@@ -247,7 +247,7 @@ export function renderGantt(sessions, now) {
         const width = Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100))
         const running = open && !row.s.stale
         const range = running ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`
-        const meta = [range, duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
+        const meta = [range, running ? '' : duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
         const title = esc(`${row.r.name}\n${meta.join(' · ')}`)
         return `<span class="bar${running ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${title}"></span>`
       })
@@ -278,7 +278,67 @@ ${oldNote}
 </div>`
 }
 
+// Last html written to each chart body, so an unchanged chart is left alone and a hovered bar keeps its tooltip.
+const shownCharts = new WeakMap()
+
+/** Renders each open chart body in `root` and calls `apply(body, html)` only when its html changed since the last write. */
+export function drawCharts(root, data, now, apply) {
+  const rows = new Map(data.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
+  const merged = new Map(data.merged.map((e) => [e.id, e]))
+  const draw = (body, entry) => {
+    if (!entry) return
+    const html = renderGantt(entry.gantt, now)
+    if (shownCharts.get(body) === html) return
+    apply(body, html)
+    shownCharts.set(body, html)
+  }
+  for (const body of root.querySelectorAll('.chart-body[data-ticket]')) draw(body, rows.get(body.dataset.ticket))
+  for (const body of root.querySelectorAll('.chart-body[data-merged]')) draw(body, merged.get(body.dataset.merged))
+}
+
+/** Returns `seen(version)`: true when a page version differs from the first one seen. Anything but a non-empty string is ignored. */
+export function versionWatch() {
+  let baseline = null
+  return (version) => {
+    if (typeof version !== 'string' || !version) return false
+    if (baseline === null) {
+      baseline = version
+      return false
+    }
+    return version !== baseline
+  }
+}
+
 if (typeof document !== 'undefined') {
+  // Updates a chart in place so the element under the pointer survives a tick and its native tooltip can show.
+  const patchChart = (body, html) => {
+    if (body.innerHTML === '') {
+      body.innerHTML = html
+      return
+    }
+    const tpl = document.createElement('template')
+    tpl.innerHTML = html
+    patchNode(body, tpl.content)
+  }
+  const patchNode = (old, next) => {
+    const a = [...old.childNodes]
+    const b = [...next.childNodes]
+    for (let i = 0; i < b.length; i++) {
+      const o = a[i]
+      const n = b[i]
+      if (!o) old.append(n)
+      else if (o.nodeType !== n.nodeType || o.nodeName !== n.nodeName) o.replaceWith(n)
+      else if (o.nodeType !== 1) {
+        if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue
+      } else if (o.childNodes.length !== n.childNodes.length) o.replaceWith(n)
+      else {
+        for (const { name, value } of n.attributes) if (o.getAttribute(name) !== value) o.setAttribute(name, value)
+        for (const { name } of [...o.attributes]) if (!n.hasAttribute(name)) o.removeAttribute(name)
+        patchNode(o, n)
+      }
+    }
+    for (const o of a.slice(b.length)) o.remove()
+  }
   // Collapsed section names live in localStorage; every access can throw (blocked, full, bad JSON).
   const COLLAPSED_KEY = 'cw-dashboard-collapsed'
   const readCollapsed = () => {
@@ -300,12 +360,9 @@ if (typeof document !== 'undefined') {
   const draw = () => {
     if (!last) return
     const now = Date.now()
-    const rows = new Map(last.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
-    for (const body of document.querySelectorAll('.chart-body[data-ticket]')) {
-      const row = rows.get(body.dataset.ticket)
-      if (row) body.innerHTML = renderGantt(row.gantt, now)
-    }
+    drawCharts(document, last, now, patchChart)
     // Rewrite a details body only when its html changed, so a selection inside an open one survives the tick.
+    const rows = new Map(last.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
     for (const body of document.querySelectorAll('.info-body[data-ticket]')) {
       const row = rows.get(body.dataset.ticket)
       if (!row) continue
@@ -314,11 +371,6 @@ if (typeof document !== 'undefined') {
         shownInfo.set(row.id, html)
         body.innerHTML = html
       }
-    }
-    const merged = new Map(last.merged.map((e) => [e.id, e]))
-    for (const body of document.querySelectorAll('.chart-body[data-merged]')) {
-      const entry = merged.get(body.dataset.merged)
-      if (entry) body.innerHTML = renderGantt(entry.gantt, now)
     }
   }
   // The merged list is redrawn only when its html changed (compared with every chart closed, so opening one is not a change), so a poll keeps the page and any selection.
@@ -335,12 +387,17 @@ if (typeof document !== 'undefined') {
       draw()
     }
   }
+  const seen = versionWatch()
   const poll = async () => {
     const err = document.getElementById('error')
     try {
       const res = await fetch('/api', { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       last = await res.json()
+      if (seen(last.version)) {
+        location.reload()
+        return
+      }
       err.textContent = ''
       // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
       // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
