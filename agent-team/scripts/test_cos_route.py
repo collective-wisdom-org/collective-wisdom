@@ -42,6 +42,8 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("head-moved", "merge-queued", {}, "off", "send build"),
         ("conflict-keep", "awaiting-merge", {}, "off", "send merge"),
         ("conflict-keep", "merge-queued", {}, "off", "send merge"),
+        ("conflict-stand", "awaiting-review", {}, "off", "send merge"),
+        ("conflict-stand", "awaiting-merge", {}, "off", "send merge"),
         ("conflict-withdraw", "awaiting-review", {}, "on", "send build"),
         ("conflict-withdraw", "merge", {}, "on", "send build"),
         ("conflict-withdraw", "awaiting-merge", {}, "off", "send build"),
@@ -51,6 +53,7 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("approve-spec", "awaiting-build", QUEUED_BUILD, "off", "queue build"),
         ("approve-merge", "awaiting-merge", QUEUED_BUILD, "off", "send merge"),
         ("approve-merge", "awaiting-merge", OVER_CAP, "off", "queue merge"),
+        ("conflict-stand", "awaiting-review", {"ABC-9": tk("merge")}, "off", "queue merge"),
         ("changes", "awaiting-build", ONE_EACH, "off", "send spec"),
         # a ticket that holds the merge slot does not block its own send; a ticket queued before this one still does
         ("conflict-withdraw", "merge", {}, "off", "send build"),
@@ -59,6 +62,8 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("approve-merge", "awaiting-build", {}, "off", "no"),
         ("changes", "build", {}, "off", "no"),
         ("conflict-keep", "awaiting-merge", {}, "on", "no"),
+        ("conflict-stand", "awaiting-merge", {}, "on", "no"),
+        ("conflict-stand", "merge-queued", {}, "off", "no"),
         ("resume", "awaiting-review", {}, "off", "no"),
     ],
 )
@@ -69,7 +74,8 @@ def test_lane_and_send_or_queue(tmp_path, capsys, monkeypatch, caller, stage, ot
     ops = [json.loads(x[len("stage: "):]) for x in out if x.startswith("stage: ")]
     if want != "no":
         lane = want.split()[1]
-        assert ops == [{"op": "stage", "ticket": "ABC-1", "stage": lane if want.startswith("send") else f"{lane}-queued", "status": "<status line>"}]
+        op = {"op": "stage", "ticket": "ABC-1", "stage": lane if want.startswith("send") else f"{lane}-queued", "status": "<status line>"}
+        assert ops == [{**op, "set": {"noApproval": True}} if caller == "conflict-stand" else op]
 
 
 @pytest.mark.parametrize("ticket, want", [("ABC-1", "send merge"), ("ABC-2", "queue merge")])

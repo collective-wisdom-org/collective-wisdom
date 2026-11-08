@@ -20,6 +20,7 @@ The caller and the ticket's stage give the lane:
     head-moved         awaiting-review, awaiting-merge,            build
                        merge-queued
     conflict-keep      awaiting-merge, merge-queued                merge  (only with the setting `off`)
+    conflict-stand     awaiting-review, awaiting-merge             merge  (only with the setting `off`; the stage op sets noApproval)
     conflict-withdraw  awaiting-review, awaiting-merge,            build
                        merge-queued, merge
     answer, resume,    blocked                                     the lane of the ticket's resumeStage
@@ -60,6 +61,7 @@ ROUTES = {  # caller -> {from stage: lane}
     "reviewer-changes": {"awaiting-review": "build"},
     "head-moved": {s: "build" for s in ("awaiting-review", "awaiting-merge", "merge-queued")},
     "conflict-keep": {"awaiting-merge": "merge", "merge-queued": "merge"},
+    "conflict-stand": {"awaiting-review": "merge", "awaiting-merge": "merge"},
     "conflict-withdraw": {s: "build" for s in ("awaiting-review", "awaiting-merge", "merge-queued", "merge")},
     "answer": {"blocked": "resume"},
     "resume": {"blocked": "resume"},
@@ -89,7 +91,7 @@ def lane_for(caller, ticket, setting):
     if lane == "resume":
         lane = ticket.get("resumeStage")
         return lane if lane in cos_state.ACTIVE else None
-    if caller == "conflict-keep" and lane and setting() == "on":
+    if caller in ("conflict-keep", "conflict-stand") and lane and setting() == "on":
         return None
     return lane
 
@@ -115,6 +117,8 @@ def route(state, tid, caller, thread, setting):
         waiting = sum(queue_key(t) < queue_key(ticket) for _, t in others if t.get("stage") == f"{lane}-queued")
     room = count(lane) < cos_tick.LIMITS[lane] and count(*cos_state.ACTIVE) < cos_tick.CAP and not waiting
     op = {"op": "stage", "ticket": tid, "stage": lane if room else f"{lane}-queued", "status": "<status line>"}
+    if caller == "conflict-stand":  # a merge run with no approval to carry: later head checks must not invent one
+        op["set"] = {"noApproval": True}
     if not room:
         return [f"stage: {json.dumps(op)}"], f"route: queue {lane}", 0
     parent, chief = ticket.get("parentThreadId"), state.get("chiefThreadId") or thread
