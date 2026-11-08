@@ -45,11 +45,11 @@ function cleanSnapshot(s: unknown, now: number): Api['gantt'][number] | null {
   if (!isObj(s) || !Array.isArray(s.rows)) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
-  const raw = s.rows.filter(isObj)
-  const stale = now - updatedAt > STALE_MS && raw.some((r) => r.end === null || r.end === undefined)
-  const rows = raw
-    .map((r) => cleanRow(r, stale ? updatedAt : null))
-    .filter((r): r is SnapshotRow => r !== null)
+  const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
+  // The main row never ends while the session lives, so only the other rows say whether it is stale.
+  const working = cleaned.some((r) => r.id !== 'main' && r.end === null)
+  const stale = now - updatedAt > STALE_MS && working
+  const rows = cleaned.map((r) => (r.end === null && (stale || (!working && r.id === 'main')) ? { ...r, end: updatedAt } : r))
   return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), rows }
 }
 

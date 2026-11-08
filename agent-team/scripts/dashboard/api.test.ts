@@ -46,6 +46,14 @@ test('snapshots', () => {
     ['stale', snap(31_000, [row(null)]), (g) => { assert.equal(g[0].stale, true); assert.equal(g[0].rows[0].end, NOW - 31_000) }],
     ['31s all ended', snap(31_000, [row(2)]), (g) => assert.equal(g[0].stale, false)],
     ['fresh running', snap(5_000, [row(null)]), (g) => { assert.equal(g[0].stale, false); assert.equal(g[0].rows[0].end, null) }],
+    ['idle main only', snap(31_000, [{ ...row(null), id: 'main' }]), (g) => { assert.equal(g[0].stale, false); assert.equal(g[0].rows[0].end, NOW - 31_000) }],
+    ['main plus running subagent, 31s', snap(31_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, true); assert.deepEqual(g[0].rows.map((r: any) => r.end), [NOW - 31_000, NOW - 31_000]) }],
+    ['main plus running subagent, 5s', snap(5_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, false); assert.deepEqual(g[0].rows.map((r: any) => r.end), [null, null]) }],
+    ['bad end counts as running', snap(31_000, [{ ...row(null), end: 'x' }]), (g) => assert.equal(g[0].stale, true)],
+    ['extra keys dropped', { ...snap(1, [{ ...row(2), secret: 'x' }]), prompt: 'p' }, (g) => {
+      assert.deepEqual(Object.keys(g[0]).sort(), ['cwd', 'rows', 'sessionId', 'stale', 'total', 'updatedAt'])
+      assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['childCount', 'cost', 'depth', 'end', 'id', 'name', 'repo', 'start', 'tokens'])
+    }],
     ['string', 'x', (g) => assert.equal(g.length, 0)],
     ['no rows', { sessionId: 's', cwd: '/c', updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
     ['rows not array', snap(1, 'x'), (g) => assert.equal(g.length, 0)],
