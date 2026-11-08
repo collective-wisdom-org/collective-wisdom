@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
-import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { healthy, readRegular } from './server.ts'
 
@@ -168,7 +168,7 @@ export async function restore(opts: { root: string; dest?: string; force?: boole
   if (refused) return { ...result, error: refused }
 
   const agentDir = join(root, '.agent-team')
-  if (!lstatSync(root, { throwIfNoEntry: false })?.isDirectory()) return { ...result, error: `root is not a folder: ${root}` }
+  if (!statSync(root, { throwIfNoEntry: false })?.isDirectory()) return { ...result, error: `root is not a folder: ${root}` }
   if (!lstatSync(agentDir, { throwIfNoEntry: false })) mkdirSync(agentDir)
 
   try {
