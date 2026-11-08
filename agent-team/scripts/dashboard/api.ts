@@ -1,4 +1,5 @@
 import { groupTickets } from '../../.claude/mods/status-pane/hooks/groups.ts'
+import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; childCount: number }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; rows: SnapshotRow[] }
@@ -42,7 +43,7 @@ function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null {
 }
 
 function cleanSnapshot(s: unknown, now: number): Api['gantt'][number] | null {
-  if (!isObj(s) || !Array.isArray(s.rows)) return null
+  if (!isObj(s) || !Array.isArray(s.rows) || !isWorktree(str(s.cwd))) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
   const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
