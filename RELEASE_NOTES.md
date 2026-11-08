@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 expandable Details section on each dashboard ticket (CW-227) (#231)
+
+Merged 2026-11-08 20:47 UTC.
+
+Each ticket on the dashboard has a new `Details` section. For a ticket waiting on build approval it shows what the spec says, and for one waiting on merge approval it shows what the PR changes, with the review verdicts. No setup needed.
+
 ## 2026-11-08 gantt tooltips show on hover in the dashboard (CW-232) (#236)
 
 Merged 2026-11-08 20:40 UTC.
