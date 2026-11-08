@@ -179,7 +179,7 @@ Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that cha
 
 ## Propose changes
 
-Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same, and also runs `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts`). After it merges, tag a release with `./tag-release.sh`. Every machine takes the change when its clone checks out the new release or `main` and reruns `./install.sh`; no app needs a PR. Prose follows the `human-writing` skill: plain sentences, no em dashes.
+Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same, and also runs `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts`). CI runs on pull requests only, so `main` is tested only through its PRs. A merge can still leave `main` red when another PR merged first, and nothing today tells the team when that happens. After it merges, tag a release with `./tag-release.sh`. Every machine takes the change when its clone checks out the new release or `main` and reruns `./install.sh`; no app needs a PR. Prose follows the `human-writing` skill: plain sentences, no em dashes.
 
 ## Known couplings
 

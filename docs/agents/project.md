@@ -37,7 +37,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: `~/.colle
 | Test | `python3 -I -m pytest -q agent-team/scripts` (needs `pytest`, e.g. `uvx pytest -q agent-team/scripts`) |
 | Lint | `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh` |
 | Typecheck | none |
-| Required CI checks | `checks` |
+| Required CI checks | `checks`. CI runs on pull requests only; main is tested only through PRs; nothing today reports a red main. |
 | Agent-team script tests | `python3 -I -m pytest -q agent-team/scripts` (the same suite) |
 | Docs index listing | `python3 ~/.collective-wisdom/scripts/docs_index.py` (generates one table of every spec, plan and as-built under `docs/superpowers/`) |
 | Release notes listing | `python3 ~/.collective-wisdom/scripts/release_notes.py` (prints the `## Release note` sections of merged PRs and any `docs/superpowers/release-notes/*.md` notes, newest first) |
