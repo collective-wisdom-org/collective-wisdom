@@ -171,7 +171,7 @@ The pane opens when the session first starts a subagent. `/agent-gantt` opens it
 
 The marketplace also lists `status-pane`, the Chief of Staff status pane. It installs the same way, with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`. The old copy in an app's `.claude/mods/status-pane/` is removed by the removal command.
 
-Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The row builder has a test: `node --test mods/agent-gantt/hooks/rows.test.ts` (Node 24 or newer).
+Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The mod has tests (`rows.test.ts`, `snapshot.test.ts`): `node --test mods/agent-gantt/hooks/*.test.ts` (Node 24 or newer).
 
 ## Local dashboard
 
