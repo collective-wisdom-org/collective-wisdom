@@ -259,6 +259,42 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
   return { html: `<ul class="rows">${rows}</ul>${pager}`, page: at }
 }
 
+const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene']])
+const STATES = ['running', 'idle', 'paused', 'finished']
+const stateBadge = (state) => `<span class="badge state-${STATES.includes(state) ? state : 'idle'}">${esc(state)}</span>`
+const threadButton = (l) => (l ? `<button type="button" class="copy" data-copy="${esc(l)}" title="Copy thread link">Thread</button>` : '')
+
+/** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
+export function renderChief(api, page = 0, open = new Set(), size = 10) {
+  const chief = api?.chief ?? {}
+  const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
+  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
+  const pm = list(api?.pm)
+  const pages = Math.max(1, Math.ceil(pm.length / size))
+  const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
+  const rows = pm
+    .slice(at * size, (at + 1) * size)
+    .map((p) => {
+      const updated = list(p.gantt)[0]?.updatedAt
+      const id = esc(p.sessionId)
+      return `<li class="row">
+  <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span> ${stateBadge(p.state)}</div>
+  <div class="sub">${typeof updated === 'number' ? `<span class="next">updated ${esc(stamp(updated))}</span>` : ''}${threadButton(p.threadLink)}</div>
+  <details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details>
+</li>`
+    })
+    .join('\n')
+  const pager =
+    pages > 1
+      ? `<nav class="pager"><button type="button" data-pm-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-pm-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
+      : ''
+  const pmHtml = pm.length ? `<ul class="rows">${rows}</ul>${pager}` : '<p class="quiet">No project manager threads yet.</p>'
+  return { html: `${card}<h2>Project manager</h2>${pmHtml}`, page: at }
+}
+
+/** The tab to open from the saved value: `cos`, else `ship` for anything unknown or missing. */
+export const tabFromStorage = (value) => (value === 'cos' ? 'cos' : 'ship')
+
 const duration = (ms) => {
   const s = Math.round(ms / 1000)
   if (s < 60) return `${s}s`
@@ -399,6 +435,9 @@ export function drawCharts(root, data, now, apply) {
   }
   for (const body of root.querySelectorAll('.chart-body[data-ticket]')) draw(body, rows.get(body.dataset.ticket))
   for (const body of root.querySelectorAll('.chart-body[data-merged]')) draw(body, merged.get(body.dataset.merged))
+  const pm = new Map((Array.isArray(data.pm) ? data.pm : []).map((p) => [p.sessionId, p]))
+  for (const body of root.querySelectorAll('.chart-body[data-pm]')) draw(body, pm.get(body.dataset.pm))
+  for (const body of root.querySelectorAll('.chart-body[data-chief]')) draw(body, data.chief)
 }
 
 /** Returns `seen(version)`: true when a page version differs from the first one seen. Anything but a non-empty string is ignored. */
@@ -498,6 +537,46 @@ if (typeof document !== 'undefined') {
       draw()
     }
   }
+  // Same for the Chief of Staff tab: redrawn only when its html changed with every chart closed.
+  let pmPage = 0
+  let shownCos = null
+  const drawCos = () => {
+    if (!last) return
+    const r = renderChief(last, pmPage)
+    pmPage = r.page
+    if (r.html === shownCos) return
+    shownCos = r.html
+    const opened = new Set([...document.querySelectorAll('details.chart[data-pm][open]')].map((d) => d.dataset.pm))
+    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened).html
+    draw()
+  }
+  const TAB_KEY = 'dashboard-tab'
+  const tabs = [...document.querySelectorAll('button[role="tab"]')]
+  const selectTab = (name, { save = true, focus = false } = {}) => {
+    for (const tab of tabs) {
+      const on = tab.dataset.tab === name
+      tab.setAttribute('aria-selected', String(on))
+      tab.tabIndex = on ? 0 : -1
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !on
+      if (on && focus) tab.focus()
+    }
+    if (!save) return
+    try {
+      localStorage.setItem(TAB_KEY, name)
+    } catch {}
+  }
+  let saved = null
+  try {
+    saved = localStorage.getItem(TAB_KEY)
+  } catch {}
+  selectTab(tabFromStorage(saved), { save: false })
+  document.querySelector('.tabs').addEventListener('keydown', (ev) => {
+    const at = tabs.findIndex((t) => t.getAttribute('aria-selected') === 'true')
+    const to = { ArrowLeft: (at + tabs.length - 1) % tabs.length, ArrowRight: (at + 1) % tabs.length, Home: 0, End: tabs.length - 1 }[ev.key]
+    if (to === undefined) return
+    ev.preventDefault()
+    selectTab(tabs[to].dataset.tab, { focus: true })
+  })
   const seen = versionWatch()
   const poll = async () => {
     const err = document.getElementById('error')
@@ -525,12 +604,24 @@ if (typeof document !== 'undefined') {
       }
       draw()
       drawMerged()
+      drawCos()
     } catch (e) {
       err.textContent = `Could not refresh: ${e.message}`
     }
   }
   document.addEventListener('click', (ev) => {
     const target = ev.target instanceof Element ? ev.target : null
+    const tab = target?.closest('button[data-tab]')
+    if (tab) {
+      selectTab(tab.dataset.tab)
+      return
+    }
+    const pmPager = target?.closest('button[data-pm-page]')
+    if (pmPager) {
+      pmPage = Number(pmPager.dataset.pmPage)
+      drawCos()
+      return
+    }
     const pager = target?.closest('button[data-page]')
     if (pager) {
       mergedPage = Number(pager.dataset.page)

@@ -4,7 +4,7 @@ import type { EngineInterface, Register, Timer, TurnUsage } from 'claude-code'
 import type { AgentRecord, PriceState, Prices } from '../types/index.d.ts'
 import { bars, clock, dollars, fit, tokens } from './format.ts'
 import { addUsage, buildRows, MAIN } from './rows.ts'
-import { buildSnapshot, snapshotName } from './snapshot.ts'
+import { buildSnapshot, pickHeading, snapshotName } from './snapshot.ts'
 import { beginTask, closeSegment, createWaits, openSegment, taskName } from './timeline.ts'
 
 const PANE = 'agent-gantt'
@@ -28,6 +28,10 @@ const prices = atom(
 )
 // Where the session runs; read once, when the mod first sees the session. Empty until then.
 const harness = atom({ plugin: 'agent-gantt', key: 'harness' } as const, '', { shape: 'harness-1' })
+// The T3 thread id, read once with the harness. Empty outside T3.
+const thread = atom({ plugin: 'agent-gantt', key: 'thread' } as const, '', { shape: 'thread-1' })
+// The heading of the session's first task prompt, set once. `isSet` tells "none found" from "not yet seen".
+const heading = atom({ plugin: 'agent-gantt', key: 'heading' } as const, { isSet: false, value: null as string | null }, { shape: 'heading-1' })
 const clockAtom = atom({ plugin: 'agent-gantt', key: 'now' } as const, 0)
 
 // The tick lives and dies with this module, like every timer.
@@ -62,11 +66,11 @@ async function loadPrices($: EngineInterface, isForced = false) {
   await update($, prices, () => state)
 }
 
-/** Sets where the session runs, unless it is set. */
+/** Sets where the session runs and its thread id, unless they are set. */
 async function ensureHarness($: EngineInterface) {
-  if ((await read($, harness)) !== '') return
-  const isT3 = Boolean(await $.env.get('T3CODE_THREAD_ID'))
-  await update($, harness, () => (isT3 ? 'T3 Code' : 'Claude Code'))
+  const threadId = (await $.env.get('T3CODE_THREAD_ID')) || ''
+  if ((await read($, harness)) === '') await update($, harness, () => (threadId ? 'T3 Code' : 'Claude Code'))
+  if (threadId && (await read($, thread)) === '') await update($, thread, () => threadId)
 }
 
 /** The main loop's own record, made once. It starts when the mod first sees the session. */
@@ -142,7 +146,7 @@ async function writeSnapshot($: EngineInterface) {
     if (await isLink($, `${dir}/${SNAPSHOT_DIR}/${name}`)) return
     const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)
     const total = (await $.session.usage()).cost?.usd ?? null
-    const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows })
+    const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows, threadId: (await read($, thread)) || null, heading: (await read($, heading)).value })
     await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
   } catch {
     // the dashboard is optional: skip this write
@@ -272,6 +276,7 @@ export const register: Register = on => {
     const t = await $.clock.now()
     await ensureMain($, t)
     await updateRecord($, MAIN, r => beginTask(r, taskName(e.text, r.tasks.map(k => k.name)), since, t))
+    if (!(await read($, heading)).isSet) await update($, heading, () => ({ isSet: true, value: pickHeading(e.text) }))
     await refresh($)
     return out
   })

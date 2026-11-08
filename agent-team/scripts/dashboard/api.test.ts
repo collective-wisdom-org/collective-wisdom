@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
+import { buildApi, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
 
 const NOW = 1_800_000_000_000
 const GH = { url: 'https://github.com/o/r', isGithubIssues: true }
@@ -255,6 +255,56 @@ test('a merged entry gets its detail and the spec link from the merge commit; th
   assert.deepEqual(withIt, { id: 'CW-1', title: 't', prUrl: entry.prUrl, mergedAt: 1, detail: { kind: 'changes', sections: [], url: entry.prUrl }, specUrl: `https://github.com/o/r/blob/${'b'.repeat(40)}/docs/superpowers/specs/a.md` })
   const [bare] = build({ merged: [entry] }).merged as any[]
   assert.ok(!('number' in bare) && !('detail' in bare) && !('specUrl' in bare))
+})
+
+const ROOT = '/Users/me/repo'
+const teamRow = (open: boolean) => ({ id: 'main:task:0', depth: 1, name: 'task', repo: 'r', start: 1, end: null, tokens: 1, cost: null, kind: 'task', segments: [[1, open ? null : 5]], model: null, harness: null })
+const teamSnap = (sessionId: string, over: Record<string, unknown> = {}) => ({ sessionId, cwd: ROOT, updatedAt: NOW - 1000, total: null, rows: [teamRow(true)], threadId: null, heading: null, ...over })
+
+test('team role rule: the chief by state, project manager children by heading, nothing else', () => {
+  const state = { chiefSessionId: 'cs', chiefThreadId: 'ct' }
+  const cases: [string, unknown, string | null][] = [
+    ['chiefSessionId', teamSnap('cs'), 'chief'],
+    ['chiefThreadId only', teamSnap('other', { threadId: 'ct' }), 'chief'],
+    ['ranking heading', teamSnap('a', { heading: 'BACKLOG RANKING' }), 'ranking'],
+    ['hygiene heading', teamSnap('b', { heading: 'PROJECT MANAGER HYGIENE' }), 'hygiene'],
+    ['unknown heading', teamSnap('c', { heading: 'TEAM MODE' }), null],
+    ['no heading', teamSnap('d'), null],
+    ['worktree snapshot stays off the tab', teamSnap('e', { cwd: WT, heading: 'BACKLOG RANKING' }), null],
+    ['rows not a list', teamSnap('f', { heading: 'BACKLOG RANKING', rows: {} }), null],
+    ['bad thread id and heading type', teamSnap('g', { heading: 5, threadId: 'a b/../c' }), null],
+    ['long heading', teamSnap('h', { heading: 'BACKLOG RANKING'.padEnd(41, 'X') }), null],
+    ['not an object', 'x', null],
+  ]
+  for (const [name, snap, want] of cases) {
+    const api = build({ state, snapshots: [snap] })
+    const got = api.chief.gantt ? 'chief' : (api.pm[0]?.role ?? null)
+    assert.equal(got, want, name)
+    assert.equal(api.chief.gantt?.length ?? 0, want === 'chief' ? 1 : 0, name)
+    assert.equal(api.pm.length, want === 'ranking' || want === 'hygiene' ? 1 : 0, name)
+  }
+  assert.deepEqual(teamSessions({ snapshots: cases.map((c) => c[1]), state, now: NOW }).map((t) => t.role).sort(), ['hygiene', 'ranking'])
+})
+
+test('chief state and the newest-first project manager list with live and history copies', () => {
+  const chief = (state: unknown, snap: unknown) => build({ state, snapshots: [snap] }).chief
+  assert.equal(chief({ paused: true, chiefSessionId: 'cs' }, teamSnap('cs')).state, 'paused')
+  assert.equal(chief({ chiefSessionId: 'cs' }, teamSnap('cs')).state, 'running')
+  assert.equal(chief({ chiefSessionId: 'cs' }, teamSnap('cs', { rows: [teamRow(false)] })).state, 'idle')
+  assert.equal(chief({ chiefSessionId: 'cs' }, teamSnap('cs', { updatedAt: NOW - 61_000 })).state, 'idle')
+  assert.deepEqual(chief({ chiefThreadId: 'ct' }, 'x'), { state: 'idle', threadLink: '<t3-thread://v2/env/ct>' })
+
+  const hist = (sessionId: string, updatedAt: number, role: 'ranking' | 'hygiene' = 'ranking') => ({ role, session: { sessionId, cwd: ROOT, updatedAt, stale: false, total: null, pricing: null, rows: [], threadId: `th-${sessionId}` } })
+  const api = build({
+    snapshots: [teamSnap('live', { heading: 'BACKLOG RANKING', threadId: 'th-live', updatedAt: NOW - 1000 })],
+    teamHistory: [hist('live', NOW - 40_000), hist('old', NOW - 900_000, 'hygiene'), hist('mid', NOW - 5000)],
+  })
+  assert.deepEqual(api.pm.map((p) => [p.sessionId, p.role, p.state, p.threadLink]), [
+    ['live', 'ranking', 'running', '<t3-thread://v2/env/th-live>'],
+    ['mid', 'ranking', 'finished', '<t3-thread://v2/env/th-mid>'],
+    ['old', 'hygiene', 'finished', '<t3-thread://v2/env/th-old>'],
+  ])
+  assert.equal(api.pm[0].gantt[0].updatedAt, NOW - 1000)
 })
 
 test('a ticket whose PR is already in merged is dropped from status; its group goes when empty', () => {

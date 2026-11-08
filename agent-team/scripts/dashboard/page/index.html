@@ -60,6 +60,14 @@ button:hover:not(:disabled) { background:var(--b-neutral); border-color:var(--mu
 button:focus-visible, summary:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 button:disabled { opacity:.5; cursor:default; }
 button.copy { margin-left:auto; }
+.tabs { display:flex; gap:var(--s1); margin:0 0 var(--s4); border-bottom:1px solid var(--line); }
+.tabs button { height:auto; padding:var(--s2) var(--s3); border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--muted); font-size:var(--t-body); }
+.tabs button:hover:not(:disabled) { background:transparent; color:var(--fg); border-color:transparent; }
+.tabs button[aria-selected="true"], .tabs button[aria-selected="true"]:hover:not(:disabled) { color:var(--fg); font-weight:600; border-bottom-color:var(--accent); }
+.cos-card { display:flex; flex-direction:column; gap:var(--s1); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:var(--s3); }
+.cos-card .gantt { margin-top:var(--s1); }
+.badge.state-running { background:var(--b-low); color:var(--b-low-fg); }
+.badge.state-paused { background:var(--b-medium); color:var(--b-medium-fg); }
 .pager { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3); margin-top:var(--s3); color:var(--muted); }
 details.chart, details.info { margin-top:var(--s1); }
 details.chart > summary, details.info > summary { cursor:pointer; color:var(--muted); font-size:var(--t-small); width:fit-content; }
@@ -126,9 +134,18 @@ details.chart > summary:hover, details.info > summary:hover { color:var(--fg); }
 <div id="cta" aria-live="polite"></div>
 </header>
 <p id="error" role="status"></p>
+<div class="tabs" role="tablist" aria-label="Dashboard">
+<button type="button" role="tab" id="tab-ship" data-tab="ship" aria-selected="true" aria-controls="panel-ship" tabindex="0">Ship loop</button>
+<button type="button" role="tab" id="tab-cos" data-tab="cos" aria-selected="false" aria-controls="panel-cos" tabindex="-1">Chief of Staff</button>
+</div>
+<div id="panel-ship" role="tabpanel" aria-labelledby="tab-ship">
 <div id="status"><p class="quiet">Loading</p></div>
 <h2>Merged</h2>
 <div id="merged"><p class="quiet">Loading</p></div>
+</div>
+<div id="panel-cos" role="tabpanel" aria-labelledby="tab-cos" hidden>
+<div id="cos"><p class="quiet">Loading</p></div>
+</div>
 </main>
 <script type="module" src="/app.js"></script>
 </body>
