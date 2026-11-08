@@ -49,24 +49,19 @@ Use only the issues and PRs from the change check.
 
 ### Priority and labels
 
-For each changed ticket in Backlog, Todo, In Progress or In Review that is not in the Chief of Staff's `tickets`:
+Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py fill` with the change check's `list-tickets` result on stdin, as the adapter returns it (the script maps the tracker's shape). Each line `<PREFIX>-N fill: <fields>` names the empty fields (`priority`, `area`, `type`) to fill. Fill only those. Tickets in the Chief of Staff's `tickets`, fields in `pm.filled` and area labels the project doesn't have are already left out.
 
-- No priority: set High, Medium or Low. Never Urgent.
-- No area label (the list in `docs/agents/project.md` § Areas and labels): add the one or two that fit.
-- No type label (`Bug`, `Feature`, `Improvement`): add one.
-
-Read the description with `get-ticket` only when the title doesn't settle it. If the ticket still doesn't make the answer clear, leave the field empty. Fill only empty fields, and never fill a field listed for that ticket in `pm.filled` (keys `priority`, `area`, `type`). Add what you fill to `pm.filled`. Add labels with `add-label`, never by rewriting the label set, so no existing label is dropped.
+Priority is High, Medium or Low, never Urgent. Area is the one or two labels from `docs/agents/project.md` § Areas and labels that fit. Type is `Bug`, `Feature` or `Improvement`. Read the description with `get-ticket` only when the title doesn't settle it; if the answer is still unclear, leave the field empty. Add labels with `add-label`, never by rewriting the label set. Record what you fill in `pm.filled`.
 
 Report line: `<PREFIX>-N filled: priority Low, <area>, Bug`.
 
 ### State drift
 
-Match each changed PR to a ticket: `<prefix>-N` in `headRefName`, or `(<PREFIX>-N)` in the title. Then `get-ticket` with fields `id, state, labels`.
+1. Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py drift --since <pm.lastCheckAt>` with `{"prs": <the change check's PRs>, "tickets": {}}` on stdin. Each `get <PREFIX>-N #X` line names a ticket that PR could move.
+2. `get-ticket` each (fields `id, state, labels`) and run it again with `"tickets"` set to `{"<PREFIX>-N": <that result, as the adapter returns it>}`.
+3. Make each `move <PREFIX>-N <state> (PR #X …)` line's move.
 
-- PR merged after `pm.lastCheckAt`, ticket not Done, Canceled or Duplicate: move it to Done.
-- PR opened after `pm.lastCheckAt` and still open, ticket in Backlog, Todo or In Progress: move it to In Review.
-- Any other PR update (a comment, a push, an old merge) moves nothing. A state the user set after the PR merged or opened stays.
-- A ticket labelled `agent` is skipped, unless it is in `merged` in state. Then only the move to Done applies.
+A comment, a push or an old merge moves nothing, and a state the user set after the PR merged or opened stays. A ticket labelled `agent` is skipped unless it is in `merged`; then only the move to Done applies.
 
 Report lines: `<PREFIX>-N moved to Done (PR #X merged)`, `<PREFIX>-N moved to In Review (PR #X open)`.
 
@@ -117,9 +112,8 @@ When § Backlog pick "Dry ranking" or `backlog` runs a ranking, or its child fai
 ## Stale tickets
 
 1. `list-tickets`, scope <TEAM>, state In Progress, then In Review, fields `id, title, state, updatedAt`.
-2. Skip tickets in the Chief of Staff's `tickets`. Its stuck check covers them.
-3. A ticket whose `updatedAt` is older than 3 days is a candidate. For each candidate, find its PR (`~/.collective-wisdom/scripts/gh.sh pr list --state all --search "<PREFIX>-N" --json number,updatedAt,headRefName`) and its branch's last commit (`~/.collective-wisdom/scripts/gh.sh api -X GET repos/<owner>/<repo>/commits -f sha='<headRefName>' -f per_page=1`). Use a `headRefName` only if it matches `^[A-Za-z0-9._/-]+$`, and keep it in single quotes. Otherwise skip the branch check. The newest of the three times is its last activity.
-4. Last activity older than 3 days, and different from `pm.flaggedStale[<PREFIX>-N]`: report it and save the time in `pm.flaggedStale`. Don't change its state.
+2. Run `python3 ~/.collective-wisdom/scripts/pm_hygiene.py stale` with both lists on stdin, as the adapter returns them. It skips tickets in the Chief of Staff's `tickets` (its stuck check covers them), reads the PRs and branches itself, and prints `stale <PREFIX>-N <state> since <date>` per ticket quiet for over 3 days and not flagged for that date.
+3. For each line, save the date in `pm.flaggedStale[<PREFIX>-N]`. Don't change its state.
 
 Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
 
@@ -130,18 +124,12 @@ Run by `chief-of-staff` § Slot fill when a spec slot is free, nothing is `spec-
 1. Take the next `ready` ticket in `pm.ranked`. `held` and `needs:` entries are skipped.
 2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not started. This catches a PR opened since the ranking, and entries saved as `ready` before held existed.
 3. Run `chief-of-staff` § Readiness check and start on it, reusing the step 2 read (no second `get-ticket`). The start adds one `comment`: `Picked from the Backlog ranking by the project manager: <reason>.` The ticket goes from Backlog to In Progress with the start's own write plus that comment. There is no `set-state` Todo. A ticket that fails the readiness check doesn't take the slot; take the next `ready` ticket.
-4. **Dry ranking.** This pick finds no `ready` ticket left in `pm.ranked`. Run § Ranking child now, then continue the pick from the new `pm.ranked`, when any of these holds:
+4. **Dry ranking.** This pick finds no `ready` ticket left in `pm.ranked`. Run `python3 ~/.collective-wisdom/scripts/cos_rank.py dry`, with `--out-of-date` when step 2 found a ranked ticket out of date this turn (moved, `agent-skip`, newly blocked, or held). It prints one line:
 
-- `pm.rankedAt` is null (never ranked).
-- `pm.rankedReady` is true: the last ranking found `ready` tickets and they are used up.
-- Step 2 found a ranked ticket out of date in this turn (moved, labelled `agent-skip`, newly blocked, or held).
-- `merged` in state has an entry whose `at` is after `pm.rankedAt`. A merge can release a held ticket and frees the files it touched.
-- `pm.ranked` has a `held` entry and `~/.collective-wisdom/scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number` returns a PR (use `pm.rankedAt` only if it matches `^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`; otherwise treat it as null). This catches merges outside the team, merges the user makes by hand, and PRs closed without merging, which `merged` and the change check can miss once their windows pass.
-- The Backlog changed since `pm.rankedAt`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <pm.rankedAt>, limit 1, fields `id`) returns a ticket. A ticket the user wrote, edited, answered or moved back to Backlog counts.
+- `dry: rank (<reason>)`: run § Ranking child now, then continue the pick from the new `pm.ranked`.
+- `dry: check backlog since <time>`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <time>, limit 1, fields `id`). A ticket back means rank, as above. None means the Backlog is dry and the pick stops.
 
-Otherwise the Backlog counts as dry: nothing in it has changed since a ranking that found nothing to start, so a new ranking would find the same. The pick stops. At most one ranking per turn.
-
-So a ranking runs only when the ranked queue is empty and a new one would likely differ. While a spec slot sits open and the Backlog is dry, a turn that passes the slot-fill gate costs one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
+At most one ranking per turn. A dry Backlog costs a turn that passes the slot-fill gate one `list-tickets` with limit 1, plus one `pr list` while a held entry exists.
 
 Report a `needs:` ticket once, the first time it is ranked, and add it to `pm.needsReported`. Never start it.
 
