@@ -271,7 +271,7 @@ export const register: Register = on => {
     if (e.turnId !== undefined || e.origin.kind === 'task-notification') return out
     const t = await $.clock.now()
     await ensureMain($, t)
-    await updateRecord($, MAIN, r => beginTask(r, taskName(e.text), since, t))
+    await updateRecord($, MAIN, r => beginTask(r, taskName(e.text, r.tasks.map(k => k.name)), since, t))
     await refresh($)
     return out
   })
