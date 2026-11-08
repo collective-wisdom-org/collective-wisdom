@@ -19,7 +19,7 @@ const riskClass = (risk) => {
   return w && ['low', 'medium', 'high'].includes(w[0]) ? ` risk-${w[0]}` : ''
 }
 
-export function renderStatus(groups) {
+export function renderStatus(groups, open = new Set()) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   return groups
     .map((g) => {
@@ -38,6 +38,7 @@ export function renderStatus(groups) {
   </div>
   ${r.title ? `<div class="title">${esc(r.title)}</div>` : ''}
   ${r.next ? `<div class="next">${esc(r.next)}</div>` : ''}
+  ${r.gantt && r.gantt.length ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(r.gantt.length)}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
 </li>`
         })
         .join('\n')
@@ -88,7 +89,13 @@ if (typeof document !== 'undefined') {
   let shownStatus = null
   const draw = () => {
     if (!last) return
-    document.getElementById('gantt').innerHTML = renderGantt(last.gantt, Date.now())
+    const now = Date.now()
+    const rows = new Map(last.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
+    for (const body of document.querySelectorAll('.chart-body')) {
+      const row = rows.get(body.dataset.ticket)
+      if (row) body.innerHTML = renderGantt(row.gantt, now)
+    }
+    document.getElementById('gantt').innerHTML = renderGantt(last.gantt, now)
   }
   const poll = async () => {
     const err = document.getElementById('error')
@@ -98,10 +105,12 @@ if (typeof document !== 'undefined') {
       last = await res.json()
       err.textContent = ''
       // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
-      const json = JSON.stringify(last.status)
+      // Charts count by session id, so new snapshot numbers alone do not rebuild the cards.
+      const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? v.map((s) => s.sessionId) : v))
       if (json !== shownStatus) {
         shownStatus = json
-        document.getElementById('status').innerHTML = renderStatus(last.status)
+        const open = new Set([...document.querySelectorAll('details.chart[open]')].map((d) => d.dataset.ticket))
+        document.getElementById('status').innerHTML = renderStatus(last.status, open)
       }
       draw()
     } catch (e) {
