@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 make the dashboard follow the macOS light or dark setting (CW-242) (#246)
+
+Merged 2026-11-08 22:20 UTC.
+
+The dashboard now opens in dark or light to match the macOS setting, including in a new or reopened T3 preview tab and after the server restarts. Nothing to do; on other systems it behaves as before.
+
 ## 2026-11-08 redesign the dashboard Details section, render markdown, pick details by stage (CW-240) (#244)
 
 Merged 2026-11-08 21:52 UTC.
