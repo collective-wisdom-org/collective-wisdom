@@ -75,9 +75,9 @@ export function renderGantt(sessions, now) {
 
 if (typeof document !== 'undefined') {
   let last = null
+  let shownStatus = null
   const draw = () => {
     if (!last) return
-    document.getElementById('status').innerHTML = renderStatus(last.status)
     document.getElementById('gantt').innerHTML = renderGantt(last.gantt, Date.now())
   }
   const poll = async () => {
@@ -87,6 +87,12 @@ if (typeof document !== 'undefined') {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       last = await res.json()
       err.textContent = ''
+      // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
+      const json = JSON.stringify(last.status)
+      if (json !== shownStatus) {
+        shownStatus = json
+        document.getElementById('status').innerHTML = renderStatus(last.status)
+      }
       draw()
     } catch (e) {
       err.textContent = `Could not refresh: ${e.message}`
