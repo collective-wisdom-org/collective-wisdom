@@ -29,13 +29,13 @@ Facts from `main` at `2309ea5`.
 ### 1. Merged PR reader (`merged.ts`, new)
 
 - `createMerged({ run, now })`, the same shape as `createTitles`. `want(cfg)` starts a background read when none is running and the last read started 60 seconds or more ago; `get()` returns the last good list; `idle()` waits for a running read (tests).
-- `cfg` is `{ prefix, slug }`, the same `TitleConfig` `server.ts` already builds, except that the merged list needs only a GitHub repo, not GitHub issues: the slug comes from the `Repo` row's GitHub URL whatever the tracker.
+- `cfg` is `{ prefix, slug, issueUrls }` (`MergedConfig`, a `TitleConfig` plus `issueUrls`). The merged list needs only a GitHub repo, not GitHub issues: the slug comes from the `Repo` row's GitHub URL whatever the tracker, and `issueUrls` is true only when the tracker is GitHub issues.
 - The read runs `pr list --repo <slug> --state merged --limit 200 --json number,title,headRefName,mergedAt,url`.
-- A pure `parseMerged(json, cfg, repo)` turns the output into entries:
+- A pure `parseMerged(json, cfg)` turns the output into entries:
   - The ticket id comes from the branch (`feat/<prefix lower>-N-` or `feat/<prefix lower>-N`), else from a `(<PREFIX>-N)` at the end of the title. A PR with neither (release tooling, hand PRs) is left out.
   - `title` is the PR title with the trailing `(<PREFIX>-N)` removed, cleaned like tracker titles (control characters to spaces, trimmed, 200 characters at most).
   - `mergedAt` is the parsed time in milliseconds; an entry whose time does not parse is left out.
-  - `prUrl` is the PR `url` only when it starts with `https://github.com/<slug>/pull/`; else it is built from `number`. `issueUrl` is set only when the tracker is GitHub issues, as for Status cards.
+  - `prUrl` is the PR `url` only when it starts with `https://github.com/<slug>/pull/`; else it is built from `number`. `issueUrl` is built from the slug (`https://github.com/<slug>/issues/N`) only when `cfg.issueUrls` is true, as for Status cards.
   - Entries are sorted by `mergedAt`, newest first, with PR number as the tie-break.
 - Output that is not JSON, not an array, or a `gh` error keeps the last good list and is retried after 60 seconds.
 
