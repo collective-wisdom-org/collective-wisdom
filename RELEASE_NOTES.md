@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 gantt tooltips show on hover in the dashboard (CW-232) (#236)
+
+Merged 2026-11-08 20:40 UTC.
+
+Hovering a bar or a row in the dashboard's gantt chart now shows its tooltip, including bars of tasks that are still running. A running bar's tooltip no longer shows its length so far; the row's duration column still does.
+
 ## 2026-11-08 reload the open dashboard page when its files change (CW-230) (#234)
 
 Merged 2026-11-08 20:23 UTC.
