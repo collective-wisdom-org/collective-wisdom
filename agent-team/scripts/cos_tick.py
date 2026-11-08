@@ -35,6 +35,7 @@ AGAIN = "tick --after-reads"
 ROTATION_CHECK = f"run python3 {SCRIPTS}/cos_rotation_check.py"
 STALE_HANDOFF = timedelta(minutes=10)
 MAX_WAKE_MS = 6 * 3600 * 1000
+SAFE = re.compile(r"[A-Za-z0-9._:%@-]+")  # what may be printed into a plan line
 DAILY = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
 SPEC_USER = "CHIEF OF STAFF: the user approved the spec"
 SPEC_AUTO = "CHIEF OF STAFF: auto-approved the spec"
@@ -46,6 +47,26 @@ MERGE_CONFLICT = "The user approved the merge at head"
 def fail(msg):
     print(f"cos_tick: {msg}")
     raise SystemExit(2)
+
+
+def safe(value, what):
+    """Values from state, a notice or an argument go into plan lines as typed, so a newline or quote must stop the plan."""
+    if value not in (None, "") and not (isinstance(value, (str, int)) and SAFE.fullmatch(str(value))):
+        fail(f"unsafe {what} in state or arguments")
+
+
+def check_values(state, thread, trigger):
+    safe(thread, "thread id")
+    safe(trigger.partition(":")[2], "notice thread id")
+    safe(state.get("wakeTaskId"), "wakeTaskId")
+    for r in cos_state.dicts(state.get("retiredThreads")):
+        if isinstance(r.get("threadId"), str):
+            safe(r["threadId"], "retired thread id")
+    for tid, t in state["tickets"].items():
+        safe(tid, "ticket id")
+        if isinstance(t, dict):
+            for field in ("childThreadId", "pr", "headSha", "approvalItemId"):
+                safe(t.get(field), field)
 
 
 def when(s):
@@ -86,7 +107,7 @@ def stops(state, thread, trigger, now):
         started = when((rotation or {}).get("startedAt"))
         if rotation and rotation.get("from") == thread and started and now - started > STALE_HANDOFF:
             return "stop failed-handoff"
-        retired = {r.get("threadId") for r in cos_state.dicts(state.get("retiredThreads"))}
+        retired = {r.get("threadId") for r in cos_state.dicts(state.get("retiredThreads")) if isinstance(r.get("threadId"), str)}
         if (chief and chief != thread) or thread in retired:
             return "stop retired"
     if state.get("paused") and trigger != "status":
@@ -154,7 +175,7 @@ def relay_lines(state, thread, tid, t, lane):
         words = re.search(r'approved the spec: "(.*)"\. Continue', relay, re.S)
         out.append(
             f"user-check {tid} {where.group(1) if where else thread} {t.get('approvalItemId') or '-'} "
-            f"words={json.dumps(words.group(1) if words else None, ensure_ascii=False)}"
+            f"words={json.dumps(words.group(1) if words else None, ensure_ascii=True)}"
         )
     elif spec:
         out.append(f"run python3 {SCRIPTS}/approval_policy.py auto {tid} spec")
@@ -163,7 +184,7 @@ def relay_lines(state, thread, tid, t, lane):
         return out + [f"continuation {tid} {lane}"]
     if spec:
         out.append(f"configure {t.get('childThreadId')} claude-sonnet-5-5 effort=high")
-    return out + [f"send {tid} {lane} {json.dumps(relay, ensure_ascii=False)}"]
+    return out + [f"send {tid} {lane} {json.dumps(relay, ensure_ascii=True)}"]
 
 
 def slot_fill(state, thread):
@@ -199,7 +220,7 @@ def archives(state):
     return [
         f"archive {r['threadId']}"
         for r in cos_state.dicts(state.get("retiredThreads"))
-        if r.get("threadId") and not r.get("archivedAt")
+        if isinstance(r.get("threadId"), str) and r["threadId"] and not r.get("archivedAt")
     ]
 
 
@@ -262,6 +283,7 @@ def main(argv=None):
     ap.add_argument("--now", type=time_arg, default=datetime.now(timezone.utc))
     args = ap.parse_args(argv)
     state = load(args.file)
+    check_values(state, args.thread, args.trigger)
     plan = [stops(state, args.thread, args.trigger.partition(":")[0], args.now)]
     if not plan[0]:
         plan = act(state, args.thread, args.trigger, args.now) if args.after_reads else look(state, args.thread, args.trigger)

@@ -216,7 +216,7 @@ def test_act_plan_pre_steps_and_gates(tmp_path, capsys, state, trigger, want):
 
 
 def test_status_act_plan_is_archive_and_rotation_check(tmp_path, capsys):
-    state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "retiredThreads": [{"threadId": "r1"}], "paused": True}
+    state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "retiredThreads": [{"threadId": "r1"}, {"threadId": ["bad"]}], "paused": True}
     assert run(tmp_path, capsys, state, "status", "--after-reads") == ["archive r1", ROTATION]
 
 
@@ -229,6 +229,10 @@ def test_status_act_plan_is_archive_and_rotation_check(tmp_path, capsys):
         ("{}", ["--thread", ME, "--trigger", "notice"], "cos_tick: argument --trigger: bad trigger 'notice'"),
         ("{}", ["--thread", ME, "--trigger", "user", "--now", "soon"], "cos_tick: argument --now: bad time 'soon'"),
         ("{}", ["--trigger", "user"], "cos_tick: the following arguments are required: --thread"),
+        # values that would print as a second plan line or reach a shell stop the plan
+        ('{"tickets": {"ABC-1": {"stage": "build-queued", "headSha": "abc\\n3. run x"}}}', ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe headSha in state or arguments"),
+        ('{"wakeTaskId": "w1\\n2. run x"}', ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe wakeTaskId in state or arguments"),
+        ("{}", ["--thread", ME, "--trigger", "notice:x$(id)"], "cos_tick: unsafe notice thread id in state or arguments"),
     ],
 )
 def test_bad_input_exits_2_with_a_cos_tick_line(tmp_path, capsys, content, args, out):
