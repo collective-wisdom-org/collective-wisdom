@@ -3,7 +3,7 @@
 **Status:** Shipped
 **Shipped:** in PR #204, as specified
 **Ticket:** [#200](https://github.com/collective-wisdom-org/collective-wisdom/issues/200)
-**Related:** #195 redesigns the headings and cards; #198 (shipped in PR #201) changed the row order. Both touch the same section markup; this ticket changes only how a section opens and closes.
+**Related:** #195 (the band layout) and #198 (row order, PR #201) landed first. This ticket changes only how a section opens and closes; the `<details class="group">` sits inside the `section.band` that #195 draws.
 
 ## Goal
 
@@ -37,7 +37,7 @@ Facts from `main` at `3ab6621`.
    - `poll()` reads the stored list and passes it to `renderStatus` as `collapsed` when it rebuilds `#status`. The stored list, not the DOM, is the source, so a reload starts with the same sections closed.
    - Names are kept even while their section is absent from the data, so a section that empties out and comes back keeps its state.
    - If storage can't be read or written (blocked, full, bad JSON), the page treats the list as empty and keeps working; a failed write leaves the choice in place until the next reload.
-4. **Styles in `index.html`.** The heading sits on one line with the disclosure marker before it: the `h3` inside the summary is inline, the summary has `cursor:pointer`, and the first-section rule becomes `#status > .group:first-child h3`, which still matches. A visible focus outline stays (the browser default).
+4. **Styles in `index.html`.** The heading sits on one line with the disclosure marker before it: the `h3` inside the summary is inline, the summary has `cursor:pointer`, and the first-section rule becomes `.band > h2 + .group > summary`, which still matches. A visible focus outline stays (the browser default).
 5. **Test.** One table-driven test in `page/app.test.js`: with `collapsed` empty every section has `open`; a named section loses `open` while the others keep it; the closed section still has its heading and pill; a name with markup is escaped in `data-group`. The existing chart `open` test keeps passing.
 6. **Docs.** The dashboard paragraph in `README.md` says each stage section collapses from its heading and the page remembers it in the browser.
 
@@ -52,7 +52,7 @@ Facts from `main` at `3ab6621`.
 ## Calls I made
 
 - **Native `<details>`/`<summary>`, not a button with `aria-expanded`.** It is keyboard reachable and announced as expandable without script, and it matches the Agents chart already on the page. The heading stays an `<h3>` inside the summary, so screen-reader heading navigation still finds each section.
-- **The section element changes from `<section>` to `<details>`.** The class `group` stays, so the existing styles and the first-section rule keep working. #195 rebases onto this if it lands second.
+- **The section element changes from `<section>` to `<details>`.** The class `group` stays, so the existing styles and the first-section rule keep working.
 - **Store collapsed names, not expanded ones.** Expanded is the default, so a new section the team adds later shows up open.
 - **Keyed by section name.** The ticket asked for it. Renaming a section (as CW-177 did) forgets its state, which leaves it open: the safe side.
 - **One storage key for all repos on the same port.** Each repo's dashboard runs on its own localhost port, and `localStorage` is per origin, so two repos don't share a list.
