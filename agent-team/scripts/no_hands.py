@@ -16,8 +16,9 @@ and the user's message every time, so a record written by anything but `start` a
 start   Needs the setting on, no active run, the state's chiefThreadId equal to --thread, and the newest user message holding
         the words `no hands` (cos_user_check.py latest; newer than the last run's end, and not `no hands off`). Writes a fresh record.
         Last line: no-hands: started (cap N tickets, $C)  or  no-hands: refused (<why>)
-check   Prints one line, read only. The cost is the sum of agent_usage.py --ticket over the run's tickets; a ticket with no
-        cost line makes the run stop, since an unmeasured run cannot be held to its cap.
+check   Prints one line, read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. The newest ticket may
+        have no cost line yet (it was just started) and counts as $0; any earlier ticket with none makes the run stop, since an
+        unmeasured run cannot be held to its cap.
             no-hands: off                          no run, or the run ended
             no-hands: on N/cap $X/$C               N tickets started
             no-hands: drain <reason> N/cap $X/$C   no new starts; approvals stay automatic (ticket-cap is the cap reached)
@@ -123,11 +124,11 @@ def evaluate(setting, state_file, db, cost):
     if not (thread and item and _item_ok(db, thread, item)):
         return "stop", "no-hands: stop start message not verified"
     tickets, spent = _tickets(run), 0.0
-    for t in tickets:
+    for i, t in enumerate(tickets):
         c = cost(t)
-        if c is None:
+        if c is None and i < len(tickets) - 1:  # only the newest ticket may still be unmeasured
             return "stop", "no-hands: stop cost unknown"
-        spent += c
+        spent += c or 0.0
     money = f"${int(spent)}/${cost_cap}"
     if spent >= cost_cap:
         return "stop", f"no-hands: stop cost-cap {money}"

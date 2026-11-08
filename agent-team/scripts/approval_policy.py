@@ -4,6 +4,7 @@
 Usage:
     ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-build status line
     ~/.collective-wisdom/scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
+    ~/.collective-wisdom/scripts/approval_policy.py check no-hands         ship-loop child: exit 0 only while a No Hands run is active
 
 The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting); the level is never read
 from a working tree, and the merge target branch is read from the root checkout. A missing row, an unknown value or a failed read is `strict`. The rule:
@@ -15,11 +16,14 @@ from a working tree, and the merge target branch is read from the root checkout.
 
 A spec queued for the build lane with an auto-approved relay (`build-queued`) is checked again the same way.
 
-Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Risk: <Level>)
+While a No Hands run is active (no_hands.active()), every level is auto, High and unrated included, and the last line says
+`under No Hands`. With no run nothing above changes. HANDS_PATH is the short list of files a No Hands merge may not change.
+
+Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Risk: <Level>)  (under No Hands: Risk may be `unrated`)
 Exit 1: ask.  Last line: approval: ask [<PREFIX>-N] (<why>)
 Exit 2: bad arguments, or the state file failed. Last line: approval: cannot <what>. Treat as ask.
 
-~/.collective-wisdom/scripts/cos_approve_pr.py --auto imports the rule, the Risk tail reader and the approval path list from here.
+~/.collective-wisdom/scripts/cos_approve_pr.py --auto imports the rule, the Risk tail reader and the approval and hands path lists from here.
 """
 
 import re
@@ -28,6 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_state  # noqa: E402
+import no_hands  # noqa: E402
 import project_config  # noqa: E402
 
 AUTO_UP_TO = {"strict": (), "balanced": ("Low",), "permissive": ("Low", "Medium")}
@@ -44,6 +49,24 @@ RISK_TAIL = re.compile(r"Risk: (\w+) \(.*\)\.?\s*$")
 PATH_FILES = {"templates/project.md", "templates/agents.md", "templates/machine-instruction.md", "scripts", "install.sh", "tag-release.sh"}
 PATH_DIRS = ("docs/agents/", "scripts/")
 
+# The hands path: what a No Hands merge may not change (the files that decide approvals, the mode and its caps, the merge and
+# review gates, CI and the always-on instructions). Matched like the approval path. Each script is listed with its test, and
+# test_approval_policy.py fails when a listed script imports a local helper that is not listed, so a gate cannot move out of the list.
+HANDS_SCRIPTS = (
+    "approval_policy.py", "no_hands.py", "cos_approve_pr.py", "cos_user_check.py", "merge_pr.py", "review_gate.py", "review_scope.py",
+    "ci_review.py", "wait-for-ci.sh", "gh.sh", "cos_brief.py", "cos_state.py", "cos_tick.py", "cos_route.py", "cos_head_check.py",
+    "agent_usage.py", "prices.json", "project_config.py", "user_config.py", "app_root.py",
+    "release_notes.py", "pr_diff_delta.py",  # imported by merge_pr.py and review_scope.py
+)
+HANDS_TESTS = {"scripts/test_" + re.sub(r"\W", "_", n.removesuffix(".py")) + ".py" for n in HANDS_SCRIPTS if n.endswith((".py", ".sh"))}
+HANDS_PATH = frozenset(
+    {"docs/agents/project.md", "templates/project.md", "install.sh", "tag-release.sh",
+     "docs/agents/security-review.md", "docs/agents/code-review.md", "docs/agents/chief-of-staff.md", "docs/agents/github-auth.md",
+     ".claude/agents/code-reviewer.md", ".claude/agents/security-reviewer.md"}
+    | {f"scripts/{n}" for n in HANDS_SCRIPTS} | HANDS_TESTS
+)
+HANDS_DIRS = tuple(f".claude/skills/{n}/" for n in ("chief-of-staff", "ship-loop", "open-pr", "security-review", "merge-pr"))
+
 
 def risk_level(status):
     """Level from the `Risk: <Level> (<reason>).` tail of a status line, or None when absent or unknown.
@@ -56,8 +79,10 @@ def risk_level(status):
     return m.group(1) if m and m.group(1) in LEVELS else None
 
 
-def decide(tolerance, level):
-    """(auto, why). Anything unknown is asked."""
+def decide(tolerance, level, hands=False):
+    """(auto, why). Anything unknown is asked. hands: a No Hands run is active, so every level, unrated included, is auto."""
+    if hands:
+        return True, level or "unrated"
     if tolerance not in AUTO_UP_TO:
         return False, "strict"
     if level is None:
@@ -67,20 +92,30 @@ def decide(tolerance, level):
     return False, "strict" if tolerance == "strict" else level
 
 
-def on_approval_path(path):
+def _norm(path):
     p = path.lower().removeprefix("./").removeprefix("agent-team/")
     name = p.rsplit("/", 1)[-1]
-    instructions = name.startswith(("agents.", "claude.")) and name.endswith(".md")
+    return p, name, name.startswith(("agents.", "claude.")) and name.endswith(".md")  # path, file name, an agent instruction file
+
+
+def on_approval_path(path):
+    p, _, instructions = _norm(path)
     return p in PATH_FILES or p.startswith(PATH_DIRS + (".",)) or "/." in p or instructions
 
 
+def on_hands_path(path):
+    p, name, instructions = _norm(path)
+    return p in HANDS_PATH or p.startswith(HANDS_DIRS) or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
+
+
 def _verdict(kind, who, level, setting):
-    """(code, last line) for a level and a (tolerance, note) setting."""
-    tolerance, note = setting
-    auto, why = decide(tolerance, level)
+    """(code, last line) for a level and a setting: a function giving (tolerance, note), read only when no No Hands run is active."""
+    hands = no_hands.active()
+    tolerance, note = ("No Hands", "") if hands else setting()
+    auto, why = decide(tolerance, level, hands)
     tag = f" {who}" if who else ""
     if auto:
-        return 0, f"approval: auto {kind}{tag} under {tolerance} (Risk: {level})"
+        return 0, f"approval: auto {kind}{tag} under {tolerance} (Risk: {level or 'unrated'})"
     return 1, f"approval: ask{tag} ({why}{'; ' + note if note else ''})"
 
 
@@ -95,17 +130,17 @@ def cmd_auto(tid, kind, setting):
         if not isinstance(t, dict) or (t.get("stage") != "awaiting-build" and not queued):
             return 1, f"approval: ask {tid} (not in awaiting-build)"
         status = t.get("status")
-        if not isinstance(status, str):
-            return 1, f"approval: ask {tid} (not rated)"
     except (SystemExit, AttributeError):
         return 2, "approval: cannot read the state file"
-    return _verdict("spec", tid, risk_level(status), setting())
+    return _verdict("spec", tid, risk_level(status if isinstance(status, str) else None), setting)
 
 
 def cmd_check(level, setting):
+    if level == "no-hands":
+        return (0, "approval: auto spec under No Hands") if no_hands.active() else (1, "approval: ask (no active No Hands run)")
     if level not in LEVELS:
-        return 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py check Low|Medium|High"
-    return _verdict("spec", "", level, setting())
+        return 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py check Low|Medium|High|no-hands"
+    return _verdict("spec", "", level, setting)
 
 
 def main(argv, setting=project_config.approval_setting):
@@ -117,7 +152,7 @@ def main(argv, setting=project_config.approval_setting):
     elif len(argv) == 2 and argv[0] == "check":
         code, line = cmd_check(argv[1], setting)
     else:
-        code, line = 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec | check <Level>"
+        code, line = 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec | check <Level>|no-hands"
     print(line)
     return code
 

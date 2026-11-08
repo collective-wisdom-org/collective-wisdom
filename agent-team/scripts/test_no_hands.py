@@ -71,6 +71,8 @@ def test_start(tmp_path, capsys, run, setting, kw, code, line):
         ({**OPEN, "started": ["ABC-1", "ABC-2", "ABC-3"]}, ON, {}, None, "no-hands: drain ticket-cap 3/3 $30/$100"),
         (OPEN, ON, {}, lambda t: 50.0, "no-hands: stop cost-cap $100/$100"),
         (OPEN, ON, {}, lambda t: None, "no-hands: stop cost unknown"),
+        (OPEN, ON, {}, lambda t: 10.0 if t == "ABC-1" else None, "no-hands: on 2/3 $10/$100"),  # the newest ticket has no cost yet
+        (OPEN, ON, {}, lambda t: 10.0 if t == "ABC-2" else None, "no-hands: stop cost unknown"),
         (OPEN, (False, 0, 0, ""), {}, None, "no-hands: stop setting off"),
         # a record the user's `no hands` did not start: an agent's copy, or no such message
         (OPEN, ON, {"msgs": [msg(by="agent")]}, None, "no-hands: stop start message not verified"),

@@ -15,10 +15,13 @@ gh login, PR facts, head.
 With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
 auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/<merge target branch>; see
 ~/.collective-wisdom/scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (~/.collective-wisdom/scripts/cos_brief.py).
+While a No Hands run is active (~/.collective-wisdom/scripts/no_hands.py), --auto skips the tolerance and the Risk level and uses the hands path
+(approval_policy.HANDS_PATH) in place of the approval path; the renamed-file, 100-file, `flag:`, migration and conflict-note stops stay.
 
 Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
   The snippet is the start of the user's message on one line (80 characters at most), so the Chief of Staff can show the user what was verified.
 With --auto the last line is: cos-approve: auto-approved #N at <SHA> under <tolerance> (Risk: <Level>)
+  (under No Hands: `under No Hands`, and Risk may be `unrated`)
 Exit 1: a gate failed. Last line: cos-approve: stop <PREFIX>-N: <reason>
 Exit 2: bad arguments, or state, the message store or gh failed, or one of them had an unexpected shape.
 Last line: cos-approve: cannot <what>
@@ -120,10 +123,14 @@ def read_gh(run, pr, auto=False):
 
 
 def auto_gate(status, files, f=None, login=""):
-    """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop."""
+    """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop.
+
+    While a No Hands run is active the tolerance is not read, any level is auto, and the hands path replaces the approval path.
+    """
+    hands = approval_policy.no_hands.active()
     level = approval_policy.risk_level(status)
-    tolerance, note = project_config.approval_setting()
-    auto, why = approval_policy.decide(tolerance, level)
+    tolerance, note = ("No Hands", "") if hands else project_config.approval_setting()
+    auto, why = approval_policy.decide(tolerance, level, hands)
     if not auto:
         raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
     paths = [x["path"] for x in files]
@@ -135,9 +142,9 @@ def auto_gate(status, files, f=None, login=""):
         raise Stop(f"PR renames a file ({renamed[0]}), too hard to check")
     if len(paths) >= FILES_CAP:
         raise Stop(f"PR has {len(paths)} or more files, too many to check")
-    on_path = [p for p in paths if approval_policy.on_approval_path(p)]
+    on_path = [p for p in paths if (approval_policy.on_hands_path if hands else approval_policy.on_approval_path)(p)]
     if on_path:
-        raise Stop(f"PR changes the approval path ({on_path[0]})")
+        raise Stop(f"PR changes the {'hands' if hands else 'approval'} path ({on_path[0]})")
     flags = cos_brief.flags_for(paths)
     if flags or cos_brief.migration_numbers(paths):
         raise Stop(f"PR needs the user: {flags[0] if flags else 'migration file'}")
@@ -176,7 +183,7 @@ def approve(tid, run, auto=False):
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
     if auto:
         tolerance, level = auto_gate(status, f["files"], f, login)
-        return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level})"
+        return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level or 'unrated'})"
     return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 
 

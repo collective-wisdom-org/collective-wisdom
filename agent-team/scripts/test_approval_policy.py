@@ -1,10 +1,13 @@
+import ast
 import json
+from pathlib import Path
 
 import pytest
 
 import approval_policy as ap
 import cos_state
 import project_config
+from test_no_hands import ON, OPEN, msg, no_hands as real_no_hands, world
 
 ROW = "| Approval risk tolerance (`strict`, `balanced` or `permissive`) | {} |\n"
 HEADER = "| Key | Value |\n|---|---|\n"
@@ -65,7 +68,6 @@ PATHS = [
     ("agent-team/scripts/approval_policy.py", True),
     ("agent-team/scripts/cos_rank.py", True),
     ("scripts/test_cos.py", True),
-    ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
     (".claude/skills/write-ticket/SKILL.md", True),
     ("agent-team/.claude/agents/code-reviewer.md", True),
     ("agent-team/.github/workflows/ci.yml", True),
@@ -85,7 +87,6 @@ PATHS = [
     ("agent-team/docs/superpowers/specs/x.md", False),
     ("src/docs/agents/project.md", False),
     ("src/scripts/x.py", False),
-    ("README.md", False),
     (".cursor/hooks.json", True),
     (".codex/config.toml", True),
     ("AGENTS.override.md", True),
@@ -162,3 +163,103 @@ def test_cli_state_failure_is_cannot(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cos_state, "DEFAULT_FILE", tmp_path / "missing.json")
     assert ap.main(["auto", "ABC-1", "spec"], lambda: ("permissive", "")) == 2
     assert "approval: cannot read the state file" in capsys.readouterr().out
+
+
+# No Hands: with a run active every level is auto, the tolerance is not read, and the ask rules for a spec's stage still hold.
+@pytest.mark.parametrize("tolerance", ["strict", "balanced", "permissive", "yolo"])
+@pytest.mark.parametrize("level", ["Low", "Medium", "High", None])
+def test_decide_under_a_run(tolerance, level):
+    assert ap.decide(tolerance, level, hands=True)[0] is True
+
+
+def no_setting():
+    raise AssertionError("the tolerance is not read under No Hands")
+
+
+HANDS_CLI = [
+    (ticket(status="Build ready. Risk: High (auth)."), ["auto", "ABC-1", "spec"], 0, "auto spec ABC-1 under No Hands (Risk: High)"),
+    (ticket(status="Build ready."), ["auto", "ABC-1", "spec"], 0, "under No Hands (Risk: unrated)"),
+    (ticket(stage="build"), ["auto", "ABC-1", "spec"], 1, "not in awaiting-build"),
+    (ticket(), ["check", "no-hands"], 0, "auto spec under No Hands"),
+]
+
+
+@pytest.mark.parametrize("t, argv, code, line", HANDS_CLI)
+def test_cli_under_a_run(tmp_path, monkeypatch, capsys, t, argv, code, line):
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"tickets": {"ABC-1": t}}))
+    monkeypatch.setattr(cos_state, "DEFAULT_FILE", state)
+    monkeypatch.setattr(ap.no_hands, "active", lambda: True)
+    assert ap.main(argv, no_setting) == code
+    assert line in capsys.readouterr().out.strip().splitlines()[-1]
+
+
+def test_check_no_hands_asks_without_a_run(capsys):
+    assert ap.main(["check", "no-hands"], no_setting) == 1
+    assert "ask (no active No Hands run)" in capsys.readouterr().out
+
+
+# active() is what the rule trusts: each row changes one thing from a run that is on and verified.
+GONE = {**OPEN, "endedAt": "2026-11-08T11:00:00Z", "endReason": "x"}
+RUNS = [
+    ("on", OPEN, ON, {}, 10.0, 0),
+    ("setting off", OPEN, (False, 0, 0, ""), {}, 10.0, 1),
+    ("ended", GONE, ON, {}, 10.0, 1),
+    ("over the cost cap", OPEN, ON, {}, 60.0, 1),
+    ("start message is not the user's", OPEN, ON, {"msgs": [msg(by="agent")]}, 10.0, 1),
+]
+
+
+@pytest.mark.parametrize("run, setting, kw, cost, code", [r[1:] for r in RUNS], ids=[r[0] for r in RUNS])
+def test_check_no_hands_follows_active(tmp_path, monkeypatch, run, setting, kw, cost, code):
+    state, db = world(tmp_path, run, **kw)
+    monkeypatch.setattr(ap.no_hands, "active", lambda: real_no_hands.active(lambda: setting, state, db, lambda t: cost))
+    assert ap.main(["check", "no-hands"], no_setting) == code
+
+
+HANDS = [
+    ("docs/agents/project.md", True),
+    ("agent-team/templates/project.md", True),
+    ("install.sh", True),
+    (".github/workflows/ci.yml", True),
+    ("packages/x/.github/CODEOWNERS", True),
+    ("AGENTS.md", True),
+    ("agent-team/scripts/approval_policy.py", True),
+    ("scripts/test_approval_policy.py", True),
+    ("scripts/gh.sh", True),
+    ("scripts/prices.json", True),
+    (".claude/skills/chief-of-staff/approvals.md", True),
+    ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
+    ("agent-team/.claude/agents/code-reviewer.md", True),
+    ("agent-team/scripts/cos_rank.py", False),
+    ("scripts/cos_restart.py", False),
+    ("agent-team/.claude/skills/write-ticket/SKILL.md", False),
+    (".cursor/hooks.json", False),
+    ("README.md", False),
+]
+
+
+@pytest.mark.parametrize("path, on", HANDS)
+def test_hands_path(path, on):
+    assert ap.on_hands_path(path) is on
+
+
+def test_hands_path_scripts_import_only_hands_path_scripts():
+    """A gate cannot move into a helper the list leaves out: every local module a listed script loads is listed too."""
+    here = Path(__file__).parent
+    local = {f.stem for f in here.glob("*.py") if not f.name.startswith("test_")}
+    listed = {n.removesuffix(".py") for n in ap.HANDS_SCRIPTS}
+    missing = {}
+    for name in sorted(listed & local):
+        for node in ast.walk(ast.parse((here / f"{name}.py").read_text())):
+            if isinstance(node, ast.Import):
+                found = {a.name for a in node.names}
+            elif isinstance(node, ast.ImportFrom):
+                found = {node.module}
+            elif isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", "")) in ("_load", "spec_from_file_location"):
+                found = {a.value for a in node.args[:1] if isinstance(a, ast.Constant)}  # how the scripts load a sibling by name
+            else:
+                continue
+            for mod in found & local - listed:
+                missing.setdefault(name, set()).add(mod)
+    assert not missing, f"hands-path scripts import scripts that are not on HANDS_SCRIPTS: {missing}"

@@ -49,3 +49,11 @@ def app_user(user_md, monkeypatch):
 
     monkeypatch.setattr(user_config, "repo_key", lambda root: APP)
     user_md("me")
+
+
+@pytest.fixture(autouse=True)
+def no_active_run(monkeypatch):
+    """No test reads the real run record: no No Hands run is active unless a test patches no_hands.active."""
+    import no_hands
+
+    monkeypatch.setattr(no_hands, "active", lambda *a, **k: False)
