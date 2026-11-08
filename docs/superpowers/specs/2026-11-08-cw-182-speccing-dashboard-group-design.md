@@ -1,6 +1,7 @@
 # CW-182: Show tickets in the spec stage in their own dashboard group
 
-**Status:** Approved
+**Status:** Shipped
+**Shipped:** in PR #185, as specified
 **Ticket:** [#182](https://github.com/collective-wisdom-org/collective-wisdom/issues/182)
 **Runs beside:** CW-177 (#177) renames the `awaiting-spec` stage and touches the same files. This change does not depend on it.
 
