@@ -1,7 +1,7 @@
 # CW-248: Match the dashboard dark colors to T3 Code dark
 
 **Status:** Shipped
-**Shipped:** in PR #250, as specified. The PR proves it with a computed diff and contrast ratios, not screenshots (no way to attach one).
+**Shipped:** in PR #250, as specified.
 **Ticket:** [#248](https://github.com/collective-wisdom-org/collective-wisdom/issues/248)
 
 ## Goal
@@ -71,7 +71,7 @@ Every pair clears 4.5:1. For comparison, muted on the build tint is 5.6 today.
 
 None. This changes color values only, which `AGENTS.md` § Testing says not to test. The existing suites must still pass: `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts` and `python3 -I -m pytest -q agent-team/scripts`.
 
-Proved by hand in the PR: a screenshot of the dashboard in dark mode served from the worktree, beside T3 Code in dark mode, with a merge card, a build card and badges on screen; and a light mode screenshot showing it unchanged. The diff of `index.html` shows only dark halves changed.
+Proved in the PR by a computed diff of `index.html` (only dark halves changed, light halves identical) and the contrast ratios above. Screenshots beside T3 Code could not be attached, so the PR lists them under Not proven.
 
 ## Docs
 
