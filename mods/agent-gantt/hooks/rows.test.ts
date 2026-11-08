@@ -129,13 +129,13 @@ const cases: {
     ],
   },
   {
-    name: 'cost is tokens times the family rates, with cache writes at the 5m rate',
+    name: 'cost is tokens times the family rates, with cache writes at the 1h rate',
     records: [
       rec('main', { usage: { 'claude-opus-5-5': { input: M, output: M, read: M, write: M } } }),
     ],
     agents: [],
     prices: PRICES,
-    want: [{ id: 'main:outside', tokens: 4 * M, cost: 4 + 20 + 0.2 + 5 }],
+    want: [{ id: 'main:outside', tokens: 4 * M, cost: 4 + 20 + 0.2 + 8 }],
   },
   {
     name: 'cost is null for an unknown model family, even beside a known one',

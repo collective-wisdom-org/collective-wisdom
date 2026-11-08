@@ -39,12 +39,12 @@ export function repoOf(cwd: string): string {
 
 const total = (t: Tokens) => t.input + t.output + t.read + t.write
 
-/** Dollars for one model's tokens, or null when its family is not in the table. Cache writes use the 5m rate. */
+/** Dollars for one model's tokens, or null when its family is not in the table. Cache writes use the 1h rate: TurnUsage has no 5m/1h split, and the sessions checked wrote only 1h entries. */
 function modelCost(model: string, t: Tokens, prices: Prices): number | null {
   const family = Object.keys(prices).find(f => model.includes(f))
   const p = family === undefined ? undefined : prices[family]
   if (!p) return null
-  return (t.input * p.input + t.output * p.output + t.read * p.read + t.write * p.write_5m) / 1e6
+  return (t.input * p.input + t.output * p.output + t.read * p.read + t.write * p.write_1h) / 1e6
 }
 
 function costOf(usage: Record<string, Tokens>, prices: Prices | null): number | null {
