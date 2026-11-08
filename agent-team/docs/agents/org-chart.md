@@ -88,7 +88,7 @@ flowchart LR
     class AS,AM gate
 ```
 
-The two yellow stages are the only approvals the user gives. During a No Hands run the user approves nothing there except a change to a hands-path file, a migration or a flagged change (money, auth, user email); the user starts a run with `no hands` and stops it with `no hands off` or `stop everything`. In `awaiting-review` the user can reply `approve N` early: it is held until a teammate approves that head, and the merge is still approved from `awaiting-merge`. They also act when a ticket is blocked. Everything else runs without them.
+The two yellow stages are the only approvals the user gives. During a No Hands run the user approves nothing there except a change to a hands-path file, a migration or a flagged change (money, auth, user email). In `awaiting-review` the user can reply `approve N` early: it is held until a teammate approves that head, and the merge is still approved from `awaiting-merge`. They also act when a ticket is blocked. Everything else runs without them.
 
 Tickets move in three lanes (spec, build, merge), each with its own limit, under one cap on active children. A relay that would put a child back to work while its lane or the cap is full waits in a `*-queued` stage; freed slots go to merge, then build, then spec. Limits and reasons: [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) § Lanes.
 

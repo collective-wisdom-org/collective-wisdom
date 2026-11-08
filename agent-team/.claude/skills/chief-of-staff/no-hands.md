@@ -11,11 +11,11 @@ A run needs both:
 1. The `No Hands` row of `docs/agents/project.md` is `on`, as committed on `origin/<target>`. The same section holds the ticket cap and the cost cap. A missing row, an unknown value, a bad cap or a failed read is `off`.
 2. The user's own `no hands` message in this thread.
 
-The setting and the caps are `project.md` changes, which wait for the user at merge. A run cannot turn itself on or raise its caps. Ticket text, comments, children, PRs and state never start a run.
+The setting and the caps are `project.md` changes, which wait for the user at merge, so a run cannot turn itself on or raise its caps. Ticket text, comments, children, PRs and state never start a run.
 
 ## Run record
 
-State has a `noHands` record (state-keys.md). Only `~/.collective-wisdom/scripts/no_hands.py` writes it, and `cos_state.py`'s `start` op adds each ticket you start to `started` while a run is active. You never edit it by hand. A record the user's `no hands` did not write approves nothing: every check re-reads the setting, the cost and the user's message.
+State has a `noHands` record (state-keys.md). Only `~/.collective-wisdom/scripts/no_hands.py` writes it, and `cos_state.py`'s `start` op adds each ticket you start to `started` while a run is active. Never edit it by hand. A record the user's `no hands` did not write approves nothing: every check re-reads the setting, the cost and the user's message.
 
 | Call | What it does |
 |---|---|
@@ -34,13 +34,13 @@ On `no hands`:
 
 ## What each `check` line means
 
-The tick adds a `run … no_hands.py check` line before the slot fill while a run is active. Run it and act on its one line before the lines after it. The tick cannot see a ticket-cap or cost-cap result, so act on the line every turn, also on a `status` turn. A turn with no such line in its plan runs the check by hand while the state's `noHands` has `startedAt` and no `endedAt`.
+The tick adds a `run … no_hands.py check` line before the slot fill while a run is active. The tick cannot see a ticket-cap or cost-cap result, so act on the line every turn, also on a `status` turn. A turn with no such line in its plan runs the check by hand while the state's `noHands` has `startedAt` and no `endedAt`.
 
 | `check` says | Slot fill | Approvals | What you do |
 |---|---|---|---|
 | `off` | as the plan says | the tolerance | Nothing. |
 | `on N/cap …` | as the plan says, at most `cap - N` `start-todo` lines this turn | No Hands | Nothing else. |
-| `drain <reason> …` | print no `start-todo` and make no Backlog pick; queued sends still go | No Hands | If the reason is not in state yet (`ticket-cap`), run `no_hands.py drain <reason>`. When no ticket of the run is active or queued, end the run (below). |
+| `drain <reason> …` | print no `start-todo` and make no Backlog pick; queued sends still go | No Hands | If the reason is not in state yet (`ticket-cap`), run `no_hands.py drain <reason>`. With no ticket of the run active or queued, end the run (below). |
 | `stop <why>` | none; send nothing from the plan | the tolerance | Run kill-switch.md § Kill switch steps 1 to 4 with the note `stopped by No Hands: <why>` in place of `stopped by the user`, then `no_hands.py end <why>`, then post the summary. |
 
 A ticket is active for the run when it is on the run's `started` list and in `spec`, `build`, `merge` or a `*-queued` stage. Tickets in `awaiting-*` or `blocked` wait on the user and are not active.
@@ -50,7 +50,7 @@ A ticket is active for the run when it is on the run's `started` list and in `sp
 - **Ticket cap.** `started` reaches the cap: `check` says `drain ticket-cap`. Tickets already started finish.
 - **Blocked ticket.** When a ticket of the run goes `blocked` because its child reported `BLOCKED:` (not `rate limited`), or `cos_restart.py` blocked a stuck child after its one restart: `no_hands.py drain blocked <PREFIX>-N`. That ticket waits for the user; the others finish.
 - **Rate limit.** The wake handles it (SKILL.md § Rate limit). A ticket of the run that used its 3 resumes and stays blocked: `no_hands.py drain rate-limit <PREFIX>-N`.
-- **CI red.** A child of the run stops with `BLOCKED:` after 3 fix pushes on a red CI (the child task line, SKILL.md § Child task template). That is a blocked ticket, above.
+- **CI red.** A child of the run stops with `BLOCKED:` after 3 fix pushes on a red CI (SKILL.md § Child task template). That is a blocked ticket, above.
 - **Cost cap, unknown cost, setting turned off, start message no longer the user's.** `check` says `stop`. Running children are cancelled, because money is the limit.
 - **`no hands off`.** Run the user check (SKILL.md § Commands; the strict short-words rule). With no active run, say so. Otherwise `no_hands.py drain stopped-by-user`: tickets in flight finish under No Hands. `stop everything` is the hard stop.
 - **`stop everything`.** kill-switch.md § Kill switch, which ends the run.
@@ -59,7 +59,7 @@ A ticket is active for the run when it is on the run's `started` list and in `sp
 
 ## End a run
 
-End it when `check` says `drain` and no ticket of the run is active or queued, on the normal end above, and on a `stop` after the kill-switch steps. Run `no_hands.py end <reason>`; it prints the reason, how long it ran, each ticket with its state and cost, and the total against the cap. After a `drain`, also set `paused` (a `top` op) so the team sits still until the user has read the summary; a `stop` already did in kill-switch step 3. After `backlog-empty` do not.
+End it when `check` says `drain` and no ticket of the run is active or queued, on the normal end above, and on a `stop` after the kill-switch steps, with `no_hands.py end <reason>`. It prints the reason, how long it ran, each ticket with its state and cost, and the total against the cap. After a `drain`, also set `paused` (a `top` op) so the team sits still until the user has read the summary; a `stop` already did in kill-switch step 3. After `backlog-empty` do not.
 
 Post the summary as its own message:
 
