@@ -33,7 +33,7 @@ flowchart TB
     User -- "approve N · changes N · adopt N · cancel N · status · where's <PREFIX>-N · backlog · take over · stop everything · resume" --> Chief
     Chief -- "reports: Needs you · Moving · Running · Done · Tickets · Backlog · Cleanup" --> User
     Chief -- "delegate_task to start · CHIEF OF STAFF: relays" --> Child
-    Child -- "SPEC READY · MERGE READY · BLOCKED: · MERGED #35;N" --> Chief
+    Child -- "BUILD READY · MERGE READY · BLOCKED: · MERGED #35;N" --> Chief
     Child -- "Agent tool" --> Impl
     Child --> Docs
     Child --> Compacter
@@ -65,7 +65,7 @@ A ticket helper started by another repo's request creates new Backlog tickets on
 flowchart LR
     Todo["Todo"] --> Spec["spec<br/>child writes the spec"]
     Backlog["Backlog"] -. "ranked pick when Todo is empty" .-> Spec
-    Spec -- "SPEC READY" --> AS["awaiting-spec<br/>the user approves the spec,<br/>unless the tolerance auto-approves"]
+    Spec -- "BUILD READY" --> AS["awaiting-build<br/>the user approves the spec,<br/>unless the tolerance auto-approves"]
     AS -- "approved" --> Build["build<br/>plan, build, PR, docs check,<br/>code review, security review"]
     Build -- "MERGE READY" --> AM["awaiting-merge<br/>the user approves the merge,<br/>unless the tolerance auto-approves"]
     Build -- "MERGE READY, teammate review still needed" --> AR["awaiting-review<br/>waits for a teammate's GitHub review"]

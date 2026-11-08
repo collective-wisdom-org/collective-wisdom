@@ -2,7 +2,7 @@
 """Decide whether a spec or merge needs the user's approval, from the `Approval risk tolerance` setting.
 
 Usage:
-    ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-spec status line
+    ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-build status line
     ~/.collective-wisdom/scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
 
 The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting); the level is never read
@@ -92,8 +92,8 @@ def cmd_auto(tid, kind, setting):
     try:
         t = cos_state.load(cos_state.DEFAULT_FILE).get("tickets", {}).get(tid)
         queued = isinstance(t, dict) and t.get("stage") == "build-queued" and str(t.get("pendingRelay") or "").startswith(AUTO_RELAY)
-        if not isinstance(t, dict) or (t.get("stage") != "awaiting-spec" and not queued):
-            return 1, f"approval: ask {tid} (not in awaiting-spec)"
+        if not isinstance(t, dict) or (t.get("stage") != "awaiting-build" and not queued):
+            return 1, f"approval: ask {tid} (not in awaiting-build)"
         status = t.get("status")
         if not isinstance(status, str):
             return 1, f"approval: ask {tid} (not rated)"

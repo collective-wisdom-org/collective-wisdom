@@ -18,9 +18,10 @@ test('groupTickets', () => {
   const view = groupTickets(state).map(g => [g.name, g.count, g.rows.map(r => r.id)])
   expect(view).toEqual([
     ['Awaiting merge approval', 1, ['CW-4']],
+    ['Speccing', 1, ['CW-6']],
     ['Building', 1, ['CW-1']],
     ['Queued to build', 2, ['CW-3', 'CW-2']],
-    ['Other', 2, ['CW-6', 'CW-5']],
+    ['Other', 1, ['CW-5']],
   ])
   const row = (group: string, i: number) => groupTickets(state).find(g => g.name === group)?.rows[i]
   expect(row('Building', 0)).toEqual({
