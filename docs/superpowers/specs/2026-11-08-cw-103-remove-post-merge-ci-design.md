@@ -1,6 +1,7 @@
 # CW-103: Remove the post-merge CI run on main
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #193, as specified
 **Ticket:** [#103](https://github.com/collective-wisdom-org/collective-wisdom/issues/103)
 
 ## Goal
