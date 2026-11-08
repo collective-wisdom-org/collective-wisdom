@@ -19,6 +19,9 @@ h1 { font-size:1.4rem; margin:0; }
 h2 { font-size:1.15rem; margin:1.5rem 0 .6rem; border-bottom:1px solid var(--line); padding-bottom:.3rem; }
 h3 { font-size:1rem; font-weight:700; margin:1.1rem 0 .5rem; }
 #status > .group:first-child h3 { margin-top:0; }
+details.group > summary { cursor:pointer; margin:1.1rem 0 .5rem; }
+#status > .group:first-child > summary { margin-top:0; }
+details.group > summary > h3 { display:inline; }
 a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
 .quiet { color:var(--muted); }
 #error { color:var(--err); margin:0; }

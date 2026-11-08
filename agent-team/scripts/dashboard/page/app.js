@@ -19,7 +19,7 @@ const riskClass = (risk) => {
   return w && ['low', 'medium', 'high'].includes(w[0]) ? ` risk-${w[0]}` : ''
 }
 
-export function renderStatus(groups, open = new Set()) {
+export function renderStatus(groups, open = new Set(), collapsed = new Set()) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   return groups
     .map((g) => {
@@ -42,7 +42,7 @@ export function renderStatus(groups, open = new Set()) {
 </li>`
         })
         .join('\n')
-      return `<section class="group"><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3><ul class="cards">${rows}</ul></section>`
+      return `<details class="group" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="cards">${rows}</ul></details>`
     })
     .join('\n')
 }
@@ -137,6 +137,21 @@ export function renderGantt(sessions, now) {
 }
 
 if (typeof document !== 'undefined') {
+  // Collapsed section names live in localStorage; every access can throw (blocked, full, bad JSON).
+  const COLLAPSED_KEY = 'cw-dashboard-collapsed'
+  const readCollapsed = () => {
+    try {
+      const list = JSON.parse(localStorage.getItem(COLLAPSED_KEY))
+      return new Set(Array.isArray(list) ? list.filter((n) => typeof n === 'string') : [])
+    } catch {
+      return new Set()
+    }
+  }
+  const writeCollapsed = (names) => {
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...names]))
+    } catch {}
+  }
   let last = null
   let shownStatus = null
   const draw = () => {
@@ -173,7 +188,7 @@ if (typeof document !== 'undefined') {
       if (json !== shownStatus) {
         shownStatus = json
         const open = new Set([...document.querySelectorAll('details.chart[open]')].map((d) => d.dataset.ticket))
-        document.getElementById('status').innerHTML = renderStatus(last.status, open)
+        document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed())
         document.getElementById('cta').innerHTML = renderBadges(last.status)
       }
       draw()
@@ -204,6 +219,19 @@ if (typeof document !== 'undefined') {
       },
     )
   })
+  // toggle does not bubble, so listen in the capture phase.
+  document.addEventListener(
+    'toggle',
+    (ev) => {
+      const d = ev.target
+      if (!(d instanceof Element) || !d.matches('details.group')) return
+      const names = readCollapsed()
+      if (d.open) names.delete(d.dataset.group)
+      else names.add(d.dataset.group)
+      writeCollapsed(names)
+    },
+    true,
+  )
   poll()
   setInterval(poll, 5000)
   setInterval(draw, 1000)
