@@ -22,7 +22,8 @@ State has a `noHands` record (state-keys.md). Only `~/.collective-wisdom/scripts
 | `python3 ~/.collective-wisdom/scripts/no_hands.py start --thread <this thread's id>` | Starts a run. Last line `no-hands: started (cap N tickets, $C)` or `no-hands: refused (<why>)`. |
 | `python3 ~/.collective-wisdom/scripts/no_hands.py check` | Prints one line and reads only, except that a `stop` result is also recorded as the run's end (a stop is final): `no-hands: off`, `on N/cap $X/$C`, `drain <reason> N/cap $X/$C`, `stop cost-cap $X/$C`, or `stop stopped-by-user` (the user said `stop everything` after the run began), or `stop <why>` (setting off, start message not verified, cost unknown; a ticket past `spec` with no transcripts is cost unknown, not $0). |
 | `no_hands.py drain <reason>` | No new starts. Approvals stay automatic. The first reason stays. |
-| `no_hands.py end <reason>` | Ends the run and prints its summary lines. After a `stop`, `check` has already ended the run: `end` writes nothing and prints the summary with the recorded reason. |
+| `no_hands.py end <reason>` | Ends the run and prints its summary lines. After a `stop`, `check` has already ended the run: `end` writes nothing and prints the summary with the recorded reason. Call it once per run: on an ended run it prints the summary again. |
+| `python3 ~/.collective-wisdom/scripts/approval_policy.py check no-hands <PREFIX>-N` | A ship-loop child's check, with its own ticket id: exit 0 only while a run is active and started that ticket. Without the id it checks the run only. |
 
 ## Start a run
 

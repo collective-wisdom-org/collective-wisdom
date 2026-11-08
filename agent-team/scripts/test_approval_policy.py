@@ -197,6 +197,18 @@ def test_a_ticket_the_run_did_not_start_keeps_the_tolerance(tmp_path, monkeypatc
     assert "ask ABC-1 (High)" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("argv, started, code, line", [
+    (["check", "no-hands", "ABC-1"], ("ABC-1",), 0, "auto spec under No Hands"),
+    (["check", "no-hands", "ABC-2"], ("ABC-1",), 1, "ask (no active No Hands run that started ABC-2)"),
+    (["check", "no-hands", "not-a-ticket"], ("ABC-1",), 2, "cannot read arguments"),
+    (["check", "no-hands"], ("ABC-1",), 0, "auto spec under No Hands"),
+])
+def test_check_no_hands_scoped_to_a_ticket(monkeypatch, capsys, argv, started, code, line):
+    monkeypatch.setattr(ap.no_hands, "active", lambda ticket=None: ticket is None or ticket in started)
+    assert ap.main(argv, no_setting) == code
+    assert line in capsys.readouterr().out.strip().splitlines()[-1]
+
+
 def test_check_no_hands_asks_without_a_run(capsys):
     assert ap.main(["check", "no-hands"], no_setting) == 1
     assert "ask (no active No Hands run)" in capsys.readouterr().out
@@ -237,6 +249,26 @@ HANDS = [
     ("docs/agents/evil.pth", True),
     ("agent-team/scripts/__pycache__/cos_state.cpython-312.pyc", True),
     ("README/__pycache__/x.pyc", True),
+    # a package directory or compiled extension named like a stdlib module or a gate script, at any depth under scripts/
+    ("agent-team/scripts/json/__init__.py", True),
+    ("scripts/encodings/x.py", True),
+    ("scripts/encodings/data.txt", True),
+    ("scripts/no_hands/__init__.py", True),
+    ("agent-team/scripts/cos_state/__init__.py", True),
+    ("agent-team/scripts/cos_state.cpython-313-darwin.so", True),
+    ("scripts/json.pyd", True),
+    ("scripts/dashboard/json/x.py", True),
+    # test configuration, at the repo root or under agent-team/
+    ("conftest.py", True),
+    ("agent-team/conftest.py", True),
+    ("pytest.ini", True),
+    ("agent-team/pyproject.toml", True),
+    ("setup.cfg", True),
+    ("agent-team/tox.ini", True),
+    ("docs/pyproject.toml", False),
+    ("scripts/dashboard/types.ts", False),
+    ("scripts/types.ts", False),
+    ("scripts/json", False),
     ("agent-team/scripts/cos_rank.py", False),
     ("agent-team/scripts/cos_rank_extra.py", False),
     ("pathlib.py", False),

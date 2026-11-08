@@ -4,7 +4,8 @@
 Usage:
     ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec   Chief of Staff, root checkout: the ticket's awaiting-build status line
     ~/.collective-wisdom/scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
-    ~/.collective-wisdom/scripts/approval_policy.py check no-hands         ship-loop child: exit 0 only while a No Hands run is active
+    ~/.collective-wisdom/scripts/approval_policy.py check no-hands [<PREFIX>-N]   ship-loop child: exit 0 only while a No Hands run is active
+                                                                                  (and, with a ticket id, the run started that ticket)
 
 The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting); the level is never read
 from a working tree, and the merge target branch is read from the root checkout. A missing row, an unknown value or a failed read is `strict`. The rule:
@@ -60,8 +61,9 @@ HANDS_SCRIPTS = (
     "release_notes.py", "pr_diff_delta.py",  # imported by merge_pr.py and review_scope.py
 )
 HANDS_TESTS = {"scripts/test_" + re.sub(r"\W", "_", n.removesuffix(".py")) + ".py" for n in HANDS_SCRIPTS if n.endswith((".py", ".sh"))}
+TEST_CONFIG = {"conftest.py", "pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"}  # change how CI runs the tests, at the repo root or under agent-team/
 HANDS_PATH = frozenset(
-    {"docs/agents/project.md", "templates/project.md", "templates/machine-instruction.md", "install.sh", "tag-release.sh",
+    TEST_CONFIG | {"docs/agents/project.md", "templates/project.md", "templates/machine-instruction.md", "install.sh", "tag-release.sh",
      ".cursor/hooks.json", ".cursor/mcp.json", ".mcp.json",
      "docs/agents/security-review.md", "docs/agents/code-review.md", "docs/agents/chief-of-staff.md", "docs/agents/github-auth.md",
      ".claude/agents/code-reviewer.md", ".claude/agents/security-reviewer.md"}
@@ -108,17 +110,26 @@ def on_approval_path(path):
     return p in PATH_FILES or p.startswith(PATH_DIRS + (".",)) or "/." in p or instructions
 
 
-SHADOWS = frozenset(sys.stdlib_module_names) | {"sitecustomize", "usercustomize"}
+SHADOWS = frozenset(sys.stdlib_module_names) | {"sitecustomize", "usercustomize", "conftest"}
+HANDS_STEMS = frozenset(n.split(".")[0] for n in HANDS_SCRIPTS)
+PYTHONISH = (".py", ".so", ".pyd", ".pyc", ".pth")  # file types Python imports or loads
 
 
 def shadows_imports(p, name):
     """True for a file that changes what the gate scripts import or how their tests run, though no listed script imports it.
 
-    A file under scripts/ (any depth) named like a stdlib module (pathlib.py, json.py), sitecustomize or usercustomize, or conftest.py;
-    any `*.pth` file; anything in a `__pycache__` directory.
+    Under scripts/, each path part cut at its first `.` is a stem: a part that names a package (any directory above the file) or a
+    Python-ish file (.py .so .pyd .pyc .pth) whose stem is a standard-library module, sitecustomize, usercustomize, conftest or the
+    stem of a HANDS_SCRIPTS file (scripts/json/__init__.py, scripts/no_hands/__init__.py, scripts/cos_state.cpython-313-darwin.so,
+    scripts/encodings/x.py). Any `*.pth` file; anything in a `__pycache__` directory.
     """
-    in_scripts = p.split("/")[0] == "scripts"
-    return name.endswith(".pth") or "__pycache__" in p.split("/") or (in_scripts and (name.split(".")[0] in SHADOWS or name == "conftest.py"))
+    parts = p.split("/")
+    if name.endswith(".pth") or "__pycache__" in parts:
+        return True
+    if parts[0] != "scripts":
+        return False
+    names = SHADOWS | HANDS_STEMS
+    return any(part.split(".")[0] in names for part in parts[1:-1]) or (name.endswith(PYTHONISH) and name.split(".")[0] in names)
 
 
 def on_hands_path(path):
@@ -158,9 +169,13 @@ def cmd_auto(tid, kind, setting):
     return _verdict("spec", tid, risk_level(status if isinstance(status, str) else None), setting, tid)
 
 
-def cmd_check(level, setting):
+def cmd_check(level, setting, ticket=None):
     if level == "no-hands":
-        return (0, "approval: auto spec under No Hands") if no_hands.active() else (1, "approval: ask (no active No Hands run)")
+        if ticket is not None and not project_config.ticket_re(anchored=True).match(ticket):
+            return 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py check no-hands [<PREFIX>-N]"
+        if no_hands.active(ticket=ticket):
+            return 0, "approval: auto spec under No Hands"
+        return 1, "approval: ask (no active No Hands run" + (f" that started {ticket}" if ticket else "") + ")"
     if level not in LEVELS:
         return 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py check Low|Medium|High|no-hands"
     return _verdict("spec", "", level, setting)
@@ -174,8 +189,10 @@ def main(argv, setting=project_config.approval_setting):
         code, line = cmd_auto(argv[1], argv[2], setting)
     elif len(argv) == 2 and argv[0] == "check":
         code, line = cmd_check(argv[1], setting)
+    elif len(argv) == 3 and argv[:2] == ["check", "no-hands"]:
+        code, line = cmd_check(argv[1], setting, argv[2])
     else:
-        code, line = 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec | check <Level>|no-hands"
+        code, line = 2, "approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec | check <Level>|no-hands [<PREFIX>-N]"
     print(line)
     return code
 

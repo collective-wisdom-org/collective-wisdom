@@ -38,9 +38,10 @@ drain   Sets the drain reason (the first one stays). Last line: no-hands: drain 
         drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
         may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.
 end     Sets endedAt and endReason and prints the run summary: why, how long, each ticket with its state and cost, the total.
-        On a run that `check` already ended it writes nothing and prints the summary with the recorded reason.
+        On a run that has ended (by `check` or an earlier `end`) it writes nothing and reposts the summary with the recorded reason, exit 0.
 
-Exit codes: 0 ok, 1 refused, or drain and end with no active run, 2 bad arguments or the state file or message store failed.
+Exit codes: 0 ok, 1 refused, or drain with no active run, or end with neither an active run nor one that ended (`end` on an ended run exits 0
+and prints the summary again, so the Chief of Staff calls it once per run), 2 bad arguments or the state file or message store failed.
 ~/.collective-wisdom/scripts/approval_policy.py and cos_approve_pr.py import active() from here. active(ticket=...) is also true
 only when the ticket is on the run's `started` list: approvals under a run cover those tickets only.
 """
