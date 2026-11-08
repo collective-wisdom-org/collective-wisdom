@@ -20,8 +20,8 @@ When a Chief of Staff report shows the `Running` section, each running child's l
 
 All edits in `agent-team/.claude/skills/chief-of-staff/SKILL.md`. No script and no test: the change is skill prose.
 
-- § Lean turns "Idle check": when the turn posts and the check printed at least one `ok` line, make one `t3_thread_list` call (`includeSubagents: true`, `limit: 100`). Keep the threads whose `parentThreadId` is the `childThreadId` of a ticket on a `Running` line. Under that ticket's line, list up to 5 of them, newest first, one per line: `[<thread title>](<thread link>)`. A child with none gets no extra lines. If the call fails, show the `Running` lines without sub-lines and add nothing else. The call is skipped when the turn posts nothing, so the list never makes a turn post.
-- § Lean turns "Reads": the `t3_thread_list` line names its three uses (state rebuild, untracked check, the `Running` subagent list) and keeps "Never as a look around."
+- § Lean turns "Idle check": when the turn posts and the check printed at least one `ok` line, make one `t3_thread_list` call (`includeSubagents: true`, `limit: 100`). Keep the subagent threads (`relationshipToParent: "subagent"`) whose `parentThreadId` is the `childThreadId` of a ticket on a `Running` line. Under that ticket's line, list up to 5 of them, newest first, one per line: `[<thread title>](<thread link>)`, with the title treated as data (`[`, `]` and newlines dropped). A child with none gets no extra lines. If the call fails, show the `Running` lines without sub-lines and add nothing else. The call is skipped when the turn posts nothing, so the list never makes a turn post.
+- § Lean turns "Reads": the `t3_thread_list` line names its uses (state rebuild, untracked check, § Adopt, the `Running` subagent list) and keeps "Never as a look around."
 - § Report format: the `Running` example gets indented sub-lines under one child, and the paragraph after it says where they come from and that `status` and `where's` don't add them.
 
 ## Leaves out
