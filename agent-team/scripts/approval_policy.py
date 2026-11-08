@@ -121,7 +121,7 @@ def shadows_imports(p, name):
     Under scripts/, each path part cut at its first `.` is a stem: a part that names a package (any directory above the file) or a
     Python-ish file (.py .so .pyd .pyc .pth) whose stem is a standard-library module, sitecustomize, usercustomize, conftest or the
     stem of a HANDS_SCRIPTS file (scripts/json/__init__.py, scripts/no_hands/__init__.py, scripts/cos_state.cpython-313-darwin.so,
-    scripts/encodings/x.py). Any `*.pth` file; anything in a `__pycache__` directory.
+    scripts/encodings/x.py). A last part with no `.` (a symlink) gets the same stem check. A test config file (TEST_CONFIG) at any depth under scripts/. Any `*.pth` file; anything in a `__pycache__` directory.
     """
     parts = p.split("/")
     if name.endswith(".pth") or "__pycache__" in parts:
@@ -129,7 +129,10 @@ def shadows_imports(p, name):
     if parts[0] != "scripts":
         return False
     names = SHADOWS | HANDS_STEMS
-    return any(part.split(".")[0] in names for part in parts[1:-1]) or (name.endswith(PYTHONISH) and name.split(".")[0] in names)
+    if name in TEST_CONFIG:
+        return True
+    last_loads = name.endswith(PYTHONISH) or "." not in name  # a symlink or extensionless entry named like a module can be a package
+    return any(part.split(".")[0] in names for part in parts[1:-1]) or (last_loads and name.split(".")[0] in names)
 
 
 def on_hands_path(path):
