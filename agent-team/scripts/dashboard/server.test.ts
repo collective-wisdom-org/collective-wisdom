@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { pageVersion, startServer } from './server.ts'
+import { codeFiles, codeVersion, pageVersion, restartWatch, startServer } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -106,7 +106,7 @@ test('method and routes', async () => {
     assert.equal((await call(srv.port, 'POST', '/api', host)).status, 405)
     assert.equal((await call(srv.port, 'GET', '/nope', host)).status, 404)
     const h = await call(srv.port, 'GET', '/health', host)
-    assert.deepEqual(JSON.parse(h.body), { ok: true, root })
+    assert.deepEqual(JSON.parse(h.body), { ok: true, root, code: codeVersion(codeFiles(join(import.meta.dirname, 'server.ts'))), pid: process.pid })
     assert.equal(h.headers['x-content-type-options'], 'nosniff')
     assert.match(String((await call(srv.port, 'GET', '/', host)).headers['content-security-policy']), /default-src 'self'/)
   } finally {
@@ -262,9 +262,66 @@ test('CLI starts through a symlinked directory', async () => {
         if (r.status === 200) body = r.body
       } catch {}
     }
-    assert.deepEqual(JSON.parse(body || 'null'), { ok: true, root })
+    const health = JSON.parse(body || 'null')
+    assert.deepEqual({ ...health, code: typeof health.code, pid: typeof health.pid }, { ok: true, root, code: 'string', pid: 'number' })
   } finally {
     child.kill()
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('codeFiles follows relative imports once, skips bare and missing ones', () => {
+  const dir = tmpRoot()
+  try {
+    mkdirSync(join(dir, 'x'))
+    mkdirSync(join(dir, 'b'))
+    writeFileSync(join(dir, 'x', 'entry.ts'), "import fs from 'node:fs'\nimport { a } from './a.ts'\nimport type { C } from '../b/c.ts'\nimport './gone.ts'\nimport { g } from './gone.ts'\n")
+    writeFileSync(join(dir, 'x', 'a.ts'), "import { e } from './entry.ts'\n")
+    writeFileSync(join(dir, 'b', 'c.ts'), '')
+    const real = realpathSync(dir)
+    assert.deepEqual(codeFiles(join(dir, 'x', 'entry.ts')), [join(real, 'b', 'c.ts'), join(real, 'x', 'a.ts'), join(real, 'x', 'entry.ts')])
+    assert.deepEqual(codeFiles(join(dir, 'nope.ts')), [])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+  const real = codeFiles(import.meta.dirname + '/server.ts').map((f) => f.split('/').pop())
+  for (const f of ['server.ts', 'api.ts', 'groups.ts', 'rows.ts']) assert.ok(real.includes(f), f)
+})
+
+test('codeVersion changes with any file and is null when one is missing', () => {
+  const dir = tmpRoot()
+  try {
+    const [a, b] = [join(dir, 'a.ts'), join(dir, 'b.ts')]
+    writeFileSync(a, '1')
+    writeFileSync(b, '2')
+    const v = codeVersion([a, b])
+    assert.match(v ?? '', /^[0-9a-f]{16}$/)
+    assert.equal(codeVersion([a, b]), v)
+    writeFileSync(b, '3')
+    assert.notEqual(codeVersion([a, b]), v)
+    assert.equal(codeVersion([a, join(dir, 'gone.ts')]), null)
+    assert.equal(codeVersion([]), null)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('restartWatch asks for a restart only for a new version seen twice, never a failed one', () => {
+  // 'F:x' marks x failed before the next check.
+  const cases: { running: string; steps: string[]; want: boolean[] }[] = [
+    { running: 'r', steps: ['r', 'x', 'x'], want: [false, false, true] },
+    { running: 'r', steps: ['x', 'y', 'y'], want: [false, false, true] },
+    { running: 'r', steps: ['x', 'r', 'x'], want: [false, false, false] },
+    { running: 'r', steps: ['null', 'null', 'null'], want: [false, false, false] },
+    { running: 'r', steps: ['x', 'x', 'F:x', 'x', 'x', 'y', 'y'], want: [false, true, false, false, false, true] },
+  ]
+  for (const c of cases) {
+    const w = restartWatch(c.running)
+    const got: boolean[] = []
+    for (const step of c.steps) {
+      if (step.startsWith('F:')) w.failed(step.slice(2))
+      else got.push(w.check(step === 'null' ? null : step))
+    }
+    assert.deepEqual(got, c.want, c.steps.join(','))
   }
 })
