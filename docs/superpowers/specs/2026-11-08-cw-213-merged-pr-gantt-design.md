@@ -1,6 +1,7 @@
 # CW-213: Show the agent gantt on merged PRs in the dashboard
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #214, as specified
 **Ticket:** [#213](https://github.com/collective-wisdom-org/collective-wisdom/issues/213)
 **Related:** #209 (PR #211) added the spend ledger this follows.
 
