@@ -15,12 +15,12 @@ The setting and the caps are `project.md` changes, which wait for the user at me
 
 ## Run record
 
-State has a `noHands` record (state-keys.md). Only `~/.collective-wisdom/scripts/no_hands.py` writes it, and `cos_state.py`'s `start` op adds each ticket you start to `started` while a run is active. Never edit it by hand. A record the user's `no hands` did not write approves nothing: every check re-reads the setting, the cost and the user's message.
+State has a `noHands` record (state-keys.md). Only `~/.collective-wisdom/scripts/no_hands.py` writes it, and `cos_state.py`'s `start` op adds each ticket you start to `started` while a run is active. Never edit it by hand; hand-editing the state file is out of scope, since the record is only as trustworthy as the file. A record the user's `no hands` did not write approves nothing: every check re-reads the setting, the cost, the user's newest `no hands` and any `stop everything` since.
 
 | Call | What it does |
 |---|---|
 | `python3 ~/.collective-wisdom/scripts/no_hands.py start --thread <this thread's id>` | Starts a run. Last line `no-hands: started (cap N tickets, $C)` or `no-hands: refused (<why>)`. |
-| `python3 ~/.collective-wisdom/scripts/no_hands.py check` | Prints one line, reads only: `no-hands: off`, `on N/cap $X/$C`, `drain <reason> N/cap $X/$C`, `stop cost-cap $X/$C`, or `stop <why>` (setting off, start message not verified, cost unknown). |
+| `python3 ~/.collective-wisdom/scripts/no_hands.py check` | Prints one line, reads only: `no-hands: off`, `on N/cap $X/$C`, `drain <reason> N/cap $X/$C`, `stop cost-cap $X/$C`, or `stop stopped-by-user` (the user said `stop everything` after the run began), or `stop <why>` (setting off, start message not verified, cost unknown; a ticket past `spec` with no transcripts is cost unknown, not $0). |
 | `no_hands.py drain <reason>` | No new starts. Approvals stay automatic. The first reason stays. |
 | `no_hands.py end <reason>` | Ends the run and prints its summary lines. |
 

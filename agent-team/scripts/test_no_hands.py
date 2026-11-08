@@ -32,7 +32,7 @@ def world(tmp_path, run=None, msgs=(msg(),), chief="chief"):
     return state, db
 
 
-def call(tmp_path, capsys, argv, run=None, setting=ON, cost=lambda t: 10.0, **kw):
+def call(tmp_path, capsys, argv, run=None, setting=ON, cost=lambda t, stage: 10.0, **kw):
     state, db = world(tmp_path, run, **kw)
     code = no_hands.main(["--file", str(state), "--db", str(db), *argv], setting=lambda: setting, cost=cost)
     return code, capsys.readouterr().out.strip(), json.loads(state.read_text()).get("noHands"), (state, db)
@@ -74,31 +74,48 @@ def test_start(tmp_path, capsys, monkeypatch, run, setting, kw, code, line):
         (OPEN, ON, {}, None, "no-hands: on 2/3 $20/$100"),
         ({**OPEN, "drain": "blocked ABC-1"}, ON, {}, None, "no-hands: drain blocked ABC-1 2/3 $20/$100"),
         ({**OPEN, "started": ["ABC-1", "ABC-2", "ABC-3"]}, ON, {}, None, "no-hands: drain ticket-cap 3/3 $30/$100"),
-        (OPEN, ON, {}, lambda t: 50.0, "no-hands: stop cost-cap $100/$100"),
-        (OPEN, ON, {}, lambda t: None, "no-hands: stop cost unknown"),
-        (OPEN, ON, {}, lambda t: 0.0 if t == "ABC-2" else 10.0, "no-hands: on 2/3 $10/$100"),  # a ticket with no sessions costs $0
+        (OPEN, ON, {}, lambda t, s: 50.0, "no-hands: stop cost-cap $100/$100"),
+        (OPEN, ON, {}, lambda t, s: None, "no-hands: stop cost unknown"),
+        (OPEN, ON, {}, lambda t, stage: 0.0 if t == "ABC-2" else 10.0, "no-hands: on 2/3 $10/$100"),
         (OPEN, (False, 0, 0, ""), {}, None, "no-hands: stop setting off"),
         # a record the user's `no hands` did not start: an agent's copy, or no such message
         (OPEN, ON, {"msgs": [msg(by="agent")]}, None, "no-hands: stop start message not verified"),
         (OPEN, ON, {"msgs": []}, None, "no-hands: stop start message not verified"),
         # the user's own message, but not a whole `no hands` (`no hands off`) or sent after the run began
         (OPEN, ON, {"msgs": [msg(text="no hands off")]}, None, "no-hands: stop start message not verified"),
+        # an older `no hands` cannot be reused once a newer one was sent; a later `no hands` after startedAt does not matter
+        (OPEN, ON, {"msgs": [msg("m0", created="2026-11-08T09:00:00Z"), msg("m1", created="2026-11-08T09:30:00Z")]}, None, "no-hands: on 2/3 $20/$100"),
+        ({**OPEN, "itemId": "turn-item:message:m0"}, ON, {"msgs": [msg("m0", created="2026-11-08T09:00:00Z"), msg("m1", created="2026-11-08T09:30:00Z")]}, None, "no-hands: stop start message not verified"),
+        (OPEN, ON, {"msgs": [msg(), msg("m2", created="2026-11-08T10:30:00Z")]}, None, "no-hands: on 2/3 $20/$100"),
+        # the user's `stop everything` after startedAt stops the run; one from before does not
+        (OPEN, ON, {"msgs": [msg(), msg("m3", "stop everything", created="2026-11-08T10:30:00Z")]}, None, "no-hands: stop stopped-by-user"),
+        (OPEN, ON, {"msgs": [msg("m3", "stop everything", created="2026-11-08T09:00:00Z"), msg()]}, None, "no-hands: on 2/3 $20/$100"),
         ({**OPEN, "startedAt": "2026-11-08T09:59:59Z"}, ON, {}, None, "no-hands: stop start message not verified"),
     ],
 )
 def test_check_and_active(tmp_path, capsys, run, setting, kw, cost, line):
-    code, out, _, (state, db) = call(tmp_path, capsys, ["check"], run, setting, cost or (lambda t: 10.0), **kw)
+    code, out, _, (state, db) = call(tmp_path, capsys, ["check"], run, setting, cost or (lambda t, s: 10.0), **kw)
     assert (code, out) == (0, line)
-    assert no_hands.active(lambda: setting, state, db, cost or (lambda t: 10.0)) == line.startswith(("no-hands: on", "no-hands: drain"))
+    assert no_hands.active(lambda: setting, state, db, cost or (lambda t, s: 10.0)) == line.startswith(("no-hands: on", "no-hands: drain"))
 
 
 @pytest.mark.parametrize(
-    "code, out, err, want",
-    [(0, "cost $12.50 API-equivalent, 1.0M tokens", "", 12.5), (2, "", "agent_usage: no transcripts for ABC-1\n", 0.0), (2, "", "agent_usage: boom", None), (1, "", "Traceback", None), (0, "garbage", "", None)],
+    "code, out, err, stage, want",
+    [
+        (0, "cost $12.50 API-equivalent, 1.0M tokens", "", "build", 12.5),
+        (2, "", "agent_usage: no transcripts for ABC-1\n", "gone", 0.0),
+        (2, "", "agent_usage: no transcripts for ABC-1\n", "spec", 0.0),
+        (2, "", "agent_usage: no transcripts for ABC-1\n", "spec-queued", 0.0),
+        # no transcripts for a ticket past spec may be a Codex or Cursor child: the cost is unknown, not $0
+        *((2, "", "agent_usage: no transcripts for ABC-1\n", stage, None) for stage in ("build", "build-queued", "awaiting-review", "awaiting-merge", "merge", "blocked", "merged")),
+        (2, "", "agent_usage: boom", "gone", None),
+        (1, "", "Traceback", "gone", None),
+        (0, "garbage", "", "gone", None),
+    ],
 )
-def test_ticket_cost_tells_no_sessions_from_a_failed_read(monkeypatch, code, out, err, want):
+def test_ticket_cost_tells_no_sessions_from_a_failed_read(monkeypatch, code, out, err, stage, want):
     monkeypatch.setattr(no_hands.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, code, out, err))
-    assert no_hands.ticket_cost("ABC-1") == want
+    assert no_hands.ticket_cost("ABC-1", stage) == want
 
 
 def test_check_from_a_linked_worktree_reads_the_root_checkouts_state(tmp_path, capsys, monkeypatch):
@@ -111,8 +128,8 @@ def test_check_from_a_linked_worktree_reads_the_root_checkouts_state(tmp_path, c
     (root / ".agent-team" / "state.json").write_text(state.read_text())
     monkeypatch.chdir(linked)
     assert no_hands.root_state_file().resolve() == (root / ".agent-team" / "state.json").resolve()
-    assert no_hands.active(lambda: ON, db=db, cost=lambda t: 10.0) is True
-    assert no_hands.main(["--db", str(db), "check"], setting=lambda: ON, cost=lambda t: 10.0) == 0
+    assert no_hands.active(lambda: ON, db=db, cost=lambda t, s: 10.0) is True
+    assert no_hands.main(["--db", str(db), "check"], setting=lambda: ON, cost=lambda t, s: 10.0) == 0
     assert capsys.readouterr().out.strip() == "no-hands: on 2/3 $20/$100"
 
 

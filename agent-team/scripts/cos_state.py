@@ -47,8 +47,8 @@ noApproval (true only) marks a merge-lane run that carries no user approval (a c
 reviews stand). It is allowed only in merge, merge-queued and blocked, and a stage op to any other stage clears it.
 
 noHands is the No Hands run record: {"startedAt", "itemId", "started", "drain", "endedAt", "endReason"}. The no-hands op
-allows only the moves no_hands.py makes: a whole fresh record (started [], the rest null) when no run is active (none, or
-endedAt set); a drain string on an active run with none yet; endedAt (with a time zone) and endReason together on an active
+allows only the moves no_hands.py makes: a whole fresh record (started [], the rest null, a new itemId, a startedAt later than
+the last run's endedAt) when no run is active (none, or endedAt set); a drain string on an active run with none yet; endedAt (with a time zone) and endReason together on an active
 run. Anything else is rejected, so an ended run stays ended and itemId and started never change through it. The start op
 appends its ticket to started while a run has no endedAt.
 
@@ -336,6 +336,9 @@ def op_no_hands(s, op):
             raise Reject("noHands needs a startedAt with a time zone and a non-empty itemId")
         if new["started"] != [] or any(new[k] is not None for k in ("drain", "endedAt", "endReason")):
             raise Reject("noHands: a new run starts with started [] and drain, endedAt and endReason null")
+        ended = cur.get("endedAt")
+        if cur.get("itemId") == new["itemId"] or (ended and not (zoned(ended) and parse(new["startedAt"]) > parse(ended))):
+            raise Reject("noHands: a new run needs a new itemId and a startedAt later than the last run's endedAt")
         s["noHands"] = new
     elif set(new) == {"drain"}:
         if not (live and not cur.get("drain") and text(new["drain"])):

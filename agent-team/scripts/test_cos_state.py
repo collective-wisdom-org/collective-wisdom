@@ -125,7 +125,7 @@ ENDED = {**RUN, "endedAt": OLD, "endReason": "x"}
     "state, ops, err, started",
     [
         ({}, [{"op": "no-hands", "set": RUN}], None, []),
-        ({"noHands": ENDED}, [{"op": "no-hands", "set": {**RUN, "itemId": "turn-item:message:m2"}}], None, []),
+        ({"noHands": ENDED}, [{"op": "no-hands", "set": {**RUN, "startedAt": "2020-01-02T00:00:00Z", "itemId": "turn-item:message:m2"}}], None, []),
         ({"noHands": RUN}, [{"op": "no-hands", "set": {"drain": "ticket-cap"}}], None, []),
         ({"noHands": RUN}, [{"op": "no-hands", "set": {"endedAt": OLD, "endReason": "x"}}], None, []),
         ({"noHands": RUN}, [START, START], None, ["ABC-2"]),
@@ -135,6 +135,9 @@ ENDED = {**RUN, "endedAt": OLD, "endReason": "x"}
         ({}, [{"op": "no-hands", "set": {**RUN, "startedAt": "2026-11-08"}}], "time zone", None),
         ({}, [{"op": "no-hands", "set": {**RUN, "cap": 99}}], "unknown noHands key", None),
         ({}, [{"op": "top", "set": {"noHands": RUN}}], "unknown top-level key noHands", None),
+        # a new run cannot replay the last run's message, or start no later than the last run ended
+        ({"noHands": ENDED}, [{"op": "no-hands", "set": {**RUN, "startedAt": "2020-01-02T00:00:00Z"}}], "new itemId", None),
+        ({"noHands": ENDED}, [{"op": "no-hands", "set": {**RUN, "itemId": "turn-item:message:m2"}}], "new itemId", None),
         # a state edit cannot reopen an ended run, empty started, change itemId, or replace a run that is active
         ({"noHands": ENDED}, [{"op": "no-hands", "set": {"endedAt": None, "endReason": None}}], "ends with an endedAt", None),
         ({"noHands": ENDED}, [{"op": "no-hands", "set": {"drain": "x"}}], "drain is set once", None),

@@ -214,6 +214,8 @@ HANDS = [
     (".codex/config.toml", True),
     ("mods/agent-gantt/hooks/x.ts", True),
     (".claude-plugin/marketplace.json", True),
+    ("agent-team/.claude/mods/status-pane/hooks/x.ts", True),
+    (".claude/hooks/stop.sh", True),
     ("agent-team/scripts/cos_rank.py", False),
     ("scripts/cos_restart.py", False),
     ("agent-team/.claude/skills/write-ticket/SKILL.md", False),

@@ -11,8 +11,9 @@ A run needs the committed setting (project_config.no_hands_setting: the `No Hand
 branch>) and the user's own message `no hands` (the whole message) in the Chief of Staff thread. The run record is the `noHands`
 key of the state file, written through cos_state.py's no-hands op, which allows only the moves made here: when the run began, the
 message that began it, the tickets it started (the start op appends them), the drain reason and how it ended. It is a record, not
-a rule: active() re-checks the setting, the cost and the user's message (whole `no hands`, sent no later than startedAt) every
-time, so a record written by anything but `start` approves nothing. The state file is the root checkout's (the first entry of
+a rule: active() re-checks the setting, the cost and the user's message (the user's newest message that is exactly `no hands`
+among those sent no later than startedAt) every time, so a record written by anything but `start` approves nothing. Editing the
+state file by hand is out of scope: the record is only as trustworthy as the file. The state file is the root checkout's (the first entry of
 `git worktree list`) unless --file is given, so a child in a linked worktree reads the same run.
 
 start   Needs the setting on, no active run, the state's chiefThreadId equal to --thread, and the newest user message holding
@@ -20,12 +21,15 @@ start   Needs the setting on, no active run, the state's chiefThreadId equal to 
         or `no hands, and delete x` never starts a run. Writes a fresh record.
         Last line: no-hands: started (cap N tickets, $C)  or  no-hands: refused (<why>)
 check   Prints one line, read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. A ticket with no
-        transcripts at all (agent_usage.py: "no transcripts", exit 2; just started, or cancelled early) counts as $0; a cost that
-        cannot be read for any other reason makes the run stop, since an unmeasured run cannot be held to its cap.
+        transcripts at all (agent_usage.py: "no transcripts", exit 2) counts as $0 only when the ticket is gone from the state file
+        (cancelled early) or is in spec or spec-queued (just started). In any other stage, or merged, the missing transcripts may
+        be a Codex or Cursor child or a moved projects dir, so the cost is unknown; so is a cost that cannot be read for any other
+        reason, and an unknown cost makes the run stop, since an unmeasured run cannot be held to its cap.
             no-hands: off                          no run, or the run ended
             no-hands: on N/cap $X/$C               N tickets started
             no-hands: drain <reason> N/cap $X/$C   no new starts; approvals stay automatic (ticket-cap is the cap reached)
             no-hands: stop cost-cap $X/$C          the Chief of Staff cancels the children, then `end`
+            no-hands: stop stopped-by-user         the user said `stop everything` after the run began
             no-hands: stop <why>                   setting off | start message not verified | cost unknown
 drain   Sets the drain reason (the first one stays). Last line: no-hands: drain <reason>
         drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
@@ -55,20 +59,24 @@ WORDS = "no hands"
 USAGE = str(Path(__file__).absolute().parent / "agent_usage.py")
 COST = re.compile(r"cost \$([0-9]+(?:\.[0-9]+)?)")
 NO_SESSIONS = "no transcripts for"  # agent_usage.py --ticket stderr (exit 2) when no session ran the ticket
+FREE_STAGES = ("gone", "spec", "spec-queued")  # a ticket with no transcripts costs $0 only here
 
 
 class Cannot(Exception):
     pass
 
 
-def ticket_cost(ticket):
-    """API-equivalent dollars from `agent_usage.py --ticket`: 0.0 when no session ran the ticket, None when the cost cannot be read."""
+def ticket_cost(ticket, stage="unknown"):
+    """API-equivalent dollars from `agent_usage.py --ticket`; None when the cost cannot be read.
+
+    No session ran the ticket: 0.0 when its stage is gone, spec or spec-queued, else None (a child that left no transcript here).
+    """
     try:
         r = subprocess.run([sys.executable, USAGE, "--ticket", ticket], capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError):
         return None
     if r.returncode == 2 and NO_SESSIONS in r.stderr:
-        return 0.0
+        return 0.0 if stage in FREE_STAGES else None
     m = COST.match(r.stdout) if r.returncode == 0 else None
     return float(m.group(1)) if m else None
 
@@ -114,19 +122,33 @@ def _said(db, thread, words, after=None):
 
 
 def _item_ok(db, thread, item_id, at):
-    """True when the message is the user's, is exactly `no hands` (trailing . or ! allowed) and was sent at or before `at`."""
+    """True when the item is the user's newest message that is exactly `no hands` (trailing . or ! allowed) sent at or before `at`.
+
+    An older `no hands` cannot be reused for a new record once a newer one exists.
+    """
     bare = item_id.removeprefix(cos_user_check.PREFIX)
     try:
         with contextlib.redirect_stderr(io.StringIO()):
-            rows = cos_user_check.query(db, cos_user_check.SELECT + "AND role = 'user' AND message_id IN (?, ?)", (thread, bare, item_id))
+            rows = cos_user_check.query(db, cos_user_check.SELECT + "AND role = 'user'", (thread,))
     except SystemExit:
         return False
-    if not rows:
+    until, sends = cos_state.parse(at), []
+    for mid, created, by, text in rows:
+        sent = cos_state.parse(created)
+        if by == "user" and cos_user_check.norm(text).rstrip(".!") == WORDS and sent is not None and sent.tzinfo is not None:
+            sends.append((sent, mid))
+    if until is None or until.tzinfo is None:
         return False
-    sent, by, text = cos_state.parse(rows[0][1]), rows[0][2], rows[0][3]
-    until = cos_state.parse(at)
-    zoned = sent is not None and until is not None and sent.tzinfo is not None and until.tzinfo is not None
-    return by == "user" and cos_user_check.norm(text).rstrip(".!") == WORDS and zoned and sent <= until
+    sends = [x for x in sends if x[0] <= until]
+    return bool(sends) and max(sends)[1] == bare
+
+
+def stage_of(state, ticket):
+    """merged, the ticket's stage, unknown (a ticket without one), or gone (in neither list)."""
+    if isinstance((state.get("merged") or {}).get(ticket), dict):
+        return "merged"
+    tickets = state.get("tickets", {})
+    return ((tickets[ticket] or {}).get("stage") or "unknown") if ticket in tickets else "gone"
 
 
 def _is_active(run):
@@ -150,9 +172,11 @@ def evaluate(setting, state_file, db, cost):
     thread, item = state.get("chiefThreadId"), run.get("itemId")
     if not (thread and item and _item_ok(db, thread, item, run.get("startedAt"))):
         return "stop", "no-hands: stop start message not verified"
+    if _said(db, thread, "stop everything", run["startedAt"])[0]:
+        return "stop", "no-hands: stop stopped-by-user"
     tickets, spent = _tickets(run), 0.0
     for t in tickets:
-        c = cost(t)
+        c = cost(t, stage_of(state, t))
         if c is None:
             return "stop", "no-hands: stop cost unknown"
         spent += c
@@ -223,10 +247,10 @@ def cmd_end(reason, setting, state_file, cost):
     end = datetime.now(timezone.utc)
     rows, spent = [], 0.0
     for t in _tickets(run):
-        c = cost(t)
+        stage = stage_of(state, t)
+        c = cost(t, stage)
         spent += c or 0.0
-        merged = state.get("merged", {}).get(t)
-        where = f"merged #{merged.get('pr', '-')}" if isinstance(merged, dict) else (state.get("tickets", {}).get(t) or {}).get("stage", "gone")
+        where = f"merged #{state['merged'][t].get('pr', '-')}" if stage == "merged" else stage
         rows.append(f"{t} {where} {'cost unknown' if c is None else f'${int(c)}'}")
     cap = setting()[2]
     _write(state_file, {"endedAt": end.strftime("%Y-%m-%dT%H:%M:%SZ"), "endReason": reason})

@@ -68,7 +68,7 @@ HANDS_PATH = frozenset(
 )
 HANDS_DIRS = (
     *(f".claude/skills/{n}/" for n in ("chief-of-staff", "ship-loop", "open-pr", "security-review", "merge-pr", "owasp-security", "agent-security", "auditing-security")),
-    ".codex/", ".claude-plugin/", "mods/",  # agent config, the marketplace and the mods
+    ".codex/", ".claude-plugin/", "mods/", ".claude/mods/", ".claude/hooks/",  # agent config, the marketplace and the mods
 )
 
 
