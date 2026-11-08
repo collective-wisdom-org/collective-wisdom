@@ -151,7 +151,7 @@ Run it by hand after a batch of merges you want machines to take. Apps do not pi
 
 ## Agent pane
 
-`mods/agent-gantt/` is a Claude Code mod that opens a pane beside the chat and draws this session's agents as a Gantt chart. Each row shows the agent's name, repo, start, end, tokens, cost and child count, with a bar from start to end. Children sit under their parent, and running bars grow while you watch. It is per person, not per app: install it once per machine at the user scope and it works in every repo and worktree you open. `install.sh` does not install it.
+`mods/agent-gantt/` is a Claude Code mod that opens a pane beside the chat and draws this session's agents as a Gantt chart. Each row shows the agent's name, repo, start, end, tokens, cost and model, with a bar that covers only the time the agent was working (waiting for a subagent, a background command or you is a gap). The `main` row is the session; under it is one row per task (one per prompt you send, named after the prompt), and a subagent sits under the task it was spawned in. Running bars grow while you watch. It is per person, not per app: install it once per machine at the user scope and it works in every repo and worktree you open. `install.sh` does not install it.
 
 At the prompt of a terminal session:
 
@@ -171,7 +171,7 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
 
 The marketplace also lists `status-pane`, the Chief of Staff status pane. It installs the same way, with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`. The old copy in an app's `.claude/mods/status-pane/` is removed by the removal command.
 
-Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The mod has tests (`rows.test.ts`, `snapshot.test.ts`): `node --test mods/agent-gantt/hooks/*.test.ts` (Node 24 or newer).
+Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The mod has tests (`rows.test.ts`, `snapshot.test.ts`, `timeline.test.ts`): `node --test mods/agent-gantt/hooks/*.test.ts` (Node 24 or newer).
 
 ## Local dashboard
 
