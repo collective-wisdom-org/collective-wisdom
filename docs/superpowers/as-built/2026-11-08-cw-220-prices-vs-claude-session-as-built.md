@@ -1,8 +1,15 @@
 # As-built: prices.json against Claude Code's session cost
 
-**Shipped:** in the CW-220 PR
+**Shipped:** in PR #222
 **Ticket:** [#220](https://github.com/collective-wisdom-org/collective-wisdom/issues/220)
 **Spec:** [2026-11-08-cw-220-prices-vs-claude-session-design.md](../specs/2026-11-08-cw-220-prices-vs-claude-session-design.md)
+
+## Differs from the spec
+
+- The spec said `modelCost` would be exported for the test. It is, and `addUsage` moved with it from `register.tsx` into `rows.ts`, because `register.tsx` imports `claude-code` and could not be tested.
+- The spec said step 1 would price the card from the stored snapshots. Those rows came from an older mod that priced every write at 5m, so the card column is simulated: `buildRows` run over per-agent usage from the transcripts.
+- The spec put `agent_usage.py` token-count fixes in scope when small. None were needed; the one difference found (requests that never finished) is left for a follow-up, see Known gaps.
+- `history.ts` sets `pricing: null` on history entries, so the page note shows for them.
 
 ## What changed
 

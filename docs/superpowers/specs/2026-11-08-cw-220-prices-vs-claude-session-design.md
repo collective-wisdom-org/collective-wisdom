@@ -1,6 +1,7 @@
 # CW-220: Close the remaining gaps between prices.json and what Claude Code reports for a session
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #222, with differences: [as-built](../as-built/2026-11-08-cw-220-prices-vs-claude-session-as-built.md)
 **Ticket:** [#220](https://github.com/collective-wisdom-org/collective-wisdom/issues/220)
 **Related:** CW-216 (gantt waterfall, its "Known gaps"), CW-171, CW-209 (spend on merged PRs).
 
