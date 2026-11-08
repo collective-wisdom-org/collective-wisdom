@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { request } from 'node:http'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
-import { spawn } from 'node:child_process'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs'
+import { execFileSync, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -26,9 +26,17 @@ function call(port: number, method: string, path: string, host?: string): Promis
   })
 }
 
-const goodSnap = { sessionId: 'good', cwd: '/Users/me/.t3/worktrees/repo/t3-1', updatedAt: Date.now(), total: null, rows: [] }
+/** A git repo under a `.worktrees` folder, so snapshots at its root count as a worktree session and match a card on branch main. */
+function wtRoot(): string {
+  const root = join(realpathSync(mkdtempSync(join(tmpdir(), 'dash-'))), '.worktrees', 'dash')
+  mkdirSync(root, { recursive: true })
+  execFileSync('git', ['init', '-q', '-b', 'main', root])
+  return root
+}
+
+const goodSnap = { sessionId: 'good', cwd: '', updatedAt: Date.now(), total: null, rows: [] }
 const outsideDirs: string[] = []
-const goodState = { tickets: { 'CW-1': { title: 'one', stage: 'build', status: 'coding' } } }
+const goodState = { tickets: { 'CW-1': { title: 'one', stage: 'build', status: 'coding', branch: 'main' } } }
 
 test('host check', async () => {
   const root = tmpRoot()
@@ -87,7 +95,8 @@ test('degraded inputs still answer', async () => {
       setup: (r) => {
         mkdirSync(join(r, '.agent-team/gantt'), { recursive: true })
         writeFileSync(join(r, '.agent-team/gantt/bad.json'), '{"rows":')
-        writeFileSync(join(r, '.agent-team/gantt/good.json'), JSON.stringify(goodSnap))
+        writeFileSync(join(r, '.agent-team/state.json'), JSON.stringify(goodState))
+        writeFileSync(join(r, '.agent-team/gantt/good.json'), JSON.stringify({ ...goodSnap, cwd: r }))
       },
       sessions: ['good'],
     },
@@ -96,8 +105,9 @@ test('degraded inputs still answer', async () => {
       setup: (r) => {
         const outside = tmpRoot()
         outsideDirs.push(outside)
-        writeFileSync(join(outside, 'good.json'), JSON.stringify(goodSnap))
+        writeFileSync(join(outside, 'good.json'), JSON.stringify({ ...goodSnap, cwd: r }))
         mkdirSync(join(r, '.agent-team'))
+        writeFileSync(join(r, '.agent-team/state.json'), JSON.stringify(goodState))
         symlinkSync(outside, join(r, '.agent-team/gantt'))
       },
       sessions: [],
@@ -116,18 +126,29 @@ test('degraded inputs still answer', async () => {
     },
   ]
   for (const c of cases) {
-    const root = tmpRoot()
+    const root = wtRoot()
     c.setup(root)
     const srv = await startServer({ root, port: 0 })
     try {
-      const r = await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)
-      assert.equal(r.status, 200, c.name)
-      const api = JSON.parse(r.body)
-      assert.deepEqual(api.gantt.map((g: { sessionId: string }) => g.sessionId), c.sessions, c.name)
+      // The worktree list loads in the background; give it a moment before the first read.
+      await sleep(300)
+      let api: any
+      for (let i = 0; i < 30; i++) {
+        const r = await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)
+        assert.equal(r.status, 200, c.name)
+        api = JSON.parse(r.body)
+        const got = api.status.flatMap((g: any) => g.rows).flatMap((row: any) => row.gantt ?? []).map((s: { sessionId: string }) => s.sessionId)
+        if (got.length === c.sessions.length) break
+        await sleep(100)
+      }
+      const got = api.status.flatMap((g: any) => g.rows).flatMap((row: any) => row.gantt ?? []).map((s: { sessionId: string }) => s.sessionId)
+      assert.deepEqual(got, c.sessions, c.name)
+      assert.ok(!('gantt' in api), c.name)
+      assert.deepEqual(api.merged, [], c.name)
       if (c.status !== undefined) assert.equal(api.status.length, c.status, c.name)
     } finally {
       await srv.close()
-      rmSync(root, { recursive: true, force: true })
+      rmSync(join(root, '..', '..'), { recursive: true, force: true })
       for (const d of outsideDirs.splice(0)) rmSync(d, { recursive: true, force: true })
     }
   }

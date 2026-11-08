@@ -7,6 +7,8 @@ import { buildApi, parseWorktrees, repoUrlFromProject } from './api.ts'
 import type { Worktree } from './api.ts'
 import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
+import { createMerged } from './merged.ts'
+import type { MergedConfig } from './merged.ts'
 
 const PAGES: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -38,6 +40,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
   const agentDir = join(root, '.agent-team')
   let lastState: unknown = null
   const trackerTitles = createTitles({ run: ghRunner(root) })
+  const merged = createMerged({ run: ghRunner(root) })
 
   // Worktree list for matching sessions to tickets: read in the background, cached 30s, last good list kept.
   let worktrees: Worktree[] = []
@@ -73,14 +76,18 @@ export async function startServer(opts: { root: string; port: number }): Promise
     const envId = (dash as { environmentId?: unknown } | undefined)?.environmentId
     let repo = null
     let titleCfg: TitleConfig | null = null
+    let mergedCfg: MergedConfig | null = null
     let prefix: string | null = null
     try {
       const text = readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
       if (text !== undefined) {
         repo = repoUrlFromProject(text)
         prefix = prefixFromProject(text)
-        const slug = repo?.isGithubIssues ? slugFromUrl(repo.url) : null
-        if (prefix && slug) titleCfg = { prefix, slug }
+        const slug = repo ? slugFromUrl(repo.url) : null
+        if (prefix && slug && repo) {
+          mergedCfg = { prefix, slug, issueUrls: repo.isGithubIssues }
+          if (repo.isGithubIssues) titleCfg = { prefix, slug }
+        }
       }
     } catch {}
     const tickets = (lastState as { tickets?: unknown } | null)?.tickets
@@ -91,8 +98,9 @@ export async function startServer(opts: { root: string; port: number }): Promise
       }).map(([id]) => id)
       trackerTitles.want(blank, titleCfg)
     }
+    merged.want(mergedCfg)
     refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
