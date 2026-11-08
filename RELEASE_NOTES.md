@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-08 fit the dashboard to a narrow side pane and show a title on every row (CW-175) (#176)
+
+Merged 2026-11-08 01:09 UTC.
+
+The local dashboard now fits a narrow side pane and shows a title on each ticket row, reading a missing one from GitHub issues. A new `start` state op needs a title, so a rebuilt or adopted ticket never has a blank one.
+
+Context size: 99026 to 99293 characters (+267 from main)
+
 ## 2026-11-08 show the status pane and agent Gantt in a local dashboard (CW-173) (#174)
 
 Merged 2026-11-08 00:32 UTC.
