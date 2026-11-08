@@ -1,8 +1,9 @@
 # CW-188: Tighten the dashboard header and add call-to-action badges
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #192, as specified
 **Ticket:** [#188](https://github.com/collective-wisdom-org/collective-wisdom/issues/188)
-**Runs beside:** CW-187 (#187, building) edits the same `page/index.html` and `page/app.js`. It removes the `Agents` `<h2>` and `#gantt` and adds a Merged list. I expect a small conflict in the body markup of `index.html` and rebase after it merges.
+**Runs beside:** CW-187 (#187, merged as #189 before this PR) edited the same `page/index.html` and `page/app.js`. It removes the `Agents` `<h2>` and `#gantt` and adds a Merged list. I expect a small conflict in the body markup of `index.html` and rebase after it merges.
 
 ## Goal
 
