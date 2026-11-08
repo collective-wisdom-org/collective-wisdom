@@ -19,9 +19,9 @@ test('snapshotName accepts only safe session ids', () => {
   for (const [id, want] of cases) assert.equal(snapshotName(id), want, JSON.stringify(id))
 })
 
-test('buildSnapshot writes the session fields and the nine row fields', () => {
-  const row: Row = { id: 'main', depth: 0, name: 'main', repo: 'app', start: 1, end: null, tokens: 5, cost: null, childCount: 0 }
+test('buildSnapshot writes the session fields and the row fields', () => {
+  const row: Row = { id: 'main', depth: 0, kind: 'session', name: 'main', repo: 'app', start: 1, end: null, tokens: 5, cost: null, segments: [[1, null]], model: null, harness: null }
   const got = JSON.parse(buildSnapshot({ sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, rows: [row] }))
   assert.deepEqual(got, { sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, rows: [row] })
-  assert.deepEqual(Object.keys(got.rows[0]).sort(), ['childCount', 'cost', 'depth', 'end', 'id', 'name', 'repo', 'start', 'tokens'])
+  assert.deepEqual(Object.keys(got.rows[0]).sort(), ['cost', 'depth', 'end', 'harness', 'id', 'kind', 'model', 'name', 'repo', 'segments', 'start', 'tokens'])
 })

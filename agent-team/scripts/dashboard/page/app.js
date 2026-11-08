@@ -102,26 +102,34 @@ export function renderGantt(sessions, now) {
       const span = Math.max(1, t1 - t0)
       const rows = s.rows
         .map((r) => {
+          const segments = Array.isArray(r.segments) && r.segments.length ? r.segments : [[r.start, r.end]]
+          const bars = segments
+            .map(([a, b]) => {
+              const open = b === null || b === undefined
+              const left = Math.min(99, Math.max(0, ((a - t0) / span) * 100))
+              const width = Math.min(100 - left, Math.max(0.5, (((open ? clockNow : b) - a) / span) * 100))
+              return `<span class="bar${open && !s.stale ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span>`
+            })
+            .join('')
           const running = r.end === null || r.end === undefined
-          const left = Math.min(99, Math.max(0, ((r.start - t0) / span) * 100))
-          const width = Math.min(100 - left, Math.max(0.5, ((endOf(r) - r.start) / span) * 100))
           return `<div class="grow">
   <span class="name" style="padding-left:${Math.max(0, r.depth) * 1.2}em">${esc(r.name)}</span>
   <span class="num cost">${dollars(r.cost)}</span>
-  <span class="track"><span class="bar${running && !s.stale ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span></span>
+  <span class="track">${bars}</span>
   <span class="meta">
     <span class="repo">${esc(r.repo)}</span>
     <span class="num t0">${clock(r.start)}</span>
     <span class="num t1">${running && !s.stale ? 'running' : clock(endOf(r))}</span>
     <span class="num tok">${tokens(r.tokens)}</span>
-    <span class="num kids">${esc(r.childCount)}</span>
+    <span class="model">${esc(r.model ?? '–')}</span>
+    <span class="harness">${esc(r.harness ?? '–')}</span>
   </span>
 </div>`
         })
         .join('\n')
       return `<section class="session${s.stale ? ' stale' : ''}">
   <h3>${esc(s.cwd)} <span class="total">${dollars(s.total)}</span>${s.stale ? ' <span class="pill">stale</span>' : ''}</h3>
-  <div class="grow head"><span>Agent</span><span>Repo</span><span class="num">Start</span><span class="num">End</span><span class="num">Tokens</span><span class="num">Cost</span><span class="num">Kids</span><span>Timeline</span></div>
+  <div class="grow head"><span>Agent</span><span>Repo</span><span class="num">Start</span><span class="num">End</span><span class="num">Tokens</span><span class="num">Cost</span><span>Model</span><span>Harness</span><span>Timeline</span></div>
   ${rows}
 </section>`
     })

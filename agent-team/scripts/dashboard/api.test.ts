@@ -52,7 +52,7 @@ const charts = (snapshots: unknown[], path = WT) =>
   (build({ state: stateOf('CW-1', { branch: 'b' }), snapshots, worktrees: [{ path, branch: 'b' }] }).status[0].rows[0] as any).gantt ?? []
 
 test('snapshots', () => {
-  const row = (end: number | null, name = 'n') => ({ id: 'a', depth: 0, name, repo: 'r', start: 1, end, tokens: 1, cost: null, childCount: 0 })
+  const row = (end: number | null, name = 'n') => ({ id: 'a', depth: 0, name, repo: 'r', start: 1, end, tokens: 1, cost: null })
   const snap = (age: number, rows: unknown) => ({ sessionId: 's', cwd: WT, updatedAt: NOW - age, total: null, rows })
   const H = 3_600_000
   const cases: [string, unknown, (g: any[]) => void][] = [
@@ -62,12 +62,13 @@ test('snapshots', () => {
     ['31s all ended', snap(31_000, [row(2)]), (g) => assert.equal(g[0].stale, false)],
     ['fresh running', snap(5_000, [row(null)]), (g) => { assert.equal(g[0].stale, false); assert.equal(g[0].rows[0].end, null) }],
     ['idle main only', snap(31_000, [{ ...row(null), id: 'main' }]), (g) => { assert.equal(g[0].stale, false); assert.equal(g[0].rows[0].end, NOW - 31_000) }],
+    ['main-only with an open task, 31s', snap(31_000, [{ ...row(null), id: 'main' }, { ...row(null), id: 'main:task:0', kind: 'task' }]), (g) => { assert.equal(g[0].stale, false); assert.deepEqual(g[0].rows.map((r: any) => r.end), [NOW - 31_000, NOW - 31_000]) }],
     ['main plus running subagent, 31s', snap(31_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, true); assert.deepEqual(g[0].rows.map((r: any) => r.end), [NOW - 31_000, NOW - 31_000]) }],
     ['main plus running subagent, 5s', snap(5_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, false); assert.deepEqual(g[0].rows.map((r: any) => r.end), [null, null]) }],
     ['bad end counts as running', snap(31_000, [{ ...row(null), end: 'x' }]), (g) => assert.equal(g[0].stale, true)],
     ['extra keys dropped', { ...snap(1, [{ ...row(2), secret: 'x' }]), prompt: 'p' }, (g) => {
       assert.deepEqual(Object.keys(g[0]).sort(), ['cwd', 'rows', 'sessionId', 'stale', 'total', 'updatedAt'])
-      assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['childCount', 'cost', 'depth', 'end', 'id', 'name', 'repo', 'start', 'tokens'])
+      assert.deepEqual(Object.keys(g[0].rows[0]).sort(), ['cost', 'depth', 'end', 'harness', 'id', 'kind', 'model', 'name', 'repo', 'segments', 'start', 'tokens'])
     }],
     ['string', 'x', (g) => assert.equal(g.length, 0)],
     ['no rows', { sessionId: 's', cwd: WT, updatedAt: NOW }, (g) => assert.equal(g.length, 0)],
@@ -77,6 +78,31 @@ test('snapshots', () => {
   for (const [name, s, check] of cases) {
     try { check(charts([s])) } catch (e) { throw new Error(`${name}: ${(e as Error).message}`) }
   }
+})
+
+test('snapshots: row fields', () => {
+  const base = { id: 'a', depth: 1, name: 'n', repo: 'r', start: 10, end: 50, tokens: 1, cost: null }
+  const rowOf = (extra: Record<string, unknown>, age = 1000) =>
+    charts([{ sessionId: 's', cwd: WT, updatedAt: NOW - age, total: null, rows: [{ ...base, ...extra }] }])[0].rows[0]
+  const cases: [string, Record<string, unknown>, Record<string, unknown>][] = [
+    ['new fields pass', { kind: 'task', model: 'opus-5-5', harness: 'T3 Code', segments: [[30, 50], [10, 20]] }, { kind: 'task', model: 'opus-5-5', harness: 'T3 Code', segments: [[10, 20], [30, 50]] }],
+    ['bad kind, long label, non-string label', { kind: 'x', model: 'm'.repeat(80), harness: 7 }, { kind: 'agent', model: 'm'.repeat(40), harness: null }],
+    ['bad pairs dropped', { segments: [[1, 'x'], [5, 4], ['a', 6], [Infinity, 7], [1], 'x', [12, null], [11, 13]] }, { segments: [[11, 13], [12, null]] }],
+    ['no valid segments', { segments: [[5, 4], 'x'] }, { segments: [[10, 50]] }],
+    ['segments capped', { segments: Array.from({ length: 600 }, (_, i) => [i, i + 1]) }, { segmentCount: 500, firstStart: 100 }],
+    ['old row: childCount, no segments/model/harness', { childCount: 3 }, { kind: 'agent', segments: [[10, 50]], model: null, harness: null }],
+  ]
+  for (const [name, extra, want] of cases) {
+    const got: any = rowOf(extra)
+    assert.ok(!('childCount' in got), name)
+    const { segmentCount, firstStart, ...rest } = want
+    for (const [k, v] of Object.entries(rest)) assert.deepEqual(got[k], v, `${name}: ${k}`)
+    if (segmentCount) assert.equal(got.segments.length, segmentCount, name)
+    if (firstStart !== undefined) assert.equal(got.segments[0][0], firstStart, name)
+  }
+  const open = { segments: [[10, 20], [30, null]], end: null }
+  assert.deepEqual(rowOf(open, 31_000).segments, [[10, 20], [30, NOW - 31_000]], 'stale closes the open segment')
+  assert.deepEqual(rowOf(open, 1000).segments, [[10, 20], [30, null]], 'fresh keeps it open')
 })
 
 test('snapshots: only worktree sessions are listed', () => {

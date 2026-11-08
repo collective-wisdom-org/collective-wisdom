@@ -55,7 +55,7 @@ test('header badges count the three groups, hide empty alerts and use the singul
 })
 
 const T = Date.UTC(2026, 10, 7, 12, 0, 0)
-const grow = (o) => ({ id: 'a', depth: 0, name: 'agent', repo: 'r', start: T, end: T + 600000, tokens: 12345, cost: null, childCount: 2, ...o })
+const grow = (o) => ({ id: 'a', depth: 0, name: 'agent', repo: 'r', start: T, end: T + 600000, tokens: 12345, cost: null, ...o })
 const sess = (o = {}) => ({ sessionId: 's', cwd: '/x', updatedAt: T, stale: false, total: 0.5, rows: [grow()], ...o })
 
 test('gantt escapes names, formats tokens and cost, and marks running rows', () => {
@@ -68,6 +68,21 @@ test('gantt escapes names, formats tokens and cost, and marks running rows', () 
   assert.match(html, /–/)
   assert.match(html, /running/)
   assert.match(html, /\$0\.50/)
+})
+
+test('gantt draws one bar per segment and model and harness cells, no kids', () => {
+  const bars = (html) => [...html.matchAll(/<span class="bar( running)?" style="left:([\d.]+)%;width:([\d.]+)%/g)].map((m) => [m[1] ? 'running' : '', Number(m[2]), Number(m[3])])
+  const seg = [[T, T + 100000], [T + 300000, T + 400000], [T + 500000, null]]
+  const live = renderGantt([sess({ rows: [grow({ end: null, segments: seg, model: 'opus-5-5', harness: 'T3 Code' })] })], T + 600000)
+  assert.deepEqual(bars(live), [['', 0, 16.67], ['', 50, 16.67], ['running', 83.33, 16.67]])
+  assert.match(live, /<span class="model">opus-5-5<\/span>\s*<span class="harness">T3 Code<\/span>/)
+  assert.match(live, /<span>Model<\/span><span>Harness<\/span>/)
+  assert.ok(!/kids|Kids/.test(live))
+  const stale = renderGantt([sess({ stale: true, updatedAt: T + 600000, rows: [grow({ segments: seg })] })], T + 900000)
+  assert.ok(!/bar running/.test(stale))
+  const old = renderGantt([sess({ rows: [grow()] })], T + 60000)
+  assert.equal(bars(old).length, 1)
+  assert.match(old, /<span class="model">–<\/span>\s*<span class="harness">–<\/span>/)
 })
 
 test('the shared axis follows now for a live session and freezes for a stale one', () => {
