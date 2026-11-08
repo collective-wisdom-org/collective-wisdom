@@ -106,7 +106,8 @@ def route(state, tid, caller, thread, setting):
         raise Cannot(f"find {tid} in state")
     lane = lane_for(caller, ticket, setting)
     if lane is None:
-        return [], f"route: no {caller} does not apply from {ticket.get('stage')}", 1
+        stage = ticket.get("stage")
+        return [], f"route: no {caller} does not apply from {stage if stage in cos_state.STAGES else 'an unknown stage'}", 1
     others = [(i, t) for i, t in state["tickets"].items() if i != tid and isinstance(t, dict)]
     count = lambda *stages: sum(t.get("stage") in stages for _, t in others)  # noqa: E731
     waiting = count(f"{lane}-queued")

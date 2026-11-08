@@ -51,7 +51,7 @@ import project_config  # noqa: E402
 
 IDLE_AFTER = timedelta(minutes=45)
 WAITS = ("0", "1", "2", "2twice")
-REVIEW = re.compile(r"(not posted|pass (?:\d+|\?) .*?)(?: https?://\S*)?(?: \([^)]*\))?")
+REVIEW = re.compile(r"(not posted|pass (?:\d+|\?) (?:PASS|CHANGES NEEDED|\(no verdict\)))(?: https?://\S*)?(?: \((?:\d\d:\d\d)?\))?")
 
 
 class Cannot(Exception):
