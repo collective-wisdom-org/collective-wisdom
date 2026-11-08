@@ -20,7 +20,7 @@ The caller and the ticket's stage give the lane:
     head-moved         awaiting-review, awaiting-merge,            build
                        merge-queued
     conflict-keep      awaiting-merge, merge-queued                merge  (only with the setting `off`)
-    conflict-withdraw  awaiting-review, awaiting-merge,            build (setting `on`), merge (`off`)
+    conflict-withdraw  awaiting-review, awaiting-merge,            build
                        merge-queued, merge
     answer, resume,    blocked                                     the lane of the ticket's resumeStage
     rate-limit
@@ -59,7 +59,7 @@ ROUTES = {  # caller -> {from stage: lane}
     "reviewer-changes": {"awaiting-review": "build"},
     "head-moved": {s: "build" for s in ("awaiting-review", "awaiting-merge", "merge-queued")},
     "conflict-keep": {"awaiting-merge": "merge", "merge-queued": "merge"},
-    "conflict-withdraw": {s: "conflict" for s in ("awaiting-review", "awaiting-merge", "merge-queued", "merge")},
+    "conflict-withdraw": {s: "build" for s in ("awaiting-review", "awaiting-merge", "merge-queued", "merge")},
     "answer": {"blocked": "resume"},
     "resume": {"blocked": "resume"},
     "rate-limit": {"blocked": "resume"},
@@ -88,8 +88,6 @@ def lane_for(caller, ticket, setting):
     if lane == "resume":
         lane = ticket.get("resumeStage")
         return lane if lane in cos_state.ACTIVE else None
-    if lane == "conflict":
-        return "build" if setting() == "on" else "merge"
     if caller == "conflict-keep" and lane and setting() == "on":
         return None
     return lane

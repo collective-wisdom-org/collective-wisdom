@@ -62,7 +62,20 @@ The user's request, verbatim:
 
 ## Observation tickets
 
-A ticket helper started from the Chief of Staff's own observation, not a user request. Start it only when an `observe` op in SKILL.md § Child path prints `file`, and at most one per turn. It is the same `delegate_task` call as § Ticket helper, with `title: "Observed: <3 to 6 words>"`, except that you post no `On it:` reply: nothing goes to the user until the helper reports. The template differs like this:
+A ticket helper started from the Chief of Staff's own observation, not a user request. Start it only when an `observe` op in SKILL.md § Child path prints `file`, and at most one per turn. It is the same `delegate_task` call as § Ticket helper, with `title: "Observed: <3 to 6 words>"`, except that you post no `On it:` reply: nothing goes to the user until the helper reports.
+
+The kinds of a sighting (the `kind` of an `observe` op), each tied to a report line:
+
+- `lost-notice`: a `found by the sweep`, `found by the idle check` or `found by the merged check` line.
+- `handoff-unavailable`: `Handoff block unavailable for <PREFIX>-N`.
+- `wait-check-unreadable`: `<PREFIX>-N wait check unreadable; not blocked`.
+- `stall`: `<PREFIX>-N restarted: stalled after <step>`.
+- `rotation-failed`: `Rotation never confirmed` or `Rotation mismatch`.
+- `helper-no-report`: `Ticket helper ended without a report`.
+- `script-unavailable`: `Idle check didn't run`, `User check script unavailable; used thread read`, or a sweep or check that exited 2.
+- `other:<slug>`: anything else you can point to in what you coordinated (a handoff that carried too much or too little, a step that cost a second run). `<slug>` is 1 to 40 lowercase letters, digits and hyphens.
+
+The template differs like this:
 
 - First line: `TICKET HELPER. Chief of Staff thread: <this thread's id> Observation.`
 - Second line: `Run /write-ticket for the observation below, then stop.` instead of `... for the user's request below ...`.

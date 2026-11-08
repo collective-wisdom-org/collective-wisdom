@@ -44,8 +44,8 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("conflict-keep", "merge-queued", {}, "off", "send merge"),
         ("conflict-withdraw", "awaiting-review", {}, "on", "send build"),
         ("conflict-withdraw", "merge", {}, "on", "send build"),
-        ("conflict-withdraw", "awaiting-merge", {}, "off", "send merge"),
-        ("conflict-withdraw", "merge-queued", {}, "off", "send merge"),
+        ("conflict-withdraw", "awaiting-merge", {}, "off", "send build"),
+        ("conflict-withdraw", "merge-queued", {}, "off", "send build"),
         # a full lane, a waiting queue and the cap queue it; another lane's queue does not
         ("approve-spec", "awaiting-build", FULL_BUILD, "off", "queue build"),
         ("approve-spec", "awaiting-build", QUEUED_BUILD, "off", "queue build"),
@@ -53,7 +53,7 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("approve-merge", "awaiting-merge", OVER_CAP, "off", "queue merge"),
         ("changes", "awaiting-build", ONE_EACH, "off", "send spec"),
         # a ticket that holds the merge slot does not block its own send; the queue it sits in is not "someone waiting"
-        ("conflict-withdraw", "merge", {}, "off", "send merge"),
+        ("conflict-withdraw", "merge", {}, "off", "send build"),
         ("conflict-keep", "merge-queued", {"ABC-8": tk("merge-queued", pendingRelay="x")}, "off", "queue merge"),
         # callers that do not apply from the stage
         ("approve-merge", "awaiting-build", {}, "off", "no"),
