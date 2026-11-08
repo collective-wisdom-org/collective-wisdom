@@ -53,6 +53,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
     })
   }
 
+  refreshWorktrees()
+
   const api = () => {
     const state = readJson(join(agentDir, 'state.json'), [agentDir])
     if (state !== undefined) lastState = state

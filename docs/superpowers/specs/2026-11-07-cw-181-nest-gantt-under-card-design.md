@@ -56,7 +56,7 @@ Facts from `main` at `d2d3bce`.
 - `api.test.ts`: one table-driven test of the match: `cwd` equal to a worktree; `cwd` under it; nested worktree beats root; branch matched through state `branch`; branch matched through the `feat/cw-N-` fallback; root checkout on `main` stays unmatched; a branch of a ticket not on the board stays unmatched.
 - `page/app.test.js`: one test of the nested render: a row with `gantt` gets a `details.chart` with the count, closed by default and `open` when its id is in the set; a row without `gantt` gets none.
 - The `git worktree list` parser is a pure `parseWorktrees(text)` export in `api.ts`; the same api test table feeds it porcelain text, including a detached worktree that must be skipped.
-- Proof: a screenshot of the dashboard on this machine's state with one card opened, and a browser check that the opened `details` is still open after 6 seconds.
+- Proof: the match run against this machine's real state and snapshots, and the node tests. No screenshot or browser check of the open state was run; the PR lists it under Not proven.
 
 ## Leaves out
 
