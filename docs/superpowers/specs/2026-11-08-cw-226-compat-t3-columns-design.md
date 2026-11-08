@@ -57,7 +57,7 @@ Only `docs/compatibility.md` changes.
    - The matrix intro says each column is a T3 Code thread running that harness, and that the team is built for T3 Code, so sessions without it are not covered. It drops the sentence about Cursor in T3 Code not being a column.
    - The No Hands note names Codex, Cursor and Antigravity children.
    - Add a note: Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
-7. **Full compatibility.** One line per new column; the Claude Code alone, Codex alone and Cursor lines go. Claude Code and Codex lines stay as they are. Cursor in T3 Code: done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor with `review-security`, and the hook and cost figures work for it. Antigravity in T3 Code: done when `install.sh` installs skills and the instruction block for it, a Chief of Staff and its children run a ticket to merge on it, with subagents, a security review, a rotation hook and cost figures.
+7. **Full compatibility.** One line per new column; the Claude Code alone, Codex alone and Cursor lines go. Claude Code and Codex lines stay as they are. Cursor in T3 Code: done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor, with subagents and `review-security`, and the hook and cost figures work for it. Antigravity in T3 Code: done when `install.sh` installs skills and the instruction block for it, a Chief of Staff and its children run a ticket to merge on it, with subagents, a security review, a rotation hook and cost figures.
 8. **README.** Its link text ("What works on which harness and tracker") names no column, so it stays.
 
 ## Leaves out
