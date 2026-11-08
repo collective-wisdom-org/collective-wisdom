@@ -107,13 +107,13 @@ export function cleanThreadId(x: unknown): string | null {
   return typeof x === 'string' && x.length <= THREAD_MAX && /^[A-Za-z0-9:%._-]+$/.test(x) ? x : null
 }
 
-/** Cleans a snapshot whose cwd passes `keep`. `open` is true when the main row's last segment is still open, which the closing rules below would hide. */
+/** Cleans a snapshot whose cwd passes `keep`. `open` is true when a turn of the main loop is in progress: its `main` row or one of its `main:task:N` rows has an open last segment, which the closing rules below would hide. */
 function cleanWith(s: unknown, now: number, keep: (cwd: string) => boolean): { session: Session; open: boolean } | null {
   if (!isObj(s) || !Array.isArray(s.rows) || !keep(str(s.cwd))) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
   const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
-  const open = cleaned.find((r) => r.id === 'main')?.segments.at(-1)?.[1] === null
+  const open = cleaned.some((r) => /^main(:task:\d+)?$/.test(r.id) && r.segments.at(-1)?.[1] === null)
   // The main row and its task rows never end while the session lives, so only the other agents say whether it is stale.
   const working = cleaned.some((r) => r.kind === 'agent' && r.id !== 'main' && r.end === null)
   const stale = now - updatedAt > STALE_MS && working

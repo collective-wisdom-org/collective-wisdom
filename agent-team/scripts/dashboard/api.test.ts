@@ -258,7 +258,7 @@ test('a merged entry gets its detail and the spec link from the merge commit; th
 })
 
 const ROOT = '/Users/me/repo'
-const teamRow = (open: boolean) => ({ id: 'main', depth: 0, name: 'main', repo: 'r', start: 1, end: null, tokens: 1, cost: null, kind: 'session', segments: [[1, open ? null : 5]], model: null, harness: null })
+const teamRow = (open: boolean) => ({ id: 'main:task:0', depth: 1, name: 'task', repo: 'r', start: 1, end: null, tokens: 1, cost: null, kind: 'task', segments: [[1, open ? null : 5]], model: null, harness: null })
 const teamSnap = (sessionId: string, over: Record<string, unknown> = {}) => ({ sessionId, cwd: ROOT, updatedAt: NOW - 1000, total: null, rows: [teamRow(true)], threadId: null, heading: null, ...over })
 
 test('team role rule: the chief by state, project manager children by heading, nothing else', () => {
