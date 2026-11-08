@@ -1,4 +1,6 @@
+import ast
 import json
+from pathlib import Path
 
 import pytest
 
@@ -65,7 +67,6 @@ PATHS = [
     ("agent-team/scripts/approval_policy.py", True),
     ("agent-team/scripts/cos_rank.py", True),
     ("scripts/test_cos.py", True),
-    ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
     (".claude/skills/write-ticket/SKILL.md", True),
     ("agent-team/.claude/agents/code-reviewer.md", True),
     ("agent-team/.github/workflows/ci.yml", True),
@@ -85,7 +86,6 @@ PATHS = [
     ("agent-team/docs/superpowers/specs/x.md", False),
     ("src/docs/agents/project.md", False),
     ("src/scripts/x.py", False),
-    ("README.md", False),
     (".cursor/hooks.json", True),
     (".codex/config.toml", True),
     ("AGENTS.override.md", True),
@@ -162,3 +162,170 @@ def test_cli_state_failure_is_cannot(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cos_state, "DEFAULT_FILE", tmp_path / "missing.json")
     assert ap.main(["auto", "ABC-1", "spec"], lambda: ("permissive", "")) == 2
     assert "approval: cannot read the state file" in capsys.readouterr().out
+
+
+# No Hands: with a run active every level is auto (High and unrated too), the tolerance is not read, and the ask rules for a spec's stage still hold.
+def no_setting():
+    raise AssertionError("the tolerance is not read under No Hands")
+
+
+HANDS_CLI = [
+    (ticket(status="Build ready. Risk: High (auth)."), ["auto", "ABC-1", "spec"], 0, "auto spec ABC-1 under No Hands (Risk: High)"),
+    (ticket(status="Build ready."), ["auto", "ABC-1", "spec"], 0, "under No Hands (Risk: unrated)"),
+    (ticket(stage="build"), ["auto", "ABC-1", "spec"], 1, "not in awaiting-build"),
+    (ticket(), ["check", "no-hands"], 0, "auto spec under No Hands"),
+]
+
+
+@pytest.mark.parametrize("t, argv, code, line", HANDS_CLI)
+def test_cli_under_a_run(tmp_path, monkeypatch, capsys, t, argv, code, line):
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"tickets": {"ABC-1": t}}))
+    monkeypatch.setattr(cos_state, "DEFAULT_FILE", state)
+    monkeypatch.setattr(ap.no_hands, "active", lambda ticket=None: ticket in (None, "ABC-1"))  # the run started ABC-1
+    assert ap.main(argv, no_setting) == code
+    assert line in capsys.readouterr().out.strip().splitlines()[-1]
+
+
+def test_a_ticket_the_run_did_not_start_keeps_the_tolerance(tmp_path, monkeypatch, capsys):
+    """In flight when the run began: not on noHands.started, so High is asked under permissive even while the run is active."""
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"tickets": {"ABC-1": ticket(status="Build ready. Risk: High (auth).")}}))
+    monkeypatch.setattr(cos_state, "DEFAULT_FILE", state)
+    monkeypatch.setattr(ap.no_hands, "active", lambda ticket=None: ticket is None)  # a run is active, ABC-1 is not on its list
+    assert ap.main(["auto", "ABC-1", "spec"], lambda: ("permissive", "")) == 1
+    assert "ask ABC-1 (High)" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("argv, started, code, line", [
+    (["check", "no-hands", "ABC-1"], ("ABC-1",), 0, "auto spec under No Hands"),
+    (["check", "no-hands", "ABC-2"], ("ABC-1",), 1, "ask (no active No Hands run that started ABC-2)"),
+    (["check", "no-hands", "not-a-ticket"], ("ABC-1",), 2, "cannot read arguments"),
+    (["check", "no-hands"], ("ABC-1",), 0, "auto spec under No Hands"),
+])
+def test_check_no_hands_scoped_to_a_ticket(monkeypatch, capsys, argv, started, code, line):
+    monkeypatch.setattr(ap.no_hands, "active", lambda ticket=None: ticket is None or ticket in started)
+    assert ap.main(argv, no_setting) == code
+    assert line in capsys.readouterr().out.strip().splitlines()[-1]
+
+
+def test_check_no_hands_asks_without_a_run(capsys):
+    assert ap.main(["check", "no-hands"], no_setting) == 1
+    assert "ask (no active No Hands run)" in capsys.readouterr().out
+
+
+HANDS = [
+    ("docs/agents/project.md", True),
+    ("agent-team/templates/project.md", True),
+    ("install.sh", True),
+    (".github/workflows/ci.yml", True),
+    ("packages/x/.github/CODEOWNERS", True),
+    ("AGENTS.md", True),
+    ("agent-team/scripts/approval_policy.py", True),
+    ("scripts/test_approval_policy.py", True),
+    ("scripts/gh.sh", True),
+    ("scripts/prices.json", True),
+    (".claude/skills/chief-of-staff/approvals.md", True),
+    ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
+    ("agent-team/.claude/agents/code-reviewer.md", True),
+    ("agent-team/.claude/skills/owasp-security/SKILL.md", True),
+    ("agent-team/templates/machine-instruction.md", True),
+    (".claude/settings.local.json", True),
+    (".cursor/mcp.json", True),
+    (".mcp.json", True),
+    (".codex/config.toml", True),
+    ("mods/agent-gantt/hooks/x.ts", True),
+    (".claude-plugin/marketplace.json", True),
+    ("agent-team/.claude/mods/status-pane/hooks/x.ts", True),
+    (".claude/hooks/stop.sh", True),
+    # a file that shadows what the gate scripts import, or changes how their tests run
+    ("agent-team/scripts/pathlib.py", True),
+    ("scripts/json.py", True),
+    ("agent-team/scripts/dashboard/Argparse.py", True),
+    ("agent-team/scripts/sitecustomize.py", True),
+    ("agent-team/scripts/usercustomize.py", True),
+    ("agent-team/scripts/conftest.py", True),
+    ("agent-team/scripts/x.pth", True),
+    ("docs/agents/evil.pth", True),
+    ("agent-team/scripts/__pycache__/cos_state.cpython-312.pyc", True),
+    ("README/__pycache__/x.pyc", True),
+    # a package directory or compiled extension named like a stdlib module or a gate script, at any depth under scripts/
+    ("agent-team/scripts/json/__init__.py", True),
+    ("scripts/encodings/x.py", True),
+    ("scripts/encodings/data.txt", True),
+    ("scripts/no_hands/__init__.py", True),
+    ("agent-team/scripts/cos_state/__init__.py", True),
+    ("agent-team/scripts/cos_state.cpython-313-darwin.so", True),
+    ("scripts/json.pyd", True),
+    ("scripts/dashboard/json/x.py", True),
+    # test configuration, at the repo root or under agent-team/
+    ("conftest.py", True),
+    ("agent-team/conftest.py", True),
+    ("pytest.ini", True),
+    ("agent-team/pyproject.toml", True),
+    ("setup.cfg", True),
+    ("agent-team/tox.ini", True),
+    ("docs/pyproject.toml", False),
+    ("scripts/dashboard/types.ts", False),
+    ("scripts/types.ts", False),
+    ("scripts/json", True),
+    ("scripts/.cursor/rules/x.mdc", True),
+    ("docs/.cursorrules", True),
+    ("docs/.claude", True),
+    ("pytest", True),
+    ("main.py", False),
+    ("json/__init__.py", True),
+    ("json", True),
+    ("json.pyc", True),
+    ("json.cpython-313-darwin.so", True),
+    ("email/welcome.html", False),
+    ("types/index.ts", False),
+    (".claude/rules/x.md", True),
+    (".cursor/rules/x.mdc", True),
+    (".cursorrules", True),
+    ("agent-team/pytest/__main__.py", True),
+    (".claude", True),
+    (".codex", True),
+    (".claude/hooks", True),
+    ("mods", True),
+    ("pytest.py", True),
+    (".pytest.ini", True),
+    ("agent-team/.gitattributes", True),
+    ("docs/superpowers/specs/x.md", False),
+    ("agent-team/scripts/no_hands", True),
+    ("scripts/cos_state", True),
+    ("agent-team/scripts/pytest.ini", True),
+    ("scripts/dashboard/tox.ini", True),
+    ("agent-team/scripts/cos_rank.py", False),
+    ("agent-team/scripts/cos_rank_extra.py", False),
+    ("pathlib.py", True),
+    ("scripts/cos_restart.py", False),
+    ("agent-team/.claude/skills/write-ticket/SKILL.md", False),
+    ("README.md", False),
+]
+
+
+@pytest.mark.parametrize("path, on", HANDS)
+def test_hands_path(path, on):
+    assert ap.on_hands_path(path) is on
+
+
+def test_hands_path_scripts_import_only_hands_path_scripts():
+    """A gate cannot move into a helper the list leaves out: every local module a listed script loads is listed too."""
+    here = Path(__file__).parent
+    local = {f.stem for f in here.glob("*.py") if not f.name.startswith("test_")}
+    listed = {n.removesuffix(".py") for n in ap.HANDS_SCRIPTS}
+    missing = {}
+    for name in sorted(listed & local):
+        for node in ast.walk(ast.parse((here / f"{name}.py").read_text())):
+            if isinstance(node, ast.Import):
+                found = {a.name for a in node.names}
+            elif isinstance(node, ast.ImportFrom):
+                found = {node.module}
+            elif isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", "")) in ("_load", "spec_from_file_location"):
+                found = {a.value for a in node.args[:1] if isinstance(a, ast.Constant)}  # how the scripts load a sibling by name
+            else:
+                continue
+            for mod in found & local - listed:
+                missing.setdefault(name, set()).add(mod)
+    assert not missing, f"hands-path scripts import scripts that are not on HANDS_SCRIPTS: {missing}"

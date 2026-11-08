@@ -237,3 +237,33 @@ def test_review_mode_and_bot(tmp_path, monkeypatch, rows, mode, bot):
             project_config.review_mode()
     else:
         assert project_config.review_mode() == mode
+
+
+def _hands(mode, ticket="`10`", cost="`200`"):
+    return f"| No Hands (`off` or `on`) | {mode} |\n| No Hands ticket cap | {ticket} |\n| No Hands cost cap (USD) | {cost} |\n"
+
+
+@pytest.mark.parametrize("text, want", [
+    (_hands("`on`. Allowed"), (True, 10, 200)),
+    (_hands("`ON`", "`3`", "`50`"), (True, 3, 50)),
+    (_hands("`off`"), (False, 10, 200)),
+    ("", (False, 0, 0)),
+    (_hands("`maybe`"), (False, 0, 0)),
+    (_hands("on"), (False, 0, 0)),
+    (_hands("`on`", "`0`"), (False, 0, 0)),
+    ("| No Hands (`off` or `on`) | `on` |\n| No Hands ticket cap | `5` |\n", (False, 0, 0)),
+    (OSError("no git"), (False, 0, 0)),
+])
+def test_no_hands_setting(tmp_path, text, want):
+    root = tmp_path / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text("| Branch pattern | `feat/<prefix>-N-x` |\n")
+
+    def run(cmd):
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path}\nHEAD x\n"
+        if isinstance(text, OSError) and cmd[1] == "show":
+            raise text
+        return text if cmd[1] == "show" else ""
+
+    assert project_config.no_hands_setting(run)[:3] == want

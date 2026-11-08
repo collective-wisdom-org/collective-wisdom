@@ -7,7 +7,11 @@ Usage:
 --thread is this thread's own ID. The turn calls the script twice: without --after-reads for the
 look plan (state checks, child reads, idle check, sweep; its last line is `tick --after-reads`),
 and with it for the act plan (rate limit, hygiene, slot fill, observe, report, archive, rotation
-check), which depends on state alone and can be rerun. Output is numbered lines "N. <text>"; a
+check), which depends on state alone and can be rerun. While a No Hands run is active (the state's `noHands`
+has startedAt and no endedAt) the act plan carries a `run ... no_hands.py check` line before the slot fill. The tick
+cannot know its result, so on `drain` or `stop` the model prints no `start-todo` lines and sends nothing beyond what
+no-hands.md says. What the state alone shows, the tick does itself: with `noHands.drain` set it drops `start-todo`
+(queued sends still go) and reports `filling stopped: No Hands <reason>`. Output is numbered lines "N. <text>"; a
 `stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
 --file is given) through cos_state.load; a missing file counts as empty state. Writes nothing.
 --now is an ISO 8601 time (default: the current UTC time).
@@ -32,6 +36,7 @@ LANES = tuple(reversed(cos_state.ACTIVE))  # slot fill order: merge, build, spec
 FULL_PASS = ("start", "user", "wake")
 SCRIPTS = "~/.collective-wisdom/scripts"
 AGAIN = "tick --after-reads"
+NO_HANDS_CHECK = f"run python3 {SCRIPTS}/no_hands.py check"
 ROTATION_CHECK = f"run python3 {SCRIPTS}/cos_rotation_check.py"
 STALE_HANDOFF = timedelta(minutes=10)
 MAX_WAKE_MS = 6 * 3600 * 1000
@@ -193,8 +198,25 @@ def relay_lines(state, thread, tid, t, lane):
     return out + [f"send {tid} {lane} {json.dumps(relay, ensure_ascii=True)}"]
 
 
-def slot_fill(state, thread):
-    """(lines, whether a spec slot is left for Todo). Paused and rate limited turns never get here."""
+def no_hands_run(state):
+    """The active No Hands run record (started, not ended), or None. Same test as no_hands._is_active, without its imports."""
+    run = state.get("noHands")
+    return run if isinstance(run, dict) and run.get("startedAt") and not run.get("endedAt") else None
+
+
+def drain_reason(state):
+    """The drain reason of an active No Hands run, or None. Printed into the report line, so each word must be safe."""
+    run = no_hands_run(state)
+    reason = run.get("drain") if run else None
+    if not isinstance(reason, str) or not reason.strip():
+        return None
+    for word in reason.split():
+        safe(word, "No Hands drain reason")
+    return " ".join(reason.split())
+
+
+def slot_fill(state, thread, fill=True):
+    """(lines, whether a spec slot is left for Todo). Paused and rate limited turns never get here. fill=False sends the queue but starts no Todo."""
     counts = {lane: len(tickets_in(state, lane)) for lane in LANES}
     queues = {
         lane: sorted(
@@ -211,7 +233,7 @@ def slot_fill(state, thread):
         tid, t = queues[lane].pop(0)
         out += relay_lines(state, thread, tid, t, lane)
         counts[lane] += 1
-    todo = max(0, min(LIMITS["spec"] - counts["spec"], CAP - sum(counts.values())))
+    todo = max(0, min(LIMITS["spec"] - counts["spec"], CAP - sum(counts.values()))) if fill else 0
     return out + ["start-todo"] * todo, todo > 0
 
 
@@ -251,12 +273,15 @@ def act(state, thread, trigger, now):
     if full:
         out.append("prune")
     report = "report"
+    if no_hands_run(state):
+        out.append(NO_HANDS_CHECK)
     if not limited:
-        lines, free = slot_fill(state, thread)
+        draining = drain_reason(state)
+        lines, free = slot_fill(state, thread, fill=draining is None)
         out += lines
         if not state.get("rotation"):
             out.append("observe")
-        report += f" (filling stopped: {'spec slot free' if free else 'lanes full'})"
+        report += f" (filling stopped: {f'No Hands {draining}' if draining else 'spec slot free' if free else 'lanes full'})"
     out.append(report)
     return out + archives(state) + [ROTATION_CHECK]
 

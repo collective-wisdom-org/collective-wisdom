@@ -33,6 +33,7 @@ Operations (each {"op": NAME, ...}):
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
               observation ticket helper) or hold. The only op that writes "observed".
     prune
+    no-hands  set (a fresh No Hands run record, or drain, or endedAt with endReason). Only no_hands.py uses it; no other op writes "noHands".
 
 heldApproval ({"head", "itemId", "at"}: the user's approve N, held until a teammate approves) is allowed only
 in awaiting-review, must carry a full head, an itemId and an at, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
@@ -44,6 +45,12 @@ head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
 noApproval (true only) marks a merge-lane run that carries no user approval (a conflict sent to the merge lane while
 reviews stand). It is allowed only in merge, merge-queued and blocked, and a stage op to any other stage clears it.
+
+noHands is the No Hands run record: {"startedAt", "itemId", "started", "drain", "endedAt", "endReason"}. The no-hands op
+allows only the moves no_hands.py makes: a whole fresh record (started [], the rest null, a new itemId, a startedAt later than
+the last run's endedAt) when no run is active (none, or endedAt set); a drain string on an active run with none yet; endedAt (with a time zone) and endReason together on an active
+run. Anything else is rejected, so an ended run stays ended and itemId and started never change through it. The start op
+appends its ticket to started while a run has no endedAt.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
@@ -69,7 +76,7 @@ DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
     "retiredThreads", "rotation", "rotationHeldUntil", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
-    "merged", "tickets", "pm", "observed",
+    "merged", "tickets", "pm", "observed", "noHands",
 }
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
@@ -218,6 +225,9 @@ def op_start(s, op):
         "restarts": {"spec": 0}, "note": "",
     }
     s["lastRelayAt"] = now()
+    run = s.get("noHands")
+    if isinstance(run, dict) and run.get("startedAt") and not run.get("endedAt") and tid not in run.get("started", []):
+        run["started"] = [*run.get("started", []), tid]
 
 
 NO_APPROVAL_STAGES = ("merge", "merge-queued", "blocked")
@@ -303,8 +313,43 @@ def op_drop(s, op):
 
 def op_top(s, op):
     need(op, "set")
-    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed"}, "top-level")
+    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed", "noHands"}, "top-level")
     s.update(op["set"])
+
+
+NO_HANDS = ("startedAt", "itemId", "started", "drain", "endedAt", "endReason")
+
+
+def op_no_hands(s, op):
+    """The moves no_hands.py makes: a fresh record when no run is active, a drain reason, or the end (endedAt with endReason)."""
+    need(op, "set")
+    new = op["set"]
+    keys_ok(new, set(NO_HANDS), "noHands")
+    cur = s.get("noHands") if isinstance(s.get("noHands"), dict) else {}
+    live = bool(cur.get("startedAt")) and not cur.get("endedAt")
+    zoned = lambda x: isinstance(x, str) and getattr(parse(x), "tzinfo", None) is not None  # noqa: E731
+    text = lambda x: isinstance(x, str) and bool(x)  # noqa: E731
+    if set(new) == set(NO_HANDS):
+        if live:
+            raise Reject("noHands: a run is active")
+        if not (zoned(new["startedAt"]) and text(new["itemId"])):
+            raise Reject("noHands needs a startedAt with a time zone and a non-empty itemId")
+        if new["started"] != [] or any(new[k] is not None for k in ("drain", "endedAt", "endReason")):
+            raise Reject("noHands: a new run starts with started [] and drain, endedAt and endReason null")
+        ended = cur.get("endedAt")
+        if cur.get("itemId") == new["itemId"] or (ended and not (zoned(ended) and parse(new["startedAt"]) > parse(ended))):
+            raise Reject("noHands: a new run needs a new itemId and a startedAt later than the last run's endedAt")
+        s["noHands"] = new
+    elif set(new) == {"drain"}:
+        if not (live and not cur.get("drain") and text(new["drain"])):
+            raise Reject("noHands: drain is set once, to a string, on an active run")
+        cur["drain"] = new["drain"]
+    elif set(new) == {"endedAt", "endReason"}:
+        if not (live and zoned(new["endedAt"]) and text(new["endReason"])):
+            raise Reject("noHands: an active run ends with an endedAt (with a time zone) and an endReason")
+        cur.update(new)
+    else:
+        raise Reject("noHands: set a whole new record, drain, or endedAt with endReason")
 
 
 def op_pm(s, op):
@@ -411,7 +456,7 @@ def op_prune(s, op, notes=None):
 OPS = {
     "start": op_start, "stage": op_stage, "set": op_set, "merged": op_merged, "drop": op_drop,
     "top": op_top, "pm": op_pm, "retire": op_retire, "archive": op_archive,
-    "unretire": op_unretire, "prune": op_prune, "observe": op_observe,
+    "unretire": op_unretire, "prune": op_prune, "observe": op_observe, "no-hands": op_no_hands,
 }
 
 

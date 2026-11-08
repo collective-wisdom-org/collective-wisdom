@@ -215,6 +215,41 @@ def test_act_plan_pre_steps_and_gates(tmp_path, capsys, state, trigger, want):
     assert run(tmp_path, capsys, {"tickets": {}, **state}, trigger, "--after-reads") == want
 
 
+NH_CHECK = f"run python3 {S}/no_hands.py check"
+NH = {"startedAt": "2026-11-08T08:00:00Z", "started": ["ABC-1"]}
+NH_QUEUED = {"ABC-1": queued("build-queued", CHANGES, "1")}
+
+
+@pytest.mark.parametrize(
+    "tickets, no_hands, want",
+    [
+        # no run, or the run ended: as before, no check line
+        ({}, None, OPEN),
+        ({}, {**NH, "drain": "ticket-cap", "endedAt": NOW}, OPEN),
+        ({}, {"started": []}, OPEN),
+        # an active run prints the check line before the slot fill
+        ({}, NH, [NH_CHECK, *OPEN]),
+        # drain recorded: no start-todo, the report says why; queued sends still go
+        ({}, {**NH, "drain": "blocked ABC-1"}, [NH_CHECK, "observe", "report (filling stopped: No Hands blocked ABC-1)", ROTATION]),
+        (
+            NH_QUEUED, {**NH, "drain": "stopped-by-user"},
+            [NH_CHECK, f"send ABC-1 build {json.dumps(CHANGES)}", "observe", "report (filling stopped: No Hands stopped-by-user)", ROTATION],
+        ),
+    ],
+)
+def test_no_hands_run_gates_the_slot_fill(tmp_path, capsys, tickets, no_hands, want):
+    state = {"tickets": tickets, **FRESH, **({"noHands": no_hands} if no_hands else {})}
+    assert run(tmp_path, capsys, state, "notice:zz", "--after-reads") == want
+
+
+def test_no_hands_drain_reason_with_a_quote_stops_the_plan(tmp_path, capsys):
+    f = tmp_path / "state.json"
+    f.write_text(json.dumps({"chiefThreadId": ME, "tickets": {}, "noHands": {**NH, "drain": 'x"; rm'}}))
+    with pytest.raises(SystemExit):
+        cos_tick.main(["--thread", ME, "--trigger", "user", "--file", str(f), "--now", NOW, "--after-reads"])
+    assert "unsafe No Hands drain reason" in capsys.readouterr().out
+
+
 def test_status_act_plan_is_archive_and_rotation_check(tmp_path, capsys):
     state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "retiredThreads": [{"threadId": "r1"}, {"threadId": ["bad"]}], "paused": True}
     assert run(tmp_path, capsys, state, "status", "--after-reads") == ["archive r1", ROTATION]

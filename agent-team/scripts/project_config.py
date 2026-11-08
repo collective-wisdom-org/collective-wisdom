@@ -249,6 +249,26 @@ def approval_tolerance(run=_git):
     return approval_setting(run)[0]
 
 
+def no_hands_setting(run=_git):
+    """(on, ticket_cap, cost_cap, note) from the three No Hands rows of project.md as committed on origin/<target>.
+
+    on is True only when the `No Hands` row says `on` and both caps (`No Hands ticket cap`, `No Hands cost cap`) are positive
+    whole numbers. A missing row, an unknown value, a bad cap and every failure to read (`_committed_rows`) give
+    (False, 0, 0, why). note is "" when the rows are fine.
+    """
+    rows, why = _committed_rows(run)
+    if rows is None:
+        return False, 0, 0, why
+    cell = next((v for k, v in rows if k == "No Hands" or k.startswith("No Hands (")), "")
+    mode = (re.search(r"`([^`]+)`", cell) or [None, None])[1]
+    if (mode or "").lower() not in ("off", "on"):
+        return False, 0, 0, "no usable No Hands value on the merge target branch" if mode is None else f"unknown No Hands value `{mode}`"
+    caps = [value(k, rows) for k in ("No Hands ticket cap", "No Hands cost cap")]
+    if not all(c and re.fullmatch(r"[0-9]+", c) and int(c) > 0 for c in caps):
+        return False, 0, 0, "No Hands ticket cap and cost cap must be positive whole numbers"
+    return mode.lower() == "on", int(caps[0]), int(caps[1]), ""
+
+
 def review_after_conflict(run=_git):
     """`off` or `on` from the `Review after conflict resolution` row of project.md as committed on origin/<target>.
 

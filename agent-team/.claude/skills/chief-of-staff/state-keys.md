@@ -23,7 +23,8 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
     "pendingRelay": null, "approvalItemId": null, "queuedAt": null,
     "restarts": {"spec": 0}, "note": ""}},
   "observed": {"sightings": [{"kind": "stall", "ticket": "<PREFIX>-210", "at": "2026-11-02T09:30:00Z"}], "filed": []},
-  "pm": {}
+  "pm": {},
+  "noHands": {"startedAt": "2026-11-08T09:00:00Z", "itemId": "…", "started": ["<PREFIX>-210"], "drain": null, "endedAt": null, "endReason": null}
 }
 ```
 
@@ -51,6 +52,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 - **`wakeTaskId`, `wakeAt`**: the pending rate-limit wake (SKILL.md § Rate limit) and the time it is set to fire. `wakeTaskId` is `null` when no wake is pending. `wakeAt` stays set until `rateLimitedAt` clears, so a lost wake can be made again.
 - **`merged`**: tickets whose child reported `MERGED #N`, as `{"pr": N, "at": "<time>"}`. The project manager hygiene child uses it to move them to Done if the tracker lags. `prune` drops entries older than 24 hours and rewrites a bare number as merged now.
 - **`observed`**: `{"sightings": [{"kind", "ticket", "at"}], "filed": [{"kind", "at"}]}`, the Chief of Staff's own process sightings and the observation tickets it has filed (SKILL.md § Child path "Observe"). Only the `observe` op writes it (a `top` op is rejected). `observe` decides `file` or `hold` from it and prints a note; `prune` drops entries older than 7 days. A state file without it works: the first `observe` adds it.
+- **`noHands`**: the current or last No Hands run, a record and not a rule: `startedAt`, `itemId` (the user's `no hands` message), `started` (tickets the run started), `drain` (reason, or `null`), `endedAt` and `endReason`. Only `no_hands.py` writes it, through the `no-hands` op, and `cos_state.py`'s `start` op appends the ticket to `started` while a run is active (no `endedAt`). A top-level `set` of it is rejected, and the `no-hands` op accepts only the moves `no_hands.py` makes: a fresh record when no run is active (a new `itemId` and a `startedAt` later than the last `endedAt`), a first `drain`, and `endedAt` with `endReason` once. Absent until the first run. The record alone approves nothing (no-hands.md § Run record).
 - **`pm`**: owned by `project-manager` § State (`apply` `pm` ops). Don't edit it here.
 
 ## Unknown keys and prune

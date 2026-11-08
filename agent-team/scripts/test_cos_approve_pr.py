@@ -104,6 +104,15 @@ AUTO_ROWS = [
     ("conflict resolution not reviewed", {"pr": {"comments": [{"author": {"login": "owner"}, "body": f"Head moved to {HEAD} by resolving conflicts with main; reviews from {'c' * 40} stand."}]}}, 1, "conflict resolution not reviewed"),
     ("not awaiting-merge", {"stage": "merge"}, 1, "not in awaiting-merge"),
     ("pr read fails", {"fail": "view"}, 2, "cannot read PR #7"),
+    # under an active No Hands run: strict and High do not matter, the hands path replaces the approval path, the other stops stay
+    ("hands: strict, High", {"hands": True, "tol": "strict", "status": "Risk: High (x)."}, 0, f"auto-approved #7 at {HEAD} under No Hands (Risk: High)"),
+    ("hands: not rated", {"hands": True, "status": "PR #7 ready."}, 0, "under No Hands (Risk: unrated)"),
+    ("hands: other script", {"hands": True, "files": F("agent-team/scripts/cos_rank.py", "agent-team/.claude/skills/write-ticket/SKILL.md")}, 0, "under No Hands"),
+    ("hands: hands path", {"hands": True, "files": F("README.md", "agent-team/scripts/cos_approve_pr.py")}, 1, "PR changes the hands path (agent-team/scripts/cos_approve_pr.py)"),
+    ("hands: ticket not started, High", {"hands": True, "unstarted": True, "status": "Risk: High (x)."}, 1, "the user decides: High"),
+    ("hands: ticket not started, approval path", {"hands": True, "unstarted": True, "files": F("agent-team/scripts/cos_rank.py")}, 1, "PR changes the approval path"),
+    ("hands: ticket not started, tolerance", {"hands": True, "unstarted": True}, 0, "under permissive (Risk: Medium)"),
+    ("hands: flag path", {"hands": True, "files": F("src/auth/login.py")}, 1, "flag: src/auth/login.py"),
 ]
 
 
@@ -112,6 +121,10 @@ def test_cos_approve_auto(tmp_path, monkeypatch, capsys, user_md, changes, code,
     user_md("owner")
     setting = (changes.get("tol", "permissive"), changes.get("note", ""))
     monkeypatch.setattr(cap.project_config, "approval_setting", lambda: setting)
+    # hands: a run is active; "unstarted": the ticket is not on its started list
+    monkeypatch.setattr(cap.approval_policy.no_hands, "active", lambda ticket=None: changes.get("hands", False) and not (ticket and changes.get("unstarted")))
+    if changes.get("hands") and not changes.get("unstarted"):  # under a run the tolerance is not read
+        monkeypatch.setattr(cap.project_config, "approval_setting", lambda: pytest.fail("tolerance read under No Hands"))
     state = tmp_path / "state.json"
     ticket = {"stage": changes.get("stage", "awaiting-merge"), "pr": 7, "headSha": HEAD, "lastSeenAt": changes.get("seen", SEEN),
               "status": changes.get("status", STATUS), "pendingRelay": changes.get("relay")}
