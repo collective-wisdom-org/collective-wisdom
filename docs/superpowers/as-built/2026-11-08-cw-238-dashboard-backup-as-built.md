@@ -11,3 +11,6 @@
 - With `--force`, an existing file that no backup holds a copy of is kept, not removed.
 - A file restore can't write is reported as `refused` and the command exits 1.
 - `restore` is asynchronous (it checks for a running dashboard); `backup` is not. The `healthy` check moved from `start.ts` to `server.ts` and is exported there.
+- A skipped file (missing, linked or invalid) keeps its newest valid copy: backup carries it into the new set, so pruning old sets never drops the last good copy.
+- Backup does not refuse a missing `.agent-team`; it writes nothing and reports `unchanged`. Restore refuses a `--root` that is not a folder, and creates only `.agent-team`.
+- The spec's one-line note in `chief-of-staff.md` was dropped in the compaction pass; the README holds the backup text.

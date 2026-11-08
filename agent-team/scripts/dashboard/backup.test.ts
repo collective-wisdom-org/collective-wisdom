@@ -50,6 +50,12 @@ test('backup: which files land in a set, and which sets stay', () => {
       sets: [FILES, FILES],
       newestSpend: j('s4'),
     },
+    {
+      name: 'a broken file keeps its last good copy through pruning',
+      steps: [{ write: all, keep: 2 }, ...[2, 3, 4].map((n) => ({ write: { 'spend.json': j(`s${n}`), 'state.json': '{oops' as Write[string] }, keep: 2 }))],
+      sets: [FILES, FILES],
+      newestSpend: j('s4'),
+    },
   ]
   for (const row of rows) {
     const root = tmp()

@@ -10,6 +10,7 @@ import { backupDir } from './backup.ts'
 // start takes a backup into the home folder; point that at a temp folder so no test touches the real one.
 const home = mkdtempSync(join(tmpdir(), 'dash-home-'))
 process.env.HOME = home
+process.once('exit', () => rmSync(home, { recursive: true, force: true }))
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-start-'))

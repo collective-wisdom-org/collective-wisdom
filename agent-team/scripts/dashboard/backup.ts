@@ -130,8 +130,20 @@ export function backup(opts: { root: string; dest?: string; keep?: number; now: 
       set = `${stamp}-${n}`
     }
   }
+  // A skipped file keeps its newest valid copy in the new set, so pruning old sets never drops the last good one.
+  const toWrite = { ...found }
+  for (const name of FILES) {
+    if (name in toWrite) continue
+    for (const old of sets.slice().reverse()) {
+      const text = readCopy(dest, old, name)
+      if (text !== undefined && validJson(text)) {
+        toWrite[name] = text
+        break
+      }
+    }
+  }
   try {
-    for (const name of names) writeFileSync(join(dest, set, name), found[name], { flag: 'wx', mode: 0o600 })
+    for (const [name, text] of Object.entries(toWrite)) writeFileSync(join(dest, set, name), text, { flag: 'wx', mode: 0o600 })
   } catch (e) {
     rmSync(join(dest, set), { recursive: true, force: true })
     return { ...result, error: `can't write the backup: ${(e as Error).message}` }
@@ -156,7 +168,8 @@ export async function restore(opts: { root: string; dest?: string; force?: boole
   if (refused) return { ...result, error: refused }
 
   const agentDir = join(root, '.agent-team')
-  if (!lstatSync(agentDir, { throwIfNoEntry: false })) mkdirSync(agentDir, { recursive: true })
+  if (!lstatSync(root, { throwIfNoEntry: false })?.isDirectory()) return { ...result, error: `root is not a folder: ${root}` }
+  if (!lstatSync(agentDir, { throwIfNoEntry: false })) mkdirSync(agentDir)
 
   try {
     const dash = JSON.parse(readRegular(join(agentDir, 'dashboard.json'), [agentDir]) ?? 'null') as { port?: unknown } | null
