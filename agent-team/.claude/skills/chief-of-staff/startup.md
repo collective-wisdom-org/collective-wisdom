@@ -1,6 +1,6 @@
 # Start-up and resume
 
-Read this on `start the team`, `resume`, the heartbeat prompt (`run /chief-of-staff heartbeat`), or when `python3 ~/.collective-wisdom/scripts/cos_state.py show` exits 2.
+Read this on `start the team`, `resume`, or when `python3 ~/.collective-wisdom/scripts/cos_state.py show` exits 2.
 
 ## Setup
 
@@ -18,17 +18,13 @@ The first full pass starts the project manager hygiene child (the tick's `hygien
 
 ## Start-up clean-up
 
-Runs before the full pass or the take-over pass at "start the team", take over, `resume` and the legacy `run /chief-of-staff heartbeat` prompt (SKILL.md § Commands). It removes the 30-minute heartbeat tasks of the older design and any stray wake.
+Runs before the full pass or the take-over pass at "start the team", take over and `resume`. It removes any stray wake.
 
-1. `list_scheduled_tasks` (allowed in a legacy heartbeat run, where it is how the old task finds itself). `delete_scheduled_task` every task whose prompt is exactly `run /chief-of-staff heartbeat` (a task already gone is fine), and every task whose prompt is exactly `run /chief-of-staff wake` other than the `wakeTaskId` in state.
+1. `list_scheduled_tasks`. `delete_scheduled_task` every task whose prompt is exactly `run /chief-of-staff wake` other than the `wakeTaskId` in state (a task already gone is fine).
 2. `apply` `prune` drops `scheduledTaskId` from state and from each `retiredThreads` entry without using it.
-3. Report each deletion once under Cleanup: `Heartbeat <id> deleted`, or `Wake <id> deleted` for a stray wake.
+3. Report each deletion once under Cleanup: `Wake <id> deleted`.
 
 **Deleting the wake.** Everywhere the Chief of Staff deletes `wakeTaskId` (take over, `stop everything`, the `wake` command, clearing `rateLimitedAt`): `delete_scheduled_task` on it, then clear the key. A task already gone is fine.
-
-## Legacy heartbeat prompt
-
-`run /chief-of-staff heartbeat` (legacy: the 30-minute task of the older design): run startup.md § Start-up clean-up, which deletes that task, then the full pass (SKILL.md § Tick, trigger `user`). Kept only so the old task deletes itself. Never schedule it.
 
 ## State rebuild
 
