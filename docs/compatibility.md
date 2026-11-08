@@ -8,12 +8,14 @@ Last checked against the code on 2026-11-08.
 
 | Value | Meaning |
 |---|---|
-| works | The code shows it, or the team runs it today. A run that no doc records is named in a note |
-| partial | Part of it works. The cell says what does not |
-| not supported | Nothing here makes it work on this column |
-| untested | Nothing shows it either way: the code does not show it and the team does not run it |
+| 🟢 works | The code shows it, or the team runs it today. A run that no doc records is named in a note |
+| 🟡 partial | Part of it works. The cell says what does not |
+| 🔴 not supported | Nothing here makes it work on this column |
+| ⚪ untested | Nothing shows it either way: the code does not show it and the team does not run it |
 
 A cell is `works` only where the code shows it or the team runs it today. Anything not shown either way is `untested`.
+
+Each cell starts with a colored circle so a column reads at a glance: 🟢 works, 🟡 partial, 🔴 not supported, ⚪ untested. GitHub markdown tables cannot color a cell, so the circle is only a visual aid. The word after it is the source of truth.
 
 A cell that is not `works` gives a short reason and a gap number such as `G3`. The [Gaps](#gaps) list holds one line per gap with its ticket link, or `none yet` while there is no ticket.
 
@@ -25,17 +27,17 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 
 | Feature | Claude Code in T3 Code | Codex in T3 Code | Cursor in T3 Code | Antigravity in T3 Code |
 |---|---|---|---|---|
-| Install (skills and instruction block) | works | works | partial: rules pasted by hand (G1) | not supported: `install.sh` writes nothing for it (G17) |
-| Team skills load | works | untested (G2) | untested (G3) | untested (G18) |
-| Subagents | works | untested: role file as prompt (G4) | untested: role file as prompt (G4) | untested: role file as prompt (G4) |
-| Chief of Staff thread | works | untested (G2) | untested (G3) | untested (G18) |
-| Ship loop child threads | works | untested (G2) | untested (G3) | untested (G18) |
-| Stop hook (thread rotation) | works | not supported: hook installed for Claude Code only (G7) | not supported: hook installed for Claude Code only (G7) | not supported: hook installed for Claude Code only (G7) |
-| Usage and cost report | works | not supported: reads Claude Code transcripts only (G8) | not supported: reads Claude Code transcripts only (G8) | not supported: reads Claude Code transcripts only (G8) |
-| Local dashboard | works | partial: no gantt rows or spend (G9) | partial: no gantt rows or spend (G9); rest untested (G3) | partial: no gantt rows or spend (G9); rest untested (G18) |
-| `agent-gantt` | partial: hooks run in T3 sessions, pane in T3 not seen (G10) | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) |
-| `status-pane` | untested: pane in T3 not seen (G10) | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) | not supported: Claude Code plugin (G10) |
-| Security review subagent | works | untested (G4) | partial: needs Cursor's own `review-security` (G11) | untested: no Antigravity branch in the skill (G4) |
+| Install (skills and instruction block) | 🟢 works | 🟢 works | 🟡 partial: rules pasted by hand (G1) | 🔴 not supported: `install.sh` writes nothing for it (G17) |
+| Team skills load | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
+| Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) |
+| Chief of Staff thread | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
+| Ship loop child threads | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
+| Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code only (G7) | 🔴 not supported: hook installed for Claude Code only (G7) | 🔴 not supported: hook installed for Claude Code only (G7) |
+| Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code transcripts only (G8) | 🔴 not supported: reads Claude Code transcripts only (G8) | 🔴 not supported: reads Claude Code transcripts only (G8) |
+| Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G3) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
+| `agent-gantt` | 🟡 partial: hooks run in T3 sessions, pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
+| `status-pane` | ⚪ untested: pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
+| Security review subagent | 🟢 works | ⚪ untested (G4) | 🟡 partial: needs Cursor's own `review-security` (G11) | ⚪ untested: no Antigravity branch in the skill (G4) |
 
 Notes:
 
@@ -55,29 +57,31 @@ One line per column, saying what done means.
 
 ## Matrix 2: trackers
 
-Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` can name.
+Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` can name (GitHub Issues, Linear and Jira), plus Azure DevOps, which it cannot name yet.
 
-| Feature | GitHub Issues | Linear | Jira |
-|---|---|---|---|
-| Ticket operations (the adapter) | works | works (see note) | untested: adapter never run (G12) |
-| Chief of Staff and ship loop | works | works (see note) | untested (G12) |
-| Project manager hygiene and ranking | works | works | not supported: `pm_hygiene.py` has no Jira shape; ranking untested (G13) |
-| Untracked work check | works | partial: finds open PRs only (G14) | partial: finds open PRs only (G14) |
-| Dashboard issue links, titles and update order | works | not supported: GitHub only (G15) | not supported: GitHub only (G15) |
-| Setup (`set up this repo`) | works | works | untested: writes the Jira rows, never run against Jira (G12) |
-| PR flow and merge (needs GitHub for code) | works | works, code on GitHub | untested, code on GitHub (G12) |
+| Feature | GitHub Issues | Linear | Jira | Azure DevOps (ADO) |
+|---|---|---|---|---|
+| Ticket operations (the adapter) | 🟢 works | 🟢 works (see note) | ⚪ untested: adapter never run (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| Chief of Staff and ship loop | 🟢 works | 🟢 works (see note) | ⚪ untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| Project manager hygiene and ranking | 🟢 works | 🟢 works | 🔴 not supported: `pm_hygiene.py` has no Jira shape; ranking untested (G13) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| Untracked work check | 🟢 works | 🟡 partial: finds open PRs only (G14) | 🟡 partial: finds open PRs only (G14) | 🔴 not supported: no adapter (G19) |
+| Dashboard issue links, titles and update order | 🟢 works | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) | 🔴 not supported: no adapter (G15) |
+| Setup (`set up this repo`) | 🟢 works | 🟢 works | ⚪ untested: writes the Jira rows, never run against Jira (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| PR flow and merge (needs GitHub for code) | 🟢 works | 🟢 works, code on GitHub | ⚪ untested, code on GitHub (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 
 Notes:
 
 - GitHub Issues: `trackers/github.md` says it was verified on 2026-11-03.
 - Linear: `trackers/linear.md` has no verification line. Its `works` cells rest on the team running on Linear on one maintainer's machine, which is not a recorded verification; this covers every Linear `works` cell, not only the two marked. If you want `works` to mean a recorded verification like the GitHub adapter's, treat the Linear cells as `untested` (G16).
 - Jira: `trackers/jira.md` is marked UNTESTED and its list of assumptions is unticked.
+- Azure DevOps: here it means Azure Boards for tickets. The code stays on GitHub, as on every tracker. The repo has no mention of it outside an unrelated security checklist, so every cell is `not supported`.
 
 ### Full compatibility
 
 - **GitHub Issues:** done. Every row works. The dashboard and the untracked check read issues, which only GitHub supports.
 - **Linear:** done when the dashboard and the untracked check read Linear tickets as they read GitHub issues, and `trackers/linear.md` carries a verification line.
 - **Jira:** done when the `jira.md` checklist is ticked against a live site, and `pm_hygiene.py` reads Jira's list shape.
+- **Azure DevOps (ADO):** done when `trackers/` has an Azure DevOps adapter that the scripts read, verified against a live organization, and the dashboard and the untracked check read its work items.
 
 ## Keeping it current
 
@@ -106,3 +110,4 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G16.** The Linear adapter has no verification line. Ticket: none yet.
 - **G17.** `install.sh` writes nothing for Antigravity, neither skills nor the instruction block. Ticket: none yet.
 - **G18.** No recorded Antigravity run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
+- **G19.** There is no Azure DevOps adapter: `trackers/` has GitHub, Linear and Jira only, and the `Tracker` row in `project.md` cannot name it. Ticket: none yet.

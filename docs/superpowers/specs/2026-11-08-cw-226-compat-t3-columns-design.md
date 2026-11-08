@@ -1,7 +1,7 @@
 # CW-226: Harness matrix with T3 Code columns only
 
 **Status:** Shipped
-**Shipped:** in PR #229, as specified
+**Shipped:** in PR #229, with differences: [as-built](../as-built/2026-11-08-cw-226-compat-t3-columns-as-built.md)
 **Ticket:** [#226](https://github.com/collective-wisdom-org/collective-wisdom/issues/226)
 
 ## Goal
@@ -62,7 +62,7 @@ Only `docs/compatibility.md` changes.
 
 ## Leaves out
 
-- Matrix 2 and its notes.
+- Matrix 2 and its notes, except that it now gains the Azure DevOps column (see Changes after review).
 - Making any gap work, including Antigravity support in `install.sh`.
 - Running Cursor or Antigravity to check cells.
 - Opening gap tickets.
@@ -76,3 +76,10 @@ Only `docs/compatibility.md` changes.
 - **Antigravity security review points at `G4`** (role file as a general subagent prompt), since the skill has no Antigravity branch, rather than a new gap.
 - **Local dashboard on Cursor and Antigravity is `partial`.** The gantt rows and spend are Claude Code only (code shows it); the Chief of Staff state part is untested.
 - **Cursor in T3 Code is taken as a real setup**, as the ticket asks, even though nothing in the repo shows T3 Code running Cursor. Every Cursor cell that needs T3 Code is `untested`.
+
+## Changes after review
+
+The user asked for two changes after the spec was written.
+
+- **Cell colors.** Every cell value in Matrix 1 and Matrix 2 starts with a colored circle: green for works, yellow for partial, red for not supported, white for untested. Markdown tables have no cell color, so a circle emoji is the way to do it. The legend rows carry the circles too, with a note that the circle is a visual aid and the word stays the source of truth.
+- **Azure DevOps column.** Matrix 2 gains an Azure DevOps (ADO) column, which the spec had out of scope. It means Azure Boards for tickets, with code on GitHub. The repo has no Azure DevOps support, so every ADO cell is not supported. The new gap `G19` says there is no adapter, and a Full compatibility line says what done means.
