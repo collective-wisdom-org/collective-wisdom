@@ -326,7 +326,8 @@ export const register: Register = on => {
     if (out.decision === 'ask' && e.approver !== undefined && e.tool_use_id !== undefined && !asks.has(e.tool_use_id)) {
       const id = e.agentId ?? MAIN
       asks.set(e.tool_use_id, id)
-      await beginWait($, id)
+      // The chart is optional: a failure here never reaches the permission check.
+      await beginWait($, id).catch(() => {})
     }
     return out
   })
@@ -337,7 +338,8 @@ export const register: Register = on => {
       const id = e.tool_use_id === undefined ? undefined : asks.get(e.tool_use_id)
       if (e.tool_use_id !== undefined && id !== undefined) {
         asks.delete(e.tool_use_id)
-        await endWait($, id)
+        // A failure here must not replace the tool's own result.
+        await endWait($, id).catch(() => {})
       }
     }
   })
