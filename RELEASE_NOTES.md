@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-08 nest each agent Gantt chart under its status card (CW-181) (#184)
+
+Merged 2026-11-08 05:08 UTC.
+
+The local dashboard now shows each agent's Gantt chart inside the status card of its ticket, collapsed until you open it. Sessions that don't belong to a card stay in the Agents list.
+
+Context size: pass skipped (no agent files changed)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 show dashboard Gantt charts only for worktree sessions (CW-178) (#183)
 
 Merged 2026-11-08 05:06 UTC.
