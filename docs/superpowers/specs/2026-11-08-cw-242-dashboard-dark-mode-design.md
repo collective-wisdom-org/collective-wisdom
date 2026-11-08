@@ -1,6 +1,7 @@
 # CW-242: Make the dashboard follow the system dark mode setting
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #246, as specified
 **Ticket:** [#242](https://github.com/collective-wisdom-org/collective-wisdom/issues/242)
 
 ## Goal
