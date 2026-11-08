@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 show dashboard Gantt charts only for worktree sessions (CW-178) (#183)
+
+Merged 2026-11-08 05:06 UTC.
+
+The dashboard's Agents view now shows Gantt charts only for sessions running in a worktree, so the Chief of Staff thread and other root-checkout sessions no longer get a chart. Nothing to do.
+
 ## 2026-11-08 delete the old-shape CW-55 and CW-51 closeout files (CW-69) (#179)
 
 Merged 2026-11-08 04:58 UTC.
