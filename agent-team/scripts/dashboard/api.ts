@@ -26,10 +26,21 @@ const str = (x: unknown): string => (typeof x === 'string' ? x : '')
 const num = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) ? x : 0)
 const numOrNull = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null)
 
+function trackerIsGithub(markdown: string): boolean {
+  for (const line of markdown.split(/\r?\n/)) {
+    if (!line.trimStart().startsWith('|')) continue
+    const cells = line.split('|').map((c) => c.trim())
+    const [, name, value] = cells
+    if (name !== 'Tracker' && !name?.startsWith('Tracker (')) continue
+    return value?.match(/`([^`]+)`/)?.[1].toLowerCase() === 'github'
+  }
+  return false
+}
+
 export function repoUrlFromProject(markdown: string): Repo | null {
   const m = markdown.match(/^\|\s*Repo\b[^|]*\|[^|]*<(https?:\/\/[^>\s]+)>/m)
   if (!m) return null
-  return { url: m[1].replace(/\/+$/, ''), isGithubIssues: markdown.includes('Tickets are GitHub issues') }
+  return { url: m[1].replace(/\/+$/, ''), isGithubIssues: trackerIsGithub(markdown) }
 }
 
 /** Parses `git worktree list --porcelain`; detached worktrees have no branch line and are skipped. */
