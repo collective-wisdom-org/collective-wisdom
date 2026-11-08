@@ -1,6 +1,7 @@
 # CW-225: Show only a task's own work on its gantt row, and add bar tooltips
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #228, as specified
 **Ticket:** [#225](https://github.com/collective-wisdom-org/collective-wisdom/issues/225)
 **Related:** CW-216 (waterfall by task, PR #218), CW-219 (task names, PR #221).
 
