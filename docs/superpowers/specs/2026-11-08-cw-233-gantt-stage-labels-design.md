@@ -29,7 +29,7 @@ Facts from `main` at `d918a2b`.
 All in `taskName`. It stays pure, and `register.tsx` does not change.
 
 1. **Ship-loop children.** When the first real line (after the preamble and the team markers) starts `Run /ship-loop for <ticket>:`, the name is `<Stage> <ticket>: <title>`, cut to 60 characters.
-   - `<Stage>`: if the line had the `CONTINUE` marker, the stage from the first `Do the (spec|build|merge) stage` anywhere in the prompt, capitalized. With no `CONTINUE` marker, `Spec`.
+   - `<Stage>`: if the line had the `CONTINUE` marker, the stage from the first `Do the (spec|build|merge) stage` anywhere in the prompt, capitalized. With a `TEAM MODE.` marker and no `CONTINUE`, `Spec`. A hand-typed `Run /ship-loop for ...` prompt with no `TEAM MODE.` marker keeps today's name.
    - A `CONTINUE` prompt with no `Do the <stage> stage` line keeps today's name (`Run /ship-loop for ...`): there is no stage to show, and guessing one would mislabel the row.
    - `<title>` is the rest of the line after `<ticket>:`, with a trailing ticket URL and its full stop dropped (` https://... .` at the end of the line). So `TEAM MODE. Run /ship-loop for CW-227: Add an expandable details section. https://github.com/o/r/issues/227.` becomes `Spec CW-227: Add an expandable details section`.
 2. **Helper children.** When the first real line starts with one of these markers, the name is the role:
@@ -78,4 +78,5 @@ The cases go in the existing `taskName` table test in `mods/agent-gantt/hooks/ti
 - **Helper ticket id, ticket helper only: the first ticket-shaped id anywhere in the prompt.** (Changed from the ticket's wording in review: ranking lists all in-flight tickets, so an id there misleads. The ticket's "keeping any ticket id" is kept for the helper only.) The helper templates put no id on the first line; a request may name one in its task text. A word like `UTF-8` in the request would also match; that only changes a label.
 - **Hygiene is named `Hygiene`**, the ticket's own example, not `Project manager hygiene`.
 - **Only a line that starts `Run /ship-loop for <ticket>:`** gets a stage. A prompt that mentions `/ship-loop` some other way is left alone.
+- **A hand-typed ship-loop prompt without `TEAM MODE.` is left alone.** Only the Chief of Staff's prompts carry the marker, and the ticket's "Leave rows ... as they are" favours not guessing a stage for a prompt it didn't send.
 - **Mod version bump to 0.1.8**, as CW-219 did, so installed copies can update.
