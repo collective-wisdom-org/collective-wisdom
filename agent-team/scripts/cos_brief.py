@@ -2,8 +2,8 @@
 """Approval inputs for the Chief of Staff, read from GitHub in one call each.
 
 Usage:
-    scripts/cos_brief.py spec <path> <sha> [--branch B]
-    scripts/cos_brief.py pr <N> [--head SHA]
+    ~/.collective-wisdom/scripts/cos_brief.py spec <path> <sha> [--branch B]
+    ~/.collective-wisdom/scripts/cos_brief.py pr <N> [--head SHA]
 
 spec prints the spec's title, a blob link, its Goals, Non-goals and Calls I made
 sections (each capped at 40 lines) and the headings of its Design sections. The
@@ -16,7 +16,7 @@ The PR body is not printed. The cost line is the output of agent_usage.py --tick
 the ticket in the branch name (feat/<prefix>-N-...), or `cost: unknown` when the branch
 doesn't match, the script exits 2 or it takes over 30 seconds. Cost never makes pr exit 2.
 
-Read only: calls ./scripts/gh.sh with GET requests against the repo in docs/agents/project.md.
+Read only: calls ~/.collective-wisdom/scripts/gh.sh with GET requests against the repo in docs/agents/project.md.
 Exits 2 with a one-line "cos_brief: ..." message when a read fails.
 """
 

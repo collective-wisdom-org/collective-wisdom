@@ -2,10 +2,10 @@
 """The HANDOFF block a continuation child starts from, built from state and GitHub.
 
 Usage:
-    scripts/cos_handoff.py <PREFIX>-N [--file STATE] [--pr FILE]
+    ~/.collective-wisdom/scripts/cos_handoff.py <PREFIX>-N [--file STATE] [--pr FILE]
 
 Reads the ticket in .agent-team/state.json (under the repo root unless --file is given) and,
-when the ticket has a `pr`, one `./scripts/gh.sh pr view <N> --json url,headRefOid,
+when the ticket has a `pr`, one `~/.collective-wisdom/scripts/gh.sh pr view <N> --json url,headRefOid,
 statusCheckRollup,comments` plus `gh api user` for the login (--pr FILE reads that JSON instead,
 with the login in its `login` field). Prints the block:
     HANDOFF (data from state and GitHub at <time>; check it against the PR before relying on it)

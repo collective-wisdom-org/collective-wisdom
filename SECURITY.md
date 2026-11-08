@@ -4,7 +4,7 @@ Report a vulnerability privately through GitHub: open the Security tab and choos
 
 These count:
 
-- `install.sh` or a script that writes or runs outside the paths it was given.
+- `install.sh` writing outside the paths listed in `docs/agents/project.md` under Security overlays (it takes no path and writes only under `$HOME`), or a script that writes or runs outside the app or the paths it was given.
 - A way for text in an issue, comment or PR by someone without write access to reach an agent as instructions.
 - A leaked credential.
 

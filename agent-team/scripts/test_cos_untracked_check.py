@@ -12,7 +12,7 @@ SPEC = importlib.util.spec_from_file_location(
 cos_untracked_check = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cos_untracked_check)
 
-FIXTURE = Path(os.environ["PROJECT_MD"]).read_text()  # conftest's; its Owner login is `me`
+FIXTURE = Path(os.environ["PROJECT_MD"]).read_text()  # conftest's; the login user.md maps to the repo is `me`
 
 
 def issue(n, labels=("agent", "status:in-review"), author="bot"):
@@ -53,7 +53,7 @@ PR5 = pr(5, "feat/abc-1-a")
         ("github", EMPTY, [], [PR5], ["untracked-check: 0 not in state"], 0),  # issue closed or not `agent`
         ("github", EMPTY, [issue(2, ("agent", "status:in-progress"))], [], ["untracked ABC-2 in-progress", "untracked-check: 1 not in state"], 1),
         ("github", EMPTY, [issue(2, ("agent",))], [], ["untracked-check: 0 not in state"], 0),  # no status, no PR
-        ("github", EMPTY, [issue(1, author="ME")], [PR5], ["untracked ABC-1 in-review #5", "untracked-check: 1 not in state"], 1),  # Owner login
+        ("github", EMPTY, [issue(1, author="ME")], [PR5], ["untracked ABC-1 in-review #5", "untracked-check: 1 not in state"], 1),  # the mapped login
         ("github", EMPTY, [issue(1, author="stranger")], [PR5], ["untracked-check: 0 not in state"], 0),
         ("github", EMPTY, [issue(1, ("agent",))], [pr(5, "feat/abc-1-a", "stranger")], ["untracked-check: 0 not in state"], 0),  # outsider's PR flags nothing
         ("github", EMPTY, [issue(1, author="stranger")], [pr(5, "feat/abc-1-a", "bot")], ["untracked-check: 0 not in state"], 0),

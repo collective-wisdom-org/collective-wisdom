@@ -2,9 +2,12 @@
 """Check the Backlog ranking child's list and save it as pm.ranked.
 
 Usage:
-    scripts/cos_rank.py [--file PATH] --started <ISO Z> [--post] < child_message
+    ~/.collective-wisdom/scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] < child_message
 
 --started is the time the ranking began (YYYY-MM-DDTHH:MM:SSZ); it becomes pm.rankedAt.
+--backlog-count is the number of Backlog tickets that are neither agent-skip nor an epic,
+as the Chief of Staff counted them. Only an empty list reads it: an empty list is saved
+only with 0, and a list that is not empty ignores it.
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 stdin is the child's final message. The last fenced json block is the list (the whole
 input when there is no fence): objects with exactly id, title, reason, readiness,
@@ -14,7 +17,9 @@ No id repeats or is a ticket in state.
 On success it writes one pm op (ranked, rankedAt, rankedReady, true if any entry is
 ready) through cos_state, and prints "GORP-N <readiness>" per entry, or with --post
 the Backlog ranking post. On a failed check it writes nothing, prints
-"cos_rank: <reason>" and exits 2.
+"cos_rank: <reason>" and exits 2. That includes an empty list when --backlog-count is 1 or
+more, and a --backlog-count that is not a whole number of 0 to 9999. An empty list without
+--backlog-count writes nothing and exits 3, which means "count the Backlog and run again".
 """
 
 import argparse
@@ -86,6 +91,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("--started", required=True)
+    ap.add_argument("--backlog-count")
     ap.add_argument("--post", action="store_true")
     a = ap.parse_args(argv)
 
@@ -93,11 +99,22 @@ def main(argv=None):
     if started is None or started > cos_state.parse(cos_state.now()):
         print("cos_rank: bad --started")
         return 2
+    if a.backlog_count is not None and not re.fullmatch(r"[0-9]{1,4}", a.backlog_count):
+        print("cos_rank: bad --backlog-count")
+        return 2
     try:
         ranked = validate(sys.stdin.read(), cos_state.load(a.file).get("tickets", {}))
     except ValueError as e:
         print(f"cos_rank: {e}")
         return 2
+    if not ranked:
+        if a.backlog_count is None:
+            print("cos_rank: empty ranking, count the Backlog and run again with --backlog-count N")
+            return 3
+        n = int(a.backlog_count)
+        if n:
+            print(f"cos_rank: empty ranking but the Backlog has at least {n} rankable {'ticket' if n == 1 else 'tickets'}")
+            return 2
     op = {"op": "pm", "set": {
         "ranked": ranked, "rankedAt": a.started,
         "rankedReady": any(e["readiness"] == "ready" for e in ranked),

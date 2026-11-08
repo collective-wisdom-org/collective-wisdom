@@ -19,11 +19,11 @@ export type AgentRecord = {
   usage: Record<string, Tokens>
 }
 
-/** One family's rates in dollars per million tokens, as in scripts/prices.json. */
+/** One family's rates in dollars per million tokens, as in ~/.collective-wisdom/scripts/prices.json. */
 export type Rates = { input: number; output: number; read: number; write_1h: number; write_5m: number }
 export type Prices = Record<string, Rates>
 
-/** What the mod found when it read scripts/prices.json. */
+/** What the mod found when it read ~/.collective-wisdom/scripts/prices.json. */
 export type PriceState = { isLoaded: boolean; table: Prices | null; note: string }
 
 declare module 'claude-code' {

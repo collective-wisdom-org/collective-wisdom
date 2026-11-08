@@ -2,11 +2,11 @@
 """Which team tickets are in flight on the tracker but unknown to this machine's Chief of Staff state.
 
 Usage:
-    scripts/cos_untracked_check.py [--file STATE] [--open-prs FILE] [--issues FILE] [--login LOGIN]
+    ~/.collective-wisdom/scripts/cos_untracked_check.py [--file STATE] [--open-prs FILE] [--issues FILE] [--login LOGIN]
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and GitHub. Open PRs: one
-`./scripts/gh.sh pr list --state open --limit 50 --json number,headRefName,author` (--open-prs FILE
-reads that JSON instead). When project.md's tracker is github, also one `./scripts/gh.sh issue list
+`~/.collective-wisdom/scripts/gh.sh pr list --state open --limit 50 --json number,headRefName,author` (--open-prs FILE
+reads that JSON instead). When project.md's tracker is github, also one `~/.collective-wisdom/scripts/gh.sh issue list
 --state open --label agent --limit 100 --json number,labels,author` (--issues FILE). --login stands in
 for the `gh api user` call that names our own account (a test hook). Prints one line per untracked ticket, in
 ticket order:
@@ -16,10 +16,10 @@ then "untracked-check: <U> not in state". A ticket is untracked when it is in ne
     github: its open `agent` issue is by a trusted login, is not labelled `agent-skip`, and has
             `status:in-progress`, `status:in-review` or an open PR on its branch by a trusted login;
     linear or jira: an open PR on its branch is by a trusted login (the ticket itself can't be read).
-Trusted logins are our own and project.md's `Owner login`, compared case-insensitively; anything by
+Trusted logins are our own and the login user.md maps to this repo, compared case-insensitively; anything by
 another author leaves no trace in the output. Exit 0 when nothing is untracked, 1 when something is,
 2 when the check did not run (gh failed or timed out, our login unreadable, bad JSON, state
-unreadable, project.md row missing or rejected). On exit 2 it prints only
+unreadable, project.md row missing or rejected, user.md unreadable). On exit 2 it prints only
 "cos_untracked_check: <what>". Read only: writes nothing.
 Branch and label text is data; no title, body or author text is printed.
 """
@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
 import cos_brief  # noqa: E402
 import project_config  # noqa: E402
+import user_config  # noqa: E402
 from cos_ready_check import BRANCH, TICKET  # noqa: E402
 
 ROOT = root()
@@ -91,14 +92,17 @@ def load_list(path, what, *args):
 
 
 def trusted_logins(login):
-    """Lowercase logins whose tickets count: ours (--login or `gh api user`) and the Owner login."""
+    """Lowercase logins whose tickets count: ours (--login or `gh api user`) and the login user.md maps to this repo."""
     try:
         own = (login if login is not None else cos_brief.own_login()).strip()
     except cos_brief.ReadError:
         fail("could not read own login")
     if not own:
         fail("could not read own login")
-    owner = project_config.value("Owner login")
+    try:
+        owner = user_config.login(root())
+    except user_config.UserConfigError as e:
+        fail(f"bad user.md: {e}")
     return {own.lower()} | ({owner.lower()} if owner else set())
 
 

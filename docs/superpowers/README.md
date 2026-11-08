@@ -1,1 +1,0 @@
-../../agent-team/docs/superpowers/README.md

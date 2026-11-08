@@ -2,10 +2,10 @@
 """Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward the root checkout (on the merge target branch).
 
 Usage:
-    scripts/merge_pr.py <PR number> <approved head SHA>
+    ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA>
 
-Run it from the root checkout (`cd <root checkout> && python3 scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
-the checks list of the merge-pr skill (gh signed in as project.md's Owner login among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
+Run it from the root checkout (`cd <root checkout> && python3 ~/.collective-wisdom/scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every gate in
+the checks list of the merge-pr skill (gh signed in as the login user.md maps to this repo among them) must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
 so no local branch is switched and GitHub refuses it if the head moved.
 
 When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. With `off` it does neither. A failed publish prints
@@ -33,6 +33,7 @@ from app_root import root  # noqa: E402
 import ci_review  # noqa: E402
 import project_config  # noqa: E402
 import release_notes  # noqa: E402
+import user_config  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location(
     "pr_diff_delta", Path(__file__).with_name("pr_diff_delta.py")
@@ -96,7 +97,11 @@ def read_facts(pr, approved, run):
     f["approved"] = approved
     f["pr"] = pr
     f["login"] = run([GH, "api", "user", "-q", ".login"]).strip()
-    f["owner"] = project_config.value("Owner login")
+    try:
+        f["repoKey"] = user_config.repo_key(ROOT)
+        f["owner"] = user_config.login(ROOT)
+    except user_config.UserConfigError as e:
+        raise CmdError(f"read user.md: {e}")
     f["codeowners"] = codeowners(run)
     teammate = project_config.setting("Require teammate approval")
     f["teammate"] = teammate.lower() if teammate else None
@@ -323,11 +328,11 @@ def review_stop(f):
 def gate(f, delta=real_delta):
     """Return the reason to stop, or None when the PR may merge (or is merged)."""
     if f.get("not_root_checkout"):
-        return f"run it from the root checkout: cd {f['root']} && python3 scripts/merge_pr.py ...; this directory's project.md is not the gate's"
+        return f"run it from the root checkout: cd {f['root']} && python3 ~/.collective-wisdom/scripts/merge_pr.py ...; this directory's project.md is not the gate's"
     if not f.get("owner"):
-        return "project.md has no Owner login; cannot tell whose gh login this is"
+        return f"user.md has no GitHub login for {f.get('repoKey') or 'this repo'}; say set up this repo, or add the row by hand (github-auth.md § Account per repo)"
     if f["login"].lower() not in [f["owner"].lower(), *f.get("codeowners", [])]:
-        return f"gh is signed in as {f['login']}, not the owner {f['owner']}"
+        return f"gh is signed in as {f['login']}, not {f['owner']}, the login user.md maps to {f.get('repoKey') or 'this repo'}"
     if f["state"] == "MERGED":
         return None
     if f["state"] == "CLOSED":
@@ -515,7 +520,7 @@ def publish(pr, sha, run):
 
 def main(argv, run=run):
     if len(argv) != 2 or not re.fullmatch(r"[0-9]+", argv[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", argv[1]):
-        print("merge-pr: cannot read arguments; usage: scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
+        print("merge-pr: cannot read arguments; usage: ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
         return 2
     pr, approved = argv[0], argv[1].lower()
     try:
