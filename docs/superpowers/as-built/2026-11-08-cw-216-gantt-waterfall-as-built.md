@@ -1,6 +1,6 @@
 # As-built: Agent gantt as a waterfall by task, with active time only
 
-**Shipped:** 2026-11-08 in the CW-216 PR (number added when it opens)
+**Shipped:** in PR #218
 **Ticket:** CW-216
 **Spec:** [2026-11-08-cw-216-gantt-waterfall-design.md](../specs/2026-11-08-cw-216-gantt-waterfall-design.md)
 **Plan:** [2026-11-08-cw-216-gantt-waterfall.md](../plans/2026-11-08-cw-216-gantt-waterfall.md)

@@ -1,6 +1,7 @@
 # CW-216: Redesign the agent gantt as a waterfall by task, with active time only
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #218, with differences: [as-built](../as-built/2026-11-08-cw-216-gantt-waterfall-as-built.md)
 **Ticket:** [#216](https://github.com/collective-wisdom-org/collective-wisdom/issues/216)
 **Related:** CW-181 (gantt under the card), CW-191 (task chunks, waiting time), CW-213 (gantt on merged PRs, PR #214).
 
