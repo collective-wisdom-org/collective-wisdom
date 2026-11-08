@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderStatus, renderGantt, renderBadges, renderMerged } from './app.js'
+import { esc, renderStatus, renderGantt, renderBadges, renderMerged, drawCharts } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -157,7 +157,7 @@ test('each bar has an escaped tooltip with its own range, length and the row mod
   const titles = [...html.matchAll(/class="bar[^"]*"[^>]*title="([^"]*)"/g)].map((m) => m[1])
   assert.equal(titles.length, 2)
   assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d to \d\d:\d\d · 1m 00s · opus-5-5$/)
-  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d, running · 3m 00s · opus-5-5$/)
+  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d, running · opus-5-5$/)
 })
 
 test('the engine total shows as a note only when it differs from the row sum by a cent or more', () => {
@@ -257,4 +257,23 @@ test('merged row with sessions has a closed Agents chart that stays open when it
   assert.equal(html([sess()]).match(/<details/g).length, 1)
   assert.doesNotMatch(html([]), /<details|Agents/)
   assert.doesNotMatch(html(), /<details|Agents/)
+})
+
+test('drawCharts writes a chart body only when its html changed; a body with no entry is never written', () => {
+  const finished = [sess({ rows: [task({ end: T + MIN, segments: [[T, T + MIN]] })] })]
+  const running = [sess({ rows: [task({ end: null, segments: [[T, null]] })] })]
+  const cases = [
+    { name: 'same data and now, ticket and merged', gantt: finished, nows: [T + 5 * MIN, T + 5 * MIN], want: [1, 1] },
+    { name: 'finished task, later now', gantt: finished, nows: [T + 5 * MIN, T + 6 * MIN], want: [1, 1] },
+    { name: 'running task, later now', gantt: running, nows: [T + 5 * MIN, T + 6 * MIN], want: [2, 2] },
+    { name: 'id missing from the data', gantt: finished, nows: [T + 5 * MIN], want: [0, 0], ids: ['X', 'Y'] },
+  ]
+  for (const { name, gantt, nows, want, ids = ['CW-1', 'CW-2'] } of cases) {
+    const bodies = { '.chart-body[data-ticket]': { dataset: { ticket: ids[0] } }, '.chart-body[data-merged]': { dataset: { merged: ids[1] } } }
+    const root = { querySelectorAll: (sel) => [bodies[sel]] }
+    const data = { status: [{ rows: [{ id: 'CW-1', gantt }] }], merged: [{ id: 'CW-2', gantt }] }
+    const calls = new Map(Object.values(bodies).map((b) => [b, 0]))
+    for (const now of nows) drawCharts(root, data, now, (b) => calls.set(b, calls.get(b) + 1))
+    assert.deepEqual([...calls.values()], want, name)
+  }
 })
