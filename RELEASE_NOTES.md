@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 No Hands mode that works the Backlog with no approvals (CW-159) (#215)
+
+Merged 2026-11-08 17:42 UTC.
+
+You can turn on a No Hands run: set the three new `project.md` rows (off by default), then say `no hands` in the Chief of Staff thread. The team approves specs and merges itself, except changes to the files that decide approvals, migrations and flagged changes (money, auth, user email), which still wait for you. It stops at 10 tickets or $200 by default, and posts a summary when it ends. `stop everything` always ends it.
+
 ## 2026-11-08 show the agent gantt on merged PRs in the dashboard (CW-213) (#214)
 
 Merged 2026-11-08 17:42 UTC.
