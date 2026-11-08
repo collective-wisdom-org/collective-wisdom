@@ -1,9 +1,9 @@
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readRegular } from './server.ts'
+import { codeFiles, codeVersion, readRegular } from './server.ts'
 
 const DAY_MS = 24 * 3600 * 1000
 
@@ -12,14 +12,30 @@ export function portFor(root: string): number {
   return 47000 + (n % 1000)
 }
 
-async function healthy(port: number, root: string): Promise<boolean> {
+type Health = { ok?: unknown; root?: unknown; code?: unknown; pid?: unknown }
+
+async function health(port: number, root: string): Promise<Health | null> {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(500) })
-    if (!res.ok) return false
-    const body = (await res.json()) as { ok?: unknown; root?: unknown }
-    return body.ok === true && body.root === root
+    if (!res.ok) return null
+    const body = (await res.json()) as Health
+    return body.ok === true && body.root === root ? body : null
   } catch {
-    return false
+    return null
+  }
+}
+
+const healthy = async (port: number, root: string) => (await health(port, root)) !== null
+
+/** The pid to stop for a server on `port`: the one `/health` reports, or for a server from before `/health` had a pid, the pid in dashboard.json when that process is a dashboard server on this port. */
+function serverPid(live: Health, port: number, recorded: unknown): number | null {
+  if (Number.isInteger(live.pid)) return live.pid as number
+  if (!Number.isInteger(recorded)) return null
+  try {
+    const cmd = execFileSync('ps', ['-p', String(recorded), '-o', 'command='], { encoding: 'utf8', timeout: 2000 })
+    return cmd.includes('server.ts') && cmd.includes(`--port ${port}`) ? (recorded as number) : null
+  } catch {
+    return null
   }
 }
 
@@ -82,8 +98,19 @@ export async function startDashboard(opts: {
   else if (!st.isDirectory()) throw new Error('.agent-team is not a real folder')
   pruneSnapshots(agentDir)
 
+  const serverPath = join(import.meta.dirname, 'server.ts')
   const existing = readDashboard(file, agentDir)
-  if (existing && Number.isInteger(existing.port) && (await healthy(existing.port!, root))) {
+  const live = existing && Number.isInteger(existing.port) ? await health(existing.port!, root) : null
+  const ours = codeVersion(codeFiles(serverPath))
+  // A healthy server running other code is stopped and replaced on its port.
+  const stale = live !== null && ours !== null && live.code !== ours ? serverPid(live, existing!.port!, existing!.pid) : null
+  if (stale !== null) {
+    try {
+      process.kill(stale, 'SIGTERM')
+    } catch {}
+    for (let i = 0; i < 60 && !(await portFree(existing!.port!)); i++) await new Promise((r) => setTimeout(r, 50))
+  }
+  if (live && stale === null) {
     const environmentId = opts.environmentId ?? existing.environmentId
     if (environmentId !== existing.environmentId) {
       writeDashboard(agentDir, file, { pid: existing.pid, port: existing.port, environmentId })
@@ -91,12 +118,11 @@ export async function startDashboard(opts: {
     return { url: `http://127.0.0.1:${existing.port}/`, started: false }
   }
 
-  let port = opts.basePort ?? portFor(root)
+  let port = stale !== null ? existing!.port! : (opts.basePort ?? portFor(root))
   const limit = port + 200
   while (port < limit && !(await portFree(port))) port++
   if (port >= limit) throw new Error('no free port for the dashboard')
 
-  const serverPath = join(import.meta.dirname, 'server.ts')
   const child = spawn(process.execPath, [serverPath, '--root', root, '--port', String(port)], {
     detached: true,
     stdio: 'ignore',
@@ -122,7 +148,7 @@ export async function startDashboard(opts: {
     throw new Error('dashboard did not start')
   }
 
-  writeDashboard(agentDir, file, { pid: child.pid, port, environmentId: opts.environmentId })
+  writeDashboard(agentDir, file, { pid: child.pid, port, environmentId: opts.environmentId ?? (stale !== null ? existing!.environmentId : undefined) })
   return { url: `http://127.0.0.1:${port}/`, started: true }
 }
 
