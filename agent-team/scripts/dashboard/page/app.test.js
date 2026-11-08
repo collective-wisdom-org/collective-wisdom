@@ -41,12 +41,12 @@ test('header badges count the three groups, hide empty alerts and use the singul
       .filter(([, count]) => count !== undefined)
       .map(([name, count]) => ({ name, count, rows: [] }))
   const text = (html) => [...html.matchAll(/<span class="(badge[^"]*)">([^<]*)<\/span>/g)].map((m) => `${m[1]}|${m[2]}`)
-  const none = 'badge|No tickets in the build queue'
+  const none = 'badge quiet|No tickets in the build queue'
   const cases = [
     [g(0, 0, 0), [none]],
     [g(undefined, undefined, undefined), [none]],
-    [g(1, 1, 1), ['badge cta-high|1 thread awaiting merge approval', 'badge cta-medium|1 thread awaiting build approval', 'badge|1 ticket in the build queue']],
-    [g(3, 2, 5), ['badge cta-high|3 threads awaiting merge approval', 'badge cta-medium|2 threads awaiting build approval', 'badge|5 tickets in the build queue']],
+    [g(1, 1, 1), ['badge cta-high|1 thread awaiting merge approval', 'badge cta-medium|1 thread awaiting build approval', 'badge quiet|1 ticket in the build queue']],
+    [g(3, 2, 5), ['badge cta-high|3 threads awaiting merge approval', 'badge cta-medium|2 threads awaiting build approval', 'badge quiet|5 tickets in the build queue']],
     [g(undefined, 2, undefined), ['badge cta-medium|2 threads awaiting build approval', none]],
   ]
   for (const [groups, want] of cases) assert.deepEqual(text(renderBadges(groups)), want)
@@ -75,14 +75,14 @@ test('gantt draws one bar per segment and model and harness cells, no kids', () 
   const seg = [[T, T + 100000], [T + 300000, T + 400000], [T + 500000, null]]
   const live = renderGantt([sess({ rows: [grow({ end: null, segments: seg, model: 'opus-5-5', harness: 'T3 Code' })] })], T + 600000)
   assert.deepEqual(bars(live), [['', 0, 16.67], ['', 50, 16.67], ['running', 83.33, 16.67]])
-  assert.match(live, /<span class="model">opus-5-5<\/span>\s*<span class="harness">T3 Code<\/span>/)
-  assert.match(live, /<span>Model<\/span><span>Harness<\/span>/)
+  assert.match(live, /<span class="meta">r · \d\d:\d\d, running · 12\.3k tokens · opus-5-5 · T3 Code<\/span>/)
+  assert.ok(!live.includes('class="grow head"'))
   assert.ok(!/kids|Kids/.test(live))
   const stale = renderGantt([sess({ stale: true, updatedAt: T + 600000, rows: [grow({ segments: seg })] })], T + 900000)
   assert.ok(!/bar running/.test(stale))
   const old = renderGantt([sess({ rows: [grow()] })], T + 60000)
   assert.equal(bars(old).length, 1)
-  assert.match(old, /<span class="model">–<\/span>\s*<span class="harness">–<\/span>/)
+  assert.match(old, /<span class="meta">r · \d\d:\d\d to \d\d:\d\d · 12\.3k tokens<\/span>/)
 })
 
 test('the shared axis follows now for a live session and freezes for a stale one', () => {
@@ -120,7 +120,7 @@ test('status sections draw open unless collapsed; a closed one keeps its heading
 
 test('merged list pages by ten, clamps the page, disables the pager ends and escapes text', () => {
   const list = Array.from({ length: 25 }, (_, i) => ({ id: `CW-${i + 1}`, title: `t${i + 1}`, prUrl: `https://x.test/pull/${i + 1}`, mergedAt: new Date(2026, 0, 2, 3, 4).getTime() }))
-  const cards = (html) => (html.match(/<li class="ticket">/g) ?? []).length
+  const cards = (html) => (html.match(/<li class="row">/g) ?? []).length
   const cases = [
     [0, 0, 10, 'Page 1 of 3', /data-page="-1" disabled/],
     [1, 1, 10, 'Page 2 of 3', /data-page="0">Newer[\s\S]*data-page="2">Older/],
@@ -141,4 +141,16 @@ test('merged list pages by ten, clamps the page, disables the pager ends and esc
   assert.match(renderMerged([], 5).html, /Nothing merged yet/)
   const bad = renderMerged([{ id: '<b>', title: '<script>x</script>', prUrl: 'javascript:1', issueUrl: 'javascript:2', mergedAt: 0 }], 0).html
   assert.ok(!bad.includes('<script') && !bad.includes('<b>') && !bad.includes('href='))
+})
+
+test('groups sort into bands, keep api order inside a band, and show the stage only in Other', () => {
+  const g = (name, rows = [row({ id: `${name}-1`, stage: 'build' })]) => ({ name, count: rows.length, rows })
+  const bandsOf = (html) => [...html.matchAll(/<h2>([^<]+)<\/h2>|<h3>([^<]+?) <span/g)].map((m) => m[1] ?? m[2])
+  const names = [g('Building'), g('Mystery'), g('Awaiting build approval'), g('Queued to build'), g('Awaiting merge approval'), g('Speccing')]
+  assert.deepEqual(bandsOf(renderStatus(names)), ['Needs you', 'Awaiting build approval', 'Awaiting merge approval', 'In progress', 'Building', 'Mystery', 'Speccing', 'Queued', 'Queued to build'])
+  assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
+  const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
+  assert.match(other, /class="row blocked"[\s\S]*>blocked<[\s\S]*>spec queued</)
+  assert.equal((other.match(/badge stage/g) ?? []).length, 2)
+  assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })

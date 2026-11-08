@@ -19,7 +19,7 @@ Checks (the merge target branch is the `Merge target branch` row of project.md, 
   - mergeable and CLEAN (BLOCKED for a codeowner past a missing review)
   - every check is green (CheckRun and StatusContext)
   - the latest code review and security review by the logged-in gh user each end in `Verdict: PASS` (bold or plain) and are newer than the head commit (a reviews-stand note or a conflict-resolution
-    note can cover an older one); with Review mode `ci` both are skipped, and an unresolved thread by the CI review bot stops the merge instead
+    note can cover an older one; a reviews-stand note covers a head whose PR diff is unchanged or changed only in docs files, the docs-file rule in pr_diff_delta.py); with Review mode `ci` both are skipped, and an unresolved thread by the CI review bot stops the merge instead
   - closeout docs are in the PR (a Shipped spec and its as-built or "as specified" line, the release note unless `Publish release notes` is `off`, and a `## Proof` section with a `Not proven` line)
   - the root checkout is on a clean <target> with an upstream and no local commits
 
@@ -74,7 +74,10 @@ NOTES_BRANCH = "release-notes"
 NOTES_FILE = "RELEASE_NOTES.md"
 API = "repos/{owner}/{repo}/git"
 OK_CONCLUSIONS = ("SUCCESS", "SKIPPED", "NEUTRAL")
-NOTE = re.compile(r"Head moved to ([0-9a-f]{40})\b.*?unchanged since ([0-9a-f]{40})", re.I | re.S)
+# Group 1: the head; group 2: the reviewed head. The docs wording is anchored, since its file names (repr-quoted) can hold anything.
+NOTE = re.compile(
+    r"Head moved to ([0-9a-f]{40})\b(?:; PR diff changed only in docs files since|.*?unchanged since) ([0-9a-f]{40})", re.I | re.S
+)
 RESOLVED = re.compile(
     r"Head moved to ([0-9a-f]{40})\b.*?by resolving conflicts with [A-Za-z0-9._/-]+; reviews from ([0-9a-f]{40}) stand\.", re.I | re.S
 )
@@ -236,7 +239,7 @@ def stands(f, c, delta):
         kind, files = delta(f, reviewed["oid"])
     except CmdError as e:
         return f"cannot compare diff: {e}"
-    if kind != "same":
+    if kind not in ("same", "docs"):
         return f"diff changed since {reviewed['oid'][:7]}: {', '.join(repr(x) for x in files[:10])}"
     return None
 

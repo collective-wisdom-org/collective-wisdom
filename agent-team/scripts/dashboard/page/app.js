@@ -19,32 +19,45 @@ const riskClass = (risk) => {
   return w && ['low', 'medium', 'high'].includes(w[0]) ? ` risk-${w[0]}` : ''
 }
 
-export function renderStatus(groups, open = new Set(), collapsed = new Set()) {
-  if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
-  return groups
-    .map((g) => {
-      const rows = g.rows
-        .map((r) => {
-          const copy = r.threadLink
-            ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>`
-            : ''
-          return `<li class="ticket">
-  <div class="top">
-    <span class="id">${link(r.issueUrl, r.id)}</span>
-    ${r.stage ? `<span class="badge stage">${esc(r.stage)}</span>` : ''}
-    <span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>
-    ${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}
-    ${copy}
-  </div>
-  ${r.title ? `<div class="title">${esc(r.title)}</div>` : ''}
-  ${r.next ? `<div class="next">${esc(r.next)}</div>` : ''}
+// Bands are a page-side order over the /api groups. A group name the page does not know goes to In progress.
+const NEEDS_YOU = ['Awaiting merge approval', 'Awaiting build approval']
+const QUEUED = ['Queued to merge', 'Queued to build', 'Other']
+const BANDS = [
+  { name: 'Needs you', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
+  { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) },
+  { name: 'Queued', slug: 'queued', has: (n) => QUEUED.includes(n) },
+]
+const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
+const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
+
+/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */
+function ticket(r, { flat, other, open }) {
+  const copy = r.threadLink ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>` : ''
+  const stage = other && r.stage ? `<span class="badge stage">${esc(STAGE_WORDS.get(r.stage) ?? r.stage.replace(/-/g, ' '))}</span>` : ''
+  const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
+  const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
+  return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
+  <div class="head"><span class="id">${link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}</div>
+  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
+  ${flat ? '' : next}
   ${r.gantt && r.gantt.length ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(r.gantt.length)}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
 </li>`
-        })
-        .join('\n')
-      return `<details class="group" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="cards">${rows}</ul></details>`
-    })
-    .join('\n')
+}
+
+export function renderStatus(groups, open = new Set(), collapsed = new Set()) {
+  if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
+  return BANDS.map((band) => {
+    const mine = groups.filter((g) => band.has(g.name))
+    if (mine.length === 0) return ''
+    const flat = band.slug === 'queued'
+    const sections = mine
+      .map((g) => {
+        const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open })).join('\n')
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
+      })
+      .join('\n')
+    return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
+  }).join('\n')
 }
 
 export function renderBadges(groups) {
@@ -57,7 +70,7 @@ export function renderBadges(groups) {
   return [
     merge > 0 ? `<span class="badge cta-high">${plural(merge, 'thread')} awaiting merge approval</span>` : '',
     build > 0 ? `<span class="badge cta-medium">${plural(build, 'thread')} awaiting build approval</span>` : '',
-    `<span class="badge">${queue > 0 ? `${plural(queue, 'ticket')} in the build queue` : 'No tickets in the build queue'}</span>`,
+    `<span class="badge quiet">${queue > 0 ? `${plural(queue, 'ticket')} in the build queue` : 'No tickets in the build queue'}</span>`,
   ].join('')
 }
 
@@ -66,21 +79,17 @@ const stamp = (ms) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
 
-/** One page of the merged list as cards plus a pager. `page` is 0-based and comes back clamped. */
+/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped. */
 export function renderMerged(list, page, size = 10) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const pages = Math.ceil(list.length / size)
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
-  const cards = list
+  const rows = list
     .slice(at * size, (at + 1) * size)
     .map(
-      (e) => `<li class="ticket">
-  <div class="top">
-    <span class="id">${link(e.issueUrl, e.id)}</span>
-    <span class="pr">${link(e.prUrl, 'PR')}</span>
-  </div>
-  <div class="title">${esc(e.title)}</div>
-  <div class="next">merged ${esc(stamp(e.mergedAt))}</div>
+      (e) => `<li class="row">
+  <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
+  <div class="sub"><span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span></div>
 </li>`,
     )
     .join('\n')
@@ -88,7 +97,7 @@ export function renderMerged(list, page, size = 10) {
     pages > 1
       ? `<nav class="pager"><button type="button" data-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
       : ''
-  return { html: `<ul class="cards">${cards}</ul>${pager}`, page: at }
+  return { html: `<ul class="rows">${rows}</ul>${pager}`, page: at }
 }
 
 export function renderGantt(sessions, now) {
@@ -112,24 +121,18 @@ export function renderGantt(sessions, now) {
             })
             .join('')
           const running = r.end === null || r.end === undefined
+          const range = running && !s.stale ? `${clock(r.start)}, running` : `${clock(r.start)} to ${clock(endOf(r))}`
+          const meta = [r.repo, range, `${tokens(r.tokens)} tokens`, r.model, r.harness].filter((p) => p !== null && p !== undefined && p !== '')
           return `<div class="grow">
-  <span class="name" style="padding-left:${Math.max(0, r.depth) * 1.2}em">${esc(r.name)}</span>
-  <span class="num cost">${dollars(r.cost)}</span>
+  <span class="name" title="${esc(r.name)}" style="padding-left:${Math.max(0, r.depth) * 1.2}em">${esc(r.name)}</span>
   <span class="track">${bars}</span>
-  <span class="meta">
-    <span class="repo">${esc(r.repo)}</span>
-    <span class="num t0">${clock(r.start)}</span>
-    <span class="num t1">${running && !s.stale ? 'running' : clock(endOf(r))}</span>
-    <span class="num tok">${tokens(r.tokens)}</span>
-    <span class="model">${esc(r.model ?? '–')}</span>
-    <span class="harness">${esc(r.harness ?? '–')}</span>
-  </span>
+  <span class="num cost">${dollars(r.cost)}</span>
+  <span class="meta">${meta.map(esc).join(' · ')}</span>
 </div>`
         })
         .join('\n')
       return `<section class="session${s.stale ? ' stale' : ''}">
-  <h3>${esc(s.cwd)} <span class="total">${dollars(s.total)}</span>${s.stale ? ' <span class="pill">stale</span>' : ''}</h3>
-  <div class="grow head"><span>Agent</span><span>Repo</span><span class="num">Start</span><span class="num">End</span><span class="num">Tokens</span><span class="num">Cost</span><span>Model</span><span>Harness</span><span>Timeline</span></div>
+  <h3><span class="cwd">${esc(s.cwd)}</span>${s.stale ? ' <span class="pill">stale</span>' : ''} <span class="total">${dollars(s.total)}</span></h3>
   ${rows}
 </section>`
     })

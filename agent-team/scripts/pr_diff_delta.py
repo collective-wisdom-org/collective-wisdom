@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Say whether a PR's own changes are the same at two heads (e.g. after the merge target branch was merged in).
+"""Say whether a PR's own changes are the same at two heads (e.g. after the merge target branch was merged in), or changed only in docs files.
 
 Usage:
     ~/.collective-wisdom/scripts/pr_diff_delta.py <PR number> <reviewed SHA> [<head SHA>]
@@ -9,8 +9,13 @@ defaults to the PR's current headRefOid. The PR's diff at each head is taken aga
 that head's own merge base with origin/<merge target branch> (by its full ref name), and compared per file by blob IDs and modes
 (`git diff --raw`), so any byte that differs, in either the base or the head blob, counts.
 
+A docs file is an ASCII-named .md file that is README.md at the repo top, or under docs/ but not under docs/agents/ (compared
+without regard to case), has no path part starting with "." and is not named CLAUDE.md, CLAUDE.local.md or AGENTS.md (any
+case), and is a regular file (mode 100644, or absent) on both sides. review_scope.py uses the same rule.
+
 Exit 0, last line (full SHAs):
   pr-diff-delta: same since <reviewed> at <head>
+  pr-diff-delta: docs since <reviewed> at <head>: <file>, ...   files differ and every one is a docs file (same file format as changed)
   pr-diff-delta: changed since <reviewed> at <head>: <file>, <file>, ... (quoted with repr; first 10, then "... N more")
 Exit 2: bad arguments or a read failed. Last line: pr-diff-delta: cannot <what>
 Exit 2 means "could not tell": run the reviews.
@@ -28,6 +33,23 @@ import project_config  # noqa: E402
 ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 SHOW = 10
+AGENT_CONFIG = ("claude.md", "claude.local.md", "agents.md")  # lowercase: tools read these from subfolders
+REGULAR = ("100644", "000000")  # 000000: the file is absent on that side
+
+
+def is_docs(path, modes):
+    low = path.lower()  # case-insensitive checkouts: docs/Agents/ lands on docs/agents/
+    in_docs = path == "README.md" or (low.startswith("docs/") and not low.startswith("docs/agents/"))
+    # ASCII only: a lookalike such as docs/agentſ/ also lands on docs/agents/ on a case-insensitive checkout
+    parts = low.split("/")
+    # Agent config is not a record: hidden folders (docs/.claude/skills/) and CLAUDE.md or AGENTS.md at any depth
+    config = any(p.startswith(".") for p in parts) or parts[-1] in AGENT_CONFIG
+    return path.isascii() and path.endswith(".md") and in_docs and not config and all(m in REGULAR for m in modes)
+
+
+def show(files):
+    """The files as repr, comma-separated: the first SHOW, then ", ... N more"."""
+    return ", ".join(repr(f) for f in files[:SHOW]) + (f", ... {len(files) - SHOW} more" if len(files) > SHOW else "")
 
 
 class CmdError(Exception):
@@ -67,14 +89,19 @@ def raw_entries(sha, run):
 
 
 def delta(reviewed, head, run):
-    """Return ("same", []) or ("changed", files). Raises CmdError when it can't compare.
+    """Return ("same", []), ("docs", files) or ("changed", files). Raises CmdError when it can't compare.
 
-    Expects origin/<target> and both commits to be local already.
+    "docs": files differ and every differing file is a docs file on its modes at both heads. A head with no entry for a
+    file has it unchanged against its base there, so the other head's entry gives the modes. Expects origin/<target> and
+    both commits to be local already.
     """
     shas = [run(["git", "rev-parse", "--verify", f"{s}^{{commit}}"]).strip() for s in (reviewed, head)]
     old, new = (raw_entries(s, run) for s in shas)
     files = sorted(p for p in old.keys() | new.keys() if old.get(p) != new.get(p))
-    return ("changed", files) if files else ("same", [])
+    if not files:
+        return "same", []
+    docs = all(is_docs(p, [m for e in (old, new) if p in e for m in e[p][:2]]) for p in files)
+    return ("docs" if docs else "changed"), files
 
 
 def main(argv, run=run):
@@ -98,8 +125,7 @@ def main(argv, run=run):
     if kind == "same":
         print(f"pr-diff-delta: same {tail}")
     else:
-        shown = ", ".join(repr(f) for f in files[:SHOW]) + (f", ... {len(files) - SHOW} more" if len(files) > SHOW else "")
-        print(f"pr-diff-delta: changed {tail}: {shown}")
+        print(f"pr-diff-delta: {kind} {tail}: {show(files)}")
     return 0
 
 

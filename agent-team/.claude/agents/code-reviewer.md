@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Reviews a PR diff for correctness, maintainability and performance and returns findings with severity and location. Read only; the child posts the comment and applies the fixes. Use in the ship loop's code review pass, after the docs check.
+description: Reviews a PR diff for correctness, maintainability and performance and returns findings with severity and location. Read only; the child posts the comment and applies the fixes. Use in the ship loop's code review pass.
 model: opus
 tools: Read, Grep, Glob, Bash, Skill
 ---
