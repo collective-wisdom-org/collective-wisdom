@@ -112,7 +112,8 @@ def on_approval_path(path):
 
 SHADOWS = frozenset(sys.stdlib_module_names) | {"sitecustomize", "usercustomize", "conftest"}
 HANDS_STEMS = frozenset(n.split(".")[0] for n in HANDS_SCRIPTS)
-ROOT_SHADOWS = SHADOWS | {"pytest", "_pytest", "pluggy"}  # a repo-root directory with one of these names shadows it for `python3 -m pytest` in CI
+ROOT_SHADOWS = frozenset({"pytest", "_pytest", "pluggy"})  # a repo-root entry with one of these names shadows pytest for `python3 -m pytest` in CI
+ROOT_PY = SHADOWS | ROOT_SHADOWS  # a repo-root Python file named like a standard-library module or pytest (not main.py or setup.py: apps have those)
 PYTHONISH = (".py", ".so", ".pyd", ".pyc", ".pth")  # file types Python imports or loads
 
 
@@ -141,21 +142,24 @@ def _ancestors(entries):
     return {"/".join(e.rstrip("/").split("/")[:i]) for e in entries for i in range(1, len(e.rstrip("/").split("/")))}
 
 
-HANDS_PARENTS = frozenset(_ancestors(HANDS_PATH | set(HANDS_DIRS) | {".claude/settings.json", ".github/x"}) | {d.rstrip("/") for d in HANDS_DIRS} | {".claude", ".github"})
+HANDS_PARENTS = frozenset(_ancestors(HANDS_PATH | set(HANDS_DIRS) | {".claude/settings.json"}) | {d.rstrip("/") for d in HANDS_DIRS} | {".claude", ".github"})
 
 
 def nested_rules(p):
     """A rule file or rule directory (or a link to one) in any directory: `<dir>/.cursor/rules`, `<dir>/.claude/rules`, `<dir>/.cursorrules`."""
     parts = p.split("/")
-    return parts[-1] == ".cursorrules" or any(parts[i:i + 2] in ([".cursor", "rules"], [".claude", "rules"]) for i in range(len(parts) - 1)) \
-        or parts[-1] in (".cursor", ".claude") and len(parts) > 1 or parts[-2:] in ([".cursor", "rules"], [".claude", "rules"])
+    rule_dir = any(parts[i:i + 2] in ([".cursor", "rules"], [".claude", "rules"]) for i in range(len(parts) - 1))
+    nested_link = len(parts) > 1 and parts[-1] in (".cursor", ".claude")
+    return parts[-1] == ".cursorrules" or rule_dir or nested_link
 
 
 def on_hands_path(path):
     p, name, instructions = _norm(path)
     settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
-    return (p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
-            or p in HANDS_PARENTS or p.split("/")[0] in ROOT_SHADOWS or nested_rules(p) or name == ".gitattributes" or ("/" not in p and name.endswith(".py")) or shadows_imports(p, name))
+    listed = p in HANDS_PATH or p.startswith(HANDS_DIRS) or p in HANDS_PARENTS or settings or instructions
+    root_shadow = p.split("/")[0] in ROOT_SHADOWS or ("/" not in p and name.endswith(".py") and name[:-3] in ROOT_PY)
+    return (listed or ".github" in p.split("/")[:-1] or name in ("codeowners", ".gitattributes")
+            or root_shadow or nested_rules(p) or shadows_imports(p, name))
 
 
 def _verdict(kind, who, level, setting, ticket=None):

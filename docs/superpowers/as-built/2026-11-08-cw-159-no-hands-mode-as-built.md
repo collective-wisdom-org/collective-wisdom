@@ -28,3 +28,4 @@
 - Hands path also covers directories above a listed path (a symlink such as `.claude` added with its target), root-level `*.py`, more pytest config names and `.gitattributes`.
 - Hands path also covers `.claude/rules/`, `.cursor/rules/`, `.cursorrules` (instruction files loaded into every session) and repo-root directories named like a stdlib module or pytest.
 - Rule directories and `.cursorrules` count at any depth, and a bare root `pytest` entry is caught.
+- Root-level shadow rules are narrow so app repos' `main.py` or `types/` do not always ask: only `pytest`, `_pytest`, `pluggy` entries and root Python files named like a standard-library module.
