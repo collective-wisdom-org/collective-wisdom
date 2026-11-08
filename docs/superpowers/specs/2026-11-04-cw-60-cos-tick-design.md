@@ -1,7 +1,8 @@
 # CW-60: A cos_tick.py that prints the tool calls a Chief of Staff turn needs
 
 **Ticket:** [CW-60](https://github.com/collective-wisdom-org/collective-wisdom/issues/60)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #196, with differences: [as-built](../as-built/2026-11-08-cw-60-cos-tick-as-built.md)
 
 ## Goal
 
