@@ -77,6 +77,9 @@ test('taskName takes the first real line, skips the T3 preamble, collapses space
     ['Act as the implementation sub-agent for this task.\n\nTEAM MODE. Run /ship-loop for CW-216: Redesign the agent gantt', 'Run /ship-loop for CW-216: Redesign the agent gantt'],
     ['Act as the implementation sub-agent for this task. TEAM MODE. CONTINUE. Run /ship-loop. Do the build stage.', 'Run /ship-loop. Do the build stage.'],
     ['TEAM MODE. CONTINUE. Run /ship-loop for CW-9: fix', 'Run /ship-loop for CW-9: fix'],
+    ['Continued work on the parser', 'Continued work on the parser'],
+    ['continue\nfix the login bug', 'continue'],
+    ['Act as the reviewer agent for this task and check X', 'Act as the reviewer agent for this task and check X'],
   ]
   for (const [text, want] of cases) assert.equal(taskName(text), want)
   assert.equal(run([['open', 7]]).tasks[0]?.name, 'task')

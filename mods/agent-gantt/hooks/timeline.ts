@@ -5,10 +5,10 @@ const NAME_MAX = 60
 // A list keeps its last spans only, so a long session stays small.
 const SEGMENTS_MAX = 500
 // T3 Code opens a delegated task with `Act as the implementer agent for this task.` (also `sub-agent`, `subagent`), on its own line or ahead of the task.
-const PREAMBLE = /^Act as the [\w -]*agent for this task\.?\s*/i
+const PREAMBLE = /^Act as the [\w -]*agent for this task(?:\.\s*|$)/i
 // The team's markers open a delegated prompt; the name starts after them.
 const TEAM_MODE = /^TEAM MODE\.?\s*/i
-const CONTINUE = /^CONTINUE\.?\s*/i
+const CONTINUE = /^CONTINUE(?:\.|\s|$)\s*/i
 const RELAY = /^CHIEF OF STAFF:\s*/i
 const TICKET = /[A-Z][A-Z0-9]*-\d+/
 // What a Chief of Staff relay asks for, first match wins; the relay names no ticket.
@@ -23,7 +23,8 @@ const RELAY_WORK: [RegExp, (m: RegExpMatchArray) => string][] = [
 /** The task's name: the prompt's first line left after T3's preamble and the team markers, whitespace collapsed, cut to 60 characters. A Chief of Staff relay is named `<ticket> <work>`, the ticket from the newest of `earlier` (main's earlier task names) that has one. */
 export function taskName(text: string, earlier: string[] = []): string {
   for (const raw of text.split('\n')) {
-    const line = raw.replace(/\s+/g, ' ').trim().replace(PREAMBLE, '').replace(TEAM_MODE, '').replace(CONTINUE, '')
+    const stripped = raw.replace(/\s+/g, ' ').trim().replace(PREAMBLE, '')
+    const line = TEAM_MODE.test(stripped) ? stripped.replace(TEAM_MODE, '').replace(CONTINUE, '') : stripped
     if (line === '') continue
     if (!RELAY.test(line)) return line.slice(0, NAME_MAX)
     const work = line.replace(RELAY, '')
