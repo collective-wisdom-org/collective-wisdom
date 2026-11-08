@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 compatibility matrix for harnesses and trackers (CW-223) (#224)
+
+Merged 2026-11-08 19:56 UTC.
+
+The repo now has a compatibility page, `docs/compatibility.md`, that lists which team features work on which harness (Claude Code, Codex, Cursor, T3 Code) and ticket tracker (GitHub Issues, Linear, Jira). Nothing to do.
+
 ## 2026-11-08 match prices.json to the published rates and Claude Code's session cost (CW-220) (#222)
 
 Merged 2026-11-08 19:33 UTC.
