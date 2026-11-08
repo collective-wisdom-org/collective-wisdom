@@ -8,7 +8,7 @@ Run the tick with `--trigger status` (SKILL.md § Tick): it idle-reads every act
 
 ## Status layout
 
-`status` and `where's <PREFIX>-N?` answer in this layout, not in the routine report shape of SKILL.md § Report format. It is one small markdown table per group, under a bold header with the count. The user scans down one column for the ticket and one for the risk, and reads the next action in the third. Separate tables keep the group order and counts visible as headers. Unrendered, they still read line by line.
+`status` and `where's <PREFIX>-N?` answer in this layout, not in the routine report shape of SKILL.md § Report format. It is one small markdown table per group, under a bold header with the count. The user scans down one column for the ticket and one for the risk, and reads the next action in the third. Separate tables keep the group order and counts visible as headers. Unrendered, they still read line by line. While a No Hands run is active, the answer starts with the No Hands line (SKILL.md § Report format).
 
 ```
 **Awaiting merge approval (1)**

@@ -56,6 +56,7 @@ An app commits one file from the team: `docs/agents/project.md`. From an empty r
    - `Require teammate approval` (`off`): when `on`, a merge also needs an approving GitHub review from someone other than the PR author.
    - `Publish release notes` (`off`): when `on`, each PR carries a release note and every merge publishes the notes to the `release-notes` branch.
    - `Approval risk tolerance` (`strict`): which approvals the team takes without asking you. See Approval risk tolerance.
+   - `No Hands` (`off`), `No Hands ticket cap` (`10`) and `No Hands cost cap (USD)` (`200`): whether you may start a No Hands run and its limits. See No Hands.
    - `Review after conflict resolution` (`off`): whether a conflict resolution is reviewed again before it can merge.
 5. Set branch protection or a ruleset on the merge target branch that requires the checks listed in `Required CI checks` in `project.md`.
 
@@ -125,6 +126,10 @@ Edit `docs/agents/project.md` in the app and replace every `<placeholder>`. The 
 ## Approval risk tolerance
 
 The `Approval risk tolerance` row in `docs/agents/project.md` § Identity sets which approvals the team takes without asking you: `strict` (none), `balanced` (Low risk only) or `permissive` (Low and Medium). High risk always waits for your `approve N`. The default is `strict`, and a missing row, an unknown value or a failed read counts as `strict`, so existing apps keep asking. The setting counts only as committed on the merge target branch (the `Merge target branch` row of `project.md`, `main` when unset), read from `origin`. CI, both review PASS comments (in `ci` review mode, no unresolved CI review thread instead) and every other merge gate apply at every level, and a PR that touches the setting, any role doc under `docs/agents/`, any script, the root `install.sh` or `tag-release.sh`, any dot-directory or dot-file at any depth (`.claude`, `.github`, `.cursor`, `.mcp.json` and the like) or any `AGENTS.md` or `CLAUDE.md` file always waits for you, and so does a ticket the Chief of Staff filed from its own observation. Nothing edits an existing `project.md` for you, so add the row by hand to turn it on. Details: `agent-team/.claude/skills/chief-of-staff/approvals.md` § Auto-approval.
+
+## No Hands
+
+Set the `No Hands` row in `docs/agents/project.md` § Identity to `on` (it is `off` by default; a missing row, an unknown value or a bad cap reads as `off`), then say `no hands` in the Chief of Staff thread. The Chief of Staff approves specs and merges itself at any risk level and keeps starting tickets from Todo and the Backlog until the Backlog is empty, the ticket cap or the cost cap is reached, a ticket blocks, or you say `no hands off` (finish what is running) or `stop everything` (stop now). Every review, CI check and merge gate still runs. A change to the files that decide approvals, the mode, the reviews and CI, a migration or a `flag:` path still waits for your `approve N`. When the run ends it posts a summary, and it never starts again without your next `no hands`. Details: `agent-team/.claude/skills/chief-of-staff/no-hands.md`.
 
 ## Review mode
 

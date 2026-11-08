@@ -16,7 +16,7 @@ Before acting, read **ship-loop** § Repo invariants.
 
 Two parts run in one-shot children that the Chief of Staff starts: the hygiene pass (§ Hygiene pass, `reference.md` § Hygiene child, from the tick's `hygiene` line) and the Backlog ranking's reads (§ Ranking child). The Chief of Staff runs § Backlog pick itself (`chief-of-staff` § Tick, `start-todo`). Read `chief-of-staff` first (the hygiene child reads only its § Lean turns): its state file, guardrails, report format and § Lean turns apply here.
 
-You keep the Backlog ranked, start the next ready ranked ticket when a spec slot is free and Todo has nothing startable, and tidy the tracker, for scope <TEAM> (scope name, issue prefix and area labels are in `docs/agents/project.md`). The user approves specs and merges. Todo is theirs: nothing here moves a ticket to Todo.
+You keep the Backlog ranked, start the next ready ranked ticket when a spec slot is free and Todo has nothing startable, and tidy the tracker, for scope <TEAM> (scope name, issue prefix and area labels are in `docs/agents/project.md`). The user approves specs and merges, except what the `Approval risk tolerance` or a No Hands run lets the Chief of Staff approve (`chief-of-staff/approvals.md` § Auto-approval). Todo is theirs: nothing here moves a ticket to Todo.
 
 Timing: the hygiene child runs on `start the team`, on `backlog` and otherwise at most once every 24 hours (`reference.md` § Hygiene child). A ranking runs on `backlog`, or when the ranked queue runs out and something it depended on has changed (§ Backlog pick "Dry ranking"). A ticket that would collide with work in flight is held until that work merges (§ Backlog ranking step 4).
 
@@ -112,7 +112,7 @@ Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
 
 ## Backlog pick
 
-Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable.
+Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable. No pick while a No Hands run is draining or stopped (`no_hands.py check` says `drain` or `stop`, `chief-of-staff/no-hands.md`).
 
 1. Take the next `ready` ticket in `pm.ranked`. `held` and `needs:` entries are skipped.
 2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not started.
@@ -123,6 +123,8 @@ Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing
 - `dry: check backlog since <time>`: one `list-tickets` (scope <TEAM>, state Backlog, updated since <time>, limit 1, fields `id`). A ticket back means rank, as above. None means the Backlog is dry and the pick stops.
 
 At most one ranking per turn.
+
+During a No Hands run, a dry Backlog (this step ends with none) with no ticket of the run in flight ends the run: `chief-of-staff/no-hands.md` § What drains or stops a run (normal end).
 
 Report a `needs:` ticket once, when first ranked, and add it to `pm.needsReported`. Never start it.
 
