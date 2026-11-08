@@ -1,6 +1,7 @@
 # CW-233: Label each gantt task row with its stage: Spec, Build or Merge
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #237, as specified
 **Ticket:** [#233](https://github.com/collective-wisdom-org/collective-wisdom/issues/233)
 **Related:** CW-219 (task names, PR #221), CW-225 (own spans, PR #228), CW-227 (details section), CW-230 (page reload), CW-232 (bar tooltips).
 
