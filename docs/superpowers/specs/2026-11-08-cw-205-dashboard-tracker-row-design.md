@@ -1,6 +1,7 @@
 # CW-205: Read the tracker from project.md in the dashboard, not the template prose
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #208, as specified
 **Ticket:** [#205](https://github.com/collective-wisdom-org/collective-wisdom/issues/205)
 **Related:** #203 and #204 changed the dashboard page; this ticket changes only how `/api` decides that tickets are GitHub issues.
 
