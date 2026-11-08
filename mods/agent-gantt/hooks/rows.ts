@@ -2,8 +2,8 @@ import type { AgentRecord, Prices, Segment, Tokens } from '../types/index.d.ts'
 
 export type Row = {
   id: string
-  depth: number // 0 for the session row, 1 for its tasks, 2 for the subagents of a task, and so on
-  kind: 'session' | 'task' | 'agent'
+  depth: number // 1 for a task, 2 for the subagents of a task, and so on
+  kind: 'session' | 'task' | 'agent' // 'session' only in older snapshots; buildRows no longer emits it
   name: string
   repo: string
   start: number // ms since epoch
@@ -73,7 +73,25 @@ function topModel(usage: Record<string, Tokens>): string | null {
 
 const tokensOf = (usage: Record<string, Tokens>) => Object.values(usage).reduce((n, t) => n + total(t), 0)
 
-/** The rows of the chart, depth first: the session row, a row per task with the subagents spawned in it, then subagents the mod could not place. */
+/** What `all` holds beyond `parts`, per model; models with nothing left are dropped. */
+function minusUsage(all: Record<string, Tokens>, parts: Record<string, Tokens>[]): Record<string, Tokens> {
+  const left: Record<string, Tokens> = {}
+  for (const [model, t] of Object.entries(all)) {
+    const d: Tokens = { input: t.input, output: t.output, read: t.read, write: t.write }
+    for (const part of parts) {
+      const p = part[model]
+      if (p === undefined) continue
+      d.input -= p.input
+      d.output -= p.output
+      d.read -= p.read
+      d.write -= p.write
+    }
+    if (total(d) > 0) left[model] = d
+  }
+  return left
+}
+
+/** The rows of the chart, depth first: a row per task with the subagents spawned in it, then subagents the mod could not place. Main's usage outside any task is one `outside a task` row. */
 export function buildRows(
   records: AgentRecord[],
   agents: ListedAgent[],
@@ -116,22 +134,26 @@ export function buildRows(
     for (const k of byStart(kids.get(MAIN) ?? [])) agentRow(k, 1)
     return rows
   }
-  rows.push({
-    ...base(main),
-    id: MAIN,
-    depth: 0,
-    kind: 'session',
-    name: listed.get(MAIN)?.name || main.name,
-    start: main.start,
-    end: main.end,
-    tokens: tokensOf(main.usage),
-    cost: costOf(main.usage, prices),
-    segments: main.segments,
-    model: topModel(main.usage),
-  })
   const top = byStart(kids.get(MAIN) ?? [])
   // A task with no spans gets no row, so a subagent of it goes to depth 1 with the unplaced.
   const placed = (r: AgentRecord) => r.taskIndex !== null && (main.tasks[r.taskIndex]?.segments.length ?? 0) > 0
+  // Usage that landed before any task opened, or in a task with no spans, would otherwise drop out of the total.
+  const outside = minusUsage(main.usage, main.tasks.filter(k => k.segments.length > 0).map(k => k.usage))
+  if (Object.keys(outside).length > 0) {
+    rows.push({
+      ...base(main),
+      id: `${MAIN}:outside`,
+      depth: 1,
+      kind: 'task',
+      name: 'outside a task',
+      start: main.start,
+      end: main.start,
+      tokens: tokensOf(outside),
+      cost: costOf(outside, prices),
+      segments: [],
+      model: topModel(outside),
+    })
+  }
   main.tasks.forEach((task, i) => {
     // A prompt that started no turn (a slash command) has no spans: no row.
     if (task.segments.length === 0) return
