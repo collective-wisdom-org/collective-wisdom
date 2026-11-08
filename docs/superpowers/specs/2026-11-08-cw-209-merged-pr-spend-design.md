@@ -1,6 +1,7 @@
 # CW-209: Show agent spend on the merged PRs in the dashboard
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #211, with differences: [as-built](../as-built/2026-11-08-cw-209-merged-pr-spend-as-built.md)
 **Ticket:** [#209](https://github.com/collective-wisdom-org/collective-wisdom/issues/209)
 **Related:** #187 added the merged list; #195 and #200 set the page layout this row fits into.
 
