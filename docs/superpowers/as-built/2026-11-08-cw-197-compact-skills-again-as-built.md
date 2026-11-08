@@ -416,26 +416,26 @@ The script-enforced rules under the table in `## Inventory before` (held approva
 
 ## Sizes
 
-Characters, `python3 ~/.collective-wisdom/scripts/compact_check.py` at the Task 4 commit. "Delta" is after minus before; "target" is how much smaller the spec asked the file to be.
+Characters, `python3 ~/.collective-wisdom/scripts/compact_check.py` after merging CW-199 (`origin/main` at 9ec0086). "Delta" is after minus before; "target" is how much smaller the spec asked the file to be.
 
 | File | Before | After | Delta | Target | Met |
 |---|---|---|---|---|---|
 | chief-of-staff/SKILL.md | 84364 | 68286 | -16078 | 15000 | yes |
 | chief-of-staff/adopt.md (new) | 0 | 1613 | +1613 | none | n/a |
-| chief-of-staff/approvals.md | 12951 | 11151 | -1800 | 1500 | yes |
+| chief-of-staff/approvals.md | 13192 | 11275 | -1917 | 1500 | yes |
 | chief-of-staff/review.md (new) | 0 | 4145 | +4145 | none | n/a |
 | chief-of-staff/rotation.md | 15548 | 14044 | -1504 | 1500 | yes |
 | chief-of-staff/startup.md | 6982 | 7590 | +608 | none | n/a |
 | chief-of-staff/state-keys.md | 7909 | 9277 | +1368 | none | n/a |
 | chief-of-staff/ticket-helper.md | 8504 | 9379 | +875 | none | n/a |
 | merge-pr/SKILL.md | 9035 | 8222 | -813 | 800 | yes |
-| open-pr/SKILL.md | 19410 | 18822 | -588 | 2000 | no (see above) |
+| open-pr/SKILL.md | 19646 | 19058 | -588 | 2000 | no (see above) |
 | project-manager/SKILL.md | 15525 | 14003 | -1522 | 1500 | yes |
-| ship-loop/SKILL.md | 23238 | 20738 | -2500 | 2500 | yes |
+| ship-loop/SKILL.md | 23391 | 20891 | -2500 | 2500 | yes |
 | ship-loop/reference.md | 1503 | 2061 | +558 | none | n/a |
 | docs/agents/chief-of-staff.md | 8172 | 6831 | -1341 | 1000 | yes |
-| docs/agents/org-chart.md | 12927 | 11848 | -1079 | 800 | yes |
-| **Total** | **226068** | **208010** | **-18058** | 15000 | yes |
+| docs/agents/org-chart.md | 12872 | 11784 | -1088 | 800 | yes |
+| **Total** | **226643** | **208459** | **-18184** | 15000 | yes |
 
 The new reference files count in the total, so text moved out of a skill shows only in that file's line. The spec's total line quoted 348854 as the starting figure; `compact_check.py` measures 226068 on this branch, so the target is read as the 15000 reduction, not the absolute number.
 
