@@ -17,7 +17,7 @@ ticket, and writes through a temp file, fsync and os.replace under a flock on st
 next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
-    start     ticket, firstTaskId, childThreadId, parentThreadId, status; optional branch, title
+    start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
     stage     ticket, stage, status; optional set (a stage change needs a status line)
               awaiting-spec, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
               user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
@@ -191,8 +191,10 @@ def check(t):
 
 
 def op_start(s, op):
-    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", optional=("branch", "title"))
-    title = clean_title(op.get("title", ""))
+    need(op, "ticket", "firstTaskId", "childThreadId", "parentThreadId", "status", "title", optional=("branch",))
+    title = clean_title(op["title"])
+    if not title:
+        raise Reject("title must be a non-empty string")
     tid, t = ticket_of(s, op)
     if t:
         if t.get("childThreadId") != op["childThreadId"]:
