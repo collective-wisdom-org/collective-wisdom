@@ -1,10 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync, symlinkSync, lstatSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync, symlinkSync, lstatSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { portFor, startDashboard } from './start.ts'
+import { backupDir } from './backup.ts'
+
+// start takes a backup into the home folder; point that at a temp folder so no test touches the real one.
+const home = mkdtempSync(join(tmpdir(), 'dash-home-'))
+process.env.HOME = home
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-start-'))
@@ -213,5 +218,31 @@ test('a linked .agent-team gets no dashboard.json and no server', async () => {
   } finally {
     rmSync(root, { recursive: true, force: true })
     rmSync(outside, { recursive: true, force: true })
+  }
+})
+
+test('start takes a backup, and still starts when the backup folder is refused', async () => {
+  const basePort = await freePort()
+  const roots = [tmpRoot(), tmpRoot()]
+  try {
+    for (const root of roots) {
+      mkdirSync(join(root, '.agent-team'))
+      writeFileSync(join(root, '.agent-team', 'spend.json'), '{"v":1}')
+    }
+    const ok = await startDashboard({ root: roots[0], basePort })
+    assert.equal(ok.started, true)
+    const sets = readdirSync(backupDir(roots[0]))
+    assert.equal(sets.length, 1)
+    assert.equal(readFileSync(join(backupDir(roots[0]), sets[0], 'spend.json'), 'utf8'), '{"v":1}')
+    rmSync(join(home, '.agent-team-backups'), { recursive: true })
+    writeFileSync(join(home, '.agent-team-backups'), 'a file, not a folder')
+    const refused = await startDashboard({ root: roots[1], basePort: basePort + 1 })
+    assert.equal(refused.started, true)
+  } finally {
+    for (const root of roots) {
+      kill(root)
+      rmSync(root, { recursive: true, force: true })
+    }
+    rmSync(join(home, '.agent-team-backups'), { recursive: true, force: true })
   }
 })

@@ -13,6 +13,7 @@ import { createMerged } from './merged.ts'
 import { createDetails, gitRunner } from './details.ts'
 import type { DetailWant } from './details.ts'
 import type { MergedConfig } from './merged.ts'
+import { backup } from './backup.ts'
 import { parseLedger, recordSpend, spendByTicket } from './spend.ts'
 import { historyByTicket, parseHistory, recordHistory } from './history.ts'
 
@@ -29,6 +30,18 @@ export function pageVersion(dir: string): string | null {
     return hash.digest('hex').slice(0, 16)
   } catch {
     return null
+  }
+}
+
+/** True when a dashboard for `root` answers on `port`. */
+export async function healthy(port: number, root: string): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(500) })
+    if (!res.ok) return false
+    const body = (await res.json()) as { ok?: unknown; root?: unknown }
+    return body.ok === true && body.root === root
+  } catch {
+    return false
   }
 }
 
@@ -161,6 +174,14 @@ export async function startServer(opts: { root: string; port: number }): Promise
   const spendTimer = setInterval(recordRound, 30_000)
   spendTimer.unref()
 
+  // A backup of the ledger, the history and the state once a day, for a dashboard that runs for days; a failure is ignored.
+  const backupTimer = setInterval(() => {
+    try {
+      backup({ root, now: new Date() })
+    } catch {}
+  }, 24 * 3600 * 1000)
+  backupTimer.unref()
+
   const api = () => {
     readState()
     const snapshots = readSnapshots()
@@ -241,6 +262,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(spendTimer)
+        clearInterval(backupTimer)
         server.close(() => resolve())
         server.closeAllConnections()
       }),

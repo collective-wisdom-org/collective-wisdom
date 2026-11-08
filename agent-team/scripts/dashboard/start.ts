@@ -3,24 +3,14 @@ import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readRegular } from './server.ts'
+import { backup } from './backup.ts'
+import { healthy, readRegular } from './server.ts'
 
 const DAY_MS = 24 * 3600 * 1000
 
 export function portFor(root: string): number {
   const n = createHash('sha1').update(root).digest().readUInt32BE(0)
   return 47000 + (n % 1000)
-}
-
-async function healthy(port: number, root: string): Promise<boolean> {
-  try {
-    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(500) })
-    if (!res.ok) return false
-    const body = (await res.json()) as { ok?: unknown; root?: unknown }
-    return body.ok === true && body.root === root
-  } catch {
-    return false
-  }
 }
 
 function portFree(port: number): Promise<boolean> {
@@ -80,6 +70,12 @@ export async function startDashboard(opts: {
   const st = lstatSync(agentDir, { throwIfNoEntry: false })
   if (!st) mkdirSync(agentDir, { recursive: true })
   else if (!st.isDirectory()) throw new Error('.agent-team is not a real folder')
+  try {
+    const saved = backup({ root, now: new Date() })
+    if (saved.error) console.error(`dashboard backup skipped: ${saved.error}`)
+  } catch (e) {
+    console.error(`dashboard backup failed: ${(e as Error).message}`)
+  }
   pruneSnapshots(agentDir)
 
   const existing = readDashboard(file, agentDir)
