@@ -46,6 +46,22 @@ test('row title: state wins, else tracker title, else empty', () => {
   for (const [name, extra, titles, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), titles }).title, want, name)
 })
 
+test('rows sort newest update first; queued stages keep their places', () => {
+  const t = (stage: string, queuedAt?: string) => ({ title: 't', stage, status: 'x. Risk: low', queuedAt })
+  const cases: [string, Record<string, unknown>, Record<string, number>, string, string[]][] = [
+    ['newest first', { 'CW-1': t('build'), 'CW-2': t('build'), 'CW-3': t('build') }, { 'CW-1': 1, 'CW-2': 3, 'CW-3': 2 }, 'Building', ['CW-2', 'CW-3', 'CW-1']],
+    ['no time last, state order', { 'CW-1': t('build'), 'CW-2': t('build'), 'CW-3': t('build'), 'CW-4': t('build') }, { 'CW-3': 5 }, 'Building', ['CW-3', 'CW-1', 'CW-2', 'CW-4']],
+    ['same time keeps state order', { 'CW-1': t('build'), 'CW-2': t('build') }, { 'CW-1': 4, 'CW-2': 4 }, 'Building', ['CW-1', 'CW-2']],
+    ['queued to build unchanged', { 'CW-1': t('build-queued', 'a'), 'CW-2': t('build-queued', 'b') }, { 'CW-1': 1, 'CW-2': 9 }, 'Queued to build', ['CW-1', 'CW-2']],
+    ['queued to merge unchanged', { 'CW-1': t('merge-queued', 'a'), 'CW-2': t('merge-queued', 'b') }, { 'CW-1': 1, 'CW-2': 9 }, 'Queued to merge', ['CW-1', 'CW-2']],
+    ['Other: spec-queued stay, blocked sort', { 'CW-1': t('blocked'), 'CW-2': t('spec-queued', 'a'), 'CW-3': t('blocked'), 'CW-4': t('spec-queued', 'b') }, { 'CW-1': 1, 'CW-2': 1, 'CW-3': 2, 'CW-4': 9 }, 'Other', ['CW-2', 'CW-4', 'CW-3', 'CW-1']],
+  ]
+  for (const [name, tickets, updated, section, want] of cases) {
+    const rows = build({ state: { tickets }, updated }).status.find((g) => g.name === section)!.rows
+    assert.deepEqual(rows.map((r) => r.id), want, name)
+  }
+})
+
 const WT = '/Users/me/.t3/worktrees/repo/t3-1'
 /** The charts the card CW-1 gets from snapshots, when its branch lives in the worktree at `path`. */
 const charts = (snapshots: unknown[], path = WT) =>
