@@ -3,6 +3,8 @@ import type { Server } from 'node:http'
 import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildApi, repoUrlFromProject } from './api.ts'
+import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
+import type { TitleConfig } from './titles.ts'
 
 const PAGES: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -33,6 +35,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
   const { root } = opts
   const agentDir = join(root, '.agent-team')
   let lastState: unknown = null
+  const trackerTitles = createTitles({ run: ghRunner(root) })
 
   const api = () => {
     const state = readJson(join(agentDir, 'state.json'), [agentDir])
@@ -51,11 +54,25 @@ export async function startServer(opts: { root: string; port: number }): Promise
     const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir])
     const envId = (dash as { environmentId?: unknown } | undefined)?.environmentId
     let repo = null
+    let titleCfg: TitleConfig | null = null
     try {
       const text = readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
-      if (text !== undefined) repo = repoUrlFromProject(text)
+      if (text !== undefined) {
+        repo = repoUrlFromProject(text)
+        const prefix = prefixFromProject(text)
+        const slug = repo?.isGithubIssues ? slugFromUrl(repo.url) : null
+        if (prefix && slug) titleCfg = { prefix, slug }
+      }
     } catch {}
-    return buildApi({ state: lastState, snapshots, repo, environmentId: typeof envId === 'string' ? envId : null, now: Date.now() })
+    const tickets = (lastState as { tickets?: unknown } | null)?.tickets
+    if (typeof tickets === 'object' && tickets !== null && !Array.isArray(tickets)) {
+      const blank = Object.entries(tickets).filter(([, t]) => {
+        const title = (t as { title?: unknown } | null)?.title
+        return !(typeof title === 'string' && title)
+      }).map(([id]) => id)
+      trackerTitles.want(blank, titleCfg)
+    }
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

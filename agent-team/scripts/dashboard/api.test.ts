@@ -10,7 +10,7 @@ const stateOf = (id: string, extra: Record<string, unknown> = {}) => ({
   tickets: { [id]: { title: 't', stage: 'build', status: 'going. Risk: low', ...extra } },
 })
 const build = (o: Partial<Parameters<typeof buildApi>[0]> = {}) =>
-  buildApi({ state: null, snapshots: [], repo: GH, environmentId: 'env', now: NOW, ...o })
+  buildApi({ state: null, snapshots: [], repo: GH, titles: {}, environmentId: 'env', now: NOW, ...o })
 const firstRow = (o: Partial<Parameters<typeof buildApi>[0]>) => build(o).status[0].rows[0] as any
 
 test('whitelist: free text and relay never reach the api', () => {
@@ -34,6 +34,16 @@ test('links', () => {
     const r = firstRow({ state: stateOf(id, extra), ...over })
     for (const k of ['issueUrl', 'prUrl', 'threadLink']) assert.equal(r[k], want[k], `${name} ${k}`)
   }
+})
+
+test('row title: state wins, else tracker title, else empty', () => {
+  const cases: [string, Record<string, unknown>, Record<string, string>, string][] = [
+    ['state wins', { title: 'from state' }, { 'CW-1': 'from tracker' }, 'from state'],
+    ['empty state', { title: '' }, { 'CW-1': 'from tracker' }, 'from tracker'],
+    ['missing state', { title: undefined }, { 'CW-1': 'from tracker' }, 'from tracker'],
+    ['neither', { title: '' }, {}, ''],
+  ]
+  for (const [name, extra, titles, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), titles }).title, want, name)
 })
 
 test('snapshots', () => {

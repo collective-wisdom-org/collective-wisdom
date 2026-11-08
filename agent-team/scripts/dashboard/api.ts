@@ -53,15 +53,15 @@ function cleanSnapshot(s: unknown, now: number): Api['gantt'][number] | null {
   return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), rows }
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; environmentId: string | null; now: number }): Api {
-  const { state, snapshots, repo, environmentId, now } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number }): Api {
+  const { state, snapshots, repo, titles, environmentId, now } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
     count: g.count,
     rows: g.rows.map((r) => {
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
-      const out: StatusRow = { id: r.id, title: r.title, risk: r.risk, next: r.next, stage: str(t.stage) }
+      const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }
       const digits = r.id.match(/-(\d+)$/)
       if (repo && repo.isGithubIssues && digits) out.issueUrl = `${repo.url}/issues/${digits[1]}`
       if (repo && typeof t.pr === 'number' && Number.isInteger(t.pr)) out.prUrl = `${repo.url}/pull/${t.pr}`
