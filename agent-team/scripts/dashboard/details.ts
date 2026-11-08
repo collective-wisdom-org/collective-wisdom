@@ -16,7 +16,9 @@ const REFRESH_MS = 60_000
 const TEXT_MAX = 2000
 const FILES_MAX = 30
 const SPEC_HEADINGS = ['goal', 'builds', 'leaves out', 'non-goals', 'out of scope', 'calls i made', 'touches']
-const CONTROL = /[\x00-\x08\x0b-\x1f\x7f-\x9f\u2028\u2029]/g
+const CONTROL = /[\x00-\x08\x0b-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g
+/** Only a comment from someone with write access counts as a review; anyone can comment on a public PR. */
+const WRITERS = ['OWNER', 'MEMBER', 'COLLABORATOR']
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const clean = (s: string) => s.replace(/\r\n?/g, '\n').replace(CONTROL, ' ').trim()
@@ -64,9 +66,9 @@ function notProven(body: string): string {
   return out.filter(Boolean).join('\n')
 }
 
-/** The newest comment whose body starts with `## <name>`, as a review line; null when there is none or it names no verdict. */
+/** The newest comment by a writer whose body starts with `## <name>`, as a review line; null when there is none or it names no verdict. */
 function review(comments: unknown[], name: string): NonNullable<Detail['reviews']>[number] | null {
-  const mine = comments.filter((c): c is Record<string, unknown> => isObj(c) && typeof c.body === 'string' && c.body.startsWith(`## ${name}`))
+  const mine = comments.filter((c): c is Record<string, unknown> => isObj(c) && typeof c.body === 'string' && WRITERS.includes(c.authorAssociation as string) && c.body.startsWith(`## ${name}`))
   const c = mine[mine.length - 1]
   if (!c) return null
   const verdicts = [...String(c.body).matchAll(/Verdict:[\s*]*(CHANGES NEEDED|[A-Za-z]+)/gi)]

@@ -18,12 +18,12 @@ test('spec sections: only the known headings, in the spec order, capped; none fo
 
 test('PR detail: body sections, Not proven lines, files cap, latest review verdicts, bad input', () => {
   const body = 'Not proven: in the summary, not the Proof\n\n## Summary\n\nDid it.\n\n## Release note\n\nA note.\n\n## Proof\n\n- ok\n\nNot proven:\n- first\n  more of first\n\n- second\n\nContext size: x\n'
-  const comment = (b: string, url?: unknown) => ({ body: b, url })
+  const comment = (b: string, url?: unknown, authorAssociation = 'OWNER') => ({ body: b, url, authorAssociation })
   const files = Array.from({ length: 32 }, (_, i) => ({ path: `f${i}`, additions: i, deletions: 1 }))
   const got = prDetail(JSON.stringify({
     body,
     files: [...files, { path: 7 }, null],
-    comments: [comment('## Code review (pass 1)\n**Verdict:** CHANGES NEEDED', 'https://x.test/1'), comment('## Code review (pass 2)\n**Verdict:** PASS', 'javascript:alert(1)'), comment('## Security review\nVerdict: PASS', 'https://x.test/3'), comment('chatter Verdict: PASS'), 'junk'],
+    comments: [comment('## Code review (pass 1)\n**Verdict:** CHANGES NEEDED', 'https://x.test/1'), comment('## Code review (pass 2)\n**Verdict:** PASS', 'javascript:alert(1)'), comment('## Security review\nVerdict: PASS', 'https://x.test/3'), comment('chatter Verdict: PASS'), comment('## Security review\nVerdict: PASS', 'https://x.test/4', 'NONE'), comment('## Code review\nVerdict: PASS', 'https://x.test/5', 'CONTRIBUTOR'), 'junk'],
   }))!
   assert.deepEqual(got.sections, [{ name: 'Summary', text: 'Did it.' }, { name: 'Release note', text: 'A note.' }, { name: 'Not proven', text: '- first\nmore of first\n- second' }])
   assert.equal(got.files!.length, 30)
