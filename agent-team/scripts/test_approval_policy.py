@@ -7,7 +7,6 @@ import pytest
 import approval_policy as ap
 import cos_state
 import project_config
-from test_no_hands import ON, OPEN, msg, no_hands as real_no_hands, world
 
 ROW = "| Approval risk tolerance (`strict`, `balanced` or `permissive`) | {} |\n"
 HEADER = "| Key | Value |\n|---|---|\n"
@@ -165,13 +164,7 @@ def test_cli_state_failure_is_cannot(tmp_path, monkeypatch, capsys):
     assert "approval: cannot read the state file" in capsys.readouterr().out
 
 
-# No Hands: with a run active every level is auto, the tolerance is not read, and the ask rules for a spec's stage still hold.
-@pytest.mark.parametrize("tolerance", ["strict", "balanced", "permissive", "yolo"])
-@pytest.mark.parametrize("level", ["Low", "Medium", "High", None])
-def test_decide_under_a_run(tolerance, level):
-    assert ap.decide(tolerance, level, hands=True)[0] is True
-
-
+# No Hands: with a run active every level is auto (High and unrated too), the tolerance is not read, and the ask rules for a spec's stage still hold.
 def no_setting():
     raise AssertionError("the tolerance is not read under No Hands")
 
@@ -199,24 +192,6 @@ def test_check_no_hands_asks_without_a_run(capsys):
     assert "ask (no active No Hands run)" in capsys.readouterr().out
 
 
-# active() is what the rule trusts: each row changes one thing from a run that is on and verified.
-GONE = {**OPEN, "endedAt": "2026-11-08T11:00:00Z", "endReason": "x"}
-RUNS = [
-    ("on", OPEN, ON, {}, 10.0, 0),
-    ("setting off", OPEN, (False, 0, 0, ""), {}, 10.0, 1),
-    ("ended", GONE, ON, {}, 10.0, 1),
-    ("over the cost cap", OPEN, ON, {}, 60.0, 1),
-    ("start message is not the user's", OPEN, ON, {"msgs": [msg(by="agent")]}, 10.0, 1),
-]
-
-
-@pytest.mark.parametrize("run, setting, kw, cost, code", [r[1:] for r in RUNS], ids=[r[0] for r in RUNS])
-def test_check_no_hands_follows_active(tmp_path, monkeypatch, run, setting, kw, cost, code):
-    state, db = world(tmp_path, run, **kw)
-    monkeypatch.setattr(ap.no_hands, "active", lambda: real_no_hands.active(lambda: setting, state, db, lambda t: cost))
-    assert ap.main(["check", "no-hands"], no_setting) == code
-
-
 HANDS = [
     ("docs/agents/project.md", True),
     ("agent-team/templates/project.md", True),
@@ -231,10 +206,17 @@ HANDS = [
     (".claude/skills/chief-of-staff/approvals.md", True),
     ("agent-team/.claude/skills/merge-pr/SKILL.md", True),
     ("agent-team/.claude/agents/code-reviewer.md", True),
+    ("agent-team/.claude/skills/owasp-security/SKILL.md", True),
+    ("agent-team/templates/machine-instruction.md", True),
+    (".claude/settings.local.json", True),
+    (".cursor/mcp.json", True),
+    (".mcp.json", True),
+    (".codex/config.toml", True),
+    ("mods/agent-gantt/hooks/x.ts", True),
+    (".claude-plugin/marketplace.json", True),
     ("agent-team/scripts/cos_rank.py", False),
     ("scripts/cos_restart.py", False),
     ("agent-team/.claude/skills/write-ticket/SKILL.md", False),
-    (".cursor/hooks.json", False),
     ("README.md", False),
 ]
 

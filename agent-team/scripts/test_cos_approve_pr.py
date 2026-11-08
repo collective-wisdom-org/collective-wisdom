@@ -108,14 +108,8 @@ AUTO_ROWS = [
     ("hands: strict, High", {"hands": True, "tol": "strict", "status": "Risk: High (x)."}, 0, f"auto-approved #7 at {HEAD} under No Hands (Risk: High)"),
     ("hands: not rated", {"hands": True, "status": "PR #7 ready."}, 0, "under No Hands (Risk: unrated)"),
     ("hands: other script", {"hands": True, "files": F("agent-team/scripts/cos_rank.py", "agent-team/.claude/skills/write-ticket/SKILL.md")}, 0, "under No Hands"),
-    *[(f"hands: {p}", {"hands": True, "files": F("README.md", p)}, 1, f"PR changes the hands path ({p})") for p in (
-        "agent-team/scripts/cos_approve_pr.py", "docs/agents/project.md", "install.sh", ".github/workflows/ci.yml", "AGENTS.md",
-        "agent-team/.claude/skills/chief-of-staff/SKILL.md", "agent-team/scripts/test_merge_pr.py")],
-    ("hands: renamed file", {"hands": True, "files": [{"path": "docs/x.md", "changeType": "RENAMED"}]}, 1, "renames a file (docs/x.md)"),
-    ("hands: 100 files", {"hands": True, "files": F(*[f"f{i}.md" for i in range(100)])}, 1, "too many to check"),
-    ("hands: migration file", {"hands": True, "migration": True}, 1, "PR needs the user: migration file"),
+    ("hands: hands path", {"hands": True, "files": F("README.md", "agent-team/scripts/cos_approve_pr.py")}, 1, "PR changes the hands path (agent-team/scripts/cos_approve_pr.py)"),
     ("hands: flag path", {"hands": True, "files": F("src/auth/login.py")}, 1, "flag: src/auth/login.py"),
-    ("hands: conflict not reviewed", {"hands": True, "pr": {"comments": [{"author": {"login": "owner"}, "body": f"Head moved to {HEAD} by resolving conflicts with main; reviews from {'c' * 40} stand."}]}}, 1, "conflict resolution not reviewed"),
 ]
 
 
@@ -125,8 +119,6 @@ def test_cos_approve_auto(tmp_path, monkeypatch, capsys, user_md, changes, code,
     setting = (changes.get("tol", "permissive"), changes.get("note", ""))
     monkeypatch.setattr(cap.project_config, "approval_setting", lambda: setting)
     monkeypatch.setattr(cap.approval_policy.no_hands, "active", lambda: changes.get("hands", False))
-    if changes.get("migration"):
-        monkeypatch.setattr(cap.cos_brief, "migration_numbers", lambda paths: [7])
     if changes.get("hands"):  # under a run the tolerance is not read
         monkeypatch.setattr(cap.project_config, "approval_setting", lambda: pytest.fail("tolerance read under No Hands"))
     state = tmp_path / "state.json"

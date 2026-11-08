@@ -50,7 +50,7 @@ PATH_FILES = {"templates/project.md", "templates/agents.md", "templates/machine-
 PATH_DIRS = ("docs/agents/", "scripts/")
 
 # The hands path: what a No Hands merge may not change (the files that decide approvals, the mode and its caps, the merge and
-# review gates, CI and the always-on instructions). Matched like the approval path. Each script is listed with its test, and
+# review gates, the security review skills, hook, permission and MCP configs, mods, CI and the always-on instructions). Matched like the approval path. Each script is listed with its test, and
 # test_approval_policy.py fails when a listed script imports a local helper that is not listed, so a gate cannot move out of the list.
 HANDS_SCRIPTS = (
     "approval_policy.py", "no_hands.py", "cos_approve_pr.py", "cos_user_check.py", "merge_pr.py", "review_gate.py", "review_scope.py",
@@ -60,12 +60,16 @@ HANDS_SCRIPTS = (
 )
 HANDS_TESTS = {"scripts/test_" + re.sub(r"\W", "_", n.removesuffix(".py")) + ".py" for n in HANDS_SCRIPTS if n.endswith((".py", ".sh"))}
 HANDS_PATH = frozenset(
-    {"docs/agents/project.md", "templates/project.md", "install.sh", "tag-release.sh",
+    {"docs/agents/project.md", "templates/project.md", "templates/machine-instruction.md", "install.sh", "tag-release.sh",
+     ".cursor/hooks.json", ".cursor/mcp.json", ".mcp.json",
      "docs/agents/security-review.md", "docs/agents/code-review.md", "docs/agents/chief-of-staff.md", "docs/agents/github-auth.md",
      ".claude/agents/code-reviewer.md", ".claude/agents/security-reviewer.md"}
     | {f"scripts/{n}" for n in HANDS_SCRIPTS} | HANDS_TESTS
 )
-HANDS_DIRS = tuple(f".claude/skills/{n}/" for n in ("chief-of-staff", "ship-loop", "open-pr", "security-review", "merge-pr"))
+HANDS_DIRS = (
+    *(f".claude/skills/{n}/" for n in ("chief-of-staff", "ship-loop", "open-pr", "security-review", "merge-pr", "owasp-security", "agent-security", "auditing-security")),
+    ".codex/", ".claude-plugin/", "mods/",  # agent config, the marketplace and the mods
+)
 
 
 def risk_level(status):
@@ -105,7 +109,8 @@ def on_approval_path(path):
 
 def on_hands_path(path):
     p, name, instructions = _norm(path)
-    return p in HANDS_PATH or p.startswith(HANDS_DIRS) or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
+    settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
+    return p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
 
 
 def _verdict(kind, who, level, setting):

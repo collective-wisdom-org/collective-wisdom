@@ -8,23 +8,28 @@ Usage:
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] end <reason>
 
 A run needs the committed setting (project_config.no_hands_setting: the `No Hands` rows of project.md on origin/<merge target
-branch>) and the user's own `no hands` message in the Chief of Staff thread. The run record is the `noHands` key of the state
-file, written through cos_state.py's no-hands op: when the run began, the message that began it, the tickets it started (the
-start op appends them), the drain reason and how it ended. It is a record, not a rule: active() re-checks the setting, the cost
-and the user's message every time, so a record written by anything but `start` approves nothing.
+branch>) and the user's own message `no hands` (the whole message) in the Chief of Staff thread. The run record is the `noHands`
+key of the state file, written through cos_state.py's no-hands op, which allows only the moves made here: when the run began, the
+message that began it, the tickets it started (the start op appends them), the drain reason and how it ended. It is a record, not
+a rule: active() re-checks the setting, the cost and the user's message (whole `no hands`, sent no later than startedAt) every
+time, so a record written by anything but `start` approves nothing. The state file is the root checkout's (the first entry of
+`git worktree list`) unless --file is given, so a child in a linked worktree reads the same run.
 
 start   Needs the setting on, no active run, the state's chiefThreadId equal to --thread, and the newest user message holding
-        the words `no hands` (cos_user_check.py latest; newer than the last run's end, and not `no hands off`). Writes a fresh record.
+        the words `no hands` (cos_user_check.py latest; newer than the last run's end) to be exactly `no hands`, so `no hands off`
+        or `no hands, and delete x` never starts a run. Writes a fresh record.
         Last line: no-hands: started (cap N tickets, $C)  or  no-hands: refused (<why>)
-check   Prints one line, read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. The newest ticket may
-        have no cost line yet (it was just started) and counts as $0; any earlier ticket with none makes the run stop, since an
-        unmeasured run cannot be held to its cap.
+check   Prints one line, read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. A ticket with no
+        transcripts at all (agent_usage.py: "no transcripts", exit 2; just started, or cancelled early) counts as $0; a cost that
+        cannot be read for any other reason makes the run stop, since an unmeasured run cannot be held to its cap.
             no-hands: off                          no run, or the run ended
             no-hands: on N/cap $X/$C               N tickets started
             no-hands: drain <reason> N/cap $X/$C   no new starts; approvals stay automatic (ticket-cap is the cap reached)
             no-hands: stop cost-cap $X/$C          the Chief of Staff cancels the children, then `end`
             no-hands: stop <why>                   setting off | start message not verified | cost unknown
 drain   Sets the drain reason (the first one stays). Last line: no-hands: drain <reason>
+        drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
+        may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.
 end     Sets endedAt and endReason and prints the run summary: why, how long, each ticket with its state and cost, the total.
 
 Exit codes: 0 ok, 1 refused, or drain and end with no active run, 2 bad arguments or the state file or message store failed.
@@ -42,12 +47,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_state  # noqa: E402
+import cos_tick  # noqa: E402
 import cos_user_check  # noqa: E402
 import project_config  # noqa: E402
 
-WORDS, OFF_WORDS = "no hands", "no hands off"
+WORDS = "no hands"
 USAGE = str(Path(__file__).absolute().parent / "agent_usage.py")
 COST = re.compile(r"cost \$([0-9]+(?:\.[0-9]+)?)")
+NO_SESSIONS = "no transcripts for"  # agent_usage.py --ticket stderr (exit 2) when no session ran the ticket
 
 
 class Cannot(Exception):
@@ -55,13 +62,25 @@ class Cannot(Exception):
 
 
 def ticket_cost(ticket):
-    """API-equivalent dollars from `agent_usage.py --ticket`, or None when it prints no cost line."""
+    """API-equivalent dollars from `agent_usage.py --ticket`: 0.0 when no session ran the ticket, None when the cost cannot be read."""
     try:
         r = subprocess.run([sys.executable, USAGE, "--ticket", ticket], capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError):
         return None
+    if r.returncode == 2 and NO_SESSIONS in r.stderr:
+        return 0.0
     m = COST.match(r.stdout) if r.returncode == 0 else None
     return float(m.group(1)) if m else None
+
+
+def root_state_file():
+    """.agent-team/state.json of the root checkout (the first entry of `git worktree list`), also from a linked worktree."""
+    try:
+        out = subprocess.run(["git", "worktree", "list", "--porcelain"], capture_output=True, text=True, check=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return cos_state.DEFAULT_FILE
+    first = out.strip().split("\n\n")[0].splitlines()
+    return Path(first[0].removeprefix("worktree ")) / ".agent-team" / "state.json" if first and first[0].startswith("worktree ") else cos_state.DEFAULT_FILE
 
 
 def _load(state_file):
@@ -94,12 +113,20 @@ def _said(db, thread, words, after=None):
     return (True, line.split()[1]) if code == 0 and line.count(" ") >= 1 else (False, line)
 
 
-def _item_ok(db, thread, item_id):
+def _item_ok(db, thread, item_id, at):
+    """True when the message is the user's, is exactly `no hands` (trailing . or ! allowed) and was sent at or before `at`."""
+    bare = item_id.removeprefix(cos_user_check.PREFIX)
     try:
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            return cos_user_check.item(db, thread, item_id, WORDS) == 0
+        with contextlib.redirect_stderr(io.StringIO()):
+            rows = cos_user_check.query(db, cos_user_check.SELECT + "AND role = 'user' AND message_id IN (?, ?)", (thread, bare, item_id))
     except SystemExit:
         return False
+    if not rows:
+        return False
+    sent, by, text = cos_state.parse(rows[0][1]), rows[0][2], rows[0][3]
+    until = cos_state.parse(at)
+    zoned = sent is not None and until is not None and sent.tzinfo is not None and until.tzinfo is not None
+    return by == "user" and cos_user_check.norm(text).rstrip(".!") == WORDS and zoned and sent <= until
 
 
 def _is_active(run):
@@ -121,14 +148,14 @@ def evaluate(setting, state_file, db, cost):
     if not on:
         return "stop", "no-hands: stop setting off"
     thread, item = state.get("chiefThreadId"), run.get("itemId")
-    if not (thread and item and _item_ok(db, thread, item)):
+    if not (thread and item and _item_ok(db, thread, item, run.get("startedAt"))):
         return "stop", "no-hands: stop start message not verified"
     tickets, spent = _tickets(run), 0.0
-    for i, t in enumerate(tickets):
+    for t in tickets:
         c = cost(t)
-        if c is None and i < len(tickets) - 1:  # only the newest ticket may still be unmeasured
+        if c is None:
             return "stop", "no-hands: stop cost unknown"
-        spent += c or 0.0
+        spent += c
     money = f"${int(spent)}/${cost_cap}"
     if spent >= cost_cap:
         return "stop", f"no-hands: stop cost-cap {money}"
@@ -140,10 +167,10 @@ def evaluate(setting, state_file, db, cost):
     return "on", f"no-hands: on {progress}"
 
 
-def active(setting=project_config.no_hands_setting, state_file=cos_state.DEFAULT_FILE, db=cos_user_check.DEFAULT_DB, cost=ticket_cost):
+def active(setting=project_config.no_hands_setting, state_file=None, db=cos_user_check.DEFAULT_DB, cost=ticket_cost):
     """True only while a run is on or draining: setting on, run started and not ended, cost under the cap, start message still the user's."""
     try:
-        return evaluate(setting, state_file, db, cost)[0] in ("on", "drain")
+        return evaluate(setting, state_file or root_state_file(), db, cost)[0] in ("on", "drain")
     except Cannot:
         return False
 
@@ -162,10 +189,10 @@ def cmd_start(thread, setting, state_file, db):
     ok, item = _said(db, thread, WORDS, ended if isinstance(ended, str) and cos_user_check.valid_after(ended) else None)
     if not ok:
         return 1, f"no-hands: refused (no new `no hands` from the user: {item})"
-    off, off_item = _said(db, thread, OFF_WORDS)
-    if off and off_item == item:
-        return 1, "no-hands: refused (the newest message is `no hands off`)"
-    _write(state_file, {"startedAt": cos_state.now(), "itemId": item, "started": [], "drain": None, "endedAt": None, "endReason": None})
+    started = cos_state.now()
+    if not _item_ok(db, thread, item, started):
+        return 1, "no-hands: refused (the newest message with `no hands` is not exactly `no hands`)"
+    _write(state_file, {"startedAt": started, "itemId": item, "started": [], "drain": None, "endedAt": None, "endReason": None})
     return 0, f"no-hands: started (cap {ticket_cap} tickets, ${cost_cap})"
 
 
@@ -213,7 +240,7 @@ def cmd_end(reason, setting, state_file, cost):
 
 def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None, cost=ticket_cost):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
+    ap.add_argument("--file", type=Path)
     ap.add_argument("--db", type=Path, default=cos_user_check.DEFAULT_DB)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("start").add_argument("--thread", required=True)
@@ -221,7 +248,7 @@ def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None
     for name in ("drain", "end"):
         sub.add_parser(name).add_argument("reason", nargs="+")
     a = ap.parse_args(argv)
-    state_file, db = state_file or a.file, db or a.db
+    state_file, db = state_file or a.file or root_state_file(), db or a.db
     try:
         if a.cmd == "check":
             code, line = 0, evaluate(setting, state_file, db, cost)[1]
@@ -231,6 +258,9 @@ def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None
             reason = reason_of(a.reason)
             if not reason:
                 ap.error("reason is empty")
+            if not all(cos_tick.SAFE.fullmatch(w) for w in reason.split()):
+                print("no-hands: refused (a word of the reason has characters a plan line cannot carry; use letters, digits and . _ : % @ -)")
+                return 2
             code, line = cmd_drain(reason, state_file) if a.cmd == "drain" else cmd_end(reason, setting, state_file, cost)
     except Cannot as e:
         code, line = 2, f"no-hands: cannot {e}"

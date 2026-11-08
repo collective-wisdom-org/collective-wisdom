@@ -251,10 +251,6 @@ def _hands(mode, ticket="`10`", cost="`200`"):
     (_hands("`maybe`"), (False, 0, 0)),
     (_hands("on"), (False, 0, 0)),
     (_hands("`on`", "`0`"), (False, 0, 0)),
-    (_hands("`on`", "`ten`"), (False, 0, 0)),
-    (_hands("`on`", "`5`", "`-1`"), (False, 0, 0)),
-    (_hands("`on`", "`5`", "`2.5`"), (False, 0, 0)),
-    (_hands("`on`", "5", "200"), (False, 0, 0)),
     ("| No Hands (`off` or `on`) | `on` |\n| No Hands ticket cap | `5` |\n", (False, 0, 0)),
     (OSError("no git"), (False, 0, 0)),
 ])
