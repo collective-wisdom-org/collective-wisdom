@@ -70,7 +70,7 @@ function cleanSegments(x: unknown): [number, number | null][] {
   return out.sort((p, q) => p[0] - q[0])
 }
 
-function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null {
+export function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null {
   if (!isObj(r)) return null
   const end = numOrNull(r.end)
   const start = num(r.start)
@@ -141,8 +141,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }> }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {} } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]> }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
@@ -166,5 +166,9 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     if (row) (row.gantt ??= []).push(s)
   }
   for (const r of rowById.values()) r.gantt?.sort((a, b) => a.updatedAt - b.updatedAt)
-  return { generatedAt: now, status, merged: merged.map((e) => (Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e)) }
+  const withExtras = (e: MergedEntry): MergedEntry => {
+    const out = Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e
+    return Object.hasOwn(history, e.id) && history[e.id].length ? { ...out, gantt: history[e.id] } : out
+  }
+  return { generatedAt: now, status, merged: merged.map(withExtras) }
 }

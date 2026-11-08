@@ -202,3 +202,11 @@ test('merged entries get their ticket spend; a session off the board still match
   assert.deepEqual(matchedTo(WT, null), [], 'no prefix, no pattern')
   assert.deepEqual(matchedTo('/Users/me/repo', 'CW'), [], 'not a worktree session')
 })
+
+test('merged entries get their ticket sessions; one with none has no gantt key', () => {
+  const entry = (id: string) => ({ id, title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1 })
+  const session = { sessionId: 'a', cwd: '/w', updatedAt: 1, stale: false, total: null, rows: [] }
+  const merged = build({ merged: [entry('CW-1'), entry('CW-2'), entry('CW-3'), entry('toString')], history: { 'CW-1': [session], 'CW-3': [] } }).merged as any[]
+  assert.deepEqual(merged.map((e) => e.gantt ?? null), [[session], null, null, null])
+  for (const i of [1, 2, 3]) assert.ok(!('gantt' in merged[i]))
+})
