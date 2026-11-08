@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 back up the dashboard spend ledger and gantt history (CW-238) (#243)
+
+Merged 2026-11-08 21:50 UTC.
+
+The dashboard now backs up its spend ledger and gantt history to `~/.agent-team-backups/` every time it starts and once a day, keeping the last 14. If the files are lost, stop the dashboard and run `node ~/.collective-wisdom/scripts/dashboard/backup.ts restore --root <root checkout>`.
+
 ## 2026-11-08 restart the dashboard server when its code changes (CW-239) (#241)
 
 Merged 2026-11-08 21:33 UTC.
