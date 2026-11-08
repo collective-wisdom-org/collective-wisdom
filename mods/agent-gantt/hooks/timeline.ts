@@ -11,6 +11,9 @@ const TEAM_MODE = /^TEAM MODE\.?\s*/i
 const CONTINUE = /^CONTINUE(?:\.|\s|$)\s*/i
 const RELAY = /^CHIEF OF STAFF:\s*/i
 const TICKET = /[A-Z][A-Z0-9]*-\d+/
+const SHIP_LOOP = /^Run \/ship-loop for ([A-Z][A-Z0-9]*-\d+): ?(.*)$/
+const STAGE = /Do the (spec|build|merge) stage/
+const HELPERS: [string, string][] = [['TICKET HELPER.', 'Ticket helper'], ['BACKLOG RANKING.', 'Backlog ranking'], ['PROJECT MANAGER HYGIENE.', 'Hygiene']]
 // What a Chief of Staff relay asks for, first match wins; the relay names no ticket.
 const RELAY_WORK: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/approved the spec/i, () => 'build'],
@@ -20,12 +23,21 @@ const RELAY_WORK: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/continue the (\S+) stage/i, m => m[1]!],
 ]
 
-/** The task's name: the prompt's first line left after T3's preamble and the team markers, whitespace collapsed, cut to 60 characters. A Chief of Staff relay is named `<ticket> <work>`, the ticket from the newest of `earlier` (main's earlier task names) that has one. */
+/** The task's name: the prompt's first line left after T3's preamble and the team markers, whitespace collapsed, cut to 60 characters. A `Run /ship-loop for <ticket>: <title>` line is named `<Stage> <ticket>: <title>` (the stage from a CONTINUE prompt's `Do the <stage> stage`, else Spec; no stage line, no change) and a helper's first line by its role. A Chief of Staff relay is named `<ticket> <work>`, the ticket from the newest of `earlier` (main's earlier task names) that has one. */
 export function taskName(text: string, earlier: string[] = []): string {
   for (const raw of text.split('\n')) {
     const stripped = raw.replace(/\s+/g, ' ').trim().replace(PREAMBLE, '')
-    const line = TEAM_MODE.test(stripped) ? stripped.replace(TEAM_MODE, '').replace(CONTINUE, '') : stripped
+    const marked = TEAM_MODE.test(stripped) ? stripped.replace(TEAM_MODE, '') : null
+    const line = marked === null ? stripped : marked.replace(CONTINUE, '')
     if (line === '') continue
+    const ship = line.match(SHIP_LOOP)
+    const stage = line === marked ? 'spec' : text.match(STAGE)?.[1]
+    if (ship && stage) {
+      const title = ship[2]!.replace(/\.? https?:\/\/\S+?\.?$/, '')
+      return `${stage[0]!.toUpperCase()}${stage.slice(1)} ${ship[1]}: ${title}`.slice(0, NAME_MAX)
+    }
+    const role = HELPERS.find(([marker]) => line.startsWith(marker))?.[1]
+    if (role) return [role, text.match(/\b[A-Z][A-Z0-9]*-\d+\b/)?.[0]].filter(Boolean).join(' ')
     if (!RELAY.test(line)) return line.slice(0, NAME_MAX)
     const work = line.replace(RELAY, '')
     let name = work
