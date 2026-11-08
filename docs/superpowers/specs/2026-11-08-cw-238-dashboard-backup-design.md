@@ -1,6 +1,7 @@
 # CW-238: Back up the dashboard spend ledger and gantt history
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #243, with differences: [as-built](../as-built/2026-11-08-cw-238-dashboard-backup-as-built.md)
 **Ticket:** [#238](https://github.com/collective-wisdom-org/collective-wisdom/issues/238)
 
 ## Goal

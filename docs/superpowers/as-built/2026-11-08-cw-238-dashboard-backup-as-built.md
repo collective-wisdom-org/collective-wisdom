@@ -1,6 +1,6 @@
 # As-built: Back up the dashboard spend ledger and gantt history
 
-**Shipped:** in PR #PRNUM
+**Shipped:** in PR #243
 **Ticket:** CW-238
 **Spec:** [2026-11-08-cw-238-dashboard-backup-design.md](../specs/2026-11-08-cw-238-dashboard-backup-design.md)
 
