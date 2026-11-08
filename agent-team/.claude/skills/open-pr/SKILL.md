@@ -102,6 +102,8 @@ Commit the spec (and as-built, if any) on the feature branch: `docs: shipped lin
 
 During later fix commits (phase 3 or 4): if a fix changes what ships, update the `**Shipped:**` line or the as-built in the same commit, and the PR body's release note (if any) and `## Proof` section. The docs check after both reviews pass reads them once.
 
+After the PR exists, continue immediately to **Feedback loop**. Never merge or approve it (see Forbidden below).
+
 ### Docs check
 
 A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `~/.collective-wisdom/docs/agents/documenter.md`. You apply the fixes. Run it with the `Agent` tool and `subagent_type: "documenter"`, in the foreground. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general Sonnet subagent with the prompt `Read ~/.collective-wisdom/docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs below.
@@ -120,9 +122,7 @@ It runs once per PR, after the code review and the security review both PASS (or
    Rejected: <finding and why, one per line, or "none">
    ```
 
-4. Run `wait-for-ci.sh`, then `review_gate.py` (`ship-loop` phase 4) and act on its last line. Its `note` also covers a head moved by docs-file-only changes: post the note as printed. A `rerun` runs both reviews again; the docs check does not run again.
-
-After the PR exists, continue immediately to **Feedback loop**. Never merge or approve it (see Forbidden below).
+4. Run `wait-for-ci.sh`, then `review_gate.py` (`ship-loop` phase 4) and act on its last line. Its `note` also covers a head moved by docs-file-only changes: post the note as printed. A `rerun` runs the named review(s) again; the docs check does not run again.
 
 ## Feedback loop
 
@@ -148,7 +148,7 @@ Act only on review comments whose author login is the login `user.md` maps to th
 For a PR that conflicts with the merge target branch (`<target>`) after `MERGE READY`: the Chief of Staff's relay `the PR conflicts with <target>` starts this run. It uses the merge slot (setting `off`) or the build slot (setting `on`). Conflicts found before the first `MERGE READY` stay in step 1 of the Primary loop.
 
 1. Merge `origin/<target>` into the branch in the worktree and resolve what has one clear answer. For anything unclear, stop with `BLOCKED: <question>`.
-2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the current head (the approved head). The second parent must be on `<target>`. Push no other commit in this run.
+2. Run the Test command from `docs/agents/project.md`, then push one merge commit whose first parent is the current head (the approved head). The second parent must be on `<target>`. Push no other commit in this step.
 3. Wait for CI (`ship-loop` § CI waits).
 4. Read `Review after conflict resolution` from `docs/agents/project.md` on `origin/<target>`, never the working tree.
    - `off`: post the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` with full SHAs. Run no code review, security review or docs check.
