@@ -167,15 +167,19 @@ claude plugin install agent-gantt --marketplace collective-wisdom-org/collective
 
 In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `collective-wisdom-org/collective-wisdom`, then Add plugin.
 
-The pane opens when the session first starts a subagent. `/agent-gantt` opens it by hand. Costs come from `~/.collective-wisdom/scripts/prices.json`, the machine install's copy of the table `scripts/agent_usage.py` reads, so the column works in an app and in this repo. The pane shows a dash for cost only when that file is missing. Cache writes are priced at the 5 minute rate, because the mod's events don't say which cache lifetime a write used.
+In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod also writes this session's rows to `.agent-team/gantt/` for the [local dashboard](#local-dashboard). The pane opens when the session first starts a subagent. `/agent-gantt` opens it by hand. Costs come from `~/.collective-wisdom/scripts/prices.json`, the machine install's copy of the table `scripts/agent_usage.py` reads, so the column works in an app and in this repo. The pane shows a dash for cost only when that file is missing. Cache writes are priced at the 5 minute rate, because the mod's events don't say which cache lifetime a write used.
 
 The marketplace also lists `status-pane`, the Chief of Staff status pane. It installs the same way, with `claude plugin install status-pane --marketplace collective-wisdom-org/collective-wisdom`. The old copy in an app's `.claude/mods/status-pane/` is removed by the removal command.
 
-Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The row builder has a test: `node --test mods/agent-gantt/hooks/rows.test.ts` (Node 24 or newer).
+Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that changes a mod bumps `version` in its `.claude-plugin/plugin.json` (`mods/agent-gantt/` or `agent-team/.claude/mods/status-pane/`); tagged releases don't cover it. The mod has tests (`rows.test.ts`, `snapshot.test.ts`): `node --test mods/agent-gantt/hooks/*.test.ts` (Node 24 or newer).
+
+## Local dashboard
+
+`start the team` also starts a local dashboard for the repo and opens it in the T3 browser pane. It shows the Chief of Staff status, the tickets by stage with their children (each linked to its issue and PR), and the agents of the session as a Gantt chart. The page keeps updating on its own and listens on localhost only. Each thread has a copy button for its link, because T3 does not open thread links from a browser. Paste the link into T3.
 
 ## Propose changes
 
-Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same, and also runs `node --test mods/agent-gantt/hooks/rows.test.ts`). After it merges, tag a release with `./tag-release.sh`. Every machine takes the change when its clone checks out the new release or `main` and reruns `./install.sh`; no app needs a PR. Prose follows the `human-writing` skill: plain sentences, no em dashes.
+Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTING.md). Run the script tests with `uvx pytest -q agent-team/scripts` (CI does the same, and also runs `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts`). After it merges, tag a release with `./tag-release.sh`. Every machine takes the change when its clone checks out the new release or `main` and reruns `./install.sh`; no app needs a PR. Prose follows the `human-writing` skill: plain sentences, no em dashes.
 
 ## Known couplings
 

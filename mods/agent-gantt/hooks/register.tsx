@@ -4,6 +4,7 @@ import type { EngineInterface, Register, Timer, TurnUsage } from 'claude-code'
 import type { AgentRecord, PriceState, Prices, Tokens } from '../types/index.d.ts'
 import { bar, clock, dollars, fit, tokens } from './format.ts'
 import { buildRows, MAIN } from './rows.ts'
+import { buildSnapshot, snapshotName } from './snapshot.ts'
 
 const PANE = 'agent-gantt'
 const TICK_MS = 5000
@@ -12,6 +13,8 @@ const PRICES_PATH = '.collective-wisdom/scripts/prices.json'
 const PRICES_NOTE = '~/.collective-wisdom/scripts/prices.json is missing or unreadable. Run ./install.sh in the collective-wisdom clone.'
 // Agent states that count as still working. Anything else (completed, failed, killed, idle) is over.
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
+// Relative to the root checkout: where the local dashboard looks for each session's rows.
+const SNAPSHOT_DIR = '.agent-team/gantt'
 
 // Change a tag when the fields of its value change: an older value is read as the initial.
 const records = atom({ plugin: 'agent-gantt', key: 'records' } as const, [] as AgentRecord[], {
@@ -67,6 +70,75 @@ async function ensureMain($: EngineInterface, t: number) {
   )
 }
 
+// The root checkout, resolved once. Null until the first resolve.
+let root: string | null = null
+// Whether that root uses the team, checked once. A repo that does not gets no `.agent-team/` folder.
+let usesTeam = false
+
+/** The root checkout the way status-pane finds it: only the plain `<root>/.git` layout; else the session's own folder. */
+async function resolveRoot($: EngineInterface): Promise<string> {
+  if (root !== null) return root
+  const cwd = await $.session.cwd()
+  let found = cwd
+  try {
+    const { exitCode, stdout } = await $.process.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'])
+    const common = stdout.trim()
+    if (exitCode === 0 && /^\/[^\n]*\/\.git$/.test(common)) found = common.slice(0, common.lastIndexOf('/'))
+  } catch {
+    // not a git checkout: keep the session's folder
+  }
+  usesTeam = false
+  for (const marker of ['docs/agents/project.md', '.agent-team/state.json']) {
+    try {
+      await $.fs.read(`${found}/${marker}`)
+      usesTeam = true
+      break
+    } catch {
+      // not there
+    }
+  }
+  root = found
+  return root
+}
+
+/** True when the path exists as a link or as anything but a folder; a missing path is fine. */
+async function isUnsafeDir($: EngineInterface, path: string): Promise<boolean> {
+  try {
+    const st = await $.fs.stat(path)
+    return st.isLink || st.kind !== 'dir'
+  } catch {
+    return false
+  }
+}
+
+/** True when the path is a link; a missing path is fine. */
+async function isLink($: EngineInterface, path: string): Promise<boolean> {
+  try {
+    return (await $.fs.stat(path)).isLink
+  } catch {
+    return false
+  }
+}
+
+/** Writes this session's rows for the local dashboard. A failed write never reaches the session. */
+async function writeSnapshot($: EngineInterface) {
+  try {
+    const dir = await resolveRoot($)
+    if (!usesTeam) return
+    const sessionId = await $.session.id()
+    const name = snapshotName(sessionId)
+    if (name === null) return
+    if ((await isUnsafeDir($, `${dir}/.agent-team`)) || (await isUnsafeDir($, `${dir}/${SNAPSHOT_DIR}`))) return
+    if (await isLink($, `${dir}/${SNAPSHOT_DIR}/${name}`)) return
+    const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table)
+    const total = (await $.session.usage()).cost?.usd ?? null
+    const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows })
+    await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
+  } catch {
+    // the dashboard is optional: skip this write
+  }
+}
+
 /** Moves `now`, stamps the end of agents that stopped running, and starts or stops the tick to match. */
 async function refresh($: EngineInterface) {
   const t = await $.clock.now()
@@ -85,6 +157,7 @@ async function refresh($: EngineInterface) {
     tick.cancel()
     tick = null
   }
+  await writeSnapshot($)
 }
 
 async function openPane($: EngineInterface) {

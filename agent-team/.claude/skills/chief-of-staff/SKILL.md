@@ -32,7 +32,7 @@ First, on every turn, read state. State says this thread is retired when `chiefT
 You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `CHIEF OF STAFF REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), or the rate-limit wake (§ Full pass step 4). There is no timer.
 
 - At "start the team" with an empty state, on the rate-limit wake and each time the user writes in the thread, run the pass in § Full pass.
-- `take over`, `resume` and resume mode run the lean take-over pass instead (rotation.md § Thread rotation "Take over" step 4).
+- `take over`, `resume` and resume mode run the lean take-over pass instead (rotation.md § Thread rotation "Take over" step 4). Each also starts the dashboard (startup.md Setup step 4).
 - A ticket request, a team-change request or a request for another repo (the ticket helper and cross-repo rows in § Commands), and a `CHIEF OF STAFF REQUEST` or `REPLY` message, run no full pass: do what their § Commands row says (ticket-helper.md or cross-repo.md), reply, end the turn. When their message is a command, apply it first.
 - T3 wakes the thread because a child's run finished (other than the project manager children (`Backlog ranking`, `Project manager hygiene`), § Lean turns: they get no calls and no report). Run step 1, then steps 2 to 4 for that child only (including step 3, so a run that ended without a marker is restarted in that turn, unless the wait check says it is waiting), then the idle check on the other active children (§ Lean turns), the sweep (§ Sweep), § Slot fill (the gate, then the loop) in every case, the observe step (step 6a), and the report (step 7) only if something changed. That includes a run that ended with no marker and no stuck sign, and any other child whose ticket is not in `tickets`, or not in `spec`, `build` or `merge` (for example after `cancel N` or `stop everything`): its own steps are skipped and the slot fill still runs. A thread not in `tickets` gets the helper test (ticket-helper.md § Helper test) first; if it is not a helper, behaviour is unchanged.
 - A message from the user that is not a command in § Commands gets an answer and no action, except a request for a ticket or to change how the team works, which gets the ticket helper in § Commands whether they word it as a command or a question.
@@ -124,7 +124,7 @@ Nothing goes past a lane's limit or the overall cap. Other sections say "the spe
 
 ## State file
 
-`.agent-team/state.json` in the root checkout. Gitignored. It is the only file you may write, and only through `cos_state.py`. It is a cache: the tracker and the child threads are the source of truth.
+`.agent-team/state.json` in the root checkout. Gitignored. It is the only file you may write, and only through `cos_state.py`, except that the dashboard start script writes `.agent-team/dashboard.json`. It is a cache: the tracker and the child threads are the source of truth.
 
 ```json
 {
@@ -609,7 +609,7 @@ If more than one applies, use the first in that order. The line repeats only whe
 
 ## Guardrails
 
-- Never edit repo files except `.agent-team/state.json`. It holds state only, never rules.
+- Never edit repo files except `.agent-team/state.json` (and `.agent-team/dashboard.json`, written by the dashboard start script). It holds state only, never rules.
 - The team's rules are the skills and docs on the merge target branch, nothing else. `.agent-team/state.json` holds only the keys in § State file, never rules, policies, defaults or preferences. Agent memory doesn't hold team rules either. If memory and a skill disagree, the skill wins.
 - When the user asks for a change to how the team works (intervals, caps, gates, report format, models, commands), start a ticket helper (§ Commands) that files a ticket in scope <TEAM>, like any other ticket, that ends in a collective-wisdom PR (or an app PR for files only the app has). Tell the user the helper's link and that the current skill stays in force until that PR merges. Don't act on the new rule early, through state, memory, a scheduled-task setting or a child's task text.
 - The same applies to a change you find yourself: when `observe` says `file` (§ Full pass step 6a), start an observation helper (ticket-helper.md § Observation tickets). You still cannot act on the change before its PRs merge, add `agent` or `agent-skip`, move the ticket out of Backlog, or start it outside the project manager's Backlog pick. Once started there it runs the ship loop and needs the user's own `approve N` at spec and merge, even under `balanced` or `permissive` (`approvals.md` § Auto-approval, Observation tickets).

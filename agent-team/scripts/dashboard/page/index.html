@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent team</title>
+<style>
+:root { color-scheme: light dark; --bg:#fff; --fg:#1b1f24; --muted:#656d76; --line:#d8dee4; --card:#f6f8fa; --accent:#0969da; --bar:#2da44e; --run:#bf8700; --err:#cf222e; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --muted:#8b949e; --line:#30363d; --card:#161b22; --accent:#58a6ff; --bar:#3fb950; --run:#d29922; --err:#f85149; } }
+* { box-sizing: border-box; }
+body { margin:0; padding:1.25rem; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1 { font-size:1.2rem; margin:0 0 1rem; }
+h2 { font-size:1rem; margin:1.5rem 0 .5rem; border-bottom:1px solid var(--line); padding-bottom:.25rem; }
+h3 { font-size:.9rem; margin:1rem 0 .4rem; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.quiet { color:var(--muted); }
+#error { color:var(--err); min-height:1.2em; margin:0; }
+.count, .total { color:var(--muted); font-weight:normal; margin-left:.4em; }
+ul { list-style:none; margin:0; padding:0; }
+.ticket { display:grid; grid-template-columns:6rem minmax(12rem,2fr) 5rem minmax(10rem,2fr) 3rem 9rem; gap:.75rem; padding:.35rem .5rem; border-bottom:1px solid var(--line); align-items:baseline; }
+.ticket .id { font-variant-numeric:tabular-nums; }
+.ticket .risk, .ticket .next { color:var(--muted); }
+button.copy { font:inherit; font-size:.8rem; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:.1rem .5rem; cursor:pointer; }
+.session { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.5rem .75rem; margin-bottom:1rem; }
+.session.stale { opacity:.5; }
+.grow { display:grid; grid-template-columns:minmax(10rem,14rem) 8rem 4rem 4.5rem 4.5rem 4rem 3rem minmax(12rem,1fr); gap:.6rem; align-items:center; padding:.15rem 0; }
+.grow.head { color:var(--muted); font-size:.8rem; border-bottom:1px solid var(--line); }
+.grow .name, .grow .repo { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.num { text-align:right; font-variant-numeric:tabular-nums; }
+.track { position:relative; height:.8rem; background:var(--bg); border-radius:3px; }
+.bar { position:absolute; top:0; bottom:0; background:var(--bar); border-radius:3px; }
+.bar.running { background:var(--run); }
+</style>
+</head>
+<body>
+<h1>Agent team</h1>
+<p id="error" role="status"></p>
+<h2>Status</h2>
+<div id="status"><p class="quiet">Loading</p></div>
+<h2>Agents</h2>
+<div id="gantt"><p class="quiet">Loading</p></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
