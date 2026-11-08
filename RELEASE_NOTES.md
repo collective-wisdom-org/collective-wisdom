@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 name gantt tasks by what the work is (CW-219) (#221)
+
+Merged 2026-11-08 18:34 UTC.
+
+Gantt task rows now say what the work was, such as `CW-216 build` or `CW-216 merge PR #218`, instead of a Chief of Staff relay line or the delegated-task preamble. Run `/plugin update agent-gantt@collective-wisdom` to get it; rows already recorded keep their old names.
+
 ## 2026-11-08 redesign the agent gantt as a waterfall by task, active time only (CW-216) (#218)
 
 Merged 2026-11-08 18:14 UTC.
