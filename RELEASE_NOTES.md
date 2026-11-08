@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 send a conflict found at MERGE READY to the merge lane (CW-206) (#210)
+
+Merged 2026-11-08 08:38 UTC.
+
+A conflict found when a ticket reaches `MERGE READY` now goes to the merge lane when the setting `Review after conflict resolution` is `off`, so the reviews stand and it no longer goes back to build. You need to do nothing.
+
 ## 2026-11-08 read the dashboard tracker from the Tracker row (CW-205) (#208)
 
 Merged 2026-11-08 08:18 UTC.
