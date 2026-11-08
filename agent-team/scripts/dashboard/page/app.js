@@ -27,13 +27,13 @@ const BANDS = [
   { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) },
   { name: 'Queued', slug: 'queued', has: (n) => QUEUED.includes(n) },
 ]
-const GROUP_CLASS = { 'Awaiting merge approval': ' needs-merge', 'Awaiting build approval': ' needs-build' }
-const STAGE_WORDS = { blocked: 'blocked', 'spec-queued': 'spec queued' }
+const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
+const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
 
 /** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */
 function ticket(r, { flat, other, open }) {
   const copy = r.threadLink ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>` : ''
-  const stage = other && r.stage ? `<span class="badge stage">${esc(STAGE_WORDS[r.stage] ?? r.stage.replace(/-/g, ' '))}</span>` : ''
+  const stage = other && r.stage ? `<span class="badge stage">${esc(STAGE_WORDS.get(r.stage) ?? r.stage.replace(/-/g, ' '))}</span>` : ''
   const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
   const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
   return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
@@ -53,7 +53,7 @@ export function renderStatus(groups, open = new Set()) {
     const sections = mine
       .map((g) => {
         const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open })).join('\n')
-        return `<section class="group${GROUP_CLASS[g.name] ?? ''}"><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></section>`
+        return `<section class="group${GROUP_CLASS.get(g.name) ?? ''}"><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></section>`
       })
       .join('\n')
     return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
