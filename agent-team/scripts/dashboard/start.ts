@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
-import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { readRegular } from './server.ts'
 
 const DAY_MS = 24 * 3600 * 1000
 
@@ -30,11 +31,26 @@ function portFree(port: number): Promise<boolean> {
   })
 }
 
-function readDashboard(file: string): { pid?: number; port?: number; environmentId?: string } | undefined {
+function readDashboard(file: string, agentDir: string): { pid?: number; port?: number; environmentId?: string } | undefined {
   try {
-    return JSON.parse(readFileSync(file, 'utf8'))
+    const text = readRegular(file, [agentDir])
+    return text === undefined ? undefined : JSON.parse(text)
   } catch {
     return undefined
+  }
+}
+
+/** Writes through a temp file and a rename, so a link at `file` is replaced, never followed. */
+function writeDashboard(agentDir: string, file: string, data: object) {
+  const tmp = join(agentDir, `dashboard.json.${process.pid}.tmp`)
+  try {
+    writeFileSync(tmp, JSON.stringify(data), { flag: 'wx' })
+    renameSync(tmp, file)
+  } catch (e) {
+    try {
+      unlinkSync(tmp)
+    } catch {}
+    throw e
   }
 }
 
@@ -61,14 +77,16 @@ export async function startDashboard(opts: {
   const { root } = opts
   const agentDir = join(root, '.agent-team')
   const file = join(agentDir, 'dashboard.json')
-  mkdirSync(agentDir, { recursive: true })
+  const st = lstatSync(agentDir, { throwIfNoEntry: false })
+  if (!st) mkdirSync(agentDir, { recursive: true })
+  else if (!st.isDirectory()) throw new Error('.agent-team is not a real folder')
   pruneSnapshots(agentDir)
 
-  const existing = readDashboard(file)
+  const existing = readDashboard(file, agentDir)
   if (existing && Number.isInteger(existing.port) && (await healthy(existing.port!, root))) {
     const environmentId = opts.environmentId ?? existing.environmentId
     if (environmentId !== existing.environmentId) {
-      writeFileSync(file, JSON.stringify({ pid: existing.pid, port: existing.port, environmentId }))
+      writeDashboard(agentDir, file, { pid: existing.pid, port: existing.port, environmentId })
     }
     return { url: `http://127.0.0.1:${existing.port}/`, started: false }
   }
@@ -104,7 +122,7 @@ export async function startDashboard(opts: {
     throw new Error('dashboard did not start')
   }
 
-  writeFileSync(file, JSON.stringify({ pid: child.pid, port, environmentId: opts.environmentId }))
+  writeDashboard(agentDir, file, { pid: child.pid, port, environmentId: opts.environmentId })
   return { url: `http://127.0.0.1:${port}/`, started: true }
 }
 

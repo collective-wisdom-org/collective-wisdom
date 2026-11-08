@@ -111,6 +111,15 @@ async function isUnsafeDir($: EngineInterface, path: string): Promise<boolean> {
   }
 }
 
+/** True when the path is a link; a missing path is fine. */
+async function isLink($: EngineInterface, path: string): Promise<boolean> {
+  try {
+    return (await $.fs.stat(path)).isLink
+  } catch {
+    return false
+  }
+}
+
 /** Writes this session's rows for the local dashboard. A failed write never reaches the session. */
 async function writeSnapshot($: EngineInterface) {
   try {
@@ -119,10 +128,11 @@ async function writeSnapshot($: EngineInterface) {
     const sessionId = await $.session.id()
     const name = snapshotName(sessionId)
     if (name === null) return
+    if ((await isUnsafeDir($, `${dir}/.agent-team`)) || (await isUnsafeDir($, `${dir}/${SNAPSHOT_DIR}`))) return
+    if (await isLink($, `${dir}/${SNAPSHOT_DIR}/${name}`)) return
     const rows = buildRows(await read($, records), await $.agent.list(), (await read($, prices)).table)
     const total = (await $.session.usage()).cost?.usd ?? null
     const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows })
-    if ((await isUnsafeDir($, `${dir}/.agent-team`)) || (await isUnsafeDir($, `${dir}/${SNAPSHOT_DIR}`))) return
     await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
   } catch {
     // the dashboard is optional: skip this write

@@ -27,6 +27,7 @@ function call(port: number, method: string, path: string, host?: string): Promis
 }
 
 const goodSnap = { sessionId: 'good', cwd: '/x', updatedAt: Date.now(), total: null, rows: [] }
+const outsideDirs: string[] = []
 const goodState = { tickets: { 'CW-1': { title: 'one', stage: 'build', status: 'coding' } } }
 
 test('host check', async () => {
@@ -71,7 +72,7 @@ test('method and routes', async () => {
 })
 
 test('degraded inputs still answer', async () => {
-  const cases: { name: string; setup: (root: string) => void; sessions: string[] }[] = [
+  const cases: { name: string; setup: (root: string) => void; sessions: string[]; status?: number }[] = [
     { name: 'no .agent-team', setup: () => {}, sessions: [] },
     {
       name: 'half-written state',
@@ -94,11 +95,24 @@ test('degraded inputs still answer', async () => {
       name: 'symlinked gantt folder',
       setup: (r) => {
         const outside = tmpRoot()
+        outsideDirs.push(outside)
         writeFileSync(join(outside, 'good.json'), JSON.stringify(goodSnap))
         mkdirSync(join(r, '.agent-team'))
         symlinkSync(outside, join(r, '.agent-team/gantt'))
       },
       sessions: [],
+    },
+    {
+      name: 'symlinked state.json',
+      setup: (r) => {
+        const outside = tmpRoot()
+        outsideDirs.push(outside)
+        writeFileSync(join(outside, 'state.json'), JSON.stringify(goodState))
+        mkdirSync(join(r, '.agent-team'))
+        symlinkSync(join(outside, 'state.json'), join(r, '.agent-team/state.json'))
+      },
+      sessions: [],
+      status: 0,
     },
   ]
   for (const c of cases) {
@@ -110,9 +124,11 @@ test('degraded inputs still answer', async () => {
       assert.equal(r.status, 200, c.name)
       const api = JSON.parse(r.body)
       assert.deepEqual(api.gantt.map((g: { sessionId: string }) => g.sessionId), c.sessions, c.name)
+      if (c.status !== undefined) assert.equal(api.status.length, c.status, c.name)
     } finally {
       await srv.close()
       rmSync(root, { recursive: true, force: true })
+      for (const d of outsideDirs.splice(0)) rmSync(d, { recursive: true, force: true })
     }
   }
 })

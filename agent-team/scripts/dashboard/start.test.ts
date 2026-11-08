@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync, symlinkSync, lstatSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { portFor, startDashboard } from './start.ts'
@@ -151,7 +151,7 @@ test('start prunes only old regular .json files inside real folders', async () =
         mkdirSync(join(root, '.agent-team', 'gantt'), { recursive: true })
         aged(join(outside, 'target.json'))
         symlinkSync(join(outside, 'target.json'), join(root, '.agent-team', 'gantt', 'link.json'))
-        return [join(outside, 'target.json')]
+        return [join(outside, 'target.json'), join(root, '.agent-team', 'gantt', 'link.json')]
       },
       gone: [],
     },
@@ -162,13 +162,56 @@ test('start prunes only old regular .json files inside real folders', async () =
     const basePort = await freePort()
     const survivors = c.setup(root, outside)
     try {
-      await startDashboard({ root, basePort })
-      for (const f of survivors) assert.equal(existsSync(f), true, `${c.name}: ${f} survives`)
+      await startDashboard({ root, basePort }).catch(() => {})
+      for (const f of survivors) assert.ok(lstatSync(f, { throwIfNoEntry: false }), `${c.name}: ${f} survives`)
       for (const f of c.gone) assert.equal(existsSync(join(root, '.agent-team', 'gantt', f)), false, `${c.name}: ${f} pruned`)
     } finally {
       kill(root)
       rmSync(root, { recursive: true, force: true })
       rmSync(outside, { recursive: true, force: true })
     }
+  }
+})
+
+test('dashboard.json is never written through a link', async () => {
+  for (const reuse of [false, true]) {
+    const root = tmpRoot()
+    const outside = tmpRoot()
+    const basePort = await freePort()
+    const target = join(outside, 'precious.txt')
+    const dash = join(root, '.agent-team', 'dashboard.json')
+    try {
+      if (reuse) {
+        await startDashboard({ root, basePort })
+        writeFileSync(target, readFileSync(dash, 'utf8'))
+        rmSync(dash)
+      } else {
+        mkdirSync(join(root, '.agent-team'))
+        writeFileSync(target, 'PRECIOUS')
+      }
+      symlinkSync(target, dash)
+      const before = readFileSync(target, 'utf8')
+      await startDashboard({ root, basePort, environmentId: 'env-x' }).catch(() => {})
+      assert.equal(readFileSync(target, 'utf8'), before, `reuse=${reuse}`)
+    } finally {
+      kill(root)
+      rmSync(root, { recursive: true, force: true })
+      rmSync(outside, { recursive: true, force: true })
+    }
+  }
+})
+
+test('a linked .agent-team gets no dashboard.json and no server', async () => {
+  const root = tmpRoot()
+  const outside = tmpRoot()
+  const basePort = await freePort()
+  symlinkSync(outside, join(root, '.agent-team'))
+  try {
+    await assert.rejects(startDashboard({ root, basePort }), /\.agent-team/)
+    assert.equal(existsSync(join(outside, 'dashboard.json')), false)
+    assert.equal(await fetch(`http://127.0.0.1:${basePort}/health`).then(() => true, () => false), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
   }
 })

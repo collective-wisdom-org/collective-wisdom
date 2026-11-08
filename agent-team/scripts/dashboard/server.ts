@@ -9,9 +9,21 @@ const PAGES: Record<string, [string, string]> = {
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
 }
 
-function readJson(file: string): unknown {
+/** Reads a file only when it is a regular file and every folder in `dirs` is a real folder (no links). */
+export function readRegular(file: string, dirs: string[]): string | undefined {
   try {
-    return JSON.parse(readFileSync(file, 'utf8'))
+    for (const d of dirs) if (!lstatSync(d).isDirectory()) return undefined
+    if (!lstatSync(file).isFile()) return undefined
+    return readFileSync(file, 'utf8')
+  } catch {
+    return undefined
+  }
+}
+
+function readJson(file: string, dirs: string[]): unknown {
+  try {
+    const text = readRegular(file, dirs)
+    return text === undefined ? undefined : JSON.parse(text)
   } catch {
     return undefined
   }
@@ -23,7 +35,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
   let lastState: unknown = null
 
   const api = () => {
-    const state = readJson(join(agentDir, 'state.json'))
+    const state = readJson(join(agentDir, 'state.json'), [agentDir])
     if (state !== undefined) lastState = state
     const snapshots: unknown[] = []
     try {
@@ -31,21 +43,17 @@ export async function startServer(opts: { root: string; port: number }): Promise
       if (lstatSync(agentDir).isDirectory() && lstatSync(dir).isDirectory()) {
         for (const f of readdirSync(dir)) {
           if (!f.endsWith('.json')) continue
-          try {
-            if (!lstatSync(join(dir, f)).isFile()) continue
-          } catch {
-            continue
-          }
-          const s = readJson(join(dir, f))
+          const s = readJson(join(dir, f), [agentDir, dir])
           if (s !== undefined) snapshots.push(s)
         }
       }
     } catch {}
-    const dash = readJson(join(agentDir, 'dashboard.json'))
+    const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir])
     const envId = (dash as { environmentId?: unknown } | undefined)?.environmentId
     let repo = null
     try {
-      repo = repoUrlFromProject(readFileSync(join(root, 'docs/agents/project.md'), 'utf8'))
+      const text = readRegular(join(root, 'docs/agents/project.md'), [join(root, 'docs'), join(root, 'docs/agents')])
+      if (text !== undefined) repo = repoUrlFromProject(text)
     } catch {}
     return buildApi({ state: lastState, snapshots, repo, environmentId: typeof envId === 'string' ? envId : null, now: Date.now() })
   }
