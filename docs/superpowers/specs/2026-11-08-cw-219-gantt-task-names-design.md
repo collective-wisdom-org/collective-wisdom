@@ -1,6 +1,7 @@
 # CW-219: Name gantt tasks by what the work is, not by the first line of the prompt
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #221, as specified
 **Ticket:** [#219](https://github.com/collective-wisdom-org/collective-wisdom/issues/219)
 **Related:** CW-216 (waterfall by task, PR #218; fixed the preamble pattern), CW-191 (task chunks, where `taskName` came from).
 
