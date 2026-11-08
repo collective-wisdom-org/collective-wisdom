@@ -413,6 +413,7 @@ The script-enforced rules under the table in `## Inventory before` (held approva
 - `ship-loop/reference.md` already existed (§ Relay chain walk), so § Running one phase by hand was added to it instead of creating the file.
 - `open-pr/SKILL.md` § Next was deleted (not on the spec's tighten list). What it said is in § Done when, § Forbidden and ship-loop § Phase gates.
 - The legacy notes (heartbeat row, old `SPEC READY`, `scheduledTaskId`) stayed in cos/SKILL.md; the spec said to move them to startup.md. They are one clause each and § Commands, § Child path and § Tick need them where they are.
+- `changes N` on a queued approval now sets the stage back to `awaiting-build` or `awaiting-merge` before routing (chief-of-staff/SKILL.md § Commands), as `hold N` already did; the spec's text had `changes` routed from `awaiting-build`, `awaiting-review` and `awaiting-merge` only.
 
 ## Sizes
 
@@ -433,9 +434,9 @@ Characters, `python3 ~/.collective-wisdom/scripts/compact_check.py` after mergin
 | project-manager/SKILL.md | 15525 | 14003 | -1522 | 1500 | yes |
 | ship-loop/SKILL.md | 23391 | 20891 | -2500 | 2500 | yes |
 | ship-loop/reference.md | 1503 | 2061 | +558 | none | n/a |
-| docs/agents/chief-of-staff.md | 8172 | 6831 | -1341 | 1000 | yes |
+| docs/agents/chief-of-staff.md | 8172 | 6912 | -1260 | 1000 | yes |
 | docs/agents/org-chart.md | 12872 | 11784 | -1088 | 800 | yes |
-| **Total** | **226643** | **208922** | **-17721** | 15000 | yes |
+| **Total** | **226643** | **209003** | **-17640** | 15000 | yes |
 
 The new reference files count in the total, so text moved out of a skill shows only in that file's line. The spec's total line quoted 348854 as the starting figure; `compact_check.py` measures 226068 on this branch, so the target is read as the 15000 reduction, not the absolute number.
 
@@ -443,8 +444,8 @@ New scripts and the tests that cover the logic moved into them (lines, not count
 
 | Script | Lines | Test | Lines | Covers |
 |---|---|---|---|---|
-| scripts/cos_route.py | 146 | scripts/test_cos_route.py | 113 | the caller table, full lane, cap, non-empty queue, continuation, conflict rows with the setting `off` and `on`, a caller that does not apply |
-| scripts/cos_restart.py | 196 | scripts/test_cos_restart.py | 100 | the stuck cases, wait-check results, first stall versus second, PR and `ci` text, continuation wording |
-| scripts/cos_todo.py | 111 | scripts/test_cos_todo.py | 72 | priority and age order, `agent-skip`, open blockers, `todo: none` |
+| scripts/cos_route.py | 152 | scripts/test_cos_route.py | 120 | the caller table, full lane, cap, non-empty queue, continuation, conflict rows with the setting `off` and `on`, a caller that does not apply |
+| scripts/cos_restart.py | 198 | scripts/test_cos_restart.py | 104 | the stuck cases, wait-check results, first stall versus second, PR and `ci` text, continuation wording |
+| scripts/cos_todo.py | 115 | scripts/test_cos_todo.py | 74 | priority and age order, `agent-skip`, open blockers, `todo: none` |
 
-Test lines (285) stay under the script lines (453), per `AGENTS.md` § Testing.
+Test lines (298) stay under the script lines (465), per `AGENTS.md` § Testing.
