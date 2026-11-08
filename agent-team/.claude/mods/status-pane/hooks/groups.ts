@@ -8,7 +8,7 @@ const GROUPS: { name: string; stages: string[] }[] = [
   { name: 'Merging', stages: ['merge'] },
   { name: 'Queued to merge', stages: ['merge-queued'] },
   { name: 'Speccing', stages: ['spec'] },
-  { name: 'Awaiting build approval', stages: ['awaiting-spec'] },
+  { name: 'Awaiting build approval', stages: ['awaiting-build'] },
   { name: 'Building', stages: ['build'] },
   { name: 'Queued to build', stages: ['build-queued'] },
   { name: 'Other', stages: ['spec-queued', 'blocked'] },

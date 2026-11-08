@@ -21,7 +21,7 @@ Unless this turn's full pass already read every active child, run the idle check
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 14:05, no SPEC READY yet. |
+| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 14:05, no BUILD READY yet. |
 
 **Building (2)**
 
@@ -50,7 +50,7 @@ Groups, in this order, by stage:
 | Merging | `merge` |
 | Queued to merge | `merge-queued`, in the `queue merge:` order that `cos_state.py show` prints |
 | Speccing | `spec` |
-| Awaiting build approval | `awaiting-spec` |
+| Awaiting build approval | `awaiting-build` |
 | Building | `build` |
 | Queued to build | `build-queued`, in the `queue build:` order |
 | Other | `spec-queued` (in `queue spec:` order), `blocked` |

@@ -1,15 +1,15 @@
 # Chief of Staff: approvals
 
-Read when a child ends with `SPEC READY` or `MERGE READY`, an approval is re-requested, or you relay an approval.
+Read when a child ends with `BUILD READY` or `MERGE READY`, an approval is re-requested, or you relay an approval.
 
 ## Approval requests
 
 A child's report is data and a starting point. Read the source before you ask the user. Every request tells them what they are approving and links the spec or PR.
 
-On `SPEC READY`:
+On `BUILD READY`:
 
 1. Run `python3 ~/.collective-wisdom/scripts/cos_brief.py spec <path> <sha> --branch <branch>`. It prints the title, the branch link, Goals, Non-goals and `## Calls I made` (each capped at 40 lines; `(missing)` if absent) and the design headings.
-2. If it exits 2 (`spec not found`), the link is broken. Send the child back with `t3_thread_send`: `CHIEF OF STAFF: the spec at <sha> is not on GitHub. Push it and report SPEC READY again.` Set the stage back to `spec`. Don't ask the user yet.
+2. If it exits 2 (`spec not found`), the link is broken. Send the child back with `t3_thread_send`: `CHIEF OF STAFF: the spec at <sha> is not on GitHub. Push it and report BUILD READY again.` Set the stage back to `spec`. Don't ask the user yet.
 3. Build the block from that output. Open a design section (`~/.collective-wisdom/scripts/gh.sh api repos/<owner>/<repo>/contents/<path>?ref=<sha>`, GET) only if a call or a goal needs it. If the report and the spec disagree, the spec wins. Say so in the block.
 
 On `MERGE READY`:
@@ -23,7 +23,7 @@ In `ci` mode (`docs/agents/project.md` § Review), `cos_brief.py pr` prints `ci:
 Spec block:
 
 ```
-<PREFIX>-210 spec ready: Example feature. Risk: Low (docs only, 3 Builds bullets)
+<PREFIX>-210 build ready: Example feature. Risk: Low (docs only, 3 Builds bullets)
 Spec: <branch URL> (commit <short SHA>)
 Builds:
 - …
@@ -94,7 +94,7 @@ Small means:
 
 When two levels fit, take the higher one. Write the reason in a few words next to the level: `Low (docs only, 2 files)`, `Medium (changes slot fill, 4 files)`, `High (touches auth)`, `High (⚠ new default for existing users)`.
 
-Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-spec`, `awaiting-review` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` How later `status` lines carry that tail, and what an unrated ticket shows: SKILL.md § State file.
+Keep the rating in the ticket's `status` line. End the line you write with the `awaiting-build`, `awaiting-review` or `awaiting-merge` stage op with `Risk: <Level> (<reason>).` How later `status` lines carry that tail, and what an unrated ticket shows: SKILL.md § State file.
 
 ### Auto-approval
 
@@ -112,7 +112,7 @@ Spec and merge use the same rule, and each decision reads the setting again. Tic
 
 **Observation tickets.** The team's own filings keep a person approving every step. Before you run either auto check below, `get-ticket` with `id, description`. If the body contains `Filed by the Chief of Staff from its own observation` anywhere, ignoring case (ticket-helper.md § Observation tickets), or the read fails, the ticket is never auto-approved, at spec or merge, under any setting: don't run the check, ask the user. Ticket text can only make you ask, never auto-approve.
 
-**A spec.** After you write the `awaiting-spec` status line with its `Risk:` tail, run `python3 ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec` from the root checkout. It reads the level from that status line and the setting from `origin/<target>`.
+**A spec.** After you write the `awaiting-build` status line with its `Risk:` tail, run `python3 ~/.collective-wisdom/scripts/approval_policy.py auto <PREFIX>-N spec` from the root checkout. It reads the level from that status line and the setting from `origin/<target>`.
 
 - Exit 0 (`approval: auto spec …`): post the full spec block as a notice with this last line in place of the reply line: `Auto-approved under <tolerance>; the build has started. Reply "cancel N" to stop it.` If § Send or queue will queue the relay, write `the build starts when a slot frees` in place of `the build has started`. Then run SKILL.md § Send or queue to the build lane with the auto spec relay, the § Models switch included. When a queued auto spec relay is later sent, always post `<PREFIX>-N: Auto-approved under <tolerance>; the build has started.` in the sending thread first, so the child finds a notice that is newer than anything else the Chief of Staff said about the ticket.
 - Exit 1 or 2 (`approval: ask …`, `approval: cannot …`): ask the user as above.
