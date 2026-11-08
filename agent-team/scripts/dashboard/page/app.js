@@ -32,6 +32,25 @@ const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queue
 
 const stageWords = (stage) => STAGE_WORDS.get(stage) ?? stage.replace(/-/g, ' ')
 
+const list = (x) => (Array.isArray(x) ? x.filter((e) => typeof e === 'object' && e !== null) : [])
+
+/** What the spec or the PR says, as plain text. It comes from agents, so every string is escaped and only an http(s) url becomes an anchor. */
+function renderDetail(d) {
+  const sections = list(d?.sections)
+  if (sections.length === 0) return ''
+  const open = isHttp(d.url) ? ` <span class="detail-open">${link(d.url, 'Open')}</span>` : ''
+  const out = [`<h4 class="detail-head">${d.kind === 'changes' ? 'Changes' : 'Spec'}${open}</h4>`]
+  for (const s of sections) out.push(`<h4>${esc(s.name)}</h4><p class="detail-text">${esc(s.text)}</p>`)
+  for (const v of list(d.reviews)) out.push(`<p class="detail-review">${esc(v.name)}: ${link(v.url, v.verdict)}</p>`)
+  const files = list(d.files)
+  if (files.length || d.moreFiles > 0) {
+    const items = files.map((f) => `<li>${esc(f.path)} <span class="add">+${esc(Number(f.add) || 0)}</span> <span class="del">\u2212${esc(Number(f.del) || 0)}</span></li>`)
+    if (d.moreFiles > 0) items.push(`<li>and ${esc(d.moreFiles)} more ${d.moreFiles === 1 ? 'file' : 'files'}</li>`)
+    out.push(`<ul class="detail-files">${items.join('')}</ul>`)
+  }
+  return out.join('')
+}
+
 /** The `Details` body: a line per known fact, in a fixed order, or one quiet line when none is known. */
 export function renderDetails(r, now) {
   const lines = []
@@ -55,7 +74,8 @@ export function renderDetails(r, now) {
     const newest = r.gantt.reduce((a, s) => (s.updatedAt > a.updatedAt ? s : a))
     add('Last update', esc(`${stamp(newest.updatedAt)}${newest.stale ? ' (stale)' : ''}`))
   }
-  return lines.length ? `<dl class="info-list">${lines.join('')}</dl>` : '<p class="quiet">Nothing more known yet</p>'
+  const facts = lines.length ? `<dl class="info-list">${lines.join('')}</dl>` : ''
+  return facts + renderDetail(r.detail) || '<p class="quiet">Nothing more known yet</p>'
 }
 
 /** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */

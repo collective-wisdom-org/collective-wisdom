@@ -231,6 +231,31 @@ test('each ticket has a closed Details section that lists what is known, escaped
   assert.match(renderStatus(group([full]), new Set(), new Set(), new Set(['CW-1'])), /<details class="info" data-ticket="CW-1" open>/)
 })
 
+test('a spec or changes detail shows its sections, files and reviews as escaped text; only http urls link', () => {
+  const spec = { kind: 'spec', url: 'https://x.test/blob/a.md', sections: [{ name: 'Goal', text: 'ship <b>it</b>\nline two' }, { name: 'Touches', text: 'a & b' }] }
+  const changes = {
+    kind: 'changes',
+    url: 'javascript:alert(1)',
+    sections: [{ name: 'Summary', text: '<img src=x onerror=alert(1)>' }],
+    files: [{ path: 'a/<b>.ts', add: 3, del: 1 }],
+    moreFiles: 4,
+    reviews: [{ name: 'Code review', verdict: 'PASS', url: 'https://x.test/c' }, { name: 'Security review', verdict: 'CHANGES NEEDED', url: 'data:x' }],
+  }
+  const html = renderStatus(group([row({ id: 'CW-1', stage: '', risk: '', next: '', detail: spec }), row({ id: 'CW-2', stage: '', risk: '', next: '', detail: changes })]))
+  const section = (id) => html.match(new RegExp(`<details class="info" data-ticket="${id}"[^>]*>[\\s\\S]*?</details>`))[0]
+  const a = section('CW-1')
+  assert.match(a, /<h4 class="detail-head">Spec <span class="detail-open"><a href="https:\/\/x\.test\/blob\/a\.md"/)
+  assert.match(a, /<h4>Goal<\/h4><p class="detail-text">ship &lt;b&gt;it&lt;\/b&gt;\nline two<\/p><h4>Touches<\/h4><p class="detail-text">a &amp; b<\/p>/)
+  assert.doesNotMatch(a, /Nothing more known|<dl/)
+  const b = section('CW-2')
+  assert.match(b, /<h4 class="detail-head">Changes<\/h4>/)
+  assert.match(b, /&lt;img src=x onerror=alert\(1\)&gt;/)
+  assert.match(b, /Code review: <a href="https:\/\/x\.test\/c"[^>]*>PASS<\/a>/)
+  assert.match(b, /Security review: CHANGES NEEDED</)
+  assert.match(b, /<li>a\/&lt;b&gt;\.ts <span class="add">\+3<\/span> <span class="del">\u22121<\/span><\/li><li>and 4 more files<\/li>/)
+  assert.doesNotMatch(b, /javascript:|data:x|<img/)
+})
+
 test('status sections draw open unless collapsed; a closed one keeps its heading and count; the name is escaped', () => {
   const groups = [
     { name: 'Building', count: 1, rows: [row()] },
