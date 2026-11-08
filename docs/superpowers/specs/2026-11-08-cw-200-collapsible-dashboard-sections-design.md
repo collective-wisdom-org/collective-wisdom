@@ -1,6 +1,7 @@
 # CW-200: Make dashboard status sections collapsible
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #204, as specified
 **Ticket:** [#200](https://github.com/collective-wisdom-org/collective-wisdom/issues/200)
 **Related:** #195 redesigns the headings and cards; #198 (shipped in PR #201) changed the row order. Both touch the same section markup; this ticket changes only how a section opens and closes.
 
