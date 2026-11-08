@@ -10,7 +10,9 @@ export type Detail = {
   moreFiles?: number
   reviews?: { name: string; verdict: string; url?: string }[]
 }
-type Parsed = Pick<Detail, 'sections' | 'files' | 'moreFiles' | 'reviews'>
+type Parsed = Pick<Detail, 'sections' | 'files' | 'moreFiles' | 'reviews'> & { specPaths: string[]; mergeSha?: string }
+/** A detail as `get()` returns it. For a merged ticket, `spec` is the spec the PR added and the commit that holds it. */
+export type Found = Detail & { spec?: { path: string; sha: string } }
 
 const REFRESH_MS = 60_000
 const TEXT_MAX = 2000
@@ -24,9 +26,22 @@ const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object
 const clean = (s: string) => s.replace(/\r\n?/g, '\n').replace(CONTROL, ' ').trim()
 const cap = (s: string) => (s.length > TEXT_MAX ? `${s.slice(0, TEXT_MAX)}…` : s)
 
-/** A `docs/` markdown path with no `..`; the only kind of spec path the dashboard will hand to git. */
-export const validSpecPath = (p: unknown): p is string => typeof p === 'string' && /^docs\/[\w./-]+\.md$/.test(p) && !p.includes('..')
-const validSha = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{40}$/.test(s)
+/** The spec path rule of `cos_handoff.py`: the only kind of path the dashboard will hand to git or put in a link. */
+export const validSpecPath = (p: unknown): p is string => typeof p === 'string' && /^docs\/superpowers\/specs\/[A-Za-z0-9._-]+\.md$/.test(p) && !p.includes('..')
+/** A commit id of 7 to 40 hex characters, the `cos_handoff.py` rule; `git show` takes a short one. */
+export const validSha = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{7,40}$/.test(s)
+
+/** The link to a spec at a commit, or undefined when the repo url, the path or the sha is not usable. */
+export function specUrlOf(repoUrl: string | undefined, specPath: unknown, specSha: unknown): string | undefined {
+  return repoUrl && validSpecPath(specPath) && validSha(specSha) ? `${repoUrl}/blob/${specSha}/${specPath}` : undefined
+}
+
+/** The one spec a merged PR added for a ticket: of the PR's spec paths, those whose name holds `-<prefix>-<n>-`. None, or more than one, gives undefined. */
+export function specOfMerged(paths: string[], id: string, mergeSha: string | undefined): { path: string; sha: string } | undefined {
+  const mark = `-${id.toLowerCase()}-`
+  const hits = paths.filter((p) => validSpecPath(p) && p.slice(p.lastIndexOf('/') + 1).includes(mark))
+  return hits.length === 1 && typeof mergeSha === 'string' && /^[0-9a-f]{40}$/.test(mergeSha) ? { path: hits[0], sha: mergeSha } : undefined
+}
 
 /** The `## ` sections of a markdown text, in order. A `###` heading, or a `## ` line inside a code fence, stays inside its section. */
 function sectionsOf(markdown: string): { name: string; text: string }[] {
@@ -77,7 +92,7 @@ function review(comments: unknown[], name: string): NonNullable<Detail['reviews'
   return typeof c.url === 'string' && c.url.startsWith('https://') ? { name, verdict, url: c.url } : { name, verdict }
 }
 
-/** Turns `gh pr view --json body,files,comments` output into the changes detail. Bad JSON gives null. */
+/** Turns `gh pr view --json body,files,comments,mergeCommit` output into the changes detail. Bad JSON gives null. */
 export function prDetail(json: string): Parsed | null {
   let data: unknown
   try {
@@ -100,7 +115,9 @@ export function prDetail(json: string): Parsed | null {
   const files = all.slice(0, FILES_MAX).map((f) => ({ path: clean(f.path as string).slice(0, 300), add: count(f.additions), del: count(f.deletions) }))
   const comments = Array.isArray(data.comments) ? data.comments : []
   const reviews = [review(comments, 'Code review'), review(comments, 'Security review')].filter((r): r is NonNullable<typeof r> => r !== null)
-  return { sections, files, moreFiles: Math.max(0, all.length - FILES_MAX), reviews }
+  const specPaths = all.map((f) => f.path as string).filter(validSpecPath)
+  const oid = isObj(data.mergeCommit) ? data.mergeCommit.oid : undefined
+  return { sections, files, moreFiles: Math.max(0, all.length - FILES_MAX), reviews, specPaths, ...(typeof oid === 'string' ? { mergeSha: oid } : {}) }
 }
 
 /** git runs with no shell, in the root checkout. */
@@ -111,10 +128,14 @@ export function gitRunner(root: string): Run {
     })
 }
 
-export type DetailWant = { id: string; stage: string; specPath?: unknown; specSha?: unknown; pr?: unknown }
+const SPEC_STAGES = ['awaiting-build', 'build', 'build-queued']
+const PR_STAGES = ['awaiting-merge', 'merge', 'merge-queued']
+
+/** `merged: true` asks for the PR text of a merged ticket by its PR number; the stage is then ignored. */
+export type DetailWant = { id: string; stage: string; specPath?: unknown; specSha?: unknown; pr?: unknown; merged?: boolean }
 
 /**
- * Per-stage detail read in the background: a spec once per commit and path for a ticket awaiting build approval, the PR at most once a minute for one awaiting merge approval.
+ * Per-stage detail read in the background: a spec once per commit and path while a ticket waits for build approval or builds, the PR at most once a minute from merge approval on, and the PR of a merged ticket the same way.
  * A failed read keeps the last good result (a failed spec read is retried after a minute). Entries for tickets no longer wanted are dropped.
  */
 export function createDetails(opts: { run: Run; git: Run; now?: () => number }) {
@@ -122,7 +143,7 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
   const specs = new Map<string, { sections?: Detail['sections']; failedAt?: number }>()
   const prs = new Map<string, { startedAt: number; parsed?: Parsed }>()
   const reading = new Set<Promise<void>>()
-  let wanted = new Map<string, { kind: 'spec' | 'changes'; key: string }>()
+  let wanted = new Map<string, { kind: 'spec' | 'changes' | 'merged'; key: string }>()
 
   const start = (job: () => Promise<void>) => {
     const p: Promise<void> = job().then(() => {
@@ -134,17 +155,19 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
   return {
     want(wants: DetailWant[], cfg: { slug: string } | null) {
       wanted = new Map()
+      const goodPr = (w: DetailWant) => !!cfg && Number.isInteger(w.pr) && (w.pr as number) > 0
       for (const w of wants) {
-        if (w.stage === 'awaiting-build' && validSha(w.specSha) && validSpecPath(w.specPath)) wanted.set(w.id, { kind: 'spec', key: `${w.specSha}:${w.specPath}` })
-        else if (w.stage === 'awaiting-merge' && cfg && Number.isInteger(w.pr) && (w.pr as number) > 0) wanted.set(w.id, { kind: 'changes', key: String(w.pr) })
+        if (w.merged) continue
+        if (SPEC_STAGES.includes(w.stage) && validSha(w.specSha) && validSpecPath(w.specPath)) wanted.set(w.id, { kind: 'spec', key: `${w.specSha}:${w.specPath}` })
+        else if (PR_STAGES.includes(w.stage) && goodPr(w)) wanted.set(w.id, { kind: 'changes', key: String(w.pr) })
       }
-      const keys = (kind: string) => new Set([...wanted.values()].filter((v) => v.kind === kind).map((v) => v.key))
-      for (const k of specs.keys()) if (!keys('spec').has(k)) specs.delete(k)
-      for (const k of prs.keys()) if (!keys('changes').has(k)) prs.delete(k)
+      // An id still on the board keeps its own detail; a merged want for it is ignored.
+      for (const w of wants) if (w.merged && !wanted.has(w.id) && goodPr(w)) wanted.set(w.id, { kind: 'merged', key: String(w.pr) })
+      const keys = (spec: boolean) => new Set([...wanted.values()].filter((v) => (v.kind === 'spec') === spec).map((v) => v.key))
+      for (const k of specs.keys()) if (!keys(true).has(k)) specs.delete(k)
+      for (const k of prs.keys()) if (!keys(false).has(k)) prs.delete(k)
 
-      for (const w of wants) {
-        const target = wanted.get(w.id)
-        if (!target) continue
+      for (const target of wanted.values()) {
         const t = now()
         if (target.kind === 'spec') {
           const rev = target.key
@@ -164,7 +187,7 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
           prs.set(n, { startedAt: t, parsed: have?.parsed })
           start(async () => {
             try {
-              const parsed = prDetail(await opts.run(['pr', 'view', n, '--repo', cfg!.slug, '--json', 'body,files,comments']))
+              const parsed = prDetail(await opts.run(['pr', 'view', n, '--repo', cfg!.slug, '--json', 'body,files,comments,mergeCommit']))
               const cur = prs.get(n)
               if (parsed && cur) cur.parsed = parsed
             } catch {}
@@ -172,15 +195,18 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
         }
       }
     },
-    get(): Record<string, Detail> {
-      const out: Record<string, Detail> = {}
+    get(): Record<string, Found> {
+      const out: Record<string, Found> = {}
       for (const [id, { kind, key }] of wanted) {
         if (kind === 'spec') {
           const sections = specs.get(key)?.sections
           if (sections?.length) out[id] = { kind: 'spec', sections }
         } else {
           const parsed = prs.get(key)?.parsed
-          if (parsed && (parsed.sections.length || parsed.files?.length || parsed.reviews?.length)) out[id] = { kind: 'changes', ...parsed }
+          if (!parsed) continue
+          const { specPaths, mergeSha, ...detail } = parsed
+          const spec = kind === 'merged' ? specOfMerged(specPaths, id, mergeSha) : undefined
+          if (detail.sections.length || detail.files?.length || detail.reviews?.length || spec) out[id] = { kind: 'changes', ...detail, ...(spec ? { spec } : {}) }
         }
       }
       return out

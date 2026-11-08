@@ -1,13 +1,13 @@
 import { groupTickets } from '../../.claude/mods/status-pane/hooks/groups.ts'
 import type { MergedEntry } from './merged.ts'
-import { validSpecPath } from './details.ts'
-import type { Detail } from './details.ts'
+import { specUrlOf } from './details.ts'
+import type { Detail, Found } from './details.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; pricing: number | null; rows: SnapshotRow[] }
 export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; pricing: number | null; rows: SnapshotRow[] }
-type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail }
+type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
@@ -143,7 +143,7 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Detail> }): Api {
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found> }): Api {
   const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {}, details = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
@@ -157,11 +157,13 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       if (repo && typeof t.pr === 'number' && Number.isInteger(t.pr)) out.prUrl = `${repo.url}/pull/${t.pr}`
       if (environmentId && typeof t.childThreadId === 'string' && t.childThreadId)
         out.threadLink = `<t3-thread://v2/${environmentId}/${t.childThreadId}>`
+      const specUrl = specUrlOf(repo?.url, t.specPath, t.specSha)
+      if (specUrl) out.specUrl = specUrl
       const d = Object.hasOwn(details, r.id) ? details[r.id] : undefined
       if (d) {
-        const branchOk = typeof t.branch === 'string' && /^[\w./-]+$/.test(t.branch) && !t.branch.includes('..')
-        const url = d.kind === 'spec' ? (repo && branchOk && validSpecPath(t.specPath) ? `${repo.url}/blob/${t.branch}/${t.specPath}` : undefined) : out.prUrl
-        out.detail = url ? { ...d, url } : d
+        const { spec: _, ...plain } = d
+        const url = d.kind === 'spec' ? out.specUrl : out.prUrl
+        out.detail = url ? { ...plain, url } : plain
       }
       return out
     }), updated),
@@ -174,9 +176,16 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     if (row) (row.gantt ??= []).push(s)
   }
   for (const r of rowById.values()) r.gantt?.sort((a, b) => a.updatedAt - b.updatedAt)
-  const withExtras = (e: MergedEntry): MergedEntry => {
-    const out = Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e
-    return Object.hasOwn(history, e.id) && history[e.id].length ? { ...out, gantt: history[e.id] } : out
+  const withExtras = ({ number: _, ...e }: MergedEntry): MergedEntry => {
+    let out: MergedEntry = Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e
+    if (Object.hasOwn(history, e.id) && history[e.id].length) out = { ...out, gantt: history[e.id] }
+    const found = Object.hasOwn(details, e.id) ? details[e.id] : undefined
+    if (found) {
+      const { spec, ...plain } = found
+      const specUrl = repo && spec ? specUrlOf(repo.url, spec.path, spec.sha) : undefined
+      out = { ...out, detail: e.prUrl ? { ...plain, url: e.prUrl } : plain, ...(specUrl ? { specUrl } : {}) }
+    }
+    return out
   }
   return { generatedAt: now, status, merged: merged.map(withExtras) }
 }

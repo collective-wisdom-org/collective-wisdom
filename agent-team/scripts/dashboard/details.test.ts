@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createDetails, prDetail, specDetail } from './details.ts'
+import type { DetailWant } from './details.ts'
 
 const SHA = 'a'.repeat(40)
 const PATH = 'docs/superpowers/specs/x-design.md'
@@ -49,14 +50,14 @@ test('createDetails: spec read once per sha, bad inputs never reach git, PR read
   const spec = { id: 'CW-1', stage: 'awaiting-build', specPath: PATH, specSha: SHA }
   const pr = { id: 'CW-2', stage: 'awaiting-merge', pr: 5 }
 
-  const bad = [{ ...spec, specSha: 'abc' }, { ...spec, specSha: `${SHA}\n` }, { ...spec, specPath: 'docs/../x.md' }, { ...spec, specPath: 'src/x.md' }, { ...spec, specPath: 'docs/x.md --foo' }, { ...spec, specPath: undefined }, { ...pr, pr: '5' }, { ...pr, pr: 1.5 }, { ...spec, stage: 'build' }]
+  const bad = [{ ...spec, specSha: 'abc' }, { ...spec, specSha: `${SHA}\n` }, { ...spec, specPath: 'docs/../x.md' }, { ...spec, specPath: 'src/x.md' }, { ...spec, specPath: 'docs/x.md --foo' }, { ...spec, specPath: 'docs/x.md' }, { ...spec, specSha: 'abcdef' }, { ...spec, specPath: undefined }, { ...pr, pr: '5' }, { ...pr, pr: 1.5 }, { ...spec, stage: 'spec' }, { ...pr, stage: 'blocked' }, { id: 'CW-9', stage: 'merged', pr: 5 }]
   await settle(bad)
   assert.deepEqual([gitCalls, ghCalls, d.get()], [[], [], {}])
 
   await settle([spec, pr])
   await settle([spec, pr])
   assert.deepEqual(gitCalls, [['show', `${SHA}:${PATH}`]])
-  assert.deepEqual(ghCalls, [['pr', 'view', '5', '--repo', 'o/r', '--json', 'body,files,comments']])
+  assert.deepEqual(ghCalls, [['pr', 'view', '5', '--repo', 'o/r', '--json', 'body,files,comments,mergeCommit']])
   assert.deepEqual(Object.keys(d.get()), ['CW-1', 'CW-2'])
   assert.equal(d.get()['CW-1'].kind, 'spec')
   assert.equal(d.get()['CW-2'].kind, 'changes')
@@ -80,4 +81,37 @@ test('createDetails: spec read once per sha, bad inputs never reach git, PR read
   gitReply = '## Goal\n\ng2'
   await settle([fresh])
   assert.equal(d.get()['CW-3'].sections[0].text, 'g2')
+})
+
+test('the stage picks the detail: spec while it waits for build approval and builds, the PR from merge approval on and for merged rows, nothing else', async () => {
+  const d = createDetails({ git: async () => '## Goal\n\ng', run: async () => JSON.stringify({ body: '## Summary\n\ns' }) })
+  const base = { specPath: PATH, specSha: 'abc1234', pr: 5 }
+  const cases: [DetailWant, string | undefined][] = [
+    [{ id: 'a', stage: 'awaiting-build' }, 'spec'], [{ id: 'a', stage: 'build' }, 'spec'], [{ id: 'a', stage: 'build-queued' }, 'spec'],
+    [{ id: 'a', stage: 'awaiting-merge' }, 'changes'], [{ id: 'a', stage: 'merge' }, 'changes'], [{ id: 'a', stage: 'merge-queued' }, 'changes'],
+    [{ id: 'a', stage: 'merged', merged: true }, 'changes'], [{ id: 'a', stage: 'spec' }, undefined], [{ id: 'a', stage: 'blocked' }, undefined],
+  ]
+  for (const [w, kind] of cases) {
+    d.want([{ ...base, ...w }], { slug: 'o/r' })
+    await d.idle()
+    assert.equal(d.get().a?.kind, kind, `${w.stage}${w.merged ? ' merged' : ''}`)
+  }
+})
+
+test('a merged PR gives its spec link only when exactly one spec file carries the ticket id and the merge commit is a full sha', async () => {
+  const spec = (name: string) => `docs/superpowers/specs/${name}.md`
+  const one = [spec('2026-11-08-cw-240-x-design'), spec('2026-11-08-cw-24-y-design'), 'docs/superpowers/plans/2026-11-08-cw-240-plan.md', 'src/cw-240-.md']
+  const cases: [string, string[], unknown, { path: string; sha: string } | undefined][] = [
+    ['one match', one, SHA, { path: one[0], sha: SHA }],
+    ['none', one.slice(1), SHA, undefined],
+    ['two', [...one, spec('2026-cw-240-other')], SHA, undefined],
+    ['short merge sha', one, 'abc1234', undefined],
+    ['no merge commit', one, undefined, undefined],
+  ]
+  for (const [name, files, oid, want] of cases) {
+    const d = createDetails({ git: async () => '', run: async () => JSON.stringify({ body: '', files: files.map((path) => ({ path, additions: 1, deletions: 0 })), mergeCommit: oid ? { oid } : null }) })
+    d.want([{ id: 'CW-240', stage: 'merged', pr: 5, merged: true }], { slug: 'o/r' })
+    await d.idle()
+    assert.deepEqual(d.get()['CW-240']?.spec, want, name)
+  }
 })
