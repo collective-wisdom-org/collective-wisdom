@@ -17,7 +17,8 @@ from a working tree, and the merge target branch is read from the root checkout.
 A spec queued for the build lane with an auto-approved relay (`build-queued`) is checked again the same way.
 
 While a No Hands run is active (no_hands.active()), every level is auto, High and unrated included, and the last line says
-`under No Hands`. With no run nothing above changes. HANDS_PATH is the short list of files a No Hands merge may not change.
+`under No Hands`, for a ticket the run started (the `noHands.started` list) only; a ticket in flight when the run began keeps the tolerance.
+With no run nothing above changes. HANDS_PATH is the short list of files a No Hands merge may not change.
 
 Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Risk: <Level>)  (under No Hands: Risk may be `unrated`)
 Exit 1: ask.  Last line: approval: ask [<PREFIX>-N] (<why>)
@@ -107,15 +108,32 @@ def on_approval_path(path):
     return p in PATH_FILES or p.startswith(PATH_DIRS + (".",)) or "/." in p or instructions
 
 
+SHADOWS = frozenset(sys.stdlib_module_names) | {"sitecustomize", "usercustomize"}
+
+
+def shadows_imports(p, name):
+    """True for a file that changes what the gate scripts import or how their tests run, though no listed script imports it.
+
+    A file under scripts/ (any depth) named like a stdlib module (pathlib.py, json.py), sitecustomize or usercustomize, or conftest.py;
+    any `*.pth` file; anything in a `__pycache__` directory.
+    """
+    in_scripts = p.split("/")[0] == "scripts"
+    return name.endswith(".pth") or "__pycache__" in p.split("/") or (in_scripts and (name.split(".")[0] in SHADOWS or name == "conftest.py"))
+
+
 def on_hands_path(path):
     p, name, instructions = _norm(path)
     settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
-    return p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
+    return (p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
+            or shadows_imports(p, name))
 
 
-def _verdict(kind, who, level, setting):
-    """(code, last line) for a level and a setting: a function giving (tolerance, note), read only when no No Hands run is active."""
-    hands = no_hands.active()
+def _verdict(kind, who, level, setting, ticket=None):
+    """(code, last line) for a level and a setting: a function giving (tolerance, note), read only when No Hands does not apply.
+
+    No Hands applies when a run is active and `ticket` is one the run started; any other ticket (in flight when the run began) uses the tolerance.
+    """
+    hands = no_hands.active(ticket=ticket)
     tolerance, note = ("No Hands", "") if hands else setting()
     auto, why = decide(tolerance, level, hands)
     tag = f" {who}" if who else ""
@@ -137,7 +155,7 @@ def cmd_auto(tid, kind, setting):
         status = t.get("status")
     except (SystemExit, AttributeError):
         return 2, "approval: cannot read the state file"
-    return _verdict("spec", tid, risk_level(status if isinstance(status, str) else None), setting)
+    return _verdict("spec", tid, risk_level(status if isinstance(status, str) else None), setting, tid)
 
 
 def cmd_check(level, setting):

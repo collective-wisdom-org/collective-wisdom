@@ -52,11 +52,20 @@ def call(tmp_path, capsys, argv, run=None, setting=ON, cost=lambda t, stage: 10.
         (None, ON, {"msgs": [msg(text="No hands!")]}, 0, "started"),
         # a message from before the last run ended does not start another
         ({**OPEN, "endedAt": "2026-11-08T11:00:00Z", "endReason": "x"}, ON, {}, 1, "not-user missing"),
-        ({**OPEN, "endedAt": "2026-11-08T11:00:00Z", "endReason": "x"}, ON, {"msgs": [msg("m2", created="2026-11-08T12:00:00Z")]}, 0, "started"),
+        ({**OPEN, "endedAt": "2026-11-08T11:00:00Z", "endReason": "x"}, ON, {"msgs": [msg("m2", created="2026-11-08T12:00:00Z")], "now": "2026-11-08T12:05:00Z"}, 0, "started"),
+        # the message must be at most 10 minutes old
+        (None, ON, {"now": "2026-11-08T10:10:00Z"}, 0, "started"),
+        (None, ON, {"now": "2026-11-08T10:11:00Z"}, 1, "older than 10 minutes"),
+        # ... and newer than the user's latest `stop everything`: an old `no hands` cannot start a run after one
+        (None, ON, {"msgs": [msg(), msg("m3", "stop everything", created="2026-11-08T10:02:00Z")]}, 1, "no new `no hands` from the user: not-user missing"),
+        (None, ON, {"msgs": [msg(), msg("m3", "stop everything", created="2026-11-08T10:02:00Z"), msg("m4", created="2026-11-08T10:03:00Z")]}, 0, "started"),
+        (None, ON, {"msgs": [msg("m3", "stop everything", created="2026-11-08T09:00:00Z"), msg()]}, 0, "started"),
+        (None, ON, {"msgs": [msg(), msg("m3", "stop everything", by="agent", created="2026-11-08T10:02:00Z")]}, 0, "started"),
     ],
 )
 def test_start(tmp_path, capsys, monkeypatch, run, setting, kw, code, line):
-    monkeypatch.setattr(no_hands.cos_state, "now", lambda: "2026-11-08T13:00:00Z")
+    now = kw.pop("now", "2026-11-08T10:05:00Z")
+    monkeypatch.setattr(no_hands.cos_state, "now", lambda: now)
     got, out, record, _ = call(tmp_path, capsys, ["start", "--thread", "chief"], run, setting, **kw)
     assert (got, line in out) == (code, True)
     if code == 0:
@@ -97,6 +106,51 @@ def test_check_and_active(tmp_path, capsys, run, setting, kw, cost, line):
     code, out, _, (state, db) = call(tmp_path, capsys, ["check"], run, setting, cost or (lambda t, s: 10.0), **kw)
     assert (code, out) == (0, line)
     assert no_hands.active(lambda: setting, state, db, cost or (lambda t, s: 10.0)) == line.startswith(("no-hands: on", "no-hands: drain"))
+
+
+# A stop is final: `check` writes endedAt and endReason, so the run stays ended when the cause clears.
+@pytest.mark.parametrize(
+    "setting, kw, cost, reason",
+    [
+        (ON, {}, lambda t, s: 50.0, "cost-cap"),
+        (ON, {}, lambda t, s: None, "cost-unknown"),
+        ((False, 0, 0, ""), {}, None, "setting-off"),
+        (ON, {"msgs": [msg(), msg("m3", "stop everything", created="2026-11-08T10:30:00Z")]}, None, "stopped-by-user"),
+        (ON, {"msgs": []}, None, "start-message-not-verified"),
+    ],
+)
+def test_check_records_a_stop(tmp_path, capsys, setting, kw, cost, reason):
+    state, db = world(tmp_path, OPEN, **kw)
+    run = lambda st, c: no_hands.main(["--file", str(state), "--db", str(db), "check"], setting=lambda: st, cost=c)  # noqa: E731
+    assert run(setting, cost or (lambda t, s: 10.0)) == 0
+    assert capsys.readouterr().out.startswith("no-hands: stop")
+    record = json.loads(state.read_text())["noHands"]
+    assert record["endReason"] == reason and record["endedAt"]
+    # the cause clears (a fine setting, cost and a fresh store), the run does not come back
+    state2, db2 = state, world(tmp_path, OPEN)[1]
+    assert no_hands.main(["--file", str(state2), "--db", str(db2), "check"], setting=lambda: ON, cost=lambda t, s: 10.0) == 0
+    assert capsys.readouterr().out.strip() == "no-hands: off"
+    assert no_hands.active(lambda: ON, state2, db2, lambda t, s: 10.0) is False
+    # `end` after the stop prints the summary with the recorded reason and changes nothing
+    code = no_hands.main(["--file", str(state2), "--db", str(db2), "end", "other"], setting=lambda: ON, cost=lambda t, s: 10.0)
+    out = capsys.readouterr().out
+    assert code == 0 and out.startswith(f"no-hands: ended {reason}\n") and json.loads(state2.read_text())["noHands"] == record
+
+
+def test_a_failed_write_still_prints_the_stop(tmp_path, capsys, monkeypatch):
+    state, db = world(tmp_path, OPEN)
+    monkeypatch.setattr(no_hands, "_write", lambda *a: (_ for _ in ()).throw(no_hands.Cannot("write the state file: boom")))
+    assert no_hands.main(["--file", str(state), "--db", str(db), "check"], setting=lambda: ON, cost=lambda t, s: None) == 0
+    assert capsys.readouterr().out.strip() == "no-hands: stop cost unknown"
+
+
+# approvals under a run cover only the tickets it started
+@pytest.mark.parametrize("ticket, want", [("ABC-1", True), ("ABC-2", True), ("ABC-9", False), (None, True)])
+def test_active_for_a_ticket_needs_it_on_the_started_list(tmp_path, ticket, want):
+    state, db = world(tmp_path, OPEN)
+    assert no_hands.active(lambda: ON, state, db, lambda t, s: 10.0, ticket) is want
+    state, db = world(tmp_path, {**OPEN, "endedAt": "2026-11-08T11:00:00Z"})
+    assert no_hands.active(lambda: ON, state, db, lambda t, s: 10.0, ticket) is False
 
 
 @pytest.mark.parametrize(

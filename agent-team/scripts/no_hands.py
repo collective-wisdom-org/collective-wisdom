@@ -17,10 +17,13 @@ state file by hand is out of scope: the record is only as trustworthy as the fil
 `git worktree list`) unless --file is given, so a child in a linked worktree reads the same run.
 
 start   Needs the setting on, no active run, the state's chiefThreadId equal to --thread, and the newest user message holding
-        the words `no hands` (cos_user_check.py latest; newer than the last run's end) to be exactly `no hands`, so `no hands off`
-        or `no hands, and delete x` never starts a run. Writes a fresh record.
+        the words `no hands` (cos_user_check.py latest) to be exactly `no hands`, so `no hands off` or `no hands, and delete x` never
+        starts a run. That message must also be newer than the last run's end and than the user's latest `stop everything`, and at
+        most 10 minutes old. Writes a fresh record.
         Last line: no-hands: started (cap N tickets, $C)  or  no-hands: refused (<why>)
-check   Prints one line, read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. A ticket with no
+check   Prints one line. It writes only when the result is a stop: it then records endedAt and endReason (the `end` move; the reason
+        is the stop's cause as one word, such as cost-cap or stopped-by-user), so a stop is final and the run cannot come back when
+        the cause clears. A failed write still prints the stop line. Otherwise it is read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. A ticket with no
         transcripts at all (agent_usage.py: "no transcripts", exit 2) counts as $0 only when the ticket is gone from the state file
         (cancelled early) or is in spec or spec-queued (just started). In any other stage, or merged, the missing transcripts may
         be a Codex or Cursor child or a moved projects dir, so the cost is unknown; so is a cost that cannot be read for any other
@@ -35,9 +38,11 @@ drain   Sets the drain reason (the first one stays). Last line: no-hands: drain 
         drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
         may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.
 end     Sets endedAt and endReason and prints the run summary: why, how long, each ticket with its state and cost, the total.
+        On a run that `check` already ended it writes nothing and prints the summary with the recorded reason.
 
 Exit codes: 0 ok, 1 refused, or drain and end with no active run, 2 bad arguments or the state file or message store failed.
-~/.collective-wisdom/scripts/approval_policy.py and cos_approve_pr.py import active() from here.
+~/.collective-wisdom/scripts/approval_policy.py and cos_approve_pr.py import active() from here. active(ticket=...) is also true
+only when the ticket is on the run's `started` list: approvals under a run cover those tickets only.
 """
 
 import argparse
@@ -46,7 +51,7 @@ import io
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
@@ -59,6 +64,7 @@ WORDS = "no hands"
 USAGE = str(Path(__file__).absolute().parent / "agent_usage.py")
 COST = re.compile(r"cost \$([0-9]+(?:\.[0-9]+)?)")
 NO_SESSIONS = "no transcripts for"  # agent_usage.py --ticket stderr (exit 2) when no session ran the ticket
+START_WINDOW = timedelta(minutes=10)  # a `no hands` older than this does not start a run
 FREE_STAGES = ("gone", "spec", "spec-queued")  # a ticket with no transcripts costs $0 only here
 
 
@@ -119,6 +125,30 @@ def _said(db, thread, words, after=None):
         return False, "cannot read the message store"
     line = out.getvalue().strip()
     return (True, line.split()[1]) if code == 0 and line.count(" ") >= 1 else (False, line)
+
+
+def _user_rows(db, thread):
+    """(message_id, created_at, createdBy, text) of the thread's finished user-role messages; [] when the store cannot be read."""
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            return cos_user_check.query(db, cos_user_check.SELECT + "AND role = 'user'", (thread,))
+    except SystemExit:
+        return []
+
+
+def _stop_time(db, thread):
+    """created_at of the user's newest `stop everything` (their own message, not negated), or None."""
+    times = [(cos_state.parse(created), created) for _, created, by, text in _user_rows(db, thread)
+             if by == "user" and cos_user_check.command_in("stop everything", text or "") == "ok" and getattr(cos_state.parse(created), "tzinfo", None)]
+    return max(times, key=lambda x: x[0])[1] if times else None
+
+
+def _recent(db, thread, item_id, now):
+    """True when the message was sent at most START_WINDOW before now (and not after it)."""
+    bare = item_id.removeprefix(cos_user_check.PREFIX)
+    sent = next((cos_state.parse(created) for mid, created, _, _ in _user_rows(db, thread) if mid == bare), None)
+    at = cos_state.parse(now)
+    return bool(sent and at and sent.tzinfo and at.tzinfo and timedelta(0) <= at - sent <= START_WINDOW)
 
 
 def _item_ok(db, thread, item_id, at):
@@ -191,10 +221,16 @@ def evaluate(setting, state_file, db, cost):
     return "on", f"no-hands: on {progress}"
 
 
-def active(setting=project_config.no_hands_setting, state_file=None, db=cos_user_check.DEFAULT_DB, cost=ticket_cost):
-    """True only while a run is on or draining: setting on, run started and not ended, cost under the cap, start message still the user's."""
+def active(setting=project_config.no_hands_setting, state_file=None, db=cos_user_check.DEFAULT_DB, cost=ticket_cost, ticket=None):
+    """True only while a run is on or draining: setting on, run started and not ended, cost under the cap, start message still the user's.
+
+    With a ticket, also needs the ticket on the run's `started` list: approvals under a run cover only the tickets it started.
+    """
     try:
-        return evaluate(setting, state_file or root_state_file(), db, cost)[0] in ("on", "drain")
+        state_file = state_file or root_state_file()
+        if evaluate(setting, state_file, db, cost)[0] not in ("on", "drain"):
+            return False
+        return ticket is None or ticket in _tickets(_load(state_file).get("noHands"))
     except Cannot:
         return False
 
@@ -210,10 +246,14 @@ def cmd_start(thread, setting, state_file, db):
     if not thread or state.get("chiefThreadId") != thread:
         return 1, "no-hands: refused (--thread is not the chiefThreadId in the state file)"
     ended = prior.get("endedAt") if isinstance(prior, dict) else None
-    ok, item = _said(db, thread, WORDS, ended if isinstance(ended, str) and cos_user_check.valid_after(ended) else None)
+    started = cos_state.now()
+    # The message must be newer than the last run's end and the user's latest `stop everything`, and at most START_WINDOW old.
+    floors = [x for x in (ended, _stop_time(db, thread)) if isinstance(x, str) and cos_user_check.valid_after(x)]
+    ok, item = _said(db, thread, WORDS, max(floors, key=cos_state.parse) if floors else None)
     if not ok:
         return 1, f"no-hands: refused (no new `no hands` from the user: {item})"
-    started = cos_state.now()
+    if not _recent(db, thread, item, started):
+        return 1, f"no-hands: refused (the `no hands` message is older than {START_WINDOW.seconds // 60} minutes)"
     if not _item_ok(db, thread, item, started):
         return 1, "no-hands: refused (the newest message with `no hands` is not exactly `no hands`)"
     _write(state_file, {"startedAt": started, "itemId": item, "started": [], "drain": None, "endedAt": None, "endReason": None})
@@ -239,12 +279,24 @@ def duration(start, end):
     return f"{minutes // 60}h {minutes % 60:02d}m"
 
 
+def record_stop(line, state_file):
+    """Make a stop final: write endedAt and endReason (the end move), so a cause that clears cannot bring the run back.
+
+    Best effort: if the write fails the stop line is still printed, and the Chief of Staff's `end` writes it.
+    """
+    reason = line.removeprefix("no-hands: stop ").split(" $")[0].replace(" ", "-")
+    with contextlib.suppress(Cannot):
+        _write(state_file, {"endedAt": cos_state.now(), "endReason": reason})
+
+
 def cmd_end(reason, setting, state_file, cost):
     state = _load(state_file)
     run = state.get("noHands")
-    if not _is_active(run):
+    done = isinstance(run, dict) and bool(run.get("endedAt")) and bool(run.get("endReason"))
+    if not (_is_active(run) or done):
         return 1, "no-hands: no active run"
-    end = datetime.now(timezone.utc)
+    end = cos_state.parse(run["endedAt"]) if done else datetime.now(timezone.utc)
+    reason = run["endReason"] if done else reason  # a run that `check` already ended keeps its recorded reason; this only prints the summary
     rows, spent = [], 0.0
     for t in _tickets(run):
         stage = stage_of(state, t)
@@ -253,7 +305,8 @@ def cmd_end(reason, setting, state_file, cost):
         where = f"merged #{state['merged'][t].get('pr', '-')}" if stage == "merged" else stage
         rows.append(f"{t} {where} {'cost unknown' if c is None else f'${int(c)}'}")
     cap = setting()[2]
-    _write(state_file, {"endedAt": end.strftime("%Y-%m-%dT%H:%M:%SZ"), "endReason": reason})
+    if not done:
+        _write(state_file, {"endedAt": end.strftime("%Y-%m-%dT%H:%M:%SZ"), "endReason": reason})
     return 0, "\n".join([
         f"no-hands: ended {reason}",
         f"ran: {duration(run['startedAt'], end)}, {len(rows)} tickets started",
@@ -275,7 +328,10 @@ def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None
     state_file, db = state_file or a.file or root_state_file(), db or a.db
     try:
         if a.cmd == "check":
-            code, line = 0, evaluate(setting, state_file, db, cost)[1]
+            kind, line = evaluate(setting, state_file, db, cost)
+            code = 0
+            if kind == "stop":
+                record_stop(line, state_file)
         elif a.cmd == "start":
             code, line = cmd_start(a.thread, setting, state_file, db)
         else:

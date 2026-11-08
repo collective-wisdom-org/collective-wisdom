@@ -15,8 +15,8 @@ gh login, PR facts, head.
 With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
 auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/<merge target branch>; see
 ~/.collective-wisdom/scripts/approval_policy.py), no PR file on the approval path, no renamed file, and no `flag:` or migration file (~/.collective-wisdom/scripts/cos_brief.py).
-While a No Hands run is active (~/.collective-wisdom/scripts/no_hands.py), --auto skips the tolerance and the Risk level and uses the hands path
-(approval_policy.HANDS_PATH) in place of the approval path; the renamed-file, 100-file, `flag:`, migration and conflict-note stops stay.
+While a No Hands run is active (~/.collective-wisdom/scripts/no_hands.py) and the ticket is on its `started` list, --auto skips the tolerance and the Risk level and uses the hands path
+(approval_policy.HANDS_PATH) in place of the approval path (a ticket the run did not start keeps the tolerance and the approval path); the renamed-file, 100-file, `flag:`, migration and conflict-note stops stay.
 
 Exit 0: verified. Last line: cos-approve: verified approve N for #N at <SHA> (user wrote: "<snippet>")
   The snippet is the start of the user's message on one line (80 characters at most), so the Chief of Staff can show the user what was verified.
@@ -122,12 +122,13 @@ def read_gh(run, pr, auto=False):
     return login, facts
 
 
-def auto_gate(status, files, f=None, login=""):
+def auto_gate(status, files, f=None, login="", tid=None):
     """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop.
 
-    While a No Hands run is active the tolerance is not read, any level is auto, and the hands path replaces the approval path.
+    While a No Hands run is active and tid is a ticket it started, the tolerance is not read, any level is auto, and the hands
+    path replaces the approval path. Any other ticket (in flight when the run began) uses the tolerance and the approval path.
     """
-    hands = approval_policy.no_hands.active()
+    hands = approval_policy.no_hands.active(ticket=tid)
     level = approval_policy.risk_level(status)
     tolerance, note = ("No Hands", "") if hands else project_config.approval_setting()
     auto, why = approval_policy.decide(tolerance, level, hands)
@@ -182,7 +183,7 @@ def approve(tid, run, auto=False):
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
     if auto:
-        tolerance, level = auto_gate(status, f["files"], f, login)
+        tolerance, level = auto_gate(status, f["files"], f, login, tid)
         return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level or 'unrated'})"
     return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 

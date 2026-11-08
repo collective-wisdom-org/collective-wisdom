@@ -182,9 +182,19 @@ def test_cli_under_a_run(tmp_path, monkeypatch, capsys, t, argv, code, line):
     state = tmp_path / "state.json"
     state.write_text(json.dumps({"tickets": {"ABC-1": t}}))
     monkeypatch.setattr(cos_state, "DEFAULT_FILE", state)
-    monkeypatch.setattr(ap.no_hands, "active", lambda: True)
+    monkeypatch.setattr(ap.no_hands, "active", lambda ticket=None: ticket in (None, "ABC-1"))  # the run started ABC-1
     assert ap.main(argv, no_setting) == code
     assert line in capsys.readouterr().out.strip().splitlines()[-1]
+
+
+def test_a_ticket_the_run_did_not_start_keeps_the_tolerance(tmp_path, monkeypatch, capsys):
+    """In flight when the run began: not on noHands.started, so High is asked under permissive even while the run is active."""
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"tickets": {"ABC-1": ticket(status="Build ready. Risk: High (auth).")}}))
+    monkeypatch.setattr(cos_state, "DEFAULT_FILE", state)
+    monkeypatch.setattr(ap.no_hands, "active", lambda ticket=None: ticket is None)  # a run is active, ABC-1 is not on its list
+    assert ap.main(["auto", "ABC-1", "spec"], lambda: ("permissive", "")) == 1
+    assert "ask ABC-1 (High)" in capsys.readouterr().out
 
 
 def test_check_no_hands_asks_without_a_run(capsys):
@@ -216,7 +226,20 @@ HANDS = [
     (".claude-plugin/marketplace.json", True),
     ("agent-team/.claude/mods/status-pane/hooks/x.ts", True),
     (".claude/hooks/stop.sh", True),
+    # a file that shadows what the gate scripts import, or changes how their tests run
+    ("agent-team/scripts/pathlib.py", True),
+    ("scripts/json.py", True),
+    ("agent-team/scripts/dashboard/Argparse.py", True),
+    ("agent-team/scripts/sitecustomize.py", True),
+    ("agent-team/scripts/usercustomize.py", True),
+    ("agent-team/scripts/conftest.py", True),
+    ("agent-team/scripts/x.pth", True),
+    ("docs/agents/evil.pth", True),
+    ("agent-team/scripts/__pycache__/cos_state.cpython-312.pyc", True),
+    ("README/__pycache__/x.pyc", True),
     ("agent-team/scripts/cos_rank.py", False),
+    ("agent-team/scripts/cos_rank_extra.py", False),
+    ("pathlib.py", False),
     ("scripts/cos_restart.py", False),
     ("agent-team/.claude/skills/write-ticket/SKILL.md", False),
     ("README.md", False),
