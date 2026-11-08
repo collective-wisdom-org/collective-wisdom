@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-08 run the docs check once after the code and security reviews pass (CW-199) (#202)
+
+Merged 2026-11-08 07:04 UTC.
+
+The documenter now runs once per PR, after the code and security reviews pass, and a docs-file-only fix after that no longer sends the PR back through the reviews. You don't need to do anything.
+
+Context size: 75003 to 74970 characters (-33 from main)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-08 sort dashboard sections by last updated (CW-198) (#201)
 
 Merged 2026-11-08 06:40 UTC.
