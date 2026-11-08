@@ -509,7 +509,7 @@ if (typeof document !== 'undefined') {
         location.reload()
         return
       }
-      err.textContent = ''
+      err.textContent = last.restartError || ''
       // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
       // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
       const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))

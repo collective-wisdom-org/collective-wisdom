@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 import { lstatSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
-import { execFile } from 'node:child_process'
-import { join } from 'node:path'
+import { execFile, spawn } from 'node:child_process'
+import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
 import type { Worktree } from './api.ts'
 import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
@@ -30,6 +31,78 @@ export function pageVersion(dir: string): string | null {
   } catch {
     return null
   }
+}
+
+/** The files `entry` loads: itself and every relative `.ts` or `.js` import it reaches, as real paths, sorted, each once. Bare and missing imports are skipped. */
+export function codeFiles(entry: string): string[] {
+  const seen = new Set<string>()
+  const visit = (file: string) => {
+    let real: string
+    let text: string
+    try {
+      real = realpathSync(file)
+      if (seen.has(real)) return
+      text = readFileSync(real, 'utf8')
+    } catch {
+      return
+    }
+    seen.add(real)
+    for (const m of text.matchAll(/\bfrom\s+['"](\.{1,2}\/[^'"]+\.(?:ts|js))['"]/g)) visit(resolve(dirname(real), m[1]))
+  }
+  visit(entry)
+  return [...seen].sort()
+}
+
+/** A short hash of each path and its contents, `null` when there are no files or one can't be read. */
+export function codeVersion(files: string[]): string | null {
+  try {
+    if (!files.length) return null
+    const hash = createHash('sha256')
+    for (const f of files) hash.update(f).update('\0').update(readFileSync(f)).update('\0')
+    return hash.digest('hex').slice(0, 16)
+  } catch {
+    return null
+  }
+}
+
+/** Decides when the server should restart: a new code version must be seen on two checks in a row, and one marked failed is skipped until a different version shows up. */
+export function restartWatch(running: string | null): { check(version: string | null): boolean; failed(version: string): void } {
+  let candidate: string | null = null
+  let failedVersion: string | null = null
+  return {
+    check(version) {
+      if (version === null) return false
+      if (version === running) {
+        candidate = failedVersion = null
+        return false
+      }
+      if (version === failedVersion) {
+        candidate = null
+        return false
+      }
+      if (version !== candidate) {
+        candidate = version
+        return false
+      }
+      return true
+    },
+    failed(version) {
+      failedVersion = version
+      candidate = null
+    },
+  }
+}
+
+/** Imports `entry` in a fresh process, which loads every module and starts nothing. Resolves to the error's first line, or `null` when it loads. */
+function preflight(entry: string): Promise<string | null> {
+  return new Promise((done) => {
+    const code = `await import(${JSON.stringify(pathToFileURL(entry).href)})`
+    execFile(process.execPath, ['--input-type=module', '-e', code], { timeout: 15_000 }, (err, _out, stderr) => {
+      if (!err) return done(null)
+      const lines = String(stderr).split('\n').map((l) => l.trim()).filter(Boolean)
+      done(lines.find((l) => /^\w*Error\b/.test(l)) ?? lines[0] ?? (err.killed ? 'the check timed out' : err.message))
+    })
+  })
 }
 
 /** Reads a file only when it is a regular file and every folder in `dirs` is a real folder (no links). */
@@ -91,6 +164,8 @@ export function mergedPageOf(url: string): number {
 
 export async function startServer(opts: { root: string; port: number }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
+  const entry = import.meta.filename
+  const running = codeVersion(codeFiles(entry))
   const agentDir = join(root, '.agent-team')
   let lastState: unknown = null
   const trackerTitles = createTitles({ run: ghRunner(root) })
@@ -176,6 +251,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
   const spendTimer = setInterval(recordRound, 30_000)
   spendTimer.unref()
 
+  let restartError: string | null = null
+
   const api = (mergedPage: number) => {
     readState()
     const snapshots = readSnapshots()
@@ -232,8 +309,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return send(403, 'forbidden')
     if (req.method !== 'GET') return send(405, 'method not allowed')
     try {
-      if (path === '/health') return send(200, JSON.stringify({ ok: true, root }), 'application/json')
-      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')) }), 'application/json')
+      if (path === '/health') return send(200, JSON.stringify({ ok: true, root, code: running, pid: process.pid }), 'application/json')
+      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')), restartError }), 'application/json')
       const page = Object.hasOwn(PAGES, path) ? PAGES[path] : undefined
       if (page) {
         try {
@@ -253,11 +330,74 @@ export async function startServer(opts: { root: string; port: number }): Promise
     server.listen(opts.port, '127.0.0.1', resolve)
   })
   const bound = (server.address() as { port: number }).port
+
+  // Every 5 seconds: if the code this server loaded has changed, replace this process with a new one on the same root and port.
+  const watch = restartWatch(running)
+  let restarting = false
+  const newServerUp = async (pid: number | undefined): Promise<boolean> => {
+    try {
+      const res = await fetch(`http://127.0.0.1:${bound}/health`, { signal: AbortSignal.timeout(500) })
+      const body = (await res.json()) as { root?: unknown; code?: unknown; pid?: unknown }
+      // Only the child just spawned counts, on any code but ours, so a second change during the wait does not roll back a good server.
+      return body.root === root && body.pid === pid && typeof body.code === 'string' && body.code !== running
+    } catch {
+      return false
+    }
+  }
+  const swap = async (version: string) => {
+    const fail = (why: string) => {
+      watch.failed(version)
+      restartError = `Server code changed but did not load: ${why}`
+    }
+    const broken = await preflight(entry)
+    if (broken !== null) return fail(broken)
+    await new Promise<void>((done) => {
+      server.close(() => done())
+      server.closeAllConnections()
+    })
+    const child = spawn(process.execPath, [entry, '--root', root, '--port', String(bound)], { detached: true, stdio: 'ignore' })
+    let gone = false
+    child.once('error', () => (gone = true))
+    child.once('exit', () => (gone = true))
+    child.unref()
+    const deadline = Date.now() + 15_000
+    while (Date.now() < deadline && !gone && !(await newServerUp(child.pid))) await new Promise((r) => setTimeout(r, 100))
+    if (!gone && (await newServerUp(child.pid))) {
+      const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir]) as { environmentId?: unknown } | undefined
+      writeJson(agentDir, 'dashboard.json', JSON.stringify({ pid: child.pid, port: bound, environmentId: dash?.environmentId }))
+      process.exit(0)
+    }
+    try {
+      if (child.pid) process.kill(child.pid)
+    } catch {}
+    // Let the child release the port before taking it back.
+    for (let i = 0; i < 20 && !gone; i++) await new Promise((r) => setTimeout(r, 100))
+    try {
+      await new Promise<void>((done, reject) => {
+        server.once('error', reject)
+        server.listen(bound, '127.0.0.1', done)
+      })
+    } catch {
+      process.exit(1)
+    }
+    fail('the new server did not start')
+  }
+  const codeTimer = setInterval(() => {
+    if (restarting) return
+    const version = codeVersion(codeFiles(entry))
+    if (version === running) restartError = null
+    if (!watch.check(version) || version === null) return
+    restarting = true
+    swap(version).catch(() => {}).finally(() => (restarting = false))
+  }, 5000)
+  codeTimer.unref()
+
   return {
     port: bound,
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(spendTimer)
+        clearInterval(codeTimer)
         server.close(() => resolve())
         server.closeAllConnections()
       }),

@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
+import { spawn } from 'node:child_process'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, rmSync, symlinkSync, lstatSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -213,5 +214,56 @@ test('a linked .agent-team gets no dashboard.json and no server', async () => {
   } finally {
     rmSync(root, { recursive: true, force: true })
     rmSync(outside, { recursive: true, force: true })
+  }
+})
+
+test('a healthy server running other code is stopped and replaced on its port', async () => {
+  const root = tmpRoot()
+  const port = await freePort()
+  const fake = join(root, 'fake.js')
+  writeFileSync(
+    fake,
+    `require('http').createServer((q, r) => r.end(JSON.stringify({ ok: true, root: ${JSON.stringify(root)}, code: 'old', pid: process.pid }))).listen(${port}, '127.0.0.1')`,
+  )
+  const old = spawn(process.execPath, [fake, 'server.ts', '--port', String(port)], { stdio: 'ignore' })
+  mkdirSync(join(root, '.agent-team'))
+  writeFileSync(join(root, '.agent-team', 'dashboard.json'), JSON.stringify({ pid: old.pid, port, environmentId: 'env-1' }))
+  try {
+    for (let i = 0; i < 50 && (await fetch(`http://127.0.0.1:${port}/health`).catch(() => null)) === null; i++) await new Promise((r) => setTimeout(r, 50))
+    const r = await startDashboard({ root })
+    assert.equal(r.started, true)
+    assert.equal(r.url, `http://127.0.0.1:${port}/`)
+    const dash = readDash(root)
+    assert.equal(dash.port, port)
+    assert.notEqual(dash.pid, old.pid)
+    assert.equal(dash.environmentId, 'env-1')
+    assert.notEqual(((await (await fetch(r.url + 'health')).json()) as { code: string }).code, 'old')
+    assert.notEqual(old.exitCode ?? old.signalCode, null)
+  } finally {
+    old.kill()
+    kill(root)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a pid that ps does not show as a dashboard server on the port is never signalled', async () => {
+  const root = tmpRoot()
+  const port = await freePort()
+  const fake = join(root, 'fake.js')
+  writeFileSync(
+    fake,
+    `require('http').createServer((q, r) => r.end(JSON.stringify({ ok: true, root: ${JSON.stringify(root)}, code: 'old', pid: process.pid }))).listen(${port}, '127.0.0.1')`,
+  )
+  const other = spawn(process.execPath, [fake], { stdio: 'ignore' })
+  mkdirSync(join(root, '.agent-team'))
+  writeFileSync(join(root, '.agent-team', 'dashboard.json'), JSON.stringify({ pid: other.pid, port }))
+  try {
+    for (let i = 0; i < 50 && (await fetch(`http://127.0.0.1:${port}/health`).catch(() => null)) === null; i++) await new Promise((r) => setTimeout(r, 50))
+    const r = await startDashboard({ root })
+    assert.equal(r.started, false)
+    assert.equal(other.exitCode ?? other.signalCode, null)
+  } finally {
+    other.kill()
+    rmSync(root, { recursive: true, force: true })
   }
 })
