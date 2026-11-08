@@ -1,6 +1,7 @@
 # CW-227: An expandable details section on each dashboard ticket
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #231, as specified
 **Ticket:** [#227](https://github.com/collective-wisdom-org/collective-wisdom/issues/227)
 **Related:** CW-225 (gantt own spans, PR #228, merged).
 
