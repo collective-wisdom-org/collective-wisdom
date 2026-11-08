@@ -45,11 +45,11 @@ export function parseWorktrees(text: string): Worktree[] {
 
 const label = (x: unknown): string | null => (typeof x === 'string' ? x.slice(0, LABEL_MAX) : null)
 
-/** At most SEGMENTS_MAX valid [start, end] pairs, oldest first. */
+/** The last SEGMENTS_MAX valid [start, end] pairs, oldest first. */
 function cleanSegments(x: unknown): [number, number | null][] {
   if (!Array.isArray(x)) return []
   const out: [number, number | null][] = []
-  for (const p of x.slice(0, SEGMENTS_MAX)) {
+  for (const p of x.slice(-SEGMENTS_MAX)) {
     if (!Array.isArray(p)) continue
     const [a, b] = p
     const start = numOrNull(a)
@@ -85,11 +85,11 @@ function cleanSnapshot(s: unknown, now: number): Session | null {
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
   const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
-  // The main row never ends while the session lives, so only the other rows say whether it is stale.
-  const working = cleaned.some((r) => r.id !== 'main' && r.end === null)
+  // The main row and its task rows never end while the session lives, so only the other agents say whether it is stale.
+  const working = cleaned.some((r) => r.kind === 'agent' && r.id !== 'main' && r.end === null)
   const stale = now - updatedAt > STALE_MS && working
   const close = (r: SnapshotRow): SnapshotRow => ({ ...r, end: updatedAt, segments: r.segments.map(([a, b]) => [a, b === null ? Math.max(a, updatedAt) : b]) })
-  const rows = cleaned.map((r) => (r.end === null && (stale || (!working && r.id === 'main')) ? close(r) : r))
+  const rows = cleaned.map((r) => (r.end === null && (stale || (!working && (r.id === 'main' || r.kind === 'task'))) ? close(r) : r))
   return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), rows }
 }
 

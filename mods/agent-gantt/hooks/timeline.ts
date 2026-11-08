@@ -2,6 +2,8 @@
 import type { AgentRecord, Segment } from '../types/index.d.ts'
 
 const NAME_MAX = 60
+// A list keeps its last spans only, so a long session stays small.
+const SEGMENTS_MAX = 500
 // T3 Code puts this line first in a delegated task: `Act as the implementer agent for this task.`
 const PREAMBLE = /^Act as the .* agent for this task\.?$/i
 
@@ -23,7 +25,7 @@ const isOpen = (segments: Segment[]) => segments.length > 0 && segments[segments
 const closed = (segments: Segment[], t: number): Segment[] =>
   isOpen(segments) ? segments.map((s, i): Segment => (i === segments.length - 1 ? [s[0], t] : s)) : segments
 
-const opened = (segments: Segment[], t: number): Segment[] => (isOpen(segments) ? segments : [...segments, [t, null]])
+const opened = (segments: Segment[], t: number): Segment[] => (isOpen(segments) ? segments : [...segments, [t, null] as Segment].slice(-SEGMENTS_MAX))
 
 /** Closes the open span of the record and, on `main`, of its current task. Closing a closed record changes nothing. */
 export function closeSegment(record: AgentRecord, t: number): AgentRecord {
@@ -42,4 +44,17 @@ export function openSegment(record: AgentRecord, t: number): AgentRecord {
   const base = record.parentId === null && record.tasks.length === 0 ? startTask(record, 'task', t) : record
   const tasks = base.tasks.map((k, i) => (i === base.tasks.length - 1 ? { ...k, segments: opened(k.segments, t) } : k))
   return { ...base, segments: opened(base.segments, t), tasks }
+}
+
+/**
+ * The task a submitted prompt begins on `main`. `since` is the clock before the prompt entered, `t` the clock after.
+ * If main's last task began at or after `since`, the turn's own start made it: it takes the name. Else a new task starts, and a span open at `t` moves into it.
+ */
+export function beginTask(main: AgentRecord, name: string, since: number, t: number): AgentRecord {
+  const last = main.tasks[main.tasks.length - 1]
+  if (last !== undefined && last.start >= since) {
+    return { ...main, tasks: main.tasks.map((k, i) => (i === main.tasks.length - 1 ? { ...k, name } : k)) }
+  }
+  const started = startTask(main, name, t)
+  return isWorking(main) ? openSegment(started, t) : started
 }

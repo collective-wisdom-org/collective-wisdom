@@ -63,7 +63,7 @@ Hooks in `register.tsx`:
 
 `buildRows()` builds, depth first:
 
-- depth 0: the `main` row, `kind: 'session'`, named `main`. Its segments are `main`'s, so its bar has the same gaps. `start` stays the session start and `end` stays `null`, as today, so the dashboard's stale rule is unchanged. Tokens and cost are `main`'s own usage, as today; model is the session's top model.
+- depth 0: the `main` row, `kind: 'session'`, named `main`. Its segments are `main`'s, so its bar has the same gaps. `start` stays the session start and `end` stays `null`, as today. The dashboard's stale rule still looks only at agents other than `main`; it skips the task rows too. Tokens and cost are `main`'s own usage, as today; model is the session's top model.
 - depth 1: one `task` row per main task, id `main:task:<index>`, named after the task. `start` is the task's start; `end` is `null` while its last segment is open, else that segment's end (or the task start when it has none). Tokens, cost and model come from the task's usage.
 - under each task row, at depth 2: the subagents whose `taskIndex` is that task, sorted by start, each followed by its own subagents one level deeper. Subagents without a task index go at depth 1 after the task rows, as today.
 - A subagent row's segments are its own. A subagent with no segments recorded (a run whose turns no hook saw) gets one segment from `start` to `end`, the bar it has today.
@@ -111,7 +111,7 @@ The session's top model and a task's model use the same picker as the agents. Wi
 
 - **A task is one user prompt.** Each prompt the person (or the Chief of Staff relay) sends starts a new chunk; wake-ups for a background command or subagent and continuation turns stay in the current chunk. For a team child that gives about one chunk per phase message: spec, build, merge. Splitting on skills or todo items was the other option; it is noisier and depends on the agent using them.
 - **The chunk name is the prompt's first line, cut to 60 characters,** with T3 Code's `Act as the ... agent for this task.` preamble line skipped. No model call writes a summary.
-- **The `main` row stays as a depth-0 session row** with the gapped bar, and the chunks sit under it at depth 1. Its `end` stays `null` so the stale rule in `cleanSnapshot()` doesn't change.
+- **The `main` row stays as a depth-0 session row** with the gapped bar, and the chunks sit under it at depth 1. Its `end` stays `null`, and `cleanSnapshot()` skips it and the task rows when it decides a session is working, so the stale rule keeps its meaning.
 - **Subagents nest under the chunk they were spawned in** (depth 2), not directly under `main`. Subagents the mod can't place stay at depth 1.
 - **Harness is `T3 Code` or `Claude Code`,** from `T3CODE_THREAD_ID`. The mod only runs in Claude Code, so there is nothing else to tell apart.
 - **Harness shows once in the terminal pane's footer,** not per row, for width. The dashboard shows it per row as the ticket asks.

@@ -130,9 +130,12 @@ export function buildRows(
     model: topModel(main.usage),
   })
   const top = byStart(kids.get(MAIN) ?? [])
-  const placed = (r: AgentRecord) => r.taskIndex !== null && r.taskIndex >= 0 && r.taskIndex < main.tasks.length
+  // A task with no spans gets no row, so a subagent of it goes to depth 1 with the unplaced.
+  const placed = (r: AgentRecord) => r.taskIndex !== null && (main.tasks[r.taskIndex]?.segments.length ?? 0) > 0
   main.tasks.forEach((task, i) => {
-    const last = task.segments[task.segments.length - 1]
+    // A prompt that started no turn (a slash command) has no spans: no row.
+    if (task.segments.length === 0) return
+    const last = task.segments[task.segments.length - 1]!
     rows.push({
       ...base(main),
       id: `${MAIN}:task:${i}`,
@@ -140,7 +143,7 @@ export function buildRows(
       kind: 'task',
       name: task.name,
       start: task.start,
-      end: last === undefined ? task.start : last[1],
+      end: last[1],
       tokens: tokensOf(task.usage),
       cost: costOf(task.usage, prices),
       segments: task.segments,

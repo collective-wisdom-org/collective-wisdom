@@ -5,7 +5,7 @@ import type { AgentRecord, PriceState, Prices, Tokens } from '../types/index.d.t
 import { bars, clock, dollars, fit, tokens } from './format.ts'
 import { buildRows, MAIN } from './rows.ts'
 import { buildSnapshot, snapshotName } from './snapshot.ts'
-import { closeSegment, isWorking, openSegment, startTask, taskName } from './timeline.ts'
+import { beginTask, closeSegment, openSegment, taskName } from './timeline.ts'
 
 const PANE = 'agent-gantt'
 const TICK_MS = 5000
@@ -26,7 +26,7 @@ const prices = atom(
   { isLoaded: false, table: null, note: '' } as PriceState,
   { shape: 'prices-1' },
 )
-// Where the session runs; read once at session.start. Empty until then.
+// Where the session runs; read once, when the mod first sees the session. Empty until then.
 const harness = atom({ plugin: 'agent-gantt', key: 'harness' } as const, '', { shape: 'harness-1' })
 const clockAtom = atom({ plugin: 'agent-gantt', key: 'now' } as const, 0)
 
@@ -77,8 +77,16 @@ async function loadPrices($: EngineInterface, isForced = false) {
   await update($, prices, () => state)
 }
 
+/** Sets where the session runs, unless it is set. */
+async function ensureHarness($: EngineInterface) {
+  if ((await read($, harness)) !== '') return
+  const isT3 = Boolean(await $.env.get('T3CODE_THREAD_ID'))
+  await update($, harness, () => (isT3 ? 'T3 Code' : 'Claude Code'))
+}
+
 /** The main loop's own record, made once. It starts when the mod first sees the session. */
 async function ensureMain($: EngineInterface, t: number) {
+  await ensureHarness($)
   const cwd = await $.session.cwd()
   await update($, records, list =>
     list.some(r => r.id === MAIN)
@@ -156,18 +164,33 @@ async function writeSnapshot($: EngineInterface) {
   }
 }
 
-/** Closes the agent's span while `run` waits, and reopens it when `run` settles. */
+// Open waits per agent id: how many, and when the first began. Waits can overlap (parallel tool calls).
+const waits = new Map<string, { count: number; before: number }>()
+
+/** Closes the agent's span while `run` waits, and reopens it when the last overlapping wait settles. */
 async function pauseWhile<R>($: EngineInterface, agentId: string | undefined, run: () => Promise<R>): Promise<R> {
   const id = agentId ?? MAIN
-  const before = await $.clock.now()
-  await updateRecord($, id, r => closeSegment(r, before))
-  await refresh($)
+  const now = await $.clock.now()
+  const wait = waits.get(id)
+  const { before } = wait ?? { before: now }
+  waits.set(id, { count: (wait?.count ?? 0) + 1, before })
+  if (wait === undefined) {
+    await updateRecord($, id, r => closeSegment(r, before))
+    await refresh($)
+  }
   try {
     return await run()
   } finally {
-    const after = await $.clock.now()
-    await updateRecord($, id, r => openSegment(r, after))
-    await refresh($)
+    const open = waits.get(id)
+    if (open !== undefined && open.count > 1) {
+      waits.set(id, { ...open, count: open.count - 1 })
+    } else {
+      waits.delete(id)
+      const after = await $.clock.now()
+      // A turn.complete or an end stamp that landed during the wait wins: no span is left open on a finished agent.
+      await updateRecord($, id, r => (r.end === null && r.last <= before ? openSegment(r, after) : r))
+      await refresh($)
+    }
   }
 }
 
@@ -207,8 +230,6 @@ export const register: Register = on => {
       description: 'Show this session\'s agents as a Gantt chart in a pane',
     })
     await ensureMain($, await $.clock.now())
-    const isT3 = Boolean(await $.env.get('T3CODE_THREAD_ID'))
-    await update($, harness, () => (isT3 ? 'T3 Code' : 'Claude Code'))
     await loadPrices($)
     await refresh($)
     return next(e)
@@ -258,15 +279,15 @@ export const register: Register = on => {
   })
 
   on('prompt.submit', async ($, e, next) => {
+    // Taken before next(e): the turn's own start, which runs inside it, is at or after this.
+    const since = await $.clock.now()
     const out = await next(e)
     if (e.isMeta || out.drop !== undefined) return out
+    // A prompt queued behind a running turn or delivered into one, and a background task's notification, are not a new task.
+    if (e.turnId !== undefined || e.origin.kind === 'task-notification') return out
     const t = await $.clock.now()
     await ensureMain($, t)
-    // next(e) resolves once the turn has started, so its span is open: it moves into the new task.
-    await updateRecord($, MAIN, r => {
-      const started = startTask(r, taskName(e.text), t)
-      return isWorking(r) ? openSegment(started, t) : started
-    })
+    await updateRecord($, MAIN, r => beginTask(r, taskName(e.text), since, t))
     await refresh($)
     return out
   })
@@ -294,11 +315,9 @@ export const register: Register = on => {
     return out
   })
 
-  // A foreground subagent and a question to the person are waits inside a turn.
+  // An Agent call (next(e) blocks only while a foreground one runs) and a question to the person are waits inside a turn.
   on('tool.call', { tool: 'AskUserQuestion' }, ($, e, next) => pauseWhile($, e.agentId, () => next(e)))
-  on('tool.call', { tool: 'Agent' }, ($, e, next) =>
-    e.run_in_background === true ? next(e) : pauseWhile($, e.agentId, () => next(e)),
-  )
+  on('tool.call', { tool: 'Agent' }, ($, e, next) => pauseWhile($, e.agentId, () => next(e)))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)

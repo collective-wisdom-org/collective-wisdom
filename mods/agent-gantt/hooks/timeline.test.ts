@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { closeSegment, openSegment, startTask, taskName } from './timeline.ts'
+import { beginTask, closeSegment, openSegment, startTask, taskName } from './timeline.ts'
 import type { AgentRecord } from '../types/index.d.ts'
 
 const main: AgentRecord = {
@@ -9,12 +9,14 @@ const main: AgentRecord = {
   usage: {}, segments: [], tasks: [], taskIndex: null,
 }
 
-type Op = ['open' | 'close' | 'task', number, string?]
-const run = (ops: Op[]) =>
-  ops.reduce((r, [op, t, name]) => (op === 'open' ? openSegment(r, t) : op === 'close' ? closeSegment(r, t) : startTask(r, name ?? '', t)), main)
+type Op = ['open' | 'close' | 'task' | 'begin', number, string?]
+// `begin` is a prompt that entered at t: the clock before it was t - 1.
+const step = (r: AgentRecord, [op, t, name]: Op) =>
+  op === 'open' ? openSegment(r, t) : op === 'close' ? closeSegment(r, t) : op === 'begin' ? beginTask(r, name ?? '', t - 1, t) : startTask(r, name ?? '', t)
+const run = (ops: Op[]) => ops.reduce(step, main)
 
 // Each case: the calls a session makes on `main`, then the spans of main and of each task.
-const cases: { name: string; ops: Op[]; main: unknown; tasks: unknown[] }[] = [
+const cases: { name: string; ops: Op[]; main: unknown; tasks: unknown[]; names?: string[] }[] = [
   {
     name: 'two prompts with a wait between give two tasks and no span over the wait',
     ops: [['task', 0, 'a'], ['open', 0], ['close', 10], ['task', 50, 'b'], ['open', 50], ['close', 60]],
@@ -39,6 +41,19 @@ const cases: { name: string; ops: Op[]; main: unknown; tasks: unknown[] }[] = [
     main: [[7, null]],
     tasks: [[[7, null]]],
   },
+  {
+    name: 'a prompt whose turn already made the placeholder task renames it; a later prompt starts a new task',
+    ops: [['open', 10], ['begin', 10, 'a'], ['close', 20], ['begin', 50, 'b'], ['open', 50]],
+    main: [[10, 20], [50, null]],
+    tasks: [[[10, 20]], [[50, null]]],
+    names: ['a', 'b'],
+  },
+  {
+    name: 'only the last 500 spans are kept',
+    ops: Array.from({ length: 600 }, (_, i): Op[] => [['open', i * 2], ['close', i * 2 + 1]]).flat(),
+    main: Array.from({ length: 500 }, (_, i) => [(i + 100) * 2, (i + 100) * 2 + 1]),
+    tasks: [Array.from({ length: 500 }, (_, i) => [(i + 100) * 2, (i + 100) * 2 + 1])],
+  },
 ]
 
 for (const c of cases) {
@@ -46,6 +61,7 @@ for (const c of cases) {
     const r = run(c.ops)
     assert.deepEqual(r.segments, c.main)
     assert.deepEqual(r.tasks.map(k => k.segments), c.tasks)
+    if (c.names) assert.deepEqual(r.tasks.map(k => k.name), c.names)
   })
 }
 

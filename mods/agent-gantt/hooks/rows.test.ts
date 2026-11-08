@@ -55,7 +55,7 @@ const cases: {
     ],
   },
   {
-    name: 'two tasks and a wait: two task rows, the session bar has the gap, a subagent nests under its task with its own model',
+    name: 'two tasks and a wait: two task rows (none for a task with no spans), the session bar has the gap, a subagent nests under its task with its own model',
     records: [
       rec('main', {
         usage: { 'claude-opus-5-5': { ...none, output: 9 } },
@@ -63,6 +63,7 @@ const cases: {
         tasks: [
           { name: 'one', start: 0, segments: [[0, 10]], usage: { 'claude-opus-5-5': { ...none, output: 4 } } },
           { name: 'two', start: 50, segments: [[50, null]], usage: { 'claude-opus-5-5': { ...none, output: 5 } } },
+          { name: '/clear', start: 60, segments: [], usage: {} }, // a slash command that started no turn: no row
         ],
       }),
       rec('sub', { start: 55, end: 58, taskIndex: 1, usage: { 'claude-haiku-4-5': { ...none, output: 3 } } }),

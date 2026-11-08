@@ -62,6 +62,7 @@ test('snapshots', () => {
     ['31s all ended', snap(31_000, [row(2)]), (g) => assert.equal(g[0].stale, false)],
     ['fresh running', snap(5_000, [row(null)]), (g) => { assert.equal(g[0].stale, false); assert.equal(g[0].rows[0].end, null) }],
     ['idle main only', snap(31_000, [{ ...row(null), id: 'main' }]), (g) => { assert.equal(g[0].stale, false); assert.equal(g[0].rows[0].end, NOW - 31_000) }],
+    ['main-only with an open task, 31s', snap(31_000, [{ ...row(null), id: 'main' }, { ...row(null), id: 'main:task:0', kind: 'task' }]), (g) => { assert.equal(g[0].stale, false); assert.deepEqual(g[0].rows.map((r: any) => r.end), [NOW - 31_000, NOW - 31_000]) }],
     ['main plus running subagent, 31s', snap(31_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, true); assert.deepEqual(g[0].rows.map((r: any) => r.end), [NOW - 31_000, NOW - 31_000]) }],
     ['main plus running subagent, 5s', snap(5_000, [{ ...row(null), id: 'main' }, row(null)]), (g) => { assert.equal(g[0].stale, false); assert.deepEqual(g[0].rows.map((r: any) => r.end), [null, null]) }],
     ['bad end counts as running', snap(31_000, [{ ...row(null), end: 'x' }]), (g) => assert.equal(g[0].stale, true)],
@@ -88,15 +89,16 @@ test('snapshots: row fields', () => {
     ['bad kind, long label, non-string label', { kind: 'x', model: 'm'.repeat(80), harness: 7 }, { kind: 'agent', model: 'm'.repeat(40), harness: null }],
     ['bad pairs dropped', { segments: [[1, 'x'], [5, 4], ['a', 6], [Infinity, 7], [1], 'x', [12, null], [11, 13]] }, { segments: [[11, 13], [12, null]] }],
     ['no valid segments', { segments: [[5, 4], 'x'] }, { segments: [[10, 50]] }],
-    ['segments capped', { segments: Array.from({ length: 600 }, (_, i) => [i, i + 1]) }, { segmentCount: 500 }],
+    ['segments capped', { segments: Array.from({ length: 600 }, (_, i) => [i, i + 1]) }, { segmentCount: 500, firstStart: 100 }],
     ['old row: childCount, no segments/model/harness', { childCount: 3 }, { kind: 'agent', segments: [[10, 50]], model: null, harness: null }],
   ]
   for (const [name, extra, want] of cases) {
     const got: any = rowOf(extra)
     assert.ok(!('childCount' in got), name)
-    const { segmentCount, ...rest } = want
+    const { segmentCount, firstStart, ...rest } = want
     for (const [k, v] of Object.entries(rest)) assert.deepEqual(got[k], v, `${name}: ${k}`)
     if (segmentCount) assert.equal(got.segments.length, segmentCount, name)
+    if (firstStart !== undefined) assert.equal(got.segments[0][0], firstStart, name)
   }
   const open = { segments: [[10, 20], [30, null]], end: null }
   assert.deepEqual(rowOf(open, 31_000).segments, [[10, 20], [30, NOW - 31_000]], 'stale closes the open segment')
