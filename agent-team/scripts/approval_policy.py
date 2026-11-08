@@ -158,8 +158,8 @@ def on_hands_path(path):
     settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
     listed = p in HANDS_PATH or p.startswith(HANDS_DIRS) or p in HANDS_PARENTS or settings or instructions
     first = p.split("/")[0].split(".")[0]
-    root_pkg = first in SHADOWS and ("/" not in p and "." not in p or "/" in p and name.endswith(PYTHONISH))  # a root package or link: json/__init__.py, json
-    root_shadow = p.split("/")[0] in ROOT_SHADOWS or root_pkg or ("/" not in p and name.endswith(".py") and name[:-3] in ROOT_PY)
+    root_pkg = first in SHADOWS and (("/" not in p and "." not in p) or ("/" in p and name.endswith(PYTHONISH)))  # a root package or link: json/__init__.py, json
+    root_shadow = p.split("/")[0] in ROOT_SHADOWS or root_pkg or ("/" not in p and name.endswith(PYTHONISH) and name.split(".")[0] in ROOT_PY)
     return (listed or ".github" in p.split("/")[:-1] or name in ("codeowners", ".gitattributes")
             or root_shadow or nested_rules(p) or shadows_imports(p, name))
 

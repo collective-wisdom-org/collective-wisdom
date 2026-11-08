@@ -276,6 +276,8 @@ HANDS = [
     ("main.py", False),
     ("json/__init__.py", True),
     ("json", True),
+    ("json.pyc", True),
+    ("json.cpython-313-darwin.so", True),
     ("email/welcome.html", False),
     ("types/index.ts", False),
     (".claude/rules/x.md", True),
