@@ -436,7 +436,7 @@ def op_prune(s, op, notes=None):
     need(op)
     for k in [k for k in s if k not in TOP]:
         del s[k]
-        if k != "scheduledTaskId" and notes is not None:
+        if notes is not None:
             notes.append(f"dropped unknown key {k}")
     for tid, m in list(s["merged"].items()):
         if not isinstance(m, dict):
@@ -447,8 +447,7 @@ def op_prune(s, op, notes=None):
         for k in ("sightings", "filed"):
             s["observed"][k] = [x for x in dicts(s["observed"].get(k)) if within(x.get("at"), WEEK)]
     s["retiredThreads"] = [
-        {k: v for k, v in r.items() if k != "scheduledTaskId"}
-        for r in s["retiredThreads"]
+        r for r in s["retiredThreads"]
         if not (r.get("archivedAt") and older_than_day(r["archivedAt"]))
     ]
 
@@ -623,7 +622,7 @@ def show(s):
         "retired: " + (" ".join(f"{r.get('threadId')}>{r.get('successor') or '?'}{'(archived)' if r.get('archivedAt') else ''}" for r in rt) or "-"),
         f"pm: rankedAt={t(pm.get('rankedAt'))} lastDailyAt={t(pm.get('lastDailyAt'))} "
         f"lastCheckAt={t(pm.get('lastCheckAt'))} ranked={ranked or '-'}",
-        "unknown keys: " + (" ".join(k for k in s if k not in TOP and k != "scheduledTaskId") or "-"),
+        "unknown keys: " + (" ".join(k for k in s if k not in TOP) or "-"),
     ]
     return "\n".join(out)
 

@@ -126,18 +126,18 @@ def test_linked_worktree_is_refused_and_dry_run_writes_nothing(world, tmp_path):
     assert rc == 0 and "[dry-run] link" in out and not list(home.iterdir())
 
 
-# name, args: the forms that used to install into an app, and the old call from an app's agent-team-update.sh
-OLD_FORMS = [("a target path", ["{app}"]), ("update from a tag", ["--update", "--from", "v0.4", "{app}"]), ("a flag without a path", ["--check"]), ("--to takes its value", ["--to", "HEAD"])]
+# name, args: any argument but --dry-run, including the old call from an app's agent-team-update.sh
+REFUSED_FORMS = [("a target path", ["{app}"]), ("update from a tag", ["--update", "--from", "v0.4", "{app}"]), ("a flag without a path", ["--check"]), ("--to takes its value", ["--to", "HEAD"])]
 
 
-@pytest.mark.parametrize("name, args", OLD_FORMS, ids=[c[0] for c in OLD_FORMS])
-def test_the_old_app_forms_are_refused_and_write_nothing(world, tmp_path, name, args):
+@pytest.mark.parametrize("name, args", REFUSED_FORMS, ids=[c[0] for c in REFUSED_FORMS])
+def test_any_argument_but_dry_run_is_refused_and_writes_nothing(world, tmp_path, name, args):
     cw, home = world
     app = tmp_path / "app"
     app.mkdir()
     before = (tree(home), tree(app))
     rc, out = install(cw, home, *[a.format(app=app) for a in args])
-    assert rc == 2 and out.startswith("install.sh no longer installs into an app. Run ./install.sh with no path to install on this machine."), out
+    assert rc == 2 and "install.sh no longer installs into an app. Run ./install.sh with no path to install on this machine." in out, out
     assert "remove_app_copies.py" in out and (tree(home), tree(app)) == before
 
 

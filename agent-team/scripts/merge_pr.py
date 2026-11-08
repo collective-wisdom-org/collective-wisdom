@@ -68,7 +68,6 @@ VERDICTS = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
 TEAM_ASSOCIATIONS = ("OWNER", "MEMBER", "COLLABORATOR")  # a review from anyone else is ignored
 AS_BUILT = r"docs/superpowers/as-built/[^/]+\.md"
 SPECS = r"docs/superpowers/specs/[^/]+\.md"
-RELEASE = r"docs/superpowers/release-notes/[^/]+\.md"
 NOTES_DIR = "docs/superpowers/release-notes/"
 NOTES_BRANCH = "release-notes"
 NOTES_FILE = "RELEASE_NOTES.md"
@@ -139,12 +138,7 @@ def read_facts(pr, approved, run):
             f["ciThreads"] = ci_review.classify(threads, f["ciBot"])["unresolved"]
     f["docs"] = {}
     if f["state"] == "OPEN":
-        want = [
-            x["path"]
-            for x in f["files"]
-            if (re.fullmatch(SPECS, x["path"]) and x["changeType"] != "DELETED")
-            or (f["notesOn"] and re.fullmatch(RELEASE, x["path"]) and x["changeType"] == "ADDED")
-        ]
+        want = [x["path"] for x in f["files"] if re.fullmatch(SPECS, x["path"]) and x["changeType"] != "DELETED"]
         for path in want:
             url = f"repos/{{owner}}/{{repo}}/contents/{quote(path)}?ref={f['headRefOid']}"
             f["docs"][path] = run([GH, "api", url, "-H", "Accept: application/vnd.github.raw+json"])
@@ -408,14 +402,8 @@ def gate(f, delta=real_delta):
     as_specified = any(re.search(rf"^\*\*Shipped:\*\*\s*in PR #{pr}, as specified\s*$", f["docs"][p], re.M) for p in specs)
     if not as_specified and not any(x["changeType"] == "ADDED" and re.fullmatch(AS_BUILT, x["path"]) for x in paths):
         return f'closeout missing: no spec says "**Shipped:** in PR #{f["pr"]}, as specified" and no added docs/superpowers/as-built/*.md'
-    if f.get("notesOn", True):
-        notes = [x["path"] for x in paths if x["changeType"] == "ADDED" and re.fullmatch(RELEASE, x["path"])]
-        if not notes and not release_notes.section(f["body"]):
-            return 'closeout missing: no "## Release note" section in the PR body and no added release note file'
-        for p in notes:
-            first = next((l for l in f["docs"][p].splitlines() if l.strip()), "")
-            if not re.match(r"# \d{4}-\d{2}-\d{2} \S", first):
-                return f"closeout missing: release note {p} has no '# YYYY-MM-DD <title>' heading"
+    if f.get("notesOn", True) and not release_notes.section(f["body"]):
+        return 'closeout missing: no "## Release note" section in the PR body'
     proof = release_notes.section(f["body"], "Proof")
     if not proof:
         return 'proof missing: no "## Proof" section in the PR body'

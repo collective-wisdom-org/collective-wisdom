@@ -91,7 +91,7 @@ A `~/.claude/settings.json`, `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that 
 
 Per-machine settings (the GitHub login for each repo, your Claude subscription figure) live in `~/.config/collective-wisdom/user.md`, not in a repo's `project.md`. See `agent-team/docs/agents/github-auth.md` § Account per repo.
 
-The installer refuses a clone that is not its own git repo root, and a linked worktree. It does not take a path: `./install.sh <path>` and the old flags (`--update`, `--check`, `--to`, `--from`, `--force`) exit 2, point at the removal command below and write nothing.
+The installer refuses a clone that is not its own git repo root, and a linked worktree. It does not take a path: any argument but `--dry-run` (a path, or an old flag such as `--update`) exits 2, points at the removal command below and writes nothing.
 
 ## Moving an app off the copied team
 

@@ -12,8 +12,7 @@ with the login in its `login` field). Prints the block:
     Ticket, Branch, Spec, PR, Head, checks, code review, security review, Last status
 In Review mode `ci` the code review and security review lines become `ci: green|not green at <head>` and the
 `ci-review:` counts line (threads from GraphQL, or from the `reviewThreads` list in the --pr FILE).
-Only review comments by the role's login count: the code reviewer or security reviewer
-login from project.md, else that login. Each verdict prints as a fixed word (PASS, CHANGES
+Only review comments by the gh user's own login count (the login from `gh api user`). Each verdict prints as a fixed word (PASS, CHANGES
 NEEDED, other), never the comment text; check names are whitespace-cleaned and capped. With no
 pr it prints `PR: none yet` and no Head, checks or review lines.
 Checks the values the continuation template uses: branch against <branch head><prefix>-<N>-<words>,
