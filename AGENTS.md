@@ -32,7 +32,7 @@ Run `./install.sh` once on the machine before anything else. This repo runs the 
 - Branch naming and ticket identifiers: see `docs/agents/project.md`
 - Link the ticket in the PR description
 - Move the ticket to **In Review** when PR is open, **Done** when merged
-- Run the test command from `docs/agents/project.md` before opening a PR. A PR that touches `mods/` also runs `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts` (Node 24 or newer)
+- Run the test command from `docs/agents/project.md` before opening a PR. A PR that touches `mods/` or `agent-team/scripts/dashboard/` also runs `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts` (Node 24 or newer)
 - Do not expand scope beyond the assigned ticket
 
 ## Testing

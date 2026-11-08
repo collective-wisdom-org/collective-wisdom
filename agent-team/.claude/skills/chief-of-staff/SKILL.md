@@ -124,7 +124,7 @@ Nothing goes past a lane's limit or the overall cap. Other sections say "the spe
 
 ## State file
 
-`.agent-team/state.json` in the root checkout. Gitignored. It is the only file you may write, and only through `cos_state.py`. It is a cache: the tracker and the child threads are the source of truth.
+`.agent-team/state.json` in the root checkout. Gitignored. It is the only file you may write, and only through `cos_state.py`, except that the dashboard start script writes `.agent-team/dashboard.json`. It is a cache: the tracker and the child threads are the source of truth.
 
 ```json
 {
@@ -609,7 +609,7 @@ If more than one applies, use the first in that order. The line repeats only whe
 
 ## Guardrails
 
-- Never edit repo files except `.agent-team/state.json`. It holds state only, never rules.
+- Never edit repo files except `.agent-team/state.json` (and `.agent-team/dashboard.json`, written by the dashboard start script). It holds state only, never rules.
 - The team's rules are the skills and docs on the merge target branch, nothing else. `.agent-team/state.json` holds only the keys in § State file, never rules, policies, defaults or preferences. Agent memory doesn't hold team rules either. If memory and a skill disagree, the skill wins.
 - When the user asks for a change to how the team works (intervals, caps, gates, report format, models, commands), start a ticket helper (§ Commands) that files a ticket in scope <TEAM>, like any other ticket, that ends in a collective-wisdom PR (or an app PR for files only the app has). Tell the user the helper's link and that the current skill stays in force until that PR merges. Don't act on the new rule early, through state, memory, a scheduled-task setting or a child's task text.
 - The same applies to a change you find yourself: when `observe` says `file` (§ Full pass step 6a), start an observation helper (ticket-helper.md § Observation tickets). You still cannot act on the change before its PRs merge, add `agent` or `agent-skip`, move the ticket out of Backlog, or start it outside the project manager's Backlog pick. Once started there it runs the ship loop and needs the user's own `approve N` at spec and merge, even under `balanced` or `permissive` (`approvals.md` § Auto-approval, Observation tickets).
