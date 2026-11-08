@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 restart the dashboard server when its code changes (CW-239) (#241)
+
+Merged 2026-11-08 21:33 UTC.
+
+The local dashboard now restarts itself on the new code after a merge, so there is no manual stop and rerun. If the new code fails to load, the old server keeps running and the page says so. The server running before this ships needs one `start the team`, `resume` or `take over` to be replaced.
+
 ## 2026-11-08 label gantt task rows by stage and helper role (CW-233) (#237)
 
 Merged 2026-11-08 21:04 UTC.
