@@ -61,7 +61,7 @@ HANDS_SCRIPTS = (
     "release_notes.py", "pr_diff_delta.py",  # imported by merge_pr.py and review_scope.py
 )
 HANDS_TESTS = {"scripts/test_" + re.sub(r"\W", "_", n.removesuffix(".py")) + ".py" for n in HANDS_SCRIPTS if n.endswith((".py", ".sh"))}
-TEST_CONFIG = {"conftest.py", "pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"}  # change how CI runs the tests, at the repo root or under agent-team/
+TEST_CONFIG = {"conftest.py", "pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "pyproject.toml", "setup.cfg", "tox.ini"}  # change how CI runs the tests, at the repo root or under agent-team/
 HANDS_PATH = frozenset(
     TEST_CONFIG | {"docs/agents/project.md", "templates/project.md", "templates/machine-instruction.md", "install.sh", "tag-release.sh",
      ".cursor/hooks.json", ".cursor/mcp.json", ".mcp.json",
@@ -135,11 +135,19 @@ def shadows_imports(p, name):
     return any(part.split(".")[0] in names for part in parts[1:-1]) or (last_loads and name.split(".")[0] in names)
 
 
+def _ancestors(entries):
+    """Every directory above a listed path. Git lists a symlink as a file, so a PR can add `.claude` as a link to a directory it also adds."""
+    return {"/".join(e.rstrip("/").split("/")[:i]) for e in entries for i in range(1, len(e.rstrip("/").split("/")))}
+
+
+HANDS_PARENTS = frozenset(_ancestors(HANDS_PATH | set(HANDS_DIRS) | {".claude/settings.json", ".github/x"}) | {d.rstrip("/") for d in HANDS_DIRS} | {".claude", ".github"})
+
+
 def on_hands_path(path):
     p, name, instructions = _norm(path)
     settings = p.startswith(".claude/settings") and name.endswith(".json")  # .claude/settings.json, settings.local.json
     return (p in HANDS_PATH or p.startswith(HANDS_DIRS) or settings or ".github" in p.split("/")[:-1] or name == "codeowners" or instructions
-            or shadows_imports(p, name))
+            or p in HANDS_PARENTS or name == ".gitattributes" or ("/" not in p and name.endswith(".py")) or shadows_imports(p, name))
 
 
 def _verdict(kind, who, level, setting, ticket=None):
