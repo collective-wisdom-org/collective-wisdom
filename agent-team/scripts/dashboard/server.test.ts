@@ -227,6 +227,28 @@ test('records spend in the background and writes nothing through a link', async 
   }
 })
 
+test('a root checkout project manager session reaches /api pm and stays after its snapshot is gone', async () => {
+  const root = tmpRoot()
+  const agent = join(root, '.agent-team')
+  mkdirSync(join(agent, 'gantt'), { recursive: true })
+  const row = { id: 'main', depth: 0, name: 'm', repo: 'r', start: 1, end: null, tokens: 1, cost: null, kind: 'session', segments: [[1, 2]] }
+  const snap = { ...goodSnap, sessionId: 'pm1', cwd: root, rows: [row], threadId: 'thread:pm1', heading: 'BACKLOG RANKING' }
+  writeFileSync(join(agent, 'gantt/pm1.json'), JSON.stringify(snap))
+  let srv = await startServer({ root, port: 0 })
+  try {
+    const get = async () => JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body)
+    assert.deepEqual((await get()).pm.map((p: any) => [p.sessionId, p.role, p.state]), [['pm1', 'ranking', 'finished']])
+    assert.deepEqual(sessionIds(await get()), [])
+    await srv.close()
+    rmSync(join(agent, 'gantt/pm1.json'))
+    srv = await startServer({ root, port: 0 })
+    assert.deepEqual((await get()).pm.map((p: any) => p.sessionId), ['pm1'])
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('keeps last good state when state.json is half-written', async () => {
   const root = tmpRoot()
   mkdirSync(join(root, '.agent-team'))

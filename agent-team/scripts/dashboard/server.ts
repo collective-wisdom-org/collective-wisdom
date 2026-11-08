@@ -5,7 +5,7 @@ import { lstatSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkS
 import { execFile, spawn } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
+import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject, teamSessions } from './api.ts'
 import type { Worktree } from './api.ts'
 import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
@@ -16,7 +16,7 @@ import type { DetailWant } from './details.ts'
 import type { MergedConfig } from './merged.ts'
 import { backup } from './backup.ts'
 import { parseLedger, recordSpend, spendByTicket } from './spend.ts'
-import { historyByTicket, parseHistory, recordHistory } from './history.ts'
+import { historyByTicket, parseHistory, recordHistory, recordTeamHistory, teamHistory } from './history.ts'
 
 const PAGES: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -281,16 +281,21 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   }
   const recordRound = () => {
     let matched: ReturnType<typeof ledgerSessions> = []
+    let team: ReturnType<typeof teamSessions> = []
     try {
       const text = projectText()
       void refreshWorktrees()
-      matched = ledgerSessions({ snapshots: readSnapshots(), worktrees, state: readState(), prefix: text === undefined ? null : prefixFromProject(text), now: Date.now() })
+      const snapshots = readSnapshots()
+      const state = readState()
+      const now = Date.now()
+      matched = ledgerSessions({ snapshots, worktrees, state, prefix: text === undefined ? null : prefixFromProject(text), now })
+      team = teamSessions({ snapshots, state, now })
     } catch {}
     try {
       ledger = recordSpend(ledger, matched)
     } catch {}
     try {
-      history = recordHistory(history, matched)
+      history = recordTeamHistory(recordHistory(history, matched), team)
     } catch {}
     save('spend.json', ledger)
     save('gantt-history.json', history)
@@ -348,7 +353,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     details.want(wants, mergedCfg)
     updated.want(titleCfg)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get() })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history) })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
