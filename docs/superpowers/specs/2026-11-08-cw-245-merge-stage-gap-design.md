@@ -1,6 +1,7 @@
 # CW-245: Close the gap between a merge and the ticket leaving the merge stage
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #249, with differences: [as-built](../as-built/2026-11-08-cw-245-merge-stage-gap.md)
 **Ticket:** [#245](https://github.com/collective-wisdom-org/collective-wisdom/issues/245)
 
 ## Goal
