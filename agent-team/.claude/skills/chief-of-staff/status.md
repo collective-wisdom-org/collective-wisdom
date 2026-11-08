@@ -4,7 +4,7 @@ Read on `status` or `where's <PREFIX>-N?`.
 
 ## Answering status
 
-Unless this turn's full pass already read every active child, run the idle check (SKILL.md § Lean turns) and the sweep (SKILL.md § Sweep), then answer in the layout of `## Status layout` below. Post the full block again for each pending approval (approvals.md § Approval requests).
+Run the tick with `--trigger status` (SKILL.md § Tick): it reads every active child, runs the idle check and the sweep (SKILL.md § Sweep). Then answer in the layout of `## Status layout` below. Post the full block again for each pending approval (approvals.md § Approval requests).
 
 ## Status layout
 

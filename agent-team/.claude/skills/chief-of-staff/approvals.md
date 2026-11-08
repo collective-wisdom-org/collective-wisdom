@@ -61,7 +61,7 @@ Rules:
 - Plain bullets, three to six per list. Never drop a list. An empty one says "nothing" so the user knows it was checked.
 - Calls that change behaviour the user might not expect go first and carry a ⚠. Use ⚠ nowhere else.
 - Name anything that touches data, money, auth, user email or migrations under `Touches` (spec) or `Risks` (merge), even when the child didn't flag it.
-- A `MERGE READY` that `cos_review_check.py --route` sends to `awaiting-review` (SKILL.md § Full pass step 2) gets the same block, with these differences:
+- A `MERGE READY` that `cos_review_check.py --route` sends to `awaiting-review` (SKILL.md § Child path) gets the same block, with these differences:
   - The auto-approval check doesn't run yet. It runs when the ticket reaches `awaiting-merge` (SKILL.md § Sweep, `approved` line).
   - The block gains `Waiting on: <names> (GitHub review)` under `Reviews:`, and its reply line reads `Reply "approve N" now and I'll merge once <names> approve this head, or "changes N: …".`
   - The `awaiting-review` status line reads `awaiting-review since <time>: PR #N head <short>, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>. Risk: <Level> (<reason>).`
