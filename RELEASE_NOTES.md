@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-08 replace the dashboard Agents pane with a paginated Merged list (CW-187) (#189)
+
+Merged 2026-11-08 05:32 UTC.
+
+The local dashboard's Agents list is replaced by a Merged list: merged tickets, newest first, ten per page, with Newer and Older buttons. Agent charts still appear inside each ticket's card. Agent sessions that belong to no card are no longer listed.
+
+Context size: pass skipped (no agent files changed)
+
 ## 2026-11-08 rename awaiting-spec to awaiting-build and SPEC READY to BUILD READY (CW-177) (#186)
 
 Merged 2026-11-08 05:24 UTC.
