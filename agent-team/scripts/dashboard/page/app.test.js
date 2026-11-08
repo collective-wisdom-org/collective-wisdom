@@ -187,6 +187,77 @@ test('a card with sessions gets a closed chart that reopens when its id is in th
   assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">3<\/span>/)
 })
 
+test('each ticket has a closed Details section that lists what is known, escaped, and reopens from the info set', () => {
+  const full = row({
+    id: 'CW-1',
+    stage: 'spec-queued',
+    risk: 'medium: <i>touches</i> the api',
+    next: 'ship <b>it</b> & wait',
+    issueUrl: 'https://x.test/issues/1',
+    prUrl: 'https://x.test/pull/2',
+    threadLink: 't3-thread://v2/env/<th>',
+    gantt: [
+      sess({ sessionId: 'a', updatedAt: T, rows: [task({ tokens: 1000, cost: 1 }), sub({ tokens: 500, cost: 0.5 })] }),
+      sess({ sessionId: 'b', updatedAt: T + MIN, stale: true, rows: [task({ start: T + MIN, tokens: 2000, cost: 0.25 })] }),
+    ],
+  })
+  const bare = row({ id: 'CW-2', stage: '', risk: '', next: '' })
+  const section = (html, id) => html.match(new RegExp(`<details class="info" data-ticket="${id}"[^>]*>[\\s\\S]*?</details>`))[0]
+  const lines = (html) => [...html.matchAll(/<dt>([^<]*)<\/dt><dd>([\s\S]*?)<\/dd>/g)].map((m) => [m[1], m[2].replace(/<[^>]+>/g, '')])
+  const html = renderStatus(group([full, bare]))
+
+  const got = lines(section(html, 'CW-1'))
+  assert.deepEqual(got.slice(0, 9), [
+    ['Stage', 'spec queued'],
+    ['Risk', 'medium: &lt;i&gt;touches&lt;/i&gt; the api'],
+    ['Next', 'ship &lt;b&gt;it&lt;/b&gt; &amp; wait'],
+    ['Issue', 'https://x.test/issues/1'],
+    ['PR', 'https://x.test/pull/2'],
+    ['Thread', 't3-thread://v2/env/&lt;th&gt;'],
+    ['Agents', '2 sessions, 2 tasks, 1 subagent'],
+    ['Tokens', '3.5k'],
+    ['Cost', '$1.75'],
+  ])
+  assert.equal(got.length, 10)
+  assert.match(got[9][1], /^\d{4}-\d\d-\d\d \d\d:\d\d \(stale\)$/)
+  assert.match(section(html, 'CW-1'), /<a href="https:\/\/x\.test\/issues\/1"[^>]*>[^<]*<\/a>[\s\S]*<a href="https:\/\/x\.test\/pull\/2"/)
+  assert.ok(!section(html, 'CW-1').includes('<i>') && !section(html, 'CW-1').includes('<th>'))
+
+  const none = section(html, 'CW-2')
+  assert.ok(none.startsWith('<details class="info" data-ticket="CW-2"><summary>Details</summary>'))
+  assert.match(none, /<p class="quiet">Nothing more known yet<\/p>/)
+  assert.doesNotMatch(none, /<dt>|href=|<dd><\/dd>/)
+
+  assert.match(renderStatus(group([full]), new Set(), new Set(), new Set(['CW-1'])), /<details class="info" data-ticket="CW-1" open>/)
+})
+
+test('a spec or changes detail shows its sections, files and reviews as escaped text; only http urls link', () => {
+  const spec = { kind: 'spec', url: 'https://x.test/blob/a.md', sections: [{ name: 'Goal', text: 'ship <b>it</b>\nline two' }, { name: 'Touches', text: 'a & b' }] }
+  const changes = {
+    kind: 'changes',
+    url: 'javascript:alert(1)',
+    sections: [{ name: 'Summary', text: '<img src=x onerror=alert(1)>' }],
+    files: [{ path: 'a/<b>.ts', add: 3, del: 1 }],
+    moreFiles: 4,
+    reviews: [{ name: 'Code review', verdict: 'PASS', url: 'https://x.test/c' }, { name: 'Security review', verdict: 'CHANGES NEEDED', url: 'data:x' }],
+  }
+  const html = renderStatus(group([row({ id: 'CW-1', stage: '', risk: '', next: '', detail: spec }), row({ id: 'CW-2', stage: '', risk: '', next: '', detail: changes })]))
+  const section = (id) => html.match(new RegExp(`<details class="info" data-ticket="${id}"[^>]*>[\\s\\S]*?</details>`))[0]
+  const a = section('CW-1')
+  assert.match(a, /<h4 class="detail-head">Spec <span class="detail-open"><a href="https:\/\/x\.test\/blob\/a\.md"/)
+  assert.match(a, /<h4>Goal<\/h4><p class="detail-text">ship &lt;b&gt;it&lt;\/b&gt;\nline two<\/p><h4>Touches<\/h4><p class="detail-text">a &amp; b<\/p>/)
+  assert.doesNotMatch(a, /Nothing more known|<dl/)
+  const b = section('CW-2')
+  assert.match(b, /<h4 class="detail-head">Changes<\/h4>/)
+  assert.match(b, /&lt;img src=x onerror=alert\(1\)&gt;/)
+  assert.match(b, /Code review: <a href="https:\/\/x\.test\/c"[^>]*>PASS<\/a>/)
+  assert.match(b, /Security review: CHANGES NEEDED</)
+  assert.match(b, /<li>a\/&lt;b&gt;\.ts <span class="add">\+3<\/span> <span class="del">\u22121<\/span><\/li><li>and 4 more files<\/li>/)
+  assert.doesNotMatch(b, /javascript:|data:x|<img/)
+  const bare = renderStatus(group([row({ id: 'CW-3', stage: '', risk: '', next: '', detail: { kind: 'changes', sections: [], files: [{ path: 'f.ts', add: 1, del: 0 }] } })]))
+  assert.match(bare, /<li>f\.ts /)
+})
+
 test('status sections draw open unless collapsed; a closed one keeps its heading and count; the name is escaped', () => {
   const groups = [
     { name: 'Building', count: 1, rows: [row()] },

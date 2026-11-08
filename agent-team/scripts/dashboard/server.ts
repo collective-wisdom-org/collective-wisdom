@@ -10,6 +10,8 @@ import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles
 import type { TitleConfig } from './titles.ts'
 import { createUpdated } from './updated.ts'
 import { createMerged } from './merged.ts'
+import { createDetails, gitRunner } from './details.ts'
+import type { DetailWant } from './details.ts'
 import type { MergedConfig } from './merged.ts'
 import { parseLedger, recordSpend, spendByTicket } from './spend.ts'
 import { historyByTicket, parseHistory, recordHistory } from './history.ts'
@@ -79,6 +81,7 @@ export async function startServer(opts: { root: string; port: number }): Promise
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
   const updated = createUpdated({ run: ghRunner(root) })
+  const details = createDetails({ run: ghRunner(root), git: gitRunner(root) })
 
   // Worktree list for matching sessions to tickets: read once at start, then refreshed in the background, cached 30s, last good list kept.
   let worktrees: Worktree[] = []
@@ -180,17 +183,23 @@ export async function startServer(opts: { root: string; port: number }): Promise
       }
     } catch {}
     const tickets = (lastState as { tickets?: unknown } | null)?.tickets
+    const wants: DetailWant[] = []
     if (typeof tickets === 'object' && tickets !== null && !Array.isArray(tickets)) {
       const blank = Object.entries(tickets).filter(([, t]) => {
         const title = (t as { title?: unknown } | null)?.title
         return !(typeof title === 'string' && title)
       }).map(([id]) => id)
       trackerTitles.want(blank, titleCfg)
+      for (const [id, t] of Object.entries(tickets)) {
+        const { stage, specPath, specSha, pr } = (t ?? {}) as Record<string, unknown>
+        if (stage === 'awaiting-build' || stage === 'awaiting-merge') wants.push({ id, stage, specPath, specSha, pr })
+      }
     }
+    details.want(wants, mergedCfg)
     merged.want(mergedCfg)
     updated.want(titleCfg)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history) })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

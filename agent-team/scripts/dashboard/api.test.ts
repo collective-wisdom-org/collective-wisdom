@@ -211,3 +211,24 @@ test('merged entries get their ticket sessions; one with none has no gantt key',
   assert.deepEqual(merged.map((e) => e.gantt ?? null), [[session], null, null, null])
   for (const i of [1, 2, 3]) assert.ok(!('gantt' in merged[i]))
 })
+
+test('a row gets the detail kept for its id; the spec detail links to the spec on its branch, the changes detail to the PR', () => {
+  const spec = { kind: 'spec' as const, sections: [{ name: 'Goal', text: 'g' }] }
+  const changes = { kind: 'changes' as const, sections: [{ name: 'Summary', text: 's' }] }
+  const on = { branch: 'feat/cw-1-x', specPath: 'docs/a.md', pr: 7 }
+  const cases: [string, Record<string, unknown>, typeof spec | typeof changes, Partial<Parameters<typeof buildApi>[0]>, string | undefined][] = [
+    ['spec', on, spec, {}, 'https://github.com/o/r/blob/feat/cw-1-x/docs/a.md'],
+    ['spec, no repo', on, spec, { repo: null }, undefined],
+    ['spec, no branch', { ...on, branch: undefined }, spec, {}, undefined],
+    ['spec, odd branch', { ...on, branch: 'a?b#c' }, spec, {}, undefined],
+    ['spec, bad path', { ...on, specPath: 'docs/../a.md' }, spec, {}, undefined],
+    ['changes', on, changes, {}, 'https://github.com/o/r/pull/7'],
+    ['changes, no pr', { ...on, pr: null }, changes, {}, undefined],
+  ]
+  for (const [name, extra, detail, over, url] of cases) {
+    const r = firstRow({ state: stateOf('CW-1', extra), details: { 'CW-1': detail }, ...over })
+    assert.deepEqual(r.detail, url ? { ...detail, url } : detail, name)
+  }
+  assert.ok(!('detail' in firstRow({ state: stateOf('CW-1', on), details: { 'CW-2': spec, toString: spec } })))
+  assert.ok(!('url' in spec), 'the shared detail is not changed')
+})

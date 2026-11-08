@@ -1,11 +1,13 @@
 import { groupTickets } from '../../.claude/mods/status-pane/hooks/groups.ts'
 import type { MergedEntry } from './merged.ts'
+import { validSpecPath } from './details.ts'
+import type { Detail } from './details.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; pricing: number | null; rows: SnapshotRow[] }
 export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; pricing: number | null; rows: SnapshotRow[] }
-type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Session[] }
+type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
@@ -141,8 +143,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]> }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {} } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Detail> }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {}, details = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
@@ -155,6 +157,12 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       if (repo && typeof t.pr === 'number' && Number.isInteger(t.pr)) out.prUrl = `${repo.url}/pull/${t.pr}`
       if (environmentId && typeof t.childThreadId === 'string' && t.childThreadId)
         out.threadLink = `<t3-thread://v2/${environmentId}/${t.childThreadId}>`
+      const d = Object.hasOwn(details, r.id) ? details[r.id] : undefined
+      if (d) {
+        const branchOk = typeof t.branch === 'string' && /^[\w./-]+$/.test(t.branch) && !t.branch.includes('..')
+        const url = d.kind === 'spec' ? (repo && branchOk && validSpecPath(t.specPath) ? `${repo.url}/blob/${t.branch}/${t.specPath}` : undefined) : out.prUrl
+        out.detail = url ? { ...d, url } : d
+      }
       return out
     }), updated),
   }))
