@@ -1,13 +1,14 @@
 # CW-227: An expandable details section on each dashboard ticket
 
-**Status:** Shipped
-**Shipped:** in PR #231, as specified
+**Status:** Draft
 **Ticket:** [#227](https://github.com/collective-wisdom-org/collective-wisdom/issues/227)
 **Related:** CW-225 (gantt own spans, PR #228, merged).
 
 ## Goal
 
 Each open ticket on the dashboard has a closed `Details` section. Opening it shows what the API already knows about the ticket, without leaving the page. It stays open across polls.
+
+Change requested after the first build (2026-11-08, "changes 227"): the section should read like the details the Chief of Staff gives when asked. A ticket waiting on build approval shows what the spec says. A ticket waiting on merge approval shows what the PR changes. Both are new API data; see "Per-stage detail".
 
 ## Today
 
@@ -59,20 +60,47 @@ Closed unless its id is in the new open set. The body is `renderDetails(r, now)`
 
 In `index.html`, `details.info` takes the `details.chart` summary style (muted, small, pointer). The `<dl>` is a two-column grid: muted labels, values that wrap (`overflow-wrap:anywhere`, so a long URL or thread link does not widen the card).
 
+### Per-stage detail
+
+`StatusRow` gains an optional `detail`. `renderDetails` draws it under the facts, with its own heading (`Spec` or `Changes`). Other stages have none, and the section is as above.
+
+```ts
+type Detail = {
+  kind: 'spec' | 'changes'
+  url?: string                                   // spec on its branch, or the PR
+  sections: { name: string; text: string }[]     // plain text, shown with line breaks kept
+  files?: { path: string; add: number; del: number }[]   // changes only, at most 30
+  moreFiles?: number                             // files past the 30
+  reviews?: { name: string; verdict: string; url?: string }[]   // changes only
+}
+```
+
+**Awaiting build approval (`stage` `awaiting-build`): the spec.** State gives `specPath` and `specSha` (the commit the approval is for). A new `details.ts` reads the file with `git -C <root> show <specSha>:<specPath>`, no shell, and only when `specSha` is 40 hex characters and `specPath` is a `docs/` markdown path with no `..`. The result is cached by `specSha` (a commit never changes). Sections are taken by heading, case-insensitive, in the spec's own order, from: `Goal`, `Builds`, `Leaves out`, `Non-goals`, `Out of scope`, `Calls I made`, `Touches`. Each section's text is capped at 2000 characters, with `…` after a cut. No matching heading gives no detail. `url` is `<repo>/blob/<branch>/<specPath>` when the repo and `branch` are known.
+
+**Awaiting merge approval (`stage` `awaiting-merge`): the changes.** State gives the PR number. `details.ts` runs `gh pr view <N> --json body,files,comments` (the same `ghRunner` as the other readers), in the background, at most once a minute per PR, keeping the last good result when a read fails. Sections come from the PR body: `Summary` (else `Changes`), `Release note`, and the `Not proven` lines of `Proof`, each capped as above. `files` are the changed files with additions and deletions. `reviews` are the latest comment starting `## Code review` and the latest starting `## Security review`, each with its `Verdict:` word and the comment `url`. `url` is the PR.
+
+**Data is text.** Everything in `detail` comes from a spec or a PR written by agents, so the page treats it as data: every string goes through `esc`, only `url`s that `isHttp` become anchors, and nothing in it is markup.
+
+**Refresh.** `detail` is part of the status JSON, so a change rebuilds the cards; open `Details` stay open as above.
+
 ## Tests
 
-One new case in `agent-team/scripts/dashboard/page/app.test.js`, table-driven over two tickets through `renderStatus`:
+One case in `agent-team/scripts/dashboard/page/app.test.js`, table-driven over two tickets through `renderStatus`:
 
 - every field set, with markup in `next` and a two-session gantt with a subagent and every row priced: each line is present with the expected text, values are escaped, the issue and PR are anchors;
 - only an id: the `Details` section is there and closed, its body is the quiet line, and it has no `<dt>`, no `href` and no empty `<dd>`.
 
-Plus one assertion that an id in the open set renders `<details class="info" … open>`. Opening and polling in the browser is not unit tested (the shell is not under test today); it is checked by hand in the PR's proof.
+Plus one assertion that an id in the open set renders `<details class="info" … open>`.
+
+For `detail`: one `app.test.js` case over a `spec` and a `changes` ticket (headings, sections, files, reviews present; markup in text escaped; a non-http `url` is not an anchor). One `details.test.ts` table over the parsers (spec headings in order and capped, none found, bad inputs; PR body sections, `Not proven`, files cap, review verdicts, bad JSON) and one over `createDetails` (spec read once per sha, bad sha or path never reaches `git`, a PR read once a minute, a failed read keeps the last result). One `api.test.ts` case that a row gets its `detail` and the spec `url`. Opening and polling in the browser is not unit tested (the shell is not under test today); it is checked by hand in the PR's proof.
 
 `node --test agent-team/scripts/dashboard/page/app.test.js` passes, and so does the full `node --test` line in `AGENTS.md` § Workflow, since the PR touches `agent-team/scripts/dashboard/`.
 
 ## Non-goals
 
-- New API fields (branch, spec link, stage history).
+- Other new API fields (branch, stage history). `detail` is the only one added.
+- Detail for stages other than `awaiting-build` and `awaiting-merge` (a ticket waiting on a teammate review gets none).
+- Rendering markdown. Detail text is shown as plain text.
 - The merged list.
 - Any change to the `Agents` gantt chart.
 
@@ -87,3 +115,13 @@ Plus one assertion that an id in the open set renders `<details class="info" …
 - **Last update shows a date and clock time** with `stamp()`, as the merged list does, plus `(stale)` when that session went stale.
 - **Flat rows in the Queued band get the section too**, since the ticket says each card and row.
 - **A ticket with nothing to show gets one quiet line** instead of an empty box, so opening it does not look broken.
+
+### Calls I made for the change request
+
+- **The facts stay, the detail goes under them.** The user asked for it to read "more like" the Chief of Staff's details, not to lose the stage, risk and links.
+- **Spec detail is the spec's own headings, not the child's BUILD READY block.** The block is a message and is not stored; the spec is, and its `Goal`, `Builds`, `Leaves out`, `Calls I made` and `Touches` are what the block repeats. A spec written with `Design` and `Non-goals` (like this one) shows `Goal`, `Non-goals` and `Calls I made`.
+- **Changes detail is the PR's own text, not the child's MERGE READY block.** Same reason. `Summary`, `Release note`, `Not proven`, the file list and the two review verdicts are what the PR holds. "Differs from spec", "Reviews found and fixed" and "Left open" are in the child's message only, so they do not show.
+- **Read the spec with local git, not GitHub.** The commit is already in the repo the dashboard runs in (worktrees share it), so there is no network read and no token. If the commit is not there, only the facts show.
+- **Plain text, not markdown.** The page has no markdown renderer, and adding one would pull in an XSS surface for text agents write.
+- **A review is the latest comment with the right heading.** A `CHANGES NEEDED` shows as such, so a ticket awaiting merge with a stale PASS is not hidden.
+- **Awaiting teammate review gets no detail.** Not asked for; one more stage is a one-line change later.
