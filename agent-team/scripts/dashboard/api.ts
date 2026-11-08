@@ -2,7 +2,7 @@ import { groupTickets } from '../../.claude/mods/status-pane/hooks/groups.ts'
 import type { MergedEntry } from './merged.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
-export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; childCount: number }
+export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; rows: SnapshotRow[] }
 export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; rows: SnapshotRow[] }
 type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; threadLink?: string; gantt?: Session[] }
@@ -17,6 +17,9 @@ type Repo = { url: string; isGithubIssues: boolean }
 const DAY = 24 * 3600 * 1000
 const STALE_MS = 30_000
 const NAME_MAX = 60
+const LABEL_MAX = 40
+const SEGMENTS_MAX = 500
+const KINDS = ['session', 'task', 'agent']
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const str = (x: unknown): string => (typeof x === 'string' ? x : '')
@@ -40,19 +43,40 @@ export function parseWorktrees(text: string): Worktree[] {
   return out
 }
 
+const label = (x: unknown): string | null => (typeof x === 'string' ? x.slice(0, LABEL_MAX) : null)
+
+/** The last SEGMENTS_MAX valid [start, end] pairs, oldest first. */
+function cleanSegments(x: unknown): [number, number | null][] {
+  if (!Array.isArray(x)) return []
+  const out: [number, number | null][] = []
+  for (const p of x.slice(-SEGMENTS_MAX)) {
+    if (!Array.isArray(p)) continue
+    const [a, b] = p
+    const start = numOrNull(a)
+    const end = b === null ? null : numOrNull(b)
+    if (start !== null && (b === null || (end !== null && end >= start))) out.push([start, end])
+  }
+  return out.sort((p, q) => p[0] - q[0])
+}
+
 function cleanRow(r: unknown, endFill: number | null): SnapshotRow | null {
   if (!isObj(r)) return null
   const end = numOrNull(r.end)
+  const start = num(r.start)
+  const segments = cleanSegments(r.segments)
   return {
     id: str(r.id),
     depth: num(r.depth),
     name: str(r.name).slice(0, NAME_MAX),
     repo: str(r.repo),
-    start: num(r.start),
+    start,
     end: end === null ? endFill : end,
     tokens: num(r.tokens),
     cost: numOrNull(r.cost),
-    childCount: num(r.childCount),
+    kind: KINDS.includes(r.kind as string) ? (r.kind as SnapshotRow['kind']) : 'agent',
+    segments: segments.length ? segments : [[start, end === null ? endFill : end]],
+    model: label(r.model),
+    harness: label(r.harness),
   }
 }
 
@@ -61,10 +85,11 @@ function cleanSnapshot(s: unknown, now: number): Session | null {
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
   const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
-  // The main row never ends while the session lives, so only the other rows say whether it is stale.
-  const working = cleaned.some((r) => r.id !== 'main' && r.end === null)
+  // The main row and its task rows never end while the session lives, so only the other agents say whether it is stale.
+  const working = cleaned.some((r) => r.kind === 'agent' && r.id !== 'main' && r.end === null)
   const stale = now - updatedAt > STALE_MS && working
-  const rows = cleaned.map((r) => (r.end === null && (stale || (!working && r.id === 'main')) ? { ...r, end: updatedAt } : r))
+  const close = (r: SnapshotRow): SnapshotRow => ({ ...r, end: updatedAt, segments: r.segments.map(([a, b]) => [a, b === null ? Math.max(a, updatedAt) : b]) })
+  const rows = cleaned.map((r) => (r.end === null && (stale || (!working && (r.id === 'main' || r.kind === 'task'))) ? close(r) : r))
   return { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), rows }
 }
 
