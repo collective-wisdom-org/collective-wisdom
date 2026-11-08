@@ -1,6 +1,7 @@
 # CW-178: Show Gantt charts in the dashboard only for agents on worktrees
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #183, as specified
 **Ticket:** [#178](https://github.com/collective-wisdom-org/collective-wisdom/issues/178)
 **Follows:** CW-173 (#174) added the dashboard, CW-175 (#176) fit it to a side pane.
 
