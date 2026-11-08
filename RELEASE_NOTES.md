@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 collapsible dashboard status sections (CW-200) (#204)
+
+Merged 2026-11-08 07:15 UTC.
+
+Each section on the dashboard can be collapsed from its heading, and the dashboard remembers which ones you closed. Nothing to do.
+
 ## 2026-11-08 overhaul the dashboard layout so it is easy to read (CW-195) (#203)
 
 Merged 2026-11-08 07:05 UTC.
