@@ -30,7 +30,7 @@ STATE = {
     "merged": {"ABC-8": 7, "ABC-9": {"pr": 9, "at": "2020-01-01T00:00:00Z"}},
     "retiredThreads": [{"threadId": "t1", "retiredAt": "2026-11-01T00:00:00Z", "archivedAt": None}],
     "pm": {},
-    "scheduledTaskId": "x",
+    "staleKey": "x",
 }
 START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "parentThreadId": "t9",
          "status": "s", "title": "Add X"}
