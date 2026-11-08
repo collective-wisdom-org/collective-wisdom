@@ -1,6 +1,7 @@
 # CW-94: subagent thread links in the Running section
 
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #180, as specified
 **Ticket:** [#94](https://github.com/collective-wisdom-org/collective-wisdom/issues/94)
 
 ## Goal
