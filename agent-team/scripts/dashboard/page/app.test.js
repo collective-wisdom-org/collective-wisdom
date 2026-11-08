@@ -164,3 +164,13 @@ test('groups sort into bands, keep api order inside a band, and show the stage o
   assert.equal((other.match(/badge stage/g) ?? []).length, 2)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
+
+test('merged row with sessions has a closed Agents chart that stays open when its id is in the open set; one without has none', () => {
+  const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
+  const html = (gantt, open) => renderMerged([{ ...e, ...(gantt ? { gantt } : {}) }, { ...e, id: 'CW-2' }], 0, 10, open).html
+  assert.match(html([sess(), sess()]), /<details class="chart" data-merged="CW-1"><summary>Agents <span class="pill">2<\/span><\/summary><div class="chart-body" data-merged="CW-1"><\/div>/)
+  assert.match(html([sess()], new Set(['CW-1'])), /<details class="chart" data-merged="CW-1" open>/)
+  assert.equal(html([sess()]).match(/<details/g).length, 1)
+  assert.doesNotMatch(html([]), /<details|Agents/)
+  assert.doesNotMatch(html(), /<details|Agents/)
+})
