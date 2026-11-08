@@ -4,17 +4,36 @@ import type { AgentRecord, Segment } from '../types/index.d.ts'
 const NAME_MAX = 60
 // A list keeps its last spans only, so a long session stays small.
 const SEGMENTS_MAX = 500
-// T3 Code puts this line first in a delegated task: `Act as the implementer agent for this task.` (also `sub-agent`, `subagent`).
-const PREAMBLE = /^Act as the .*agent for this task\.?$/i
-// The team's mode marker opens a delegated prompt; the name starts after it.
+// T3 Code opens a delegated task with `Act as the implementer agent for this task.` (also `sub-agent`, `subagent`), on its own line or ahead of the task.
+const PREAMBLE = /^Act as the [\w -]*agent for this task\.?\s*/i
+// The team's markers open a delegated prompt; the name starts after them.
 const TEAM_MODE = /^TEAM MODE\.?\s*/i
+const CONTINUE = /^CONTINUE\.?\s*/i
+const RELAY = /^CHIEF OF STAFF:\s*/i
+const TICKET = /[A-Z][A-Z0-9]*-\d+/
+// What a Chief of Staff relay asks for, first match wins; the relay names no ticket.
+const RELAY_WORK: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/approved the spec/i, () => 'build'],
+  [/approved the merge of PR (#\d+)/i, m => `merge PR ${m[1]}`],
+  [/reviewer asked for changes on PR (#\d+)/i, m => `changes on PR ${m[1]}`],
+  [/asked for changes/i, () => 'changes'],
+  [/continue the (\S+) stage/i, m => m[1]!],
+]
 
-/** The task's name: the prompt's first line that is not T3's preamble, whitespace collapsed, a leading `TEAM MODE.` dropped, cut to 60 characters. */
-export function taskName(text: string): string {
+/** The task's name: the prompt's first line left after T3's preamble and the team markers, whitespace collapsed, cut to 60 characters. A Chief of Staff relay is named `<ticket> <work>`, the ticket from the newest of `earlier` (main's earlier task names) that has one. */
+export function taskName(text: string, earlier: string[] = []): string {
   for (const raw of text.split('\n')) {
-    const line = raw.replace(/\s+/g, ' ').trim().replace(TEAM_MODE, '')
-    if (line === '' || PREAMBLE.test(line)) continue
-    return line.length > NAME_MAX ? line.slice(0, NAME_MAX) : line
+    const line = raw.replace(/\s+/g, ' ').trim().replace(PREAMBLE, '').replace(TEAM_MODE, '').replace(CONTINUE, '')
+    if (line === '') continue
+    if (!RELAY.test(line)) return line.slice(0, NAME_MAX)
+    const work = line.replace(RELAY, '')
+    let name = work
+    for (const [re, to] of RELAY_WORK) {
+      const m = work.match(re)
+      if (m) { name = to(m); break }
+    }
+    const ticket = [...earlier].reverse().map(n => n.match(TICKET)?.[0]).find(Boolean)
+    return (ticket ? `${ticket} ${name}` : name).slice(0, NAME_MAX)
   }
   return 'task'
 }
