@@ -11,8 +11,8 @@ check), which depends on state alone and can be rerun. While a No Hands run is a
 has startedAt and no endedAt) the act plan carries a `run ... no_hands.py check` line before the slot fill. The tick
 cannot know its result, so on `drain` or `stop` the model prints no `start-todo` lines and sends nothing beyond what
 no-hands.md says. What the state alone shows, the tick does itself: with `noHands.drain` set it drops `start-todo`
-(queued sends still go) and reports `filling stopped: No Hands <reason>`. Output is numbered lines "N. <text>"; a
-`stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
+(queued sends still go) and reports `filling stopped: No Hands <reason>`. A `send <T> merge` to a ticket with no parentThreadId (no finish
+notice will come) is followed by `merge-wait <T>`. Output is numbered lines "N. <text>"; a `stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
 --file is given) through cos_state.load; a missing file counts as empty state. Writes nothing.
 --now is an ISO 8601 time (default: the current UTC time).
 Exit 0 with a plan, 2 with "cos_tick: <what>" when the state file or the arguments can't be used.
@@ -195,7 +195,8 @@ def relay_lines(state, thread, tid, t, lane):
         return out + [f"continuation {tid} {lane}"]
     if spec:
         out.append(f"configure {t.get('childThreadId')} claude-sonnet-5-5 effort=high")
-    return out + [f"send {tid} {lane} {json.dumps(relay, ensure_ascii=True)}"]
+    out.append(f"send {tid} {lane} {json.dumps(relay, ensure_ascii=True)}")
+    return out + ([f"merge-wait {tid}"] if lane == "merge" and not parent else [])  # no parent: no finish notice will come
 
 
 def no_hands_run(state):
