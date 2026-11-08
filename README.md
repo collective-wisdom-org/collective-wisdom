@@ -175,7 +175,7 @@ Update with `claude plugin update agent-gantt` (or `status-pane`). A PR that cha
 
 ## Local dashboard
 
-`start the team` also starts a local dashboard for the repo and opens it in the T3 browser pane. It shows the Chief of Staff status, the tickets by stage with their children (each linked to its issue and PR), and the agents of the session as a Gantt chart. The page keeps updating on its own and listens on localhost only. Each thread has a copy button for its link, because T3 does not open thread links from a browser. Paste the link into T3.
+`start the team` also starts a local dashboard for the repo and opens it in the T3 browser pane. It shows the Chief of Staff status, the tickets by stage with their children (each linked to its issue and PR), and the agents as Gantt charts. A ticket's chart sits collapsed inside its card; sessions with no card (the Chief of Staff, the root checkout) stay in an Agents list. The page keeps updating on its own and listens on localhost only. Each thread has a copy button for its link, because T3 does not open thread links from a browser. Paste the link into T3.
 
 ## Propose changes
 
