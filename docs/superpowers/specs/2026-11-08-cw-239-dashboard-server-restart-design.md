@@ -1,6 +1,7 @@
 # CW-239: Restart the dashboard server itself when its code changes
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #241, with differences: [as-built](../as-built/2026-11-08-cw-239-dashboard-server-restart.md)
 **Ticket:** [#239](https://github.com/collective-wisdom-org/collective-wisdom/issues/239)
 **Related:** CW-230 (#230, page autoreload, shipped in PR #234).
 
