@@ -5,6 +5,20 @@ import cos_brief
 OID = "a" * 40
 OLD = "c" * 40
 NOTE = f"Head moved to {OID} by merging main; PR diff unchanged since {OLD}. Reviews from {OLD} stand."
+DOCS = f"Head moved to {OID}; PR diff changed only in docs files since {OLD}: ['README.md']. Reviews from {OLD} stand."
+
+
+@pytest.mark.parametrize(
+    "note, want",
+    [
+        (NOTE, "head moved by merging "),
+        (DOCS, "head moved by docs-file changes only since ccccccc; reviews stand https://x/n"),
+        (f"Head moved to {'b' * 40}; PR diff changed only in docs files since {OLD}: []. Reviews from {OLD} stand.", None),
+    ],
+)
+def test_moved_line_words_each_note_and_skips_one_that_misses_the_head(note, want):
+    got = cos_brief.moved_line(OID, [{"body": note, "url": "https://x/n", "author": {"login": "cw-builder"}}], "cw-builder")
+    assert (got is None) if want is None else got.startswith(want)
 
 
 @pytest.mark.parametrize(

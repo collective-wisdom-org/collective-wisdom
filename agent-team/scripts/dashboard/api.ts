@@ -109,13 +109,21 @@ function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, un
   return id && onBoard.has(id) ? id : null
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [] } = input
+const QUEUED = ['merge-queued', 'build-queued', 'spec-queued']
+
+/** Rows of queued stages keep their places; the others go newest update first, rows with no time last. The sort is stable. */
+function newestFirst(rows: StatusRow[], updated: Record<string, number>): StatusRow[] {
+  const sorted = rows.filter((r) => !QUEUED.includes(r.stage)).sort((a, b) => (updated[b.id] ?? -Infinity) - (updated[a.id] ?? -Infinity) || 0)
+  return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
+}
+
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number> }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const status = groupTickets(state).map((g) => ({
     name: g.name,
     count: g.count,
-    rows: g.rows.map((r) => {
+    rows: newestFirst(g.rows.map((r) => {
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
       const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }
       const digits = r.id.match(/-(\d+)$/)
@@ -124,7 +132,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       if (environmentId && typeof t.childThreadId === 'string' && t.childThreadId)
         out.threadLink = `<t3-thread://v2/${environmentId}/${t.childThreadId}>`
       return out
-    }),
+    }), updated),
   }))
   const cleaned = snapshots.map((s) => cleanSnapshot(s, now)).filter((s): s is NonNullable<typeof s> => s !== null)
   const rowById = new Map(status.flatMap((g) => g.rows).map((r) => [r.id, r]))

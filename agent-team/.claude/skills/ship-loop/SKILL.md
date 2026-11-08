@@ -23,8 +23,8 @@ Ask the Chief of Staff thread, or the user when there is none. In practice never
 |------------|----------------------------|
 | Build → done | Plan implemented; verification green in the feature worktree. |
 | Build → Merge | **Forbidden.** Must open a PR and finish phases 3 and 4 first. |
-| PR opened → Security-ready | Phase 3 **complete**: PR exists, closeout docs committed on the branch (see `open-pr` § Closeout docs), docs check current (see `open-pr` § Docs check), CI green, **open-pr** feedback loop finished, and the **latest code review** agent PR comment has **Verdict: PASS** (see `open-pr` § Agent review comment loop). |
-| Security-ready → Merge-ready | Phase 4 **complete**: **security-review** finished, and the **latest security review** PR comment has **Verdict: PASS** (see `security-review` § PR comment loop). |
+| PR opened → Security-ready | Phase 3 **complete**: PR exists, closeout docs committed on the branch (see `open-pr` § Closeout docs), CI green, **open-pr** feedback loop finished, and the **latest code review** agent PR comment has **Verdict: PASS** (see `open-pr` § Agent review comment loop). |
+| Security-ready → Merge-ready | Phase 4 **complete**: **security-review** finished, and the **latest security review** PR comment has **Verdict: PASS** (see `security-review` § PR comment loop). The docs check ran once after both PASSes (a `## Docs check` comment, `open-pr` § Docs check). |
 | Merge-ready → Merge | A merge approval (§ Approvals) (**phase 5** only). |
 
 The conflict note is a second exception beside the merge-target-merge one: after a conflict resolution with `Review after conflict resolution` `off`, the reviews from the head the resolution started on stand (`open-pr` § Conflict resolution). With `on`, both reviews run on the resolved head.
@@ -33,7 +33,7 @@ After phase 2, the next step is **phase 3** (open PR + code review loop in the s
 
 Do not stop after opening the PR, after CI passes, or after code review **PASS**; continue **security-review** through security **PASS** before reporting `MERGE READY`.
 
-**Review mode.** When `docs/agents/project.md` § Review sets `Review mode` to `ci`, a review bot in CI replaces the code and security reviewer agents. Phase 3 then ends when CI is green on the head and `~/.collective-wisdom/scripts/ci_review.py list <N>` exits 0 on that head (`open-pr` § CI review mode), and phase 4 does not run. The rest of the gate table, and the paragraphs above about code review and security review **PASS**, apply with that substitution. A missing row or `agents` keeps the gates above; any other value is an error, not `agents`.
+**Review mode.** When `docs/agents/project.md` § Review sets `Review mode` to `ci`, a review bot in CI replaces the code and security reviewer agents. Phase 3 then ends when CI is green on the head and `~/.collective-wisdom/scripts/ci_review.py list <N>` exits 0 on that head and the docs check has run once (`open-pr` § CI review mode), and phase 4 does not run. The rest of the gate table, and the paragraphs above about code review and security review **PASS**, apply with that substitution. A missing row or `agents` keeps the gates above; any other value is an error, not `agents`.
 
 ## Phases (required skills)
 
@@ -69,7 +69,7 @@ Starts after a spec approval (§ Approvals). Write the plan (a ticket that chang
 
 **Invoke:** `open-pr` (read and follow in full).
 
-Opening the PR only starts this phase. Right after PR creation, commit closeout docs on the branch per **open-pr** § Closeout docs and run the docs check per **open-pr** § Docs check. Then, in the **same session**, run the full feedback loop (autopilot + agent review comment loop) until **Done when** in `open-pr`, including a **Verdict: PASS** code review comment on the PR. Repeat until security-ready or blocked. Do **not** merge in this phase.
+Opening the PR only starts this phase. Right after PR creation, commit closeout docs on the branch per **open-pr** § Closeout docs. Then, in the **same session**, run the full feedback loop (autopilot + agent review comment loop) until **Done when** in `open-pr`, including a **Verdict: PASS** code review comment on the PR. Repeat until security-ready or blocked. Do **not** merge in this phase.
 
 Post each code review comment on the PR with `~/.collective-wisdom/scripts/gh.sh pr comment <N> --body-file <path>` before you say anything about it in the thread, and keep the comment URL it prints.
 
@@ -81,7 +81,7 @@ End-of-phase handoff: report **code review complete** and proceed to phase 4. No
 
 A docs-only or small diff skips or merges this review per `open-pr` § Review scope. In the **same session**, run the security review comment loop until **Done when** in `security-review`, including a **Verdict: PASS** security review comment on the PR. Post each security review comment on the PR with `~/.collective-wisdom/scripts/gh.sh pr comment <N> --body-file <path>` before you say anything about it in the thread, and keep the comment URL it prints.
 
-Before `MERGE READY`, after `wait-for-ci.sh` passes, run `~/.collective-wisdom/scripts/review_gate.py <N>` and act on its last line. `pass`: `MERGE READY` with the printed URLs and `Head:` set to the printed head. `note`: post the printed note (the line before it) with `~/.collective-wisdom/scripts/gh.sh pr comment` as the builder, then run it again; `merge_pr.py` looks for the note. `rerun <code|security|both>`: run the named review on the current head and post its result first, then run it again. `ci`: follow `open-pr` § CI review mode. Exit 2: run it once more, then `BLOCKED:`. A head that moved by a conflict resolution follows `open-pr` § Conflict resolution: with `Review after conflict resolution` `off` it carries the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` and `merge_pr.py` accepts it, and with `on` both reviews run on the resolved head.
+After the security PASS, run the docs check once per **open-pr** § Docs check. Before `MERGE READY`, after `wait-for-ci.sh` passes, run `~/.collective-wisdom/scripts/review_gate.py <N>` and act on its last line. `pass`: `MERGE READY` with the printed URLs and `Head:` set to the printed head. `note`: post the printed note (the line before it) with `~/.collective-wisdom/scripts/gh.sh pr comment` as the builder, then run it again; `merge_pr.py` looks for the note. `rerun <code|security|both>`: run the named review on the current head and post its result first, then run it again. `ci`: follow `open-pr` § CI review mode. Exit 2: run it once more, then `BLOCKED:`. A head that moved by a conflict resolution follows `open-pr` § Conflict resolution: with `Review after conflict resolution` `off` it carries the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` and `merge_pr.py` accepts it, and with `on` both reviews run on the resolved head.
 
 End-of-phase handoff: stop with a final message whose last block is `MERGE READY`, in this order. The Chief of Staff (or, in a hand run, the user) checks it against the PR, so the head SHA and both links must be current. Wait for a merge approval before phase 5.
 
@@ -108,7 +108,7 @@ Conflict resolved: <files>; reviews <stand from <short SHA> | rerun and PASS>
 
 The `Conflict resolved:` line appears only after a conflict resolution (`open-pr` § Conflict resolution). With `Review after conflict resolution` `off` the Chief of Staff's merge block says the resolution was not reviewed.
 
-"Docs checked" comes from the `Docs checked:` line of the latest code review comment.
+"Docs checked" comes from the `Docs checked:` line of the latest `## Docs check` comment.
 
 "Reviews needed" comes from `~/.collective-wisdom/scripts/gh.sh pr view <N> --json reviewRequests`: each requested user as their login and each requested team as `@<slug>` (GitHub's slug already includes the org, like `acme/core`), comma-separated, or "none" when the list is empty. It tells the user who GitHub is waiting on. It does not say whether a teammate already approved, and `~/.collective-wisdom/scripts/merge_pr.py` reads the reviews again at merge. With `Require teammate approval` `on`, only a review from an owner, member or collaborator of the repo counts there.
 
@@ -119,7 +119,7 @@ CI: green at <full head SHA>
 CI review: <F> fixed, <A> answered and resolved, <U> unresolved
 ```
 
-`Reviews found and fixed` lists the bot findings you fixed, and `Docs checked` comes from your own docs check. The exception for a head moved by merging the merge target branch does not apply: after the merge, wait for CI and run `list` again on the new head.
+`Reviews found and fixed` lists the bot findings you fixed, and `Docs checked` comes from the `## Docs check` comment (`open-pr` § CI review mode step 5). The exception for a head moved by merging the merge target branch does not apply: after the merge, wait for CI and run `list` again on the new head.
 
 "Proof" links the PR body's `## Proof` section (`open-pr` § Proof), and "Not proven" is that section's `Not proven` list, copied word for word: it must match the PR body.
 
