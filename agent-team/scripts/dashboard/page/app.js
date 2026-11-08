@@ -233,8 +233,8 @@ export function drawCharts(root, data, now, apply) {
     if (!entry) return
     const html = renderGantt(entry.gantt, now)
     if (shownCharts.get(body) === html) return
-    shownCharts.set(body, html)
     apply(body, html)
+    shownCharts.set(body, html)
   }
   for (const body of root.querySelectorAll('.chart-body[data-ticket]')) draw(body, rows.get(body.dataset.ticket))
   for (const body of root.querySelectorAll('.chart-body[data-merged]')) draw(body, merged.get(body.dataset.merged))

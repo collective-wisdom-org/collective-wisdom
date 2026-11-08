@@ -33,7 +33,7 @@ Facts from `main` at `d918a2b`.
    - Anything else (a tag differs, the child count differs, a node type differs) is replaced by the new node, and its subtree is not walked.
    - An empty body (first write) just gets `innerHTML`.
 
-   So a tick that only moves a running bar's width, or a duration cell's text, keeps every element, and the hovered bar or row stays the same element. When a task or a span is added, the changed part is replaced and the rest is kept.
+   So a tick that only moves a running bar's width, or a duration cell's text, keeps every element, and the hovered bar or row stays the same element. When a span is added, only that row's track is replaced. When a task row or a note is added, the chart's child count changes and the whole chart is replaced; matching rows by key is a separate ticket.
 3. **Stable title on a running bar.** A running bar's `title` drops the duration: `<name>` then `<start>, running · <model>`. A finished bar keeps `<start> to <end> · <duration> · <model>`. A running bar's `title` then changes only when the bar stops running, and a native tooltip is not disturbed by a text change every second. The bar's running length is still on the row's duration cell.
 
 ## Tests
