@@ -1,6 +1,7 @@
 # CW-223: A compatibility document for harnesses and trackers
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #224, with differences: [as-built](../as-built/2026-11-08-cw-223-compatibility-matrix-as-built.md)
 **Ticket:** [#223](https://github.com/collective-wisdom-org/collective-wisdom/issues/223)
 
 ## Goal
