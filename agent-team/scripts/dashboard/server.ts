@@ -317,11 +317,12 @@ export async function startServer(opts: { root: string; port: number }): Promise
   // Every 5 seconds: if the code this server loaded has changed, replace this process with a new one on the same root and port.
   const watch = restartWatch(running)
   let restarting = false
-  const newServerUp = async (version: string): Promise<boolean> => {
+  const newServerUp = async (): Promise<boolean> => {
     try {
       const res = await fetch(`http://127.0.0.1:${bound}/health`, { signal: AbortSignal.timeout(500) })
       const body = (await res.json()) as { root?: unknown; code?: unknown }
-      return body.root === root && body.code === version
+      // Any healthy server on newer code counts, so a second change during the wait doesn't roll back a good server.
+      return body.root === root && typeof body.code === 'string' && body.code !== running
     } catch {
       return false
     }
@@ -343,8 +344,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
     child.once('exit', () => (gone = true))
     child.unref()
     const deadline = Date.now() + 15_000
-    while (Date.now() < deadline && !gone && !(await newServerUp(version))) await new Promise((r) => setTimeout(r, 100))
-    if (!gone && (await newServerUp(version))) {
+    while (Date.now() < deadline && !gone && !(await newServerUp())) await new Promise((r) => setTimeout(r, 100))
+    if (!gone && (await newServerUp())) {
       const dash = readJson(join(agentDir, 'dashboard.json'), [agentDir]) as { environmentId?: unknown } | undefined
       writeJson(agentDir, 'dashboard.json', JSON.stringify({ pid: child.pid, port: bound, environmentId: dash?.environmentId }))
       process.exit(0)
@@ -352,6 +353,8 @@ export async function startServer(opts: { root: string; port: number }): Promise
     try {
       if (child.pid) process.kill(child.pid)
     } catch {}
+    // Let the child release the port before taking it back.
+    for (let i = 0; i < 20 && !gone; i++) await new Promise((r) => setTimeout(r, 100))
     try {
       await new Promise<void>((done, reject) => {
         server.once('error', reject)
