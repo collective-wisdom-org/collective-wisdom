@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 show agent spend on merged PRs in the dashboard (CW-209) (#211)
+
+Merged 2026-11-08 08:39 UTC.
+
+The dashboard's merged list now shows what the agents spent on each ticket, as cost and tokens. It only covers PRs that merge while the dashboard is running after this update; older ones show nothing. The dashboard now writes `.agent-team/spend.json` in the root checkout.
+
 ## 2026-11-08 send a conflict found at MERGE READY to the merge lane (CW-206) (#210)
 
 Merged 2026-11-08 08:38 UTC.
