@@ -1,7 +1,8 @@
 # CW-197: Compact the skills and role docs again, and move more logic into scripts
 
 **Ticket:** [CW-197](https://github.com/collective-wisdom-org/collective-wisdom/issues/197)
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #207, with differences: [as-built](../as-built/2026-11-08-cw-197-compact-skills-again-as-built.md)
 
 ## Goal
 

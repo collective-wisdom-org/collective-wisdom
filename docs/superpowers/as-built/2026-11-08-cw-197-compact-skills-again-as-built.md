@@ -1,6 +1,6 @@
 # As-built: compact the skills and role docs again, move more logic into scripts
 
-**Shipped:** in PR #TBD
+**Shipped:** in PR #207
 **Ticket:** CW-197
 **Spec:** [2026-11-08-cw-197-compact-skills-again-design.md](../specs/2026-11-08-cw-197-compact-skills-again-design.md)
 
