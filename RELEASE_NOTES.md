@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-08 overhaul the dashboard layout so it is easy to read (CW-195) (#203)
+
+Merged 2026-11-08 07:05 UTC.
+
+The dashboard page is reorganised: tickets waiting on your approval come first in a red or amber band, in-progress work follows, and queued and merged items are short rows. The Gantt is one compact row per agent, with its details on a muted line under the name and the same data as before. Nothing to do on your side.
+
 ## 2026-11-08 run the docs check once after the code and security reviews pass (CW-199) (#202)
 
 Merged 2026-11-08 07:04 UTC.
