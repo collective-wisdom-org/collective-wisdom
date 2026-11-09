@@ -94,7 +94,7 @@ After the PR exists, continue immediately to **Feedback loop**. Never merge or a
 
 ### Docs check
 
-A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `~/.collective-wisdom/docs/agents/documenter.md`. You apply the fixes. Run it with the `Agent` tool and `subagent_type: "documenter"`, in the foreground. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general Sonnet subagent with the prompt `Read ~/.collective-wisdom/docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs below.
+A read-only documenter subagent compares the living docs with the diff and reports what is stale. Its checklist is `~/.collective-wisdom/docs/agents/documenter.md`. You apply the fixes. Run it with the `Agent` tool and `subagent_type: "documenter"`, in the foreground. If that type isn't listed (the session started before `.claude/agents/documenter.md` existed), start a general subagent (Sonnet on Claude Code, `composer-2.5` on Cursor) with the prompt `Read ~/.collective-wisdom/docs/agents/documenter.md and follow it. Do not edit files.` plus the inputs below.
 
 It runs once per PR, after the code and security reviews both PASS (or the docs-only skip, or the combined `small` pass). Run it only when the PR has no `## Docs check` comment by the gh user (`~/.collective-wisdom/scripts/gh.sh pr view <N> --comments`). The exception: after a conflict resolution with `Review after conflict resolution` `on`, once both reviews pass on the resolved head, run it again when no `## Docs check` comment is newer than the resolved head commit. In `ci` review mode see § CI review mode.
 
@@ -167,7 +167,7 @@ By class:
 After each pass of the primary loop, run this when doing agent-led review (in addition to the loop's comment/CI work):
 
 - The review method (reading **reviewing-code**, reviewing the full diff vs base in the PR worktree) is in `~/.collective-wisdom/docs/agents/code-review.md`; the worktree checkout must be the PR head branch.
-- Run the review in a subagent, so it stays on Opus when the child builds on Sonnet: start it with the `Agent` tool and `subagent_type: "code-reviewer"`. If that type isn't listed (the session started before `.claude/agents/code-reviewer.md` existed), start a general Opus subagent with the prompt `Read ~/.collective-wisdom/docs/agents/code-review.md and follow it. Do not edit files.` plus the brief.
+- Run the review in a subagent, so it stays on Opus when the child builds on Sonnet: start it with the `Agent` tool and `subagent_type: "code-reviewer"`. If that type isn't listed (the session started before `.claude/agents/code-reviewer.md` existed), start a general subagent (Opus on Claude Code, `grok-4.7` on Cursor) with the prompt `Read ~/.collective-wisdom/docs/agents/code-review.md and follow it. Do not edit files.` plus the brief.
 - The review brief includes the ticket's Acceptance list (or its Scope bullets when there is no Acceptance list) and the PR body's `## Proof` section.
 - Post findings as a **PR issue comment** only: `~/.collective-wisdom/scripts/gh.sh pr comment <N> --body '…'` or `--body-file <path>`. Post each code review comment on the PR before you mention it in the thread, and keep the comment URL.
 - **Never** official GitHub PR review: no `gh pr review`, no approve, no request changes.
