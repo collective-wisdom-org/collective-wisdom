@@ -1,6 +1,7 @@
 # CW-260: Show ticket helpers on the dashboard Chief of Staff tab
 
-**Status:** Spec
+**Status:** Shipped
+**Shipped:** in PR #271, as specified
 **Ticket:** [#260](https://github.com/collective-wisdom-org/collective-wisdom/issues/260)
 
 ## Goal
