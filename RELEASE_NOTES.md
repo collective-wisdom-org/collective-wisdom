@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-09 include Cursor sessions in the usage and cost report (CW-257) (#269)
+
+Merged 2026-11-09 03:51 UTC.
+
+The usage and cost report now counts work done in Cursor, priced like Claude Code work. If a Cursor run used a model with no price in `prices.json`, the ticket's cost shows as unknown, and a No Hands run stops on it and names the ticket.
+
+Context size: 86223 to 86520 characters (+297 from main)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-09 let tag-release.sh cut minor release versions (CW-259) (#268)
 
 Merged 2026-11-09 02:29 UTC.
