@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { groupLabel, stageSentence, riskText, dayWords, actionFor, esc, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -454,4 +454,66 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   const drawn = []
   drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
   assert.deepEqual(drawn, [['s2', true], ['chief', true]])
+})
+
+test('group labels use plain words and leave an unknown name as it is', () => {
+  const table = [
+    ['Awaiting merge approval', 'Ready to merge'],
+    ['Awaiting build approval', 'Spec ready to build'],
+    ['Awaiting teammate review', 'In review'],
+    ['Merging', 'Merging'],
+    ['Queued to merge', 'Waiting to merge'],
+    ['Speccing', 'Writing the spec'],
+    ['Building', 'Building'],
+    ['Queued to build', 'Waiting to build'],
+    ['Other', 'Blocked or waiting'],
+    ['<b>x</b>', '<b>x</b>'],
+  ]
+  for (const [name, label] of table) assert.equal(groupLabel(name), label)
+})
+
+test('stage sentences are plain words; an unknown stage shows its slug spaced', () => {
+  const table = [
+    ['awaiting-merge', 'Waiting for your merge approval'],
+    ['awaiting-build', 'Spec is waiting for your approval'],
+    ['blocked', 'Blocked. Needs an answer from you'],
+    ['awaiting-review', "Waiting for a teammate's review"],
+    ['merge', 'Merging now'],
+    ['merge-queued', 'Waiting for a merge slot'],
+    ['spec', 'Writing the spec'],
+    ['spec-queued', 'Waiting for a spec slot'],
+    ['build', 'Building'],
+    ['build-queued', 'Waiting for a build slot'],
+    ['some-new-stage', 'some new stage'],
+  ]
+  for (const [stage, text] of table) assert.equal(stageSentence(stage), text)
+})
+
+test('risk shows as plain text and never doubles the word risk', () => {
+  const table = [['Low (small change)', 'low risk'], ['Medium', 'medium risk'], ['HIGH', 'high risk'], ['not rated yet', 'not rated yet'], ['', 'not rated yet'], ['unclear', 'not rated yet'], [undefined, 'not rated yet']]
+  for (const [risk, text] of table) assert.equal(riskText(risk), text)
+})
+
+test('day words say today, yesterday or the date', () => {
+  const now = new Date(2026, 10, 8, 15, 0).getTime()
+  const table = [
+    [new Date(2026, 10, 8, 9, 0).getTime(), 'today'],
+    [new Date(2026, 10, 7, 23, 0).getTime(), 'yesterday'],
+    [new Date(2026, 10, 5, 12, 0).getTime(), '2026-11-05'],
+    [NaN, ''],
+    [undefined, ''],
+  ]
+  for (const [ms, text] of table) assert.equal(dayWords(ms, now), text)
+})
+
+test('the action link depends on the stage and needs an http(s) url', () => {
+  const urls = { prUrl: 'https://x/pr/1', specUrl: 'https://x/spec', issueUrl: 'https://x/issues/2' }
+  assert.deepEqual(actionFor({ stage: 'awaiting-merge', ...urls }), { label: 'Open PR', url: 'https://x/pr/1' })
+  assert.deepEqual(actionFor({ stage: 'awaiting-build', ...urls }), { label: 'Open spec', url: 'https://x/spec' })
+  assert.deepEqual(actionFor({ stage: 'blocked', ...urls }), { label: 'Open issue', url: 'https://x/issues/2' })
+  for (const bad of [undefined, '', 'javascript:alert(1)', 'ftp://x']) {
+    assert.equal(actionFor({ stage: 'awaiting-merge', prUrl: bad }), null)
+  }
+  assert.equal(actionFor({ stage: 'build', ...urls }), null)
+  assert.equal(actionFor({}), null)
 })

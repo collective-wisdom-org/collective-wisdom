@@ -32,6 +32,66 @@ const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queue
 
 const stageWords = (stage) => STAGE_WORDS.get(stage) ?? stage.replace(/-/g, ' ')
 
+const GROUP_LABELS = new Map([
+  ['Awaiting merge approval', 'Ready to merge'],
+  ['Awaiting build approval', 'Spec ready to build'],
+  ['Awaiting teammate review', 'In review'],
+  ['Merging', 'Merging'],
+  ['Queued to merge', 'Waiting to merge'],
+  ['Speccing', 'Writing the spec'],
+  ['Building', 'Building'],
+  ['Queued to build', 'Waiting to build'],
+  ['Other', 'Blocked or waiting'],
+])
+/** The label shown for an API group name; an unknown name is returned as it is (the caller escapes it). */
+export const groupLabel = (name) => GROUP_LABELS.get(name) ?? name
+
+const STAGE_SENTENCES = new Map([
+  ['awaiting-merge', 'Waiting for your merge approval'],
+  ['awaiting-build', 'Spec is waiting for your approval'],
+  ['blocked', 'Blocked. Needs an answer from you'],
+  ['awaiting-review', "Waiting for a teammate's review"],
+  ['merge', 'Merging now'],
+  ['merge-queued', 'Waiting for a merge slot'],
+  ['spec', 'Writing the spec'],
+  ['spec-queued', 'Waiting for a spec slot'],
+  ['build', 'Building'],
+  ['build-queued', 'Waiting for a build slot'],
+])
+/** One plain sentence for where a ticket stands; an unknown stage shows its slug with spaces. */
+export const stageSentence = (stage) => STAGE_SENTENCES.get(String(stage ?? '')) ?? stageWords(String(stage ?? ''))
+
+/** `low risk`, `medium risk` or `high risk` from the first word of the risk text; anything else is `not rated yet`. */
+export const riskText = (risk) => {
+  const w = /^[a-z]+/.exec(String(risk ?? '').trim().toLowerCase())
+  return w && ['low', 'medium', 'high'].includes(w[0]) ? `${w[0]} risk` : 'not rated yet'
+}
+
+/** `today`, `yesterday` or `YYYY-MM-DD` for a local date; empty for a time that is not a number. */
+export function dayWords(ms, now) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return ''
+  const day = (t) => {
+    const d = new Date(t)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  }
+  const diff = Math.round((day(now) - day(ms)) / 86_400_000)
+  if (diff === 0) return 'today'
+  if (diff === 1) return 'yesterday'
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`
+}
+
+const ACTIONS = new Map([
+  ['awaiting-merge', ['Open PR', 'prUrl']],
+  ['awaiting-build', ['Open spec', 'specUrl']],
+  ['blocked', ['Open issue', 'issueUrl']],
+])
+/** The one action a ticket that needs the user offers, or null when the stage has none or its url is not http(s). */
+export function actionFor(r) {
+  const a = ACTIONS.get(r?.stage)
+  return a && isHttp(r[a[1]]) ? { label: a[0], url: r[a[1]] } : null
+}
+
 const list = (x) => (Array.isArray(x) ? x.filter((e) => typeof e === 'object' && e !== null) : [])
 
 const MARKER = /^( *)([-*+]|\d{1,9}[.)])\s+(\S.*)$/
