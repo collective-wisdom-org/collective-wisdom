@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 install Cursor-valid copies of the team subagents (CW-255) (#265)
+
+Merged 2026-11-09 02:07 UTC.
+
+On Cursor, the team subagents now install into `~/.cursor/agents` with Cursor's own settings, and the three reviewers are marked read only (not yet run in Cursor). Rerun `./install.sh`. If you already have your own `~/.cursor/agents/implementer.md`, it is kept and wins over the team's.
+
 ## 2026-11-09 run the security review on Cursor without review-security (CW-254) (#263)
 
 Merged 2026-11-09 01:53 UTC.
