@@ -65,4 +65,4 @@ The dashboard's Chief of Staff tab gets a second list, **Ticket helpers**, under
 
 `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts` and `python3 -I -m pytest -q agent-team/scripts` pass.
 
-Proved by hand in the PR: a dashboard run from the worktree shows a ticket helper on the Chief of Staff tab while it runs, with a running badge, thread link and gantt, and it stays in the list as finished after it ends.
+Proved in the PR by the tests above. A hand run of the dashboard with a live helper is listed under the PR's Not proven.

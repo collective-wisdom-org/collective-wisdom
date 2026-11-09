@@ -133,7 +133,7 @@ export function cleanTeamSnapshot(s: unknown, now: number): { session: Session; 
   return { open: got.open, session: { ...got.session, threadId: cleanThreadId(s.threadId), heading } }
 }
 
-/** The chief of staff, a project manager child, or null for any other session. The chief is matched by state; project manager children by heading. */
+/** The chief of staff, a project manager child, a ticket helper, or null for any other session. The chief is matched by state; the others by heading. */
 export function teamRole(session: Session, state: unknown): 'chief' | TeamRole | null {
   const st = isObj(state) ? state : {}
   if ((typeof st.chiefSessionId === 'string' && st.chiefSessionId && session.sessionId === st.chiefSessionId) || (typeof st.chiefThreadId === 'string' && st.chiefThreadId && session.threadId === st.chiefThreadId)) return 'chief'
