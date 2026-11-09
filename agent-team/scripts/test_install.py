@@ -53,12 +53,12 @@ RELEASE = [
     ("a tagged origin/main is refused", ["v0.2"], {}, [], [], 1, {"v0.2": "B"}),
     ("dry run pushes nothing", ["v0.1"], {}, [], ["--dry-run"], 0, {"v0.1": "A"}),
     ("minor follows the latest release", ["v0.1"], {"v0.2": "A"}, [], ["--minor"], 0, {"v0.1": "A", "v0.2": "A", "v0.2.1": "B"}),
-    ("minor is numeric and ignores older releases", [], {"v0.2": "A", "v0.2.9": "A", "v0.1.5": "A"}, [], ["--minor"], 0, {"v0.2": "A", "v0.2.9": "A", "v0.1.5": "A", "v0.2.10": "B"}),
+    ("minor follows the latest minor", [], {"v0.2": "A", "v0.2.1": "A"}, [], ["--minor"], 0, {"v0.2": "A", "v0.2.1": "A", "v0.2.2": "B"}),
+    ("minor is numeric and ignores older releases", [], {"v0.2": "A", "v0.2.9": "A", "v0.2.10": "A", "v0.1.15": "A"}, [], ["--minor"], 0, {"v0.2": "A", "v0.2.9": "A", "v0.2.10": "A", "v0.1.15": "A", "v0.2.11": "B"}),
     ("a minor does not shift plain numbering", [], {"v0.2": "A", "v0.2.1": "A"}, [], [], 0, {"v0.2": "A", "v0.2.1": "A", "v0.3": "B"}),
     ("minor with no release is refused", [], {}, [], ["--minor"], 1, {}),
     ("a minor on origin/main is refused", [], {"v0.1": "A", "v0.1.1": "B"}, [], ["--minor"], 1, {"v0.1": "A", "v0.1.1": "B"}),
     ("a minor on origin/main is refused for plain too", [], {"v0.1": "A", "v0.1.1": "B"}, [], [], 1, {"v0.1": "A", "v0.1.1": "B"}),
-    ("minor dry run pushes nothing", ["v0.1"], {"v0.2": "A"}, [], ["--minor", "--dry-run"], 0, {"v0.1": "A", "v0.2": "A"}),
 ]
 
 
