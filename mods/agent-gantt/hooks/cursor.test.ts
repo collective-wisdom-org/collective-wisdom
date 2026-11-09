@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+
+import { applyEvent, cursorSnapshot, emptyState, hookOutput } from './cursor.ts'
+import type { CursorPayload } from './cursor.ts'
+
+const base = { conversation_id: 'c1', model: 'claude-sonnet-4', workspace_roots: ['/w/app'] }
+const ev = (name: string, extra: Partial<CursorPayload> = {}): CursorPayload => ({ ...base, hook_event_name: name, ...extra })
+const prompt = (text: string) => ev('beforeSubmitPrompt', { prompt: text })
+const sub = (id: string, task: string, model = 'gpt-5') => ev('subagentStart', { subagent_id: id, subagent_type: 'explore', task, subagent_model: model })
+const subStop = (task: string, duration_ms = 0) => ev('subagentStop', { subagent_type: 'explore', task, duration_ms })
+
+type Want = [depth: number, name: string, start: number, end: number | null, segments: [number, number | null][], model: string | null]
+
+test('cursor events become the rows the dashboard draws', () => {
+  const cases: [string, [CursorPayload, number][], Want[]][] = [
+    ['prompt then stop', [[prompt('Fix the build'), 10], [ev('stop'), 50]], [[1, 'Fix the build', 10, 50, [[10, 50]], 'sonnet-4']]],
+    ['two prompts', [[prompt('one'), 10], [ev('stop'), 20], [prompt('two'), 30], [ev('stop'), 40]], [
+      [1, 'one', 10, 20, [[10, 20]], 'sonnet-4'],
+      [1, 'two', 30, 40, [[30, 40]], 'sonnet-4'],
+    ]],
+    ['each task keeps the model it began with', [[prompt('one'), 10], [ev('stop'), 20], [{ ...prompt('two'), model: 'gpt-5' }, 30], [{ ...ev('stop'), model: 'gpt-5' }, 40]], [
+      [1, 'one', 10, 20, [[10, 20]], 'sonnet-4'],
+      [1, 'two', 30, 40, [[30, 40]], 'gpt-5'],
+    ]],
+    ['subagent inside a task', [[prompt('go'), 10], [sub('s1', 'look around'), 20], [subStop('look around'), 30], [ev('stop'), 40]], [
+      [1, 'go', 10, 40, [[10, 40]], 'sonnet-4'],
+      [2, 'look around', 20, 30, [[20, 30]], 'gpt-5'],
+    ]],
+    ['stop with no start', [[prompt('go'), 100], [subStop('late', 40), 90], [ev('stop'), 120]], [
+      [1, 'go', 100, 120, [[100, 120]], 'sonnet-4'],
+      [2, 'late', 50, 90, [[50, 90]], null],
+    ]],
+    ['parallel subagents stop in order', [[prompt('go'), 10], [sub('a', 'same'), 20], [sub('b', 'same'), 25], [subStop('same'), 30], [subStop('same'), 35], [ev('stop'), 40]], [
+      [1, 'go', 10, 40, [[10, 40]], 'sonnet-4'],
+      [2, 'same', 20, 30, [[20, 30]], 'gpt-5'],
+      [2, 'same', 25, 35, [[25, 35]], 'gpt-5'],
+    ]],
+    ['session end with a span open', [[prompt('go'), 10], [sub('a', 'work'), 20], [ev('sessionEnd'), 60]], [
+      [1, 'go', 10, 60, [[10, 60]], 'sonnet-4'],
+      [2, 'work', 20, 60, [[20, 60]], 'gpt-5'],
+    ]],
+    ['unknown event and missing id change nothing', [[prompt('go'), 10], [ev('preToolUse'), 15], [{ ...ev('stop'), conversation_id: undefined }, 20]], [
+      [1, 'go', 10, null, [[10, null]], 'sonnet-4'],
+    ]],
+  ]
+  for (const [name, events, want] of cases) {
+    const state = events.reduce((s, [p, t]) => applyEvent(s, p, t), emptyState())
+    const snap = JSON.parse(cursorSnapshot(state, base, 999, 'th:1'))
+    const got = snap.rows.map((r: any) => [r.depth, r.name, r.start, r.end, r.segments, r.model])
+    assert.deepEqual(got, want, name)
+    for (const r of snap.rows) assert.deepEqual([r.harness, r.tokens, r.cost, r.repo], ['Cursor', 0, null, 'app'], name)
+    assert.deepEqual([snap.sessionId, snap.cwd, snap.updatedAt, snap.total, snap.threadId], ['c1', '/w/app', 999, null, 'th:1'], name)
+  }
+})
+
+test('the heading comes from the first prompt only', () => {
+  const state = [prompt('BACKLOG RANKING. Rank it.'), prompt('TEAM MODE. later')].reduce((s, p, i) => applyEvent(s, p, i * 10), emptyState())
+  assert.equal(JSON.parse(cursorSnapshot(state, base, 1, null)).heading, 'BACKLOG RANKING')
+})
+
+test('hookOutput never blocks and answers only the events Cursor reads', () => {
+  const cases: [string, string][] = [
+    ['subagentStart', '{"permission":"allow"}'],
+    ['beforeSubmitPrompt', '{"continue":true}'],
+    ['sessionStart', ''],
+    ['stop', ''],
+    ['subagentStop', ''],
+    ['sessionEnd', ''],
+  ]
+  for (const [event, want] of cases) assert.equal(hookOutput(event), want, event)
+})

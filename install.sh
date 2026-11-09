@@ -56,9 +56,10 @@ mprune() {
   done
 }
 
-# mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command; mode cursor-hook for Cursor's
-# hooks.json) or the instruction block (mode block, arg = template file) into a user file, or write the whole Cursor rule file
-# (mode rule, arg = template file). Prints one status word; writes through a temp file and rename.
+# mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command), Cursor's hooks (mode cursor-hook, arg = one
+# entry per line, event|marker|timeout|before|command, timeout and before may be empty) or the instruction block (mode
+# block, arg = template file) into a user file, or write the whole Cursor rule file (mode rule, arg = template file).
+# Prints one status word (cursor-hook: then the events it added); writes through a temp file and rename.
 mpython() {
   python3 -I - "$1" "$2" "$3" "$DRY" <<'PY'
 import json, os, sys, tempfile
@@ -83,7 +84,8 @@ def write(text):
         raise
 
 
-def hook(cursor=False):
+def load_json():
+    """(existed, data), or None when the file is not a JSON object."""
     existed = os.path.exists(path)
     data = {}
     if existed:
@@ -91,21 +93,58 @@ def hook(cursor=False):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (ValueError, OSError):
-            return "invalid"
+            return None
         if not isinstance(data, dict):
-            return "invalid"
+            return None
+    return existed, data
+
+
+def hook():
+    loaded = load_json()
+    if loaded is None:
+        return "invalid"
+    existed, data = loaded
     if "cos_rotation_check.py" in json.dumps(data.get("hooks")):
         return "present"
     hooks = data.setdefault("hooks", {})
-    stop = hooks.setdefault("stop" if cursor else "Stop", []) if isinstance(hooks, dict) else None
+    stop = hooks.setdefault("Stop", []) if isinstance(hooks, dict) else None
     if not isinstance(stop, list):
         return "invalid"
-    stop.append({"command": arg} if cursor else {"hooks": [{"type": "command", "command": arg}]})
-    if cursor and "version" not in data:
-        data = {"version": 1, **data}
+    stop.append({"hooks": [{"type": "command", "command": arg}]})
     if not dry:
         write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return "added" if existed else "created"
+
+
+def cursor_hook():
+    """Adds each entry whose event list does not mention its marker. An entry with `before` goes ahead of the first hook that mentions it."""
+    loaded = load_json()
+    if loaded is None:
+        return "invalid"
+    existed, data = loaded
+    hooks = data.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        return "invalid"
+    added = []
+    for line in arg.splitlines():
+        event, marker, timeout, before, command = line.split("|", 4)
+        events = hooks.setdefault(event, [])
+        if not isinstance(events, list):
+            return "invalid"
+        if marker in json.dumps(events):
+            continue
+        entry = {"command": command, **({"timeout": int(timeout)} if timeout else {})}
+        at = next((i for i, h in enumerate(events) if before and before in json.dumps(h)), len(events))
+        events.insert(at, entry)
+        if event not in added:
+            added.append(event)
+    if not added:
+        return "present"
+    if "version" not in data:
+        data = {"version": 1, **data}
+    if not dry:
+        write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    return ("added " if existed else "created ") + ", ".join(added)
 
 
 def block():
@@ -156,7 +195,7 @@ def block_merge(block, old, existed):
     return "updated" if b >= 0 else ("added" if existed else "created")
 
 
-print({"hook": hook, "cursor-hook": lambda: hook(True), "block": block, "rule": rule}[mode]())
+print({"hook": hook, "cursor-hook": cursor_hook, "block": block, "rule": rule}[mode]())
 PY
 }
 
@@ -164,7 +203,7 @@ machine_install() {
   MCHANGED=0
   MTODOS=()
   msay() { if [ "$DRY" -eq 1 ]; then echo "[dry-run] $*"; else echo "$*"; fi; }
-  local ROOT TOP gitdir common sha tag s a p status f
+  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd item stop_first stop_second
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   MCLONE="$ROOT"
   { [ -n "${HOME:-}" ] && [ -d "$HOME" ]; } || { echo "Refusing: HOME is not set to a folder." >&2; exit 1; }
@@ -216,10 +255,31 @@ machine_install() {
   esac
 
   # shellcheck disable=SC2016  # $HOME is expanded when the hook runs, not now
-  status="$(mpython cursor-hook "$HOME/.cursor/hooks.json" 'python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true')"
+  cursor_entries="$(printf '%s\n' \
+    'stop|cos_rotation_check.py|||python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true' \
+    'sessionStart|cursor_gantt_hook.ts|5||node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"' \
+    'beforeSubmitPrompt|cursor_gantt_hook.ts|5||node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"' \
+    'stop|cursor_gantt_hook.ts|5|cos_rotation_check.py|node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"' \
+    'subagentStart|cursor_gantt_hook.ts|5||node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"' \
+    'subagentStop|cursor_gantt_hook.ts|5||node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"' \
+    'sessionEnd|cursor_gantt_hook.ts|5||node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"')"
+  status="$(mpython cursor-hook "$HOME/.cursor/hooks.json" "$cursor_entries")"
   case "$status" in
-    added|created) msay "$status  ~/.cursor/hooks.json (stop hook)"; MCHANGED=$((MCHANGED + 1)) ;;
-    invalid) MTODOS+=("Add the Chief of Staff stop hook to ~/.cursor/hooks.json by hand (the file is not a JSON object with a list under hooks.stop, so it was left alone): under hooks.stop add  {\"command\": \"python3 -I \\\"\$HOME/.collective-wisdom/scripts/cos_rotation_check.py\\\" --hook || true\"}") ;;
+    added*|created*) msay "${status%% *}  ~/.cursor/hooks.json (${status#* })"; MCHANGED=$((MCHANGED + 1)) ;;
+    invalid)
+      todo="Add the Chief of Staff and gantt hooks to ~/.cursor/hooks.json by hand (the file is not a JSON object with lists under hooks, so it was left alone):"
+      stop_first=""; stop_second=""
+      while IFS='|' read -r ev _ timeout _ cmd; do
+        item="{\"command\": \"${cmd//\"/\\\"}\"${timeout:+, \"timeout\": $timeout}}"
+        # The gantt stop entry goes before the rotation one, so the rotation hook's follow-up is the one Cursor keeps.
+        if [ "$ev" = stop ]; then
+          case "$cmd" in *cursor_gantt_hook.ts*) stop_first="$item" ;; *) stop_second="$item" ;; esac
+        else
+          todo+=" under hooks.$ev add $item;"
+        fi
+      done <<<"$cursor_entries"
+      todo+=" under hooks.stop add, in this order, $stop_first then $stop_second;"
+      MTODOS+=("$todo") ;;
   esac
 
   for f in .claude/CLAUDE.md .codex/AGENTS.md; do

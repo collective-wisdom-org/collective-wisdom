@@ -96,14 +96,27 @@ def test_settings_merge(world, name, text, keys, count, todo):
 
 
 CMD = 'python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true'
+GANTT = {"command": 'node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"', "timeout": 5}
 OTHER = {"command": "echo hi", "timeout": 5}
+OLD = {"command": f"python3 x/{HOOK}"}
+GANTT_EVENTS = ["sessionStart", "beforeSubmitPrompt", "subagentStart", "subagentStop", "sessionEnd"]
+
+
+def cursor_file(stop, **others):
+    """The hooks.json a full run gives: the gantt entry on each of its events, `stop` as given."""
+    return {"version": 1, "hooks": {**{e: [GANTT] for e in GANTT_EVENTS}, **others, "stop": stop}}
+
+
 # name, ~/.cursor/hooks.json before (None: absent; a str is written as is), the file after a run and after a second run (None: left as it was, with a TODO)
 CURSOR_HOOKS = [
-    ("missing", None, {"version": 1, "hooks": {"stop": [{"command": CMD}]}}),
+    ("missing: the gantt stop entry goes before the rotation one", None, cursor_file([GANTT, {"command": CMD}])),
     ("other hooks and keys survive", {"version": 1, "extra": 1, "hooks": {"stop": [OTHER], "beforeShellExecution": [OTHER]}},
-     {"version": 1, "extra": 1, "hooks": {"stop": [OTHER, {"command": CMD}], "beforeShellExecution": [OTHER]}}),
-    ("already there", {"version": 1, "hooks": {"stop": [{"command": f"python3 x/{HOOK}"}]}}, {"version": 1, "hooks": {"stop": [{"command": f"python3 x/{HOOK}"}]}}),
-    ("no version gets 1", {"hooks": {}}, {"version": 1, "hooks": {"stop": [{"command": CMD}]}}),
+     {**cursor_file([OTHER, GANTT, {"command": CMD}], beforeShellExecution=[OTHER]), "extra": 1}),
+    ("only the old rotation hook: the gantt entries join, stop before it", {"version": 1, "hooks": {"stop": [OLD]}}, cursor_file([GANTT, OLD])),
+    ("all there", cursor_file([GANTT, OLD]), cursor_file([GANTT, OLD])),
+    ("an event already marked is left alone", {"version": 1, "hooks": {"sessionStart": [OLD | {"command": "node x/cursor_gantt_hook.ts"}], "stop": [OLD]}},
+     cursor_file([GANTT, OLD], sessionStart=[OLD | {"command": "node x/cursor_gantt_hook.ts"}])),
+    ("no version gets 1", {"hooks": {}}, cursor_file([GANTT, {"command": CMD}])),
     ("not an object", "[1]", None),
     ("stop is not a list", {"hooks": {"stop": {}}}, None),
 ]
@@ -119,7 +132,8 @@ def test_cursor_hooks_merge_once(world, name, before, after):
     for _ in range(2):  # a rerun adds nothing
         rc, out = install(cw, home)
         assert rc == 0, out
-        assert ("stop hook to ~/.cursor/hooks.json by hand" in out) == (after is None)
+        assert ("hooks to ~/.cursor/hooks.json by hand" in out) == (after is None)
+        assert ("hooks.stop add, in this order, {\"command\": \"node " in out) == (after is None)  # the gantt stop entry goes before the rotation one
         if after is None:
             assert f.read_text() == before if isinstance(before, str) else json.loads(f.read_text()) == before
         else:
