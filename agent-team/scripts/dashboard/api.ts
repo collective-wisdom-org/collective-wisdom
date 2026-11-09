@@ -7,7 +7,7 @@ import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
 export type Snapshot = { sessionId: string; cwd: string; updatedAt: number; total: number | null; pricing: number | null; rows: SnapshotRow[] }
 export type Session = { sessionId: string; cwd: string; updatedAt: number; stale: boolean; total: number | null; pricing: number | null; rows: SnapshotRow[]; threadId?: string | null; heading?: string | null }
-export type TeamRole = 'ranking' | 'hygiene'
+export type TeamRole = 'ranking' | 'hygiene' | 'helper'
 type TeamState = 'running' | 'idle' | 'paused'
 type PmRow = { sessionId: string; role: TeamRole; state: 'running' | 'finished'; threadLink?: string; gantt: Session[] }
 type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail }
@@ -18,6 +18,7 @@ export type Api = {
   merged: MergedEntry[]
   chief: { state: TeamState; threadLink?: string; gantt?: Session[] }
   pm: PmRow[]
+  helpers: PmRow[]
 }
 type Repo = { url: string; isGithubIssues: boolean }
 
@@ -30,7 +31,7 @@ const KINDS = ['session', 'task', 'agent']
 const RUNNING_MS = 60_000
 const THREAD_MAX = 200
 const HEADING_MAX = 40
-const HEADINGS: Record<string, TeamRole> = { 'BACKLOG RANKING': 'ranking', 'PROJECT MANAGER HYGIENE': 'hygiene' }
+const HEADINGS: Record<string, TeamRole> = { 'BACKLOG RANKING': 'ranking', 'PROJECT MANAGER HYGIENE': 'hygiene', 'TICKET HELPER': 'helper' }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const str = (x: unknown): string => (typeof x === 'string' ? x : '')
@@ -134,7 +135,7 @@ export function cleanTeamSnapshot(s: unknown, now: number): { session: Session; 
   return { open: got.open, cursor: got.cursor, session: { ...got.session, threadId: cleanThreadId(s.threadId), heading } }
 }
 
-/** The chief of staff, a project manager child, or null for any other session. The chief is matched by state; project manager children by heading. */
+/** The chief of staff, a project manager child, a ticket helper, or null for any other session. The chief is matched by state; the others by heading. */
 export function teamRole(session: Session, state: unknown): 'chief' | TeamRole | null {
   const st = isObj(state) ? state : {}
   if ((typeof st.chiefSessionId === 'string' && st.chiefSessionId && session.sessionId === st.chiefSessionId) || (typeof st.chiefThreadId === 'string' && st.chiefThreadId && session.threadId === st.chiefThreadId)) return 'chief'
@@ -266,5 +267,5 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       if (threadLink) row.threadLink = threadLink
       return row
     })
-  return { generatedAt: now, status, merged: merged.map(withExtras), chief, pm: pmRows }
+  return { generatedAt: now, status, merged: merged.map(withExtras), chief, pm: pmRows.filter((r) => r.role !== 'helper'), helpers: pmRows.filter((r) => r.role === 'helper') }
 }
