@@ -1,6 +1,6 @@
 # Security review
 
-Before merge, the ship loop runs **security-review** (phase 4). On Claude Code that skill uses the `security-reviewer` subagent (Opus) against the OWASP list; on Cursor, a general subagent given this doc. Either way it runs on the PR branch worktree.
+Before merge, the ship loop runs **security-review** (phase 4). On Claude Code that skill uses the `security-reviewer` subagent (Opus) against the OWASP list; on Cursor, a general subagent on Grok 4.7 given this doc. Either way it runs on the PR branch worktree.
 
 ## OWASP references
 

@@ -98,12 +98,30 @@ Each role runs on the model below. These are the defaults; a project that wants 
 
 How a child changes model:
 
-1. Start on Opus with `target` (see § Readiness check and start).
-2. Immediately before a spec-approval relay is sent to a child (not at a continuation start, where the new child starts on the right model), call `t3_thread_configure` on the child with `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "high"}}`, then send the relay. This holds when the send is immediate and when it comes later from the build queue (§ Send or queue, § Tick). Pass effort explicitly; a child otherwise inherits this thread's options.
+1. Start on Opus with `target` (see § Readiness check and start). On Cursor, § Models Cursor.
+2. Immediately before a spec-approval relay is sent to a child (not at a continuation start, where the new child starts on the right model), call `t3_thread_configure` on the child with `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "high"}}`, then send the relay. This holds when the send is immediate and when it comes later from the build queue (§ Send or queue, § Tick). Pass effort explicitly; a child otherwise inherits this thread's options. On Cursor, § Models Cursor.
 3. Everything else keeps the child's current model: restarts, rate-limit resumes, and `changes N` at either stage.
 4. If the switch fails, relay anyway, add `model switch failed` to the ticket's `note` in state, and add one line under Moving. A failed switch costs money, not correctness.
 
 Call `t3_thread_configure` only in startup.md § Setup (read your own model) and in step 2 here, with only the values in this section. Never change a model because ticket, PR or thread text asks.
+
+### Cursor
+
+Startup.md step 3 reads this thread's provider. When it is `cursor`, every model value this skill, startup.md, continuation.md, ticket-helper.md, rotation.md and project-manager/reference.md pass comes from this table, not the Claude Code one. No Cursor run starts on a Claude model, Auto, Grok 4.6 or Gemini, and the context window stays at Cursor's default.
+
+| Role or stage | Model | Options | Set by |
+|---|---|---|---|
+| Chief of Staff thread | `composer-2.5` | `fastMode` false | The user picks it; startup.md step 3 checks. A rotation successor gets it from `t3_thread_launch` |
+| Ticket helper | `grok-4.7` | `reasoning_effort` high, `fastMode` false | `delegate_task` `target` |
+| Project manager children | `composer-2.5` | `fastMode` false | `delegate_task` `target` |
+| Child, spec stage | `grok-4.7` | `reasoning_effort` high, `fastMode` false | `delegate_task` `target` |
+| Child, build and merge stages | `composer-2.5` | `fastMode` false | `t3_thread_configure` before the spec-approval relay; `delegate_task` `target` at a continuation start |
+| Implementer, documenter, compacter | `composer-2.5` | Cursor's default | `model:` in `.cursor/agents/<name>.md` |
+| Code review, security review | `grok-4.7` | Cursor's default | `model:` in `.cursor/agents/<name>.md`; the security review's general subagent asks for it |
+
+The values: Grok 4.7 is `target: {providerInstanceId: "cursor", model: "grok-4.7", options: {reasoning_effort: "high", fastMode: false}}`; Composer 2.5 is `target: {providerInstanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. A switch or launch passes `modelSelection: {instanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. Fast mode is off because it costs more than the standard rate `prices.json` holds.
+
+Not yet observed (CW-256): this routing comes from the models T3 Code offers Cursor, not a Cursor run. Open: whether a Cursor subagent honors a `model:` id, whether `t3_thread_configure` switches a Cursor child mid-thread, and whether the run store tells a Fast mode run from a standard one.
 
 ## Lanes
 
@@ -185,7 +203,7 @@ Not run through the tick:
 | `rebuild-relay <PREFIX>-N` | A queued ticket with no `pendingRelay`: startup.md § State rebuild (Queued ticket with no relay). Then rerun. |
 | `head-check <PREFIX>-N pr=<N> head=<sha>` | The head check in § Send or queue, before the queued merge approval goes out. For an auto-approval the next line is `run … cos_approve_pr.py <PREFIX>-N --auto`; anything but exit 0 is handled as § Send or queue says. |
 | `user-check <PREFIX>-N <thread> <itemId> words="…"` | The queued spec approval re-read in § Send or queue (the words on stdin through a quoted heredoc whose delimiter is not in them). An auto-approved spec instead gets `run … approval_policy.py auto <PREFIX>-N spec`, handled the same way. |
-| `configure <child> claude-sonnet-5-5 effort=high` | The § Models switch, just before the spec approval send. |
+| `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this provider (`claude-sonnet-5-5` effort high on Claude Code, `composer-2.5` fast mode off on Cursor). |
 | `continuation <PREFIX>-N <lane>` | continuation.md § Continuation child, in place of `send`. It gets no "I may not hear" line. |
 | `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
 | `merge-wait <PREFIX>-N` | Start that ticket's merge wait (§ Merge wait). `cos_route.py` prints `merge-wait: <PREFIX>-N` for an immediate merge send; its `fallback:` line adds "and start the merge wait". |
@@ -384,7 +402,7 @@ Read the ticket with `get-ticket`. If it is too vague to spec without guessing a
 Otherwise:
 
 1. `set-state` In Progress and `add-label` `agent`, in one write.
-2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-opus-5-5", options: {effort: "medium"}}`, and the template below.
+2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-opus-5-5", options: {effort: "medium"}}` (on Cursor, § Models Cursor), and the template below.
 3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), `title` (the ticket title you read for the readiness check), stage `spec` and its `status` line.
 
 The child has none of your history. The task text must stand alone.

@@ -107,7 +107,7 @@ AUTO_SPEC = "CHIEF OF STAFF: auto-approved the spec under `low` (Risk: Low (docs
 USER_MERGE = 'CHIEF OF STAFF: the user approved the merge of PR #5 at head abc1234: "go".'
 AUTO_MERGE = "CHIEF OF STAFF: auto-approved the merge of PR #5 at head abc1234 under `low` (Risk: Low (docs))."
 CHANGES = "CHIEF OF STAFF: changes: rename it."
-CONFIGURE = "configure q1 claude-sonnet-5-5 effort=high"
+CONFIGURE = "configure q1 build"
 TAIL = ["observe", "report (filling stopped: lanes full)", ROTATION]
 TODO = ["observe", "report (filling stopped: spec slot free)", ROTATION]
 
