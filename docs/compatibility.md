@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-09.
+Last checked against the code on 2026-11-08.
 
 ## Legend
 
@@ -96,7 +96,7 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. Ticket: none yet.
 - **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
 - **G3.** No recorded Cursor run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
-- **G4.** Subagents are proven only in Claude Code. Cursor loads Cursor-valid copies from `~/.cursor/agents`, but no Cursor run is recorded. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so Codex and Antigravity still work that way, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
+- **G4.** Subagents are proven only in Claude Code. Per Cursor's docs, Cursor loads Cursor-valid copies from `~/.cursor/agents`, but no Cursor run is recorded: the Cursor agent CLI was not logged in. Whether `readonly` also stops a reviewer's MCP write tools is unchecked. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so Codex and Antigravity still work that way, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
 - **G5 and G6** are retired. Their numbers are not reused.
 - **G7.** The rotation Stop hook is installed for Claude Code only. Codex, Cursor and Antigravity get no hook. Ticket: none yet.
 - **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex, Cursor or Antigravity work. Ticket: none yet.

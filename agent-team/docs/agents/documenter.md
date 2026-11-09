@@ -25,7 +25,7 @@ The child passes:
 4. **Spec links.** The spec's `**Shipped:**` line names this PR, and its as-built link (if any) resolves to a file in the tree. The spec's `**Status:**` matches. There is no index file to check: `~/.collective-wisdom/scripts/docs_index.py` generates it. `~/.collective-wisdom/scripts/merge_pr.py` already checks `Shipped` and the as-built; this covers dead links.
 5. **The release note.** Skip this when `Publish release notes` in project.md § Docs is `off`. Otherwise the PR body's `## Release note` section is one to three sentences that describe what ships at the head SHA in terms a user of the agent team understands. `~/.collective-wisdom/scripts/merge_pr.py` only checks that the section is not empty; this covers the content.
 6. **Extra checks from `project.md`.** Run each one listed under "Extra checks" in `docs/agents/project.md` § Docs check, for example brand docs when the diff touches the theme.
-7. **Team docs.** Only when the diff touches `.claude/skills/`, `.claude/agents/`, `scripts/` or `docs/agents/`: `~/.collective-wisdom/docs/agents/org-chart.md` and the role file each changed piece names.
+7. **Team docs.** Only when the diff touches `.claude/skills/`, `.claude/agents/`, `.cursor/agents/`, `scripts/` or `docs/agents/`: `~/.collective-wisdom/docs/agents/org-chart.md` and the role file each changed piece names.
 
 ## Never flag
 
