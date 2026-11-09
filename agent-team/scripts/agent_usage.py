@@ -26,7 +26,7 @@ A Cursor session's branch is the "Branch:" line of its first message, else the g
 When the user's user.md sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
 API-equivalent (P% of the subscription), ..." with the share of the Claude Code dollars only. When the ticket
 has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the ticket is unpriced, or a Cursor
-store or run cannot be read, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
+store cannot be read (once the ticket has a session) or a run of the ticket's session cannot be parsed, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
 N.NM tokens, spec ..." and still exits 0.
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
@@ -235,8 +235,10 @@ def read_cursor(proj, failed=None):
     """Cursor sessions of one project dir, one per agent with usage: dicts with id, branch, first, relays, runs.
 
     Runs are (time, model, family, costs, tokens, turn number); costs is None when the model has no price.
-    A run without usage_json is skipped. A store that cannot be read, or a run whose usage cannot be parsed, is reported on stderr, skipped and appended to failed. Relays are
-    (turn number, text) of the user messages that start "CHIEF OF STAFF:". The branch is only looked for in worktree dirs.
+    A run without usage_json is skipped. A store that cannot be read is reported on stderr, skipped and appended
+    to failed. A run whose usage cannot be parsed is reported on stderr and marks its session bad. Relays are
+    (turn number, text) of the user messages that start "CHIEF OF STAFF:".
+    The branch is only looked for in worktree dirs.
     """
     sessions = []
     for db in sorted(proj.glob("sdk-agent-store/*/index.db")):
@@ -256,7 +258,7 @@ def read_cursor(proj, failed=None):
                 failed.append(db)
             continue
         for aid, ref in agents:
-            runs = []
+            runs, bad = [], False
             for a, turn, model, usage, ts in rows:
                 if a != aid:
                     continue
@@ -267,9 +269,8 @@ def read_cursor(proj, failed=None):
                     runs.append((parse_ts(ts), model, fam, paid, n, turn))
                 except (TypeError, ValueError, AttributeError):
                     print(f"agent_usage: cannot read a run of {db}", file=sys.stderr)
-                    if failed is not None:
-                        failed.append(db)
-            if not runs:
+                    bad = True
+            if not runs and not bad:
                 continue
             msgs = cursor_messages(proj / "agent-transcripts" / aid / f"{aid}.jsonl")
             branch = None
@@ -282,6 +283,7 @@ def read_cursor(proj, failed=None):
                 "first": " ".join(msgs[0].split()) if msgs else "",
                 "relays": [(n, t) for n, t in enumerate(msgs, 1) if t.startswith("CHIEF OF STAFF:")],
                 "runs": runs,
+                "bad": bad,
             })
     return sessions
 
@@ -346,6 +348,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
     mine = re.compile(r"feat/" + re.escape(ticket.lower()) + r"(-.*)?", re.I)
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
     tokens, runs, times, cursor_runs, cursor_spent, unpriced, failed = 0, 0, [], 0, 0.0, set(), []
+    unreadable = False
     for proj in sorted(projects.glob(f"*{PROJECT}*")):
         if "worktrees" not in proj.name:
             continue
@@ -373,6 +376,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
                 continue
             runs += 1
             cursor_runs += 1
+            unreadable = unreadable or s["bad"]
             for at, model, _, paid, n, turn in s["runs"]:
                 times.append(at)
                 tokens += n
@@ -381,13 +385,14 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
                 else:
                     spent[stage_at(s["relays"], turn, start_stage(s["first"]))] += sum(paid.values())
                     cursor_spent += sum(paid.values())
-    if not runs and not failed:
+    if not runs:
         return None
     times = [t for t in times if t]
     wall = int((max(times) - min(times)).total_seconds() // 60) if times else 0
     total = sum(spent.values())
-    if unpriced or failed:
-        why = ([f"no price for {', '.join(sorted(unpriced))}"] if unpriced else []) + (["cannot read a Cursor store"] if failed else [])
+    unreadable = unreadable or bool(failed)
+    if unpriced or unreadable:
+        why = ([f"no price for {', '.join(sorted(unpriced))}"] if unpriced else []) + (["cannot read a Cursor store"] if unreadable else [])
         cost = f"cost unknown ({'; '.join(why)}; ${total:.2f} priced)"
     else:
         cost = f"cost ${total:.2f} API-equivalent{share(total - cursor_spent, usage)}"

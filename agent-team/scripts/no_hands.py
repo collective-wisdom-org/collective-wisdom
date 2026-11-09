@@ -27,14 +27,14 @@ check   Prints one line. It writes only when the result is a stop: it then recor
         transcripts at all (agent_usage.py: "no transcripts", exit 2) counts as $0 only when the ticket is gone from the state file
         (cancelled early) or is in spec or spec-queued (just started). In any other stage, or merged, the missing transcripts may
         be a Codex or Antigravity child or a moved projects dir, so the cost is unknown; so is a cost that cannot be read for any other
-        reason, such as agent_usage.py's `cost unknown` for a Cursor run on a model with no price, and an unknown cost makes the run stop, since an unmeasured run cannot be held to its cap.
+        reason, such as agent_usage.py's `cost unknown` for a Cursor run on a model with no price or an unreadable Cursor store, and an unknown cost makes the run stop, since an unmeasured run cannot be held to its cap.
             no-hands: off                          no run, or the run ended
             no-hands: on N/cap $X/$C               N tickets started
             no-hands: drain <reason> N/cap $X/$C   no new starts; approvals stay automatic (ticket-cap is the cap reached)
             no-hands: stop cost-cap $X/$C          the Chief of Staff cancels the children, then `end`
             no-hands: stop stopped-by-user         the user said `stop everything` after the run began
             no-hands: stop <why>                   setting off | start message not verified
-            no-hands: stop cost unknown (<PREFIX>-N)   the first ticket in run order whose cost cannot be read, such as a Cursor run on a model with no price
+            no-hands: stop cost unknown (<PREFIX>-N)   the first ticket in run order whose cost cannot be read, such as a Cursor run on a model with no price or an unreadable Cursor store
 drain   Sets the drain reason (the first one stays). Last line: no-hands: drain <reason>
         drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
         may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.

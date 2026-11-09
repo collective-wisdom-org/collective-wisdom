@@ -282,6 +282,8 @@ ONLY_CLAUDE = "cost $4.00 API-equivalent (0.40% of the subscription), 1.0M token
          "cost unknown (no price for grok-4.7, unknown model; $9.38 priced), 2.7M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"),
         (True, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
         (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, 2),
+        # an unreadable store does not give a ticket with no session a cost: no_hands relies on exit 2 for it
+        (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], True, 2),
         # a relay in turn 2 puts turn 1 in spec and turns 2 and 3 in build; 200k input is $0.80 a run
         (False, [([HERE, "CHIEF OF STAFF: the user approved the spec", "go"], [(n, OPUS, {"inputTokens": 200_000}, T1) for n in (1, 2, 3)], "/none")], False,
          "cost $2.40 API-equivalent (0.00% of the subscription), Cursor $2.40, 0.6M tokens, spec $0.80 / build $1.60 / merge $0.00, 1 child run, wall 0h 00m"),
