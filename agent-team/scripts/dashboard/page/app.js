@@ -259,20 +259,16 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
   return { html: `<ul class="rows">${rows}</ul>${pager}`, page: at }
 }
 
-const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene']])
+const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene'], ['helper', 'Ticket helper']])
 const STATES = ['running', 'idle', 'paused', 'finished']
 const stateBadge = (state) => `<span class="badge state-${STATES.includes(state) ? state : 'idle'}">${esc(state)}</span>`
 const threadButton = (l) => (l ? `<button type="button" class="copy" data-copy="${esc(l)}" title="Copy thread link">Thread</button>` : '')
 
-/** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
-export function renderChief(api, page = 0, open = new Set(), size = 10) {
-  const chief = api?.chief ?? {}
-  const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
-  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
-  const pm = list(api?.pm)
-  const pages = Math.max(1, Math.ceil(pm.length / size))
+/** One page of team thread rows with a pager. `attr` is the data attribute suffix (`pm` or `helper`); the pager button carries `data-<attr>-page`. */
+function teamList(rows, page, size, open, attr, empty) {
+  const pages = Math.max(1, Math.ceil(rows.length / size))
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
-  const rows = pm
+  const items = rows
     .slice(at * size, (at + 1) * size)
     .map((p) => {
       const updated = list(p.gantt)[0]?.updatedAt
@@ -280,16 +276,25 @@ export function renderChief(api, page = 0, open = new Set(), size = 10) {
       return `<li class="row">
   <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span> ${stateBadge(p.state)}</div>
   <div class="sub">${typeof updated === 'number' ? `<span class="next">updated ${esc(stamp(updated))}</span>` : ''}${threadButton(p.threadLink)}</div>
-  <details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details>
+  <details class="chart" data-${attr}="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-${attr}="${id}"></div></details>
 </li>`
     })
     .join('\n')
   const pager =
     pages > 1
-      ? `<nav class="pager"><button type="button" data-pm-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-pm-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
+      ? `<nav class="pager"><button type="button" data-${attr}-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-${attr}-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
       : ''
-  const pmHtml = pm.length ? `<ul class="rows">${rows}</ul>${pager}` : '<p class="quiet">No project manager threads yet.</p>'
-  return { html: `${card}<h2>Project manager</h2>${pmHtml}`, page: at }
+  return { html: rows.length ? `<ul class="rows">${items}</ul>${pager}` : `<p class="quiet">${empty}</p>`, page: at }
+}
+
+/** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads and one page of ticket helper threads, each with its own pager. `page` and `helperPage` are 0-based and come back clamped; `open` holds the session ids whose chart is open. */
+export function renderChief(api, page = 0, open = new Set(), size = 10, helperPage = 0) {
+  const chief = api?.chief ?? {}
+  const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
+  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
+  const pm = teamList(list(api?.pm), page, size, open, 'pm', 'No project manager threads yet.')
+  const helpers = teamList(list(api?.helpers), helperPage, size, open, 'helper', 'No ticket helper threads yet.')
+  return { html: `${card}<h2>Project manager</h2>${pm.html}<h2>Ticket helpers</h2>${helpers.html}`, page: pm.page, helperPage: helpers.page }
 }
 
 /** The tab to open from the saved value: `cos`, else `ship` for anything unknown or missing. */
@@ -437,6 +442,8 @@ export function drawCharts(root, data, now, apply) {
   for (const body of root.querySelectorAll('.chart-body[data-merged]')) draw(body, merged.get(body.dataset.merged))
   const pm = new Map((Array.isArray(data.pm) ? data.pm : []).map((p) => [p.sessionId, p]))
   for (const body of root.querySelectorAll('.chart-body[data-pm]')) draw(body, pm.get(body.dataset.pm))
+  const helpers = new Map((Array.isArray(data.helpers) ? data.helpers : []).map((p) => [p.sessionId, p]))
+  for (const body of root.querySelectorAll('.chart-body[data-helper]')) draw(body, helpers.get(body.dataset.helper))
   for (const body of root.querySelectorAll('.chart-body[data-chief]')) draw(body, data.chief)
 }
 
@@ -539,15 +546,17 @@ if (typeof document !== 'undefined') {
   }
   // Same for the Chief of Staff tab: redrawn only when its html changed with every chart closed.
   let pmPage = 0
+  let helperPage = 0
   let shownCos = null
   const drawCos = () => {
     if (!last) return
-    const r = renderChief(last, pmPage)
+    const r = renderChief(last, pmPage, new Set(), 10, helperPage)
     pmPage = r.page
+    helperPage = r.helperPage
     if (r.html === shownCos) return
     shownCos = r.html
-    const opened = new Set([...document.querySelectorAll('details.chart[data-pm][open]')].map((d) => d.dataset.pm))
-    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened).html
+    const opened = new Set([...document.querySelectorAll('details.chart[data-pm][open], details.chart[data-helper][open]')].map((d) => d.dataset.pm ?? d.dataset.helper))
+    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened, 10, helperPage).html
     draw()
   }
   const TAB_KEY = 'dashboard-tab'
@@ -619,6 +628,12 @@ if (typeof document !== 'undefined') {
     const pmPager = target?.closest('button[data-pm-page]')
     if (pmPager) {
       pmPage = Number(pmPager.dataset.pmPage)
+      drawCos()
+      return
+    }
+    const helperPager = target?.closest('button[data-helper-page]')
+    if (helperPager) {
+      helperPage = Number(helperPager.dataset.helperPage)
       drawCos()
       return
     }

@@ -268,6 +268,8 @@ test('team role rule: the chief by state, project manager children by heading, n
     ['chiefThreadId only', teamSnap('other', { threadId: 'ct' }), 'chief'],
     ['ranking heading', teamSnap('a', { heading: 'BACKLOG RANKING' }), 'ranking'],
     ['hygiene heading', teamSnap('b', { heading: 'PROJECT MANAGER HYGIENE' }), 'hygiene'],
+    ['helper heading', teamSnap('i', { heading: 'TICKET HELPER' }), 'helper'],
+    ['helper heading in a worktree stays off the tab', teamSnap('j', { cwd: WT, heading: 'TICKET HELPER' }), null],
     ['unknown heading', teamSnap('c', { heading: 'TEAM MODE' }), null],
     ['no heading', teamSnap('d'), null],
     ['worktree snapshot stays off the tab', teamSnap('e', { cwd: WT, heading: 'BACKLOG RANKING' }), null],
@@ -278,12 +280,13 @@ test('team role rule: the chief by state, project manager children by heading, n
   ]
   for (const [name, snap, want] of cases) {
     const api = build({ state, snapshots: [snap] })
-    const got = api.chief.gantt ? 'chief' : (api.pm[0]?.role ?? null)
+    const got = api.chief.gantt ? 'chief' : ((api.pm[0] ?? api.helpers[0])?.role ?? null)
     assert.equal(got, want, name)
     assert.equal(api.chief.gantt?.length ?? 0, want === 'chief' ? 1 : 0, name)
     assert.equal(api.pm.length, want === 'ranking' || want === 'hygiene' ? 1 : 0, name)
+    assert.equal(api.helpers.length, want === 'helper' ? 1 : 0, name)
   }
-  assert.deepEqual(teamSessions({ snapshots: cases.map((c) => c[1]), state, now: NOW }).map((t) => t.role).sort(), ['hygiene', 'ranking'])
+  assert.deepEqual(teamSessions({ snapshots: cases.map((c) => c[1]), state, now: NOW }).map((t) => t.role).sort(), ['helper', 'hygiene', 'ranking'])
 })
 
 test('chief state and the newest-first project manager list with live and history copies', () => {
@@ -294,10 +297,10 @@ test('chief state and the newest-first project manager list with live and histor
   assert.equal(chief({ chiefSessionId: 'cs' }, teamSnap('cs', { updatedAt: NOW - 61_000 })).state, 'idle')
   assert.deepEqual(chief({ chiefThreadId: 'ct' }, 'x'), { state: 'idle', threadLink: '<t3-thread://v2/env/ct>' })
 
-  const hist = (sessionId: string, updatedAt: number, role: 'ranking' | 'hygiene' = 'ranking') => ({ role, session: { sessionId, cwd: ROOT, updatedAt, stale: false, total: null, pricing: null, rows: [], threadId: `th-${sessionId}` } })
+  const hist = (sessionId: string, updatedAt: number, role: 'ranking' | 'hygiene' | 'helper' = 'ranking') => ({ role, session: { sessionId, cwd: ROOT, updatedAt, stale: false, total: null, pricing: null, rows: [], threadId: `th-${sessionId}` } })
   const api = build({
-    snapshots: [teamSnap('live', { heading: 'BACKLOG RANKING', threadId: 'th-live', updatedAt: NOW - 1000 })],
-    teamHistory: [hist('live', NOW - 40_000), hist('old', NOW - 900_000, 'hygiene'), hist('mid', NOW - 5000)],
+    snapshots: [teamSnap('live', { heading: 'BACKLOG RANKING', threadId: 'th-live', updatedAt: NOW - 1000 }), teamSnap('h2', { heading: 'TICKET HELPER', threadId: 'th-h2', updatedAt: NOW - 2000 })],
+    teamHistory: [hist('live', NOW - 40_000), hist('old', NOW - 900_000, 'hygiene'), hist('mid', NOW - 5000), hist('h1', NOW - 9000, 'helper'), hist('h2', NOW - 70_000, 'helper')],
   })
   assert.deepEqual(api.pm.map((p) => [p.sessionId, p.role, p.state, p.threadLink]), [
     ['live', 'ranking', 'running', '<t3-thread://v2/env/th-live>'],
@@ -305,6 +308,8 @@ test('chief state and the newest-first project manager list with live and histor
     ['old', 'hygiene', 'finished', '<t3-thread://v2/env/th-old>'],
   ])
   assert.equal(api.pm[0].gantt[0].updatedAt, NOW - 1000)
+  assert.equal(api.helpers[0].gantt[0].updatedAt, NOW - 2000)
+  assert.deepEqual(api.helpers.map((p) => [p.sessionId, p.state, p.threadLink]), [['h2', 'running', '<t3-thread://v2/env/th-h2>'], ['h1', 'finished', '<t3-thread://v2/env/th-h1>']])
 })
 
 test('a ticket whose PR is already in merged is dropped from status; its group goes when empty', () => {
