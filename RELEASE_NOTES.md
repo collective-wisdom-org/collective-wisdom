@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 show ticket helpers on the dashboard Chief of Staff tab (CW-260) (#271)
+
+Merged 2026-11-09 03:55 UTC.
+
+The dashboard's Chief of Staff tab now lists ticket helper threads, running and finished, under the project manager threads. Nothing to do.
+
 ## 2026-11-09 produce agent-gantt snapshots from Cursor threads (CW-258) (#270)
 
 Merged 2026-11-09 03:55 UTC.
