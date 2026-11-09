@@ -1,7 +1,7 @@
 # Dashboard redesign: one headline per ticket
 
 **Status:** Draft
-**Ticket:** not yet filed
+**Ticket:** [#266](https://github.com/collective-wisdom-org/collective-wisdom/issues/266)
 **Follows:** CW-195 (layout overhaul), CW-240 (Details section), CW-242 and CW-248 (dark mode and T3 colours).
 
 ## Intent

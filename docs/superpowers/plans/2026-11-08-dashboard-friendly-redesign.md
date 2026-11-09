@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-08-dashboard-friendly-redesign-design.md`
 
-**Local only:** the user wants this built and tried on their own project before any PR. Work on branch `feat/dashboard-friendly-redesign` in the worktree from Task 0; commit there; do not push and do not open a PR.
+**Local only:** the user wants this built and tried on their own project before any PR. Work on branch `feat/cw-266-dashboard-friendly-redesign` in the worktree from Task 0; commit there; do not push and do not open a PR.
 
 ## Global Constraints
 
@@ -40,10 +40,10 @@ Failure modes the spec implies; each has a test in the task that owns it.
 ### Task 0: Worktree and spec
 
 **Files:**
-- Create: `.worktrees/dashboard-redesign/` (worktree on branch `feat/dashboard-friendly-redesign`)
+- Create: `.worktrees/dashboard-redesign/` (worktree on branch `feat/cw-266-dashboard-friendly-redesign`)
 
 - [ ] **Step 1:** Confirm `.worktrees` is ignored (`git check-ignore .worktrees`); the root checkout is not touched after this task.
-- [ ] **Step 2:** `git worktree add .worktrees/dashboard-redesign -b feat/dashboard-friendly-redesign main`. Expected: clean worktree on the new branch.
+- [ ] **Step 2:** `git worktree add .worktrees/dashboard-redesign -b feat/cw-266-dashboard-friendly-redesign main`. Expected: clean worktree on the new branch.
 - [ ] **Step 3:** Copy the untracked spec and this plan from the root checkout's `docs/superpowers/` into the same paths in the worktree, commit them (`docs: add dashboard redesign spec and plan`), then delete the two untracked originals from the root checkout so the root stays clean.
 - [ ] **Step 4:** Run the baseline in the worktree: `node --test agent-team/scripts/dashboard/page/app.test.js`. Expected: PASS before any change. All later paths are relative to the worktree.
 
