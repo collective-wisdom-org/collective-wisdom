@@ -8,7 +8,7 @@ Usage:
 
 --since and --until are ISO 8601 UTC times (default: the last 24 hours).
 --projects defaults to ~/.claude/projects, --cursor-projects to ~/.cursor/projects (a missing dir means no
-Cursor runs). Read-only: nothing is written, and each Cursor sdk-agent-store/*/index.db opens read-only.
+Cursor runs). Read-only: the report writes nothing, and each Cursor sdk-agent-store/*/index.db opens read-only (SQLite may add empty -shm and -wal files beside it).
 Cursor runs are priced from prices.json by model family: input minus cache tokens, output, cache read and the
 5 minute cache write rate. A Cursor run on a model with no price is unpriced: its tokens count, its dollars do not.
 --turns adds, per root-checkout session, its request count, its largest context
@@ -25,8 +25,9 @@ subagents, ignores --since and --until, and exits 2 when no Claude Code or Curso
 A Cursor session's branch is the "Branch:" line of its first message, else the git branch of its workspace.
 When the user's user.md sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
 API-equivalent (P% of the subscription), ..." with the share of the Claude Code dollars only. When the ticket
-has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the ticket is unpriced the line is
-"cost unknown (no price for <models>; $X priced), N.NM tokens, spec ..." and still exits 0.
+has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the ticket is unpriced, or a Cursor
+store or run cannot be read, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
+N.NM tokens, spec ..." and still exits 0.
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
 subagent transcripts next to each session. A dir without "worktrees" in its
@@ -230,11 +231,11 @@ def git_branch(workspace):
     return r.stdout.strip() or None
 
 
-def read_cursor(proj):
+def read_cursor(proj, failed=None):
     """Cursor sessions of one project dir, one per agent with usage: dicts with id, branch, first, relays, runs.
 
     Runs are (time, model, family, costs, tokens, turn number); costs is None when the model has no price.
-    A run without usage_json is skipped, a store that cannot be read is reported on stderr and skipped. Relays are
+    A run without usage_json is skipped. A store that cannot be read, or a run whose usage cannot be parsed, is reported on stderr, skipped and appended to failed. Relays are
     (turn number, text) of the user messages that start "CHIEF OF STAFF:". The branch is only looked for in worktree dirs.
     """
     sessions = []
@@ -251,6 +252,8 @@ def read_cursor(proj):
                 con.close()
         except sqlite3.Error:
             print(f"agent_usage: cannot read {db}", file=sys.stderr)
+            if failed is not None:
+                failed.append(db)
             continue
         for aid, ref in agents:
             runs = []
@@ -263,7 +266,9 @@ def read_cursor(proj):
                     paid, n = cursor_costs(fam, u)
                     runs.append((parse_ts(ts), model, fam, paid, n, turn))
                 except (TypeError, ValueError, AttributeError):
-                    continue
+                    print(f"agent_usage: cannot read a run of {db}", file=sys.stderr)
+                    if failed is not None:
+                        failed.append(db)
             if not runs:
                 continue
             msgs = cursor_messages(proj / "agent-transcripts" / aid / f"{aid}.jsonl")
@@ -340,7 +345,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
     own = re.compile(r'"gitBranch":"feat/' + re.escape(ticket.lower()) + r'[-"]')
     mine = re.compile(r"feat/" + re.escape(ticket.lower()) + r"(-.*)?", re.I)
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
-    tokens, runs, times, cursor_runs, cursor_spent, unpriced = 0, 0, [], 0, 0.0, set()
+    tokens, runs, times, cursor_runs, cursor_spent, unpriced, failed = 0, 0, [], 0, 0.0, set(), []
     for proj in sorted(projects.glob(f"*{PROJECT}*")):
         if "worktrees" not in proj.name:
             continue
@@ -363,7 +368,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
     for proj in sorted(cursor.glob(f"*{PROJECT}*")) if cursor else []:
         if "worktrees" not in proj.name:
             continue
-        for s in read_cursor(proj):
+        for s in read_cursor(proj, failed):
             if not (s["branch"] and mine.fullmatch(s["branch"])):
                 continue
             runs += 1
@@ -372,17 +377,18 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
                 times.append(at)
                 tokens += n
                 if paid is None:
-                    unpriced.add(model)
+                    unpriced.add(model or "unknown model")
                 else:
                     spent[stage_at(s["relays"], turn, start_stage(s["first"]))] += sum(paid.values())
                     cursor_spent += sum(paid.values())
-    if not runs:
+    if not runs and not failed:
         return None
     times = [t for t in times if t]
     wall = int((max(times) - min(times)).total_seconds() // 60) if times else 0
     total = sum(spent.values())
-    if unpriced:
-        cost = f"cost unknown (no price for {', '.join(sorted(unpriced))}; ${total:.2f} priced)"
+    if unpriced or failed:
+        why = ([f"no price for {', '.join(sorted(unpriced))}"] if unpriced else []) + (["cannot read a Cursor store"] if failed else [])
+        cost = f"cost unknown ({'; '.join(why)}; ${total:.2f} priced)"
     else:
         cost = f"cost ${total:.2f} API-equivalent{share(total - cursor_spent, usage)}"
         cost += f", Cursor ${cursor_spent:.2f}" * bool(cursor_runs)
@@ -505,8 +511,8 @@ def main():
                 if not args.since <= at <= args.until:
                     continue
                 if paid is None:
-                    unpriced[model][0] += 1
-                    unpriced[model][1] += n
+                    unpriced[model or "unknown model"][0] += 1
+                    unpriced[model or "unknown model"][1] += n
                 elif is_root:
                     add(name, "main", "root", [(at, fam, paid)])
                 else:
