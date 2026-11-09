@@ -10,7 +10,7 @@ As the last Bash call of every turn that made a tool call, run this from the roo
 python3 ~/.collective-wisdom/scripts/cos_rotation_check.py
 ```
 
-Only a run-started notice skips it (no tool calls). A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`~/.claude/settings.json`, and `~/.cursor/hooks.json` on Cursor) runs the same script and sends the turn back on `rotate:`. On Cursor the context size is unknown, so only a skill change rotates the thread.
+Only a run-started notice skips it (no tool calls). A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`~/.claude/settings.json`, and `~/.cursor/hooks.json` on Cursor) runs the same script and sends the turn back on `rotate:`. Cursor reports no context size, so only a skill change rotates there.
 
 It prints one line, `ok ...` or `rotate: <reason>`, and exits 0. Table (`SIZE_CAP`, `QUIET_RELAY_MIN`, `QUIET_ROTATED_MIN` live in the script; change both together):
 
