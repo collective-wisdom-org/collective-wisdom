@@ -207,6 +207,9 @@ function renderDetail(d) {
   return `<section class="detail">${out.join('')}</section>`
 }
 
+const copyButton = (l) => `<button type="button" class="copy" data-copy="${esc(l)}">Copy thread link</button>`
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
 /** `Spec` as a link beside `PR`, or nothing when the url is missing or not http(s). */
 const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')}</span>` : '')
 
@@ -218,7 +221,7 @@ export function renderDetails(r, now) {
   if (isHttp(r.issueUrl)) links.push(numbered('Issue', r.issueUrl))
   if (isHttp(r.specUrl)) links.push(link(r.specUrl, 'Spec'))
   if (isHttp(r.prUrl)) links.push(numbered('PR', r.prUrl))
-  if (r.threadLink) links.push(`<code>${esc(r.threadLink)}</code>`)
+  if (r.threadLink) links.push(copyButton(r.threadLink))
   const ticketFacts = []
   if (r.stage) ticketFacts.push(['Stage', esc(stageWords(r.stage))])
   if (r.risk) ticketFacts.push(['Risk', esc(r.risk)])
@@ -227,7 +230,6 @@ export function renderDetails(r, now) {
   if (r.gantt && r.gantt.length > 0) {
     const items = ganttTasks(r.gantt, now)
     const drawn = items.flatMap((i) => [i, ...i.kids])
-    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
     const subagents = drawn.filter((d) => d.r.kind === 'agent').length
     const agents = [plural(r.gantt.length, 'session'), items.length ? plural(items.length, 'task') : '', subagents ? plural(subagents, 'subagent') : '']
     usage.push(['Agents', esc(agents.filter(Boolean).join(', '))])
@@ -243,18 +245,28 @@ export function renderDetails(r, now) {
   return html || '<p class="quiet">Nothing more known yet</p>'
 }
 
-/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */
-function ticket(r, { flat, other, open, info }) {
-  const copy = r.threadLink ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>` : ''
-  const stage = other && r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}</span>` : ''
-  const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
-  const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
-  return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
-  <div class="head"><span class="id">${link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}</div>
-  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
-  ${flat ? '' : next}
-  ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
-  <details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>
+const summaryLine = (gantt, now) => {
+  const g = ganttSummary(gantt, now)
+  if (!g) return ''
+  return [plural(g.agents, 'agent'), duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''].filter(Boolean).join(' \u00b7 ')
+}
+const chartToggle = (attr, id, gantt, open) => (gantt && taskCount(gantt) ? `<details class="chart" data-${attr}="${esc(id)}"${open ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(gantt))}</span></summary><div class="chart-body" data-${attr}="${esc(id)}"></div></details>` : '')
+
+/** One ticket as a card (`li.ticket`) or a flat row (`li.row`): the headline, a meta line, the status sentence, the agent text, and a footer with the Agents and Details toggles. `attn` marks a ticket that needs the user. */
+function ticket(r, { flat, attn, open, info }) {
+  const action = actionFor(r)
+  const risk = riskText(r.risk)
+  const status = r.stage ? stageSentence(r.stage) : ''
+  const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${r.stage === 'blocked' ? ' blocked' : ''}`
+  const meta = [link(r.issueUrl, r.id), risk === 'high risk' ? `<span class="risk-high">${risk}</span>` : esc(risk), isHttp(r.prUrl) ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''].filter(Boolean).join(' \u00b7 ')
+  const summary = summaryLine(r.gantt, Date.now())
+  return `<li class="${cls}">
+  <div class="title">${esc(r.title || r.id)}</div>
+  <div class="meta">${meta}</div>
+  ${status ? `<div class="status">${esc(status)}</div>` : ''}
+  ${r.next ? `<div class="agent-text">${esc(r.next)}</div>` : ''}
+  ${action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : ''}
+  <div class="foot">${summary ? `<span class="summary">${esc(summary)}</span>` : ''}${chartToggle('ticket', r.id, r.gantt, open.has(r.id))}<details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details></div>
 </li>`
 }
 
@@ -267,7 +279,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const flat = band.slug === 'queued'
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open, info })).join('\n')
+        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', open, info })).join('\n')
         return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
       })
       .join('\n')
@@ -294,8 +306,6 @@ const stamp = (ms) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
 
-const spent = (s) => (s ? `${typeof s.cost === 'number' ? `<span class="num cost">${dollars(s.cost)}</span>` : ''}<span class="meta">${tokens(s.tokens)} tokens</span>` : '')
-
 /** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged charts to keep open, `info` those of Details sections (whose body is filled here only when open, else by the shell). */
 export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
@@ -303,14 +313,21 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
   const rows = list
     .slice(at * size, (at + 1) * size)
-    .map(
-      (e) => `<li class="row">
-  <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
-  <div class="sub">${specSpan(e.specUrl)}<span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
-  ${e.gantt && taskCount(e.gantt) ? `<details class="chart" data-merged="${esc(e.id)}"${open.has(e.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(e.gantt))}</span></summary><div class="chart-body" data-merged="${esc(e.id)}"></div></details>` : ''}
-  <details class="info" data-merged="${esc(e.id)}"${info.has(e.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-merged="${esc(e.id)}">${info.has(e.id) ? renderDetails(e, Date.now()) : ''}</div></details>
-</li>`,
-    )
+    .map((e) => {
+      const day = dayWords(e.mergedAt, Date.now())
+      const meta = [
+        link(e.issueUrl, e.id),
+        day ? esc(`merged ${day} ${clock(e.mergedAt)}`) : '',
+        typeof e.spend?.cost === 'number' ? esc(dollars(e.spend.cost)) : '',
+        e.spend ? esc(`${tokens(e.spend.tokens)} tokens`) : '',
+        isHttp(e.prUrl) ? `<span class="pr">${link(e.prUrl, 'PR')}</span>` : '',
+      ].filter(Boolean).join(' \u00b7 ')
+      return `<li class="row">
+  <div class="title">${esc(e.title || e.id)}</div>
+  <div class="meta">${meta}</div>
+  <div class="foot">${chartToggle('merged', e.id, e.gantt, open.has(e.id))}<details class="info" data-merged="${esc(e.id)}"${info.has(e.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-merged="${esc(e.id)}">${info.has(e.id) ? renderDetails(e, Date.now()) : ''}</div></details></div>
+</li>`
+    })
     .join('\n')
   const pager =
     pages > 1
@@ -422,12 +439,19 @@ const rowTitle = ({ r, s, clockNow }) => {
   return [r.name, meta.join(' · '), s.cwd].join('\n')
 }
 
+const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
+/** What a card's footer says about its sessions: the rows drawn (tasks and subagents), the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
+export function ganttSummary(sessions, now) {
+  const items = ganttTasks(sessions, now)
+  if (items.length === 0) return null
+  return { agents: items.reduce((n, i) => n + 1 + i.kids.length, 0), ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
+}
 export function renderGantt(sessions, now) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
   // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
-  const active = union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
+  const active = activeSpans(items)
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)
   const scale = Math.max(1, total)
   const pos = (t) => {
