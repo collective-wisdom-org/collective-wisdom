@@ -61,7 +61,7 @@ a.action:hover { text-decoration:none; filter:brightness(1.08); }
 .foot > details[open] > summary { color:var(--fg); }
 ul.rows > li.row { display:flex; flex-direction:column; gap:var(--s1); padding:var(--s3) 0; border-top:1px solid var(--line); }
 ul.rows > li.row:first-child { border-top:0; }
-ul.rows > li.row.blocked { padding-left:var(--s3); background:var(--red-tint); box-shadow:inset 3px 0 0 var(--red); border-radius:0 8px 8px 0; }
+ul.rows > li.row.blocked { margin:var(--s2) 0; padding:var(--s3) var(--s4); border-top:0; background:var(--red-tint); box-shadow:inset 3px 0 0 var(--red); border-radius:12px; }
 li.blocked .status { color:var(--red); }
 .badge { display:inline-block; max-width:100%; padding:0 var(--s2); border-radius:999px; font-size:var(--t-small); line-height:1.6; background:var(--soft); color:var(--muted); }
 .badge.pass { color:var(--green); }
