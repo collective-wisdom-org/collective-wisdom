@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 let tag-release.sh cut minor release versions (CW-259) (#268)
+
+Merged 2026-11-09 02:29 UTC.
+
+`./tag-release.sh --minor` now cuts a minor release such as `v0.2.1` between numbered releases, so a small fix can ship without a new `v0.N`. Plain `./tag-release.sh` numbers as before, but it now also refuses to tag a commit that already carries a minor tag. Nothing to do unless you cut releases.
+
 ## 2026-11-09 install the Chief of Staff rotation hook for Cursor (CW-253) (#262)
 
 Merged 2026-11-09 02:14 UTC.
