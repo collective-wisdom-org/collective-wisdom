@@ -127,6 +127,7 @@ CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "complet
         (CURSOR, {"commit": NEW}, True),
         (CURSOR, {}, False),  # context is 230k, over the cap, but Cursor has no size trigger
         ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, False),
+        ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, True),  # T3 Code names the folder agent-<id>
         ({**CURSOR, "loop_count": 1}, {"commit": NEW}, False),
         ({**CURSOR, "status": "aborted"}, {"commit": NEW}, False),
         ({"conversation_id": "C1"}, {"commit": NEW}, False),  # not Cursor's payload, and no session_id
@@ -142,9 +143,9 @@ def test_hook_on_cursor_answers_with_a_followup_only_for_the_chief_once(monkeypa
     ({"C1": 10}, None, "rotation-check: cannot read context"),  # only stale ones: not Cursor
 ])
 def test_plain_on_cursor_saves_the_conversation_id_with_the_size_trigger_off(monkeypatch, capsys, tmp_path, ages, want_id, want_line):
-    app, cursor, path = tmp_path / "app", tmp_path / "cursor", tmp_path / "state.json"
+    app, cursor, path = tmp_path / "my_app.x", tmp_path / "cursor", tmp_path / "state.json"
     for cid, minutes in ages.items():
-        f = cursor / str(app).lstrip("/").replace("/", "-") / "agent-transcripts" / cid / f"{cid}.jsonl"
+        f = cursor / (str(app).replace("/", "-").replace("_", "-").replace(".", "-").strip("-")) / "agent-transcripts" / cid / f"{cid}.jsonl"
         f.parent.mkdir(parents=True)
         f.write_text("{}\n")
         os.utime(f, (time.time() - minutes * 60,) * 2)

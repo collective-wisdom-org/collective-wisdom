@@ -206,10 +206,15 @@ def read_context(sid=None):
     return int(m.group(1)), started
 
 
+def bare(cid):
+    """A Cursor conversation id without the `agent-` prefix that sessions started from T3 Code carry in their folder name."""
+    return cid[6:] if isinstance(cid, str) and cid.startswith("agent-") else cid
+
+
 def cursor_conversation():
     """The id of the newest Cursor transcript of this app changed in the last 2 minutes, or None."""
     projects = Path(os.environ.get("COS_CURSOR_PROJECTS_DIR") or Path.home() / ".cursor" / "projects")
-    slug = str(ROOT).lstrip("/").replace("/", "-")
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", str(ROOT)).strip("-")  # how Cursor names a project folder
     now = time.time()
     fresh = []
     for f in (projects / slug / "agent-transcripts").glob("*/*.jsonl"):
@@ -271,7 +276,8 @@ def run_hook(path):
             sid, skip = data["conversation_id"], bool(data.get("loop_count")) or data.get("status") != "completed"
         else:
             sid, skip = data.get("session_id"), bool(data.get("stop_hook_active"))
-        if not sid or sid != state.get("chiefSessionId") or skip:
+        mine = state.get("chiefSessionId")
+        if not sid or (bare(sid) != bare(mine) if cursor else sid != mine) or skip:
             return 0
         try:
             line = check(state, sid=sid, sized=not cursor)[0]

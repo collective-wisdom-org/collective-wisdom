@@ -24,7 +24,7 @@ What Cursor's docs say (<https://cursor.com/docs/hooks>, read 2026-11-08):
 - A stop hook asks the agent to go on by printing `{"followup_message": "..."}`: Cursor sends it as the next user message. `decision: block` is not a Cursor field.
 - A user hook runs from `~/.cursor/`. Cursor sets `CURSOR_PROJECT_DIR` and, for Claude compatibility, `CLAUDE_PROJECT_DIR` to the workspace root.
 - The docs name no environment variable that gives the agent's own shell its conversation id.
-- On this machine, Cursor keeps transcripts at `~/.cursor/projects/<workspace path with / as ->/agent-transcripts/<conversation_id>/<conversation_id>.jsonl`, so the folder name is the `conversation_id` the hook gets.
+- On this machine, Cursor keeps transcripts at `~/.cursor/projects/<workspace path, each run of characters other than letters and digits as one ->/agent-transcripts/<conversation_id>/<conversation_id>.jsonl`, so the folder name is the `conversation_id` the hook gets. A session started from T3 Code has a folder named `agent-<uuid>`; the docs do not say whether `conversation_id` carries the prefix, so the hook compares ids with a leading `agent-` removed on both sides.
 
 ## Design
 
