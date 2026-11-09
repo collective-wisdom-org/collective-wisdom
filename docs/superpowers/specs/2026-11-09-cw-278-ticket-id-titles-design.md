@@ -1,6 +1,7 @@
 # CW-278: Show a short title next to every ticket ID in what the user reads
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #279, as specified
 **Ticket:** [#278](https://github.com/collective-wisdom-org/collective-wisdom/issues/278)
 
 ## Goal
