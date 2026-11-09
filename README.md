@@ -80,16 +80,16 @@ It writes only under your home folder and touches no app. It links:
 - `~/.collective-wisdom` to the clone's `agent-team/` folder. Skills and role docs call scripts as `~/.collective-wisdom/scripts/<name>`.
 - Each skill into `~/.claude/skills/`, `~/.agents/skills/` (Codex) and `~/.cursor/skills/`, and each subagent into `~/.claude/agents/`. One link per name, so your own skills stay.
 
-It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` (other keys are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone.
+It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` (other keys are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone. For Cursor it writes the same text to its own file, `~/.cursor/rules/collective-wisdom.mdc`, with `alwaysApply: true`, and a rerun rewrites that whole file. If you pasted the text into Cursor Settings, Rules before, you can delete that copy.
 
-The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and a `TODO:` list. What lands there:
+The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and, when something needs you, a `TODO:` list. What lands there:
 
 - A real file or folder, or a link to somewhere else, where a skill or agent link should go. (At `~/.collective-wisdom` itself this is not a TODO: the installer refuses and exits before writing anything, so remove it and run again.) The installer never replaces it; move or remove yours and run again.
 - A `~/.claude/settings.json` that is not valid JSON, or whose `hooks.Stop` is not a list. It is left alone; add the hook by hand.
 - A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that cannot be read as text, or has only one of the two marker comments. It is left alone; fix the file.
-- The instruction text for Cursor. Its user rules have no file to write, so paste the text into Cursor Settings, Rules.
+- A `~/.cursor/rules/collective-wisdom.mdc` that is a folder or cannot be read as text. It is left alone; fix the path.
 
-A `~/.claude/settings.json`, `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that is itself a link (dotfiles) is written at its target, so the link stays.
+A `~/.claude/settings.json`, `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.cursor/rules/collective-wisdom.mdc` that is itself a link (dotfiles) is written at its target, so the link stays.
 
 Per-machine settings (the GitHub login for each repo, your Claude subscription figure) live in `~/.config/collective-wisdom/user.md`, not in a repo's `project.md`. See `agent-team/docs/agents/github-auth.md` § Account per repo.
 

@@ -27,7 +27,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 
 | Feature | Claude Code in T3 Code | Codex in T3 Code | Cursor in T3 Code | Antigravity in T3 Code |
 |---|---|---|---|---|
-| Install (skills and instruction block) | 🟢 works | 🟢 works | 🟡 partial: rules pasted by hand (G1) | 🔴 not supported: `install.sh` writes nothing for it (G17) |
+| Install (skills and instruction block) | 🟢 works | 🟢 works | 🟡 partial: rule file written, no Cursor thread seen reading it (G1) | 🔴 not supported: `install.sh` writes nothing for it (G17) |
 | Team skills load | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
 | Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) |
 | Chief of Staff thread | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
@@ -41,7 +41,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 
 Notes:
 
-- Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` only. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. Cursor has no file to write, so `install.sh` prints the block for you to paste into Cursor's user rules. It writes nothing for Antigravity.
+- Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` only. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It writes the same text to `~/.cursor/rules/collective-wisdom.mdc` for Cursor, with `alwaysApply: true`. It writes nothing for Antigravity.
 - `install.sh` adds the rotation Stop hook to `~/.claude/settings.json` only.
 - The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Codex, Cursor or Antigravity child leaves no Claude Code transcript, so its cost is unknown and a No Hands run stops.
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
@@ -93,7 +93,7 @@ A gap ticket links back to its cell here, by row, column and gap number. When th
 
 One line per gap the matrices point at. A ticket is opened only where the maintainer wants one, so each line says `none yet` until it exists.
 
-- **G1.** Cursor has no file for user rules, so the instruction block is pasted by hand. Ticket: none yet.
+- **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. Ticket: none yet.
 - **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
 - **G3.** No recorded Cursor run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
 - **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so this applies to Codex, Cursor and Antigravity, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.

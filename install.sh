@@ -57,13 +57,15 @@ mprune() {
 }
 
 # mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command) or the instruction block
-# (mode block, arg = template file) into a user file. Prints one status word; writes through a temp file and rename.
+# (mode block, arg = template file) into a user file, or write the whole Cursor rule file (mode rule, arg = template file).
+# Prints one status word; writes through a temp file and rename.
 mpython() {
   python3 -I - "$1" "$2" "$3" "$DRY" <<'PY'
 import json, os, sys, tempfile
 
 mode, path, arg, dry = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1"
 BEGIN, END = "<!-- collective-wisdom:begin -->", "<!-- collective-wisdom:end -->"
+RULE_HEAD = "---\ndescription: collective-wisdom agent team. Where the team runs and where it does not.\nalwaysApply: true\n---\n\n"
 
 
 def write(text):
@@ -118,6 +120,25 @@ def block():
         return "invalid"
 
 
+def rule():
+    # The file name is ours, so the whole file is compared and rewritten; no marker comments.
+    try:
+        with open(arg, encoding="utf-8") as f:
+            new = RULE_HEAD + f.read().rstrip("\n") + "\n"
+        existed = os.path.exists(path)
+        old = ""
+        if existed:
+            with open(path, encoding="utf-8") as f:
+                old = f.read()
+    except (OSError, ValueError):  # a folder or a file that is not UTF-8 text at the target
+        return "invalid"
+    if new == old and existed:
+        return "present"
+    if not dry:
+        write(new)
+    return "updated" if existed else "created"
+
+
 def block_merge(block, old, existed):
     b, e = old.find(BEGIN), old.find(END)
     if b < 0 and e < 0:
@@ -133,7 +154,7 @@ def block_merge(block, old, existed):
     return "updated" if b >= 0 else ("added" if existed else "created")
 
 
-print({"hook": hook, "block": block}[mode]())
+print({"hook": hook, "block": block, "rule": rule}[mode]())
 PY
 }
 
@@ -195,13 +216,18 @@ machine_install() {
       invalid) MTODOS+=("Fix ~/$f by hand: it could not be read as text, or it has one collective-wisdom marker comment without the other, so it was left alone.") ;;
     esac
   done
-  MTODOS+=("Paste this into Cursor's user rules (Cursor Settings, Rules; it has no file to write):
-$(sed '/./s/^/      /' "$ROOT/agent-team/templates/machine-instruction.md")")
+  status="$(mpython rule "$HOME/.cursor/rules/collective-wisdom.mdc" "$ROOT/agent-team/templates/machine-instruction.md")"
+  case "$status" in
+    created|updated) msay "$status  ~/.cursor/rules/collective-wisdom.mdc (agent team instruction)"; MCHANGED=$((MCHANGED + 1)) ;;
+    invalid) MTODOS+=("Fix ~/.cursor/rules/collective-wisdom.mdc by hand: it could not be read as text, so it was left alone.") ;;
+  esac
 
   echo
   echo "Done$([ "$DRY" -eq 1 ] && echo ' (dry run, nothing written)'): $MCHANGED change(s) under $HOME"
-  echo "TODO:"
-  for p in "${MTODOS[@]}"; do echo "  - $p"; done
+  if [ "${#MTODOS[@]}" -gt 0 ]; then
+    echo "TODO:"
+    for p in "${MTODOS[@]}"; do echo "  - $p"; done
+  fi
   echo "$([ "$DRY" -eq 1 ] && echo 'would install' || echo installed) collective-wisdom $sha${tag:+ $tag} from $ROOT"
 }
 
