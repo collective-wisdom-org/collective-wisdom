@@ -1,6 +1,7 @@
 # Dashboard redesign: one headline per ticket
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #267, with differences: [as-built](../as-built/2026-11-08-cw-266-dashboard-friendly-redesign-as-built.md)
 **Ticket:** [#266](https://github.com/collective-wisdom-org/collective-wisdom/issues/266)
 **Follows:** CW-195 (layout overhaul), CW-240 (Details section), CW-242 and CW-248 (dark mode and T3 colours).
 
