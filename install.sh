@@ -203,7 +203,7 @@ machine_install() {
   MCHANGED=0
   MTODOS=()
   msay() { if [ "$DRY" -eq 1 ]; then echo "[dry-run] $*"; else echo "$*"; fi; }
-  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd
+  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd item stop_first stop_second
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   MCLONE="$ROOT"
   { [ -n "${HOME:-}" ] && [ -d "$HOME" ]; } || { echo "Refusing: HOME is not set to a folder." >&2; exit 1; }
@@ -268,9 +268,17 @@ machine_install() {
     added*|created*) msay "${status%% *}  ~/.cursor/hooks.json (${status#* })"; MCHANGED=$((MCHANGED + 1)) ;;
     invalid)
       todo="Add the Chief of Staff and gantt hooks to ~/.cursor/hooks.json by hand (the file is not a JSON object with lists under hooks, so it was left alone):"
+      stop_first=""; stop_second=""
       while IFS='|' read -r ev _ timeout _ cmd; do
-        todo+=" under hooks.$ev add {\"command\": \"${cmd//\"/\\\"}\"${timeout:+, \"timeout\": $timeout}};"
+        item="{\"command\": \"${cmd//\"/\\\"}\"${timeout:+, \"timeout\": $timeout}}"
+        # The gantt stop entry goes before the rotation one, so the rotation hook's follow-up is the one Cursor keeps.
+        if [ "$ev" = stop ]; then
+          case "$cmd" in *cursor_gantt_hook.ts*) stop_first="$item" ;; *) stop_second="$item" ;; esac
+        else
+          todo+=" under hooks.$ev add $item;"
+        fi
       done <<<"$cursor_entries"
+      todo+=" under hooks.stop add, in this order, $stop_first then $stop_second;"
       MTODOS+=("$todo") ;;
   esac
 

@@ -133,6 +133,7 @@ def test_cursor_hooks_merge_once(world, name, before, after):
         rc, out = install(cw, home)
         assert rc == 0, out
         assert ("hooks to ~/.cursor/hooks.json by hand" in out) == (after is None)
+        assert ("hooks.stop add, in this order, {\"command\": \"node " in out) == (after is None)  # the gantt stop entry goes before the rotation one
         if after is None:
             assert f.read_text() == before if isinstance(before, str) else json.loads(f.read_text()) == before
         else:
