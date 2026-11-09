@@ -23,14 +23,74 @@ const riskClass = (risk) => {
 const NEEDS_YOU = ['Awaiting merge approval', 'Awaiting build approval']
 const QUEUED = ['Queued to merge', 'Queued to build', 'Other']
 const BANDS = [
-  { name: 'Needs you', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
+  { name: 'Your turn', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
   { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) },
-  { name: 'Queued', slug: 'queued', has: (n) => QUEUED.includes(n) },
+  { name: 'Up next', slug: 'queued', has: (n) => QUEUED.includes(n) },
 ]
 const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
 const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
 
 const stageWords = (stage) => STAGE_WORDS.get(stage) ?? stage.replace(/-/g, ' ')
+
+const GROUP_LABELS = new Map([
+  ['Awaiting merge approval', 'Ready to merge'],
+  ['Awaiting build approval', 'Spec ready to build'],
+  ['Awaiting teammate review', 'In review'],
+  ['Merging', 'Merging'],
+  ['Queued to merge', 'Waiting to merge'],
+  ['Speccing', 'Writing the spec'],
+  ['Building', 'Building'],
+  ['Queued to build', 'Waiting to build'],
+  ['Other', 'Blocked or waiting'],
+])
+/** The label shown for an API group name; an unknown name is returned as it is (the caller escapes it). */
+export const groupLabel = (name) => GROUP_LABELS.get(name) ?? name
+
+const STAGE_SENTENCES = new Map([
+  ['awaiting-merge', 'Waiting for your merge approval'],
+  ['awaiting-build', 'Spec is waiting for your approval'],
+  ['blocked', 'Blocked. Needs an answer from you'],
+  ['awaiting-review', "Waiting for a teammate's review"],
+  ['merge', 'Merging now'],
+  ['merge-queued', 'Waiting for a merge slot'],
+  ['spec', 'Writing the spec'],
+  ['spec-queued', 'Waiting for a spec slot'],
+  ['build', 'Building'],
+  ['build-queued', 'Waiting for a build slot'],
+])
+/** One plain sentence for where a ticket stands; an unknown stage shows its slug with spaces. */
+export const stageSentence = (stage) => STAGE_SENTENCES.get(String(stage ?? '')) ?? stageWords(String(stage ?? ''))
+
+/** `low risk`, `medium risk` or `high risk` from the first word of the risk text; anything else is `not rated yet`. */
+export const riskText = (risk) => {
+  const w = /^[a-z]+/.exec(String(risk ?? '').trim().toLowerCase())
+  return w && ['low', 'medium', 'high'].includes(w[0]) ? `${w[0]} risk` : 'not rated yet'
+}
+
+/** `today`, `yesterday` or `YYYY-MM-DD` for a local date; empty for a time that is not a number. */
+export function dayWords(ms, now) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return ''
+  const day = (t) => {
+    const d = new Date(t)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  }
+  const diff = Math.round((day(now) - day(ms)) / 86_400_000)
+  if (diff === 0) return 'today'
+  if (diff === 1) return 'yesterday'
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`
+}
+
+const ACTIONS = new Map([
+  ['awaiting-merge', ['Open PR', 'prUrl']],
+  ['awaiting-build', ['Open spec', 'specUrl']],
+  ['blocked', ['Open issue', 'issueUrl']],
+])
+/** The one action a ticket that needs the user offers, or null when the stage has none or its url is not http(s). */
+export function actionFor(r) {
+  const a = ACTIONS.get(r?.stage)
+  return a && isHttp(r[a[1]]) ? { label: a[0], url: r[a[1]] } : null
+}
 
 const list = (x) => (Array.isArray(x) ? x.filter((e) => typeof e === 'object' && e !== null) : [])
 
@@ -147,6 +207,9 @@ function renderDetail(d) {
   return `<section class="detail">${out.join('')}</section>`
 }
 
+const copyButton = (l) => `<button type="button" class="copy" data-copy="${esc(l)}">Copy thread link</button>`
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
 /** `Spec` as a link beside `PR`, or nothing when the url is missing or not http(s). */
 const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')}</span>` : '')
 
@@ -158,7 +221,7 @@ export function renderDetails(r, now) {
   if (isHttp(r.issueUrl)) links.push(numbered('Issue', r.issueUrl))
   if (isHttp(r.specUrl)) links.push(link(r.specUrl, 'Spec'))
   if (isHttp(r.prUrl)) links.push(numbered('PR', r.prUrl))
-  if (r.threadLink) links.push(`<code>${esc(r.threadLink)}</code>`)
+  if (r.threadLink) links.push(copyButton(r.threadLink))
   const ticketFacts = []
   if (r.stage) ticketFacts.push(['Stage', esc(stageWords(r.stage))])
   if (r.risk) ticketFacts.push(['Risk', esc(r.risk)])
@@ -167,7 +230,6 @@ export function renderDetails(r, now) {
   if (r.gantt && r.gantt.length > 0) {
     const items = ganttTasks(r.gantt, now)
     const drawn = items.flatMap((i) => [i, ...i.kids])
-    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
     const subagents = drawn.filter((d) => d.r.kind === 'agent').length
     const agents = [plural(r.gantt.length, 'session'), items.length ? plural(items.length, 'task') : '', subagents ? plural(subagents, 'subagent') : '']
     usage.push(['Agents', esc(agents.filter(Boolean).join(', '))])
@@ -183,18 +245,28 @@ export function renderDetails(r, now) {
   return html || '<p class="quiet">Nothing more known yet</p>'
 }
 
-/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. */
-function ticket(r, { flat, other, open, info }) {
-  const copy = r.threadLink ? `<button type="button" class="copy" data-copy="${esc(r.threadLink)}">Copy thread link</button>` : ''
-  const stage = other && r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}</span>` : ''
-  const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
-  const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
-  return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
-  <div class="head"><span class="id">${link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}</div>
-  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}${copy}</div>
-  ${flat ? '' : next}
-  ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
-  <details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>
+const summaryLine = (gantt, now) => {
+  const g = ganttSummary(gantt, now)
+  if (!g) return ''
+  return [plural(g.agents, 'agent'), duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''].filter(Boolean).join(' \u00b7 ')
+}
+const chartToggle = (attr, id, gantt, open) => (gantt && taskCount(gantt) ? `<details class="chart" data-${attr}="${esc(id)}"${open ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(gantt))}</span></summary><div class="chart-body" data-${attr}="${esc(id)}"></div></details>` : '')
+
+/** One ticket as a card (`li.ticket`) or a flat row (`li.row`): the headline, a meta line, the status sentence, the agent text, and a footer with the Agents and Details toggles. `attn` marks a ticket that needs the user. */
+function ticket(r, { flat, attn, open, info }) {
+  const action = actionFor(r)
+  const risk = riskText(r.risk)
+  const status = r.stage ? stageSentence(r.stage) : ''
+  const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${r.stage === 'blocked' ? ' blocked' : ''}`
+  const meta = [link(r.issueUrl, r.id), risk === 'high risk' ? `<span class="risk-high">${risk}</span>` : esc(risk), isHttp(r.prUrl) ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''].filter(Boolean).join(' \u00b7 ')
+  const summary = summaryLine(r.gantt, Date.now())
+  return `<li class="${cls}">
+  <div class="title">${esc(r.title || r.id)}</div>
+  <div class="meta">${meta}</div>
+  ${status ? `<div class="status">${esc(status)}</div>` : ''}
+  ${r.next ? `<div class="agent-text">${esc(r.next)}</div>` : ''}
+  ${action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : ''}
+  <div class="foot">${summary ? `<span class="summary">${esc(summary)}</span>` : ''}${chartToggle('ticket', r.id, r.gantt, open.has(r.id))}<details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details></div>
 </li>`
 }
 
@@ -207,34 +279,32 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const flat = band.slug === 'queued'
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open, info })).join('\n')
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
+        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', open, info })).join('\n')
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
       })
       .join('\n')
     return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
   }).join('\n')
 }
 
+/** The header: one sentence counting the bands. Blocked tickets (stage `blocked`, which the API puts in `Other`) are counted apart from the waiting ones. */
 export function renderBadges(groups) {
   if (!Array.isArray(groups)) return ''
-  const count = (name) => groups.find((g) => g.name === name)?.count ?? 0
-  const merge = count('Awaiting merge approval')
-  const build = count('Awaiting build approval')
-  const queue = count('Queued to build')
-  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-  return [
-    merge > 0 ? `<span class="badge cta-high">${plural(merge, 'thread')} awaiting merge approval</span>` : '',
-    build > 0 ? `<span class="badge cta-medium">${plural(build, 'thread')} awaiting build approval</span>` : '',
-    `<span class="badge quiet">${queue > 0 ? `${plural(queue, 'ticket')} in the build queue` : 'No tickets in the build queue'}</span>`,
-  ].join('')
+  const sum = (band) => groups.filter((g) => band.has(g.name)).reduce((n, g) => n + (Number(g.count) || 0), 0)
+  const [needs, progress, queued] = BANDS
+  const blocked = list(groups.find((g) => g.name === 'Other')?.rows).filter((r) => r.stage === 'blocked').length
+  const need = sum(needs)
+  const waiting = Math.max(0, sum(queued) - blocked)
+  const parts = [need > 0 ? `<span class="hs-need">${need} ${need === 1 ? 'needs' : 'need'} you</span>` : 'Nothing needs you']
+  if (sum(progress) > 0) parts.push(`${sum(progress)} in progress`)
+  if (waiting > 0) parts.push(`${waiting} waiting`)
+  if (blocked > 0) parts.push(`<span class="hs-blocked">${blocked} blocked</span>`)
+  return `<span class="hs">${parts.join(' · ')}</span>`
 }
-
 const stamp = (ms) => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
-
-const spent = (s) => (s ? `${typeof s.cost === 'number' ? `<span class="num cost">${dollars(s.cost)}</span>` : ''}<span class="meta">${tokens(s.tokens)} tokens</span>` : '')
 
 /** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged charts to keep open, `info` those of Details sections (whose body is filled here only when open, else by the shell). */
 export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
@@ -243,14 +313,21 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
   const rows = list
     .slice(at * size, (at + 1) * size)
-    .map(
-      (e) => `<li class="row">
-  <div class="head"><span class="id">${link(e.issueUrl, e.id)}</span> <span class="title">${esc(e.title)}</span></div>
-  <div class="sub">${specSpan(e.specUrl)}<span class="pr">${link(e.prUrl, 'PR')}</span><span class="next">merged ${esc(stamp(e.mergedAt))}</span>${spent(e.spend)}</div>
-  ${e.gantt && taskCount(e.gantt) ? `<details class="chart" data-merged="${esc(e.id)}"${open.has(e.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(e.gantt))}</span></summary><div class="chart-body" data-merged="${esc(e.id)}"></div></details>` : ''}
-  <details class="info" data-merged="${esc(e.id)}"${info.has(e.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-merged="${esc(e.id)}">${info.has(e.id) ? renderDetails(e, Date.now()) : ''}</div></details>
-</li>`,
-    )
+    .map((e) => {
+      const day = dayWords(e.mergedAt, Date.now())
+      const meta = [
+        link(e.issueUrl, e.id),
+        day ? esc(`merged ${day} ${clock(e.mergedAt)}`) : '',
+        typeof e.spend?.cost === 'number' ? esc(dollars(e.spend.cost)) : '',
+        e.spend ? esc(`${tokens(e.spend.tokens)} tokens`) : '',
+        isHttp(e.prUrl) ? `<span class="pr">${link(e.prUrl, 'PR')}</span>` : '',
+      ].filter(Boolean).join(' \u00b7 ')
+      return `<li class="row">
+  <div class="title">${esc(e.title || e.id)}</div>
+  <div class="meta">${meta}</div>
+  <div class="foot">${chartToggle('merged', e.id, e.gantt, open.has(e.id))}<details class="info" data-merged="${esc(e.id)}"${info.has(e.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-merged="${esc(e.id)}">${info.has(e.id) ? renderDetails(e, Date.now()) : ''}</div></details></div>
+</li>`
+    })
     .join('\n')
   const pager =
     pages > 1
@@ -261,14 +338,14 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
 
 const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene']])
 const STATES = ['running', 'idle', 'paused', 'finished']
-const stateBadge = (state) => `<span class="badge state-${STATES.includes(state) ? state : 'idle'}">${esc(state)}</span>`
-const threadButton = (l) => (l ? `<button type="button" class="copy" data-copy="${esc(l)}" title="Copy thread link">Thread</button>` : '')
+const stateBadge = (state) => `<span class="state state-${STATES.includes(state) ? state : 'idle'}">${esc(state)}</span>`
+const threadButton = (l) => (l ? copyButton(l) : '')
 
 /** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
 export function renderChief(api, page = 0, open = new Set(), size = 10) {
   const chief = api?.chief ?? {}
   const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
-  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
+  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span> ${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
   const pm = list(api?.pm)
   const pages = Math.max(1, Math.ceil(pm.length / size))
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
@@ -278,9 +355,9 @@ export function renderChief(api, page = 0, open = new Set(), size = 10) {
       const updated = list(p.gantt)[0]?.updatedAt
       const id = esc(p.sessionId)
       return `<li class="row">
-  <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span> ${stateBadge(p.state)}</div>
-  <div class="sub">${typeof updated === 'number' ? `<span class="next">updated ${esc(stamp(updated))}</span>` : ''}${threadButton(p.threadLink)}</div>
-  <details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details>
+  <div class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)} ${stateBadge(p.state)}</div>
+  <div class="meta">${typeof updated === 'number' ? esc(`updated ${dayWords(updated, Date.now())} ${clock(updated)}`) : ''} ${threadButton(p.threadLink)}</div>
+  <div class="foot"><details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details></div>
 </li>`
     })
     .join('\n')
@@ -362,12 +439,19 @@ const rowTitle = ({ r, s, clockNow }) => {
   return [r.name, meta.join(' · '), s.cwd].join('\n')
 }
 
+const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
+/** What a card's footer says about its sessions: the rows drawn (tasks and subagents), the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
+export function ganttSummary(sessions, now) {
+  const items = ganttTasks(sessions, now)
+  if (items.length === 0) return null
+  return { agents: items.reduce((n, i) => n + 1 + i.kids.length, 0), ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
+}
 export function renderGantt(sessions, now) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
   // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
-  const active = union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
+  const active = activeSpans(items)
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)
   const scale = Math.max(1, total)
   const pos = (t) => {
