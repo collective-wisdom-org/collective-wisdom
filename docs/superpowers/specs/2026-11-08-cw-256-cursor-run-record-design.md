@@ -2,7 +2,7 @@
 
 **Status:** Shipped
 **Ticket:** [#256](https://github.com/collective-wisdom-org/collective-wisdom/issues/256)
-**Shipped:** in PR #277, as specified
+**Shipped:** in PR #277, with differences: [as-built](../as-built/2026-11-08-cw-256-cursor-run-record.md)
 
 ## Goal
 
