@@ -278,8 +278,13 @@ ONLY_CLAUDE = "cost $4.00 API-equivalent (0.40% of the subscription), 1.0M token
         # the branch only from git in the workspace
         (True, [(["go"], [(2, OPUS, PRICED, T1)], "git")], False, BOTH),
         # a run with no price, or no model, makes the whole cost unknown but keeps the priced dollars
-        (True, [([HERE], [(2, OPUS, PRICED, T1), (3, "grok-4.7", {"inputTokens": 100_000}, T1), (4, None, {"inputTokens": 100_000}, T1)], "/none")], False,
-         "cost unknown (no price for grok-4.7, unknown model; $9.38 priced), 2.7M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"),
+        (True, [([HERE], [(2, OPUS, PRICED, T1), (3, "gemini-4-argon", {"inputTokens": 100_000}, T1), (4, None, {"inputTokens": 100_000}, T1)], "/none")], False,
+         "cost unknown (no price for gemini-4-argon, unknown model; $9.38 priced), 2.7M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"),
+        # each routed Cursor model gives dollars, not cost unknown: 1M input at the input rate, 40k out, 400k read, 100k written at the input rate
+        (False, [([HERE], [(1, "grok-4.7", PRICED, T1)], "/none")], False,
+         "cost $2.64 API-equivalent (0.00% of the subscription), Cursor $2.64, 1.5M tokens, spec $2.64 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
+        (False, [([HERE], [(1, "composer-2.5", PRICED, T1)], "/none")], False,
+         "cost $0.73 API-equivalent (0.00% of the subscription), Cursor $0.73, 1.5M tokens, spec $0.73 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
         (True, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
         (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, 2),
         # an unreadable store does not give a ticket with no session a cost: no_hands relies on exit 2 for it
