@@ -37,7 +37,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 | Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G3) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
 | `agent-gantt` | 🟡 partial: hooks run in T3 sessions, pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
 | `status-pane` | ⚪ untested: pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
-| Security review subagent | 🟢 works | ⚪ untested (G4) | 🟡 partial: needs Cursor's own `review-security` (G11) | ⚪ untested: no Antigravity branch in the skill (G4) |
+| Security review subagent | 🟢 works | ⚪ untested (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: no Antigravity branch in the skill (G4) |
 
 Notes:
 
@@ -52,7 +52,7 @@ One line per column, saying what done means.
 
 - **Claude Code in T3 Code:** done. A Chief of Staff and its children run a ticket from spec to merge, with subagents, the rotation hook and cost figures. The two mods are the only open cells.
 - **Codex in T3 Code:** done when a Chief of Staff and its children run a ticket to merge on Codex, with subagents, a rotation hook and cost figures that Codex can supply.
-- **Cursor in T3 Code:** done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor, with subagents and `review-security`, and the hook and cost figures work for it.
+- **Cursor in T3 Code:** done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor, with subagents, and the hook and cost figures work for it.
 - **Antigravity in T3 Code:** done when `install.sh` installs skills and the instruction block for it, a Chief of Staff and its children run a ticket to merge on it, with subagents, a security review, a rotation hook and cost figures.
 
 ## Matrix 2: trackers
@@ -102,7 +102,7 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex, Cursor or Antigravity work. Ticket: none yet.
 - **G9.** The dashboard's gantt rows and spend come from `agent-gantt` snapshots, which Codex, Cursor and Antigravity threads do not produce. Ticket: none yet.
 - **G10.** `agent-gantt` and `status-pane` are Claude Code plugins, so Codex, Cursor and Antigravity threads do not run them, and whether T3 Code shows their panes for Claude Code is unchecked. Ticket: none yet.
-- **G11.** The security review skill names Cursor's `review-security`, which this repo does not ship. Ticket: none yet.
+- **G11** is resolved by CW-254. The `security-review` skill now has a Cursor child start a general subagent with `security-review.md` as its prompt, and ignore an installed `review-security` in the ship loop. No Cursor run is recorded yet (G4).
 - **G12.** Jira has never been run: the adapter is marked UNTESTED and its checklist is unticked. Ticket: none yet.
 - **G13.** `pm_hygiene.py` parses the Linear and GitHub list shapes, not Jira's. Ticket: none yet.
 - **G14.** The untracked work check reads `agent`-labelled issues only for GitHub. On Linear and Jira it finds untracked work from open PRs alone. Ticket: none yet.
