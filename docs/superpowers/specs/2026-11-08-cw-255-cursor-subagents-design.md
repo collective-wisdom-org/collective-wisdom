@@ -1,6 +1,7 @@
 # CW-255: Check that Cursor loads the team subagents and fix what it rejects
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #265, as specified
 **Ticket:** [#255](https://github.com/collective-wisdom-org/collective-wisdom/issues/255)
 
 ## Goal
