@@ -1,6 +1,7 @@
 # CW-252: Install the agent team instruction block for Cursor without a manual paste
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #261, as specified
 **Ticket:** [#252](https://github.com/collective-wisdom-org/collective-wisdom/issues/252)
 
 ## Goal
