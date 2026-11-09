@@ -1,6 +1,7 @@
 # CW-253: Install the Chief of Staff rotation hook for Cursor
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #262, as specified
 **Ticket:** [#253](https://github.com/collective-wisdom-org/collective-wisdom/issues/253)
 
 ## Goal
