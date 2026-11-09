@@ -26,14 +26,15 @@ check   Prints one line. It writes only when the result is a stop: it then recor
         the cause clears. A failed write still prints the stop line. Otherwise it is read only. The cost is the sum of agent_usage.py --ticket over the run's tickets. A ticket with no
         transcripts at all (agent_usage.py: "no transcripts", exit 2) counts as $0 only when the ticket is gone from the state file
         (cancelled early) or is in spec or spec-queued (just started). In any other stage, or merged, the missing transcripts may
-        be a Codex or Cursor child or a moved projects dir, so the cost is unknown; so is a cost that cannot be read for any other
-        reason, and an unknown cost makes the run stop, since an unmeasured run cannot be held to its cap.
+        be a Codex or Antigravity child or a moved projects dir, so the cost is unknown; so is a cost that cannot be read for any other
+        reason, such as agent_usage.py's `cost unknown` for a Cursor run on a model with no price, and an unknown cost makes the run stop, since an unmeasured run cannot be held to its cap.
             no-hands: off                          no run, or the run ended
             no-hands: on N/cap $X/$C               N tickets started
             no-hands: drain <reason> N/cap $X/$C   no new starts; approvals stay automatic (ticket-cap is the cap reached)
             no-hands: stop cost-cap $X/$C          the Chief of Staff cancels the children, then `end`
             no-hands: stop stopped-by-user         the user said `stop everything` after the run began
-            no-hands: stop <why>                   setting off | start message not verified | cost unknown
+            no-hands: stop <why>                   setting off | start message not verified
+            no-hands: stop cost unknown (<PREFIX>-N)   the first ticket in run order whose cost cannot be read, such as a Cursor run on a model with no price
 drain   Sets the drain reason (the first one stays). Last line: no-hands: drain <reason>
         drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
         may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.
@@ -209,7 +210,7 @@ def evaluate(setting, state_file, db, cost):
     for t in tickets:
         c = cost(t, stage_of(state, t))
         if c is None:
-            return "stop", "no-hands: stop cost unknown"
+            return "stop", f"no-hands: stop cost unknown ({t})"
         spent += c
     money = f"${int(spent)}/${cost_cap}"
     if spent >= cost_cap:
@@ -285,7 +286,7 @@ def record_stop(line, state_file):
 
     Best effort: if the write fails the stop line is still printed, and the Chief of Staff's `end` writes it.
     """
-    reason = line.removeprefix("no-hands: stop ").split(" $")[0].replace(" ", "-")
+    reason = line.removeprefix("no-hands: stop ").split(" $")[0].split(" (")[0].replace(" ", "-")
     with contextlib.suppress(Cannot):
         _write(state_file, {"endedAt": cos_state.now(), "endReason": reason})
 

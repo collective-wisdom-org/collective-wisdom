@@ -20,7 +20,7 @@ State has a `noHands` record (state-keys.md). Only `~/.collective-wisdom/scripts
 | Call | What it does |
 |---|---|
 | `python3 ~/.collective-wisdom/scripts/no_hands.py start --thread <this thread's id>` | Starts a run. Last line `no-hands: started (cap N tickets, $C)` or `no-hands: refused (<why>)`. |
-| `python3 ~/.collective-wisdom/scripts/no_hands.py check` | Prints one line and reads only, except that a `stop` result is also recorded as the run's end (a stop is final): `no-hands: off`, `on N/cap $X/$C`, `drain <reason> N/cap $X/$C`, `stop cost-cap $X/$C`, or `stop stopped-by-user` (the user said `stop everything` after the run began), or `stop <why>` (setting off, start message not verified, cost unknown; a ticket past `spec` with no transcripts is cost unknown, not $0). |
+| `python3 ~/.collective-wisdom/scripts/no_hands.py check` | Prints one line and reads only, except that a `stop` result is also recorded as the run's end (a stop is final): `no-hands: off`, `on N/cap $X/$C`, `drain <reason> N/cap $X/$C`, `stop cost-cap $X/$C`, or `stop stopped-by-user` (the user said `stop everything` after the run began), or `stop <why>` (setting off, start message not verified), or `stop cost unknown (<PREFIX>-N)` naming the first ticket whose cost cannot be read (a ticket past `spec` with no transcripts is cost unknown, not $0; so is one with a Cursor run on a model with no price). |
 | `no_hands.py drain <reason>` | No new starts. Approvals stay automatic. The first reason stays. |
 | `no_hands.py end <reason>` | Ends the run and prints its summary lines. After a `stop`, `check` has already ended the run: `end` writes nothing and prints the summary with the recorded reason. Call it once per run: on an ended run it prints the summary again. |
 | `python3 ~/.collective-wisdom/scripts/approval_policy.py check no-hands <PREFIX>-N` | A ship-loop child's check, with its own ticket id: exit 0 only while a run is active and started that ticket. Without the id it checks the run only. |
@@ -42,7 +42,7 @@ The tick adds a `run … no_hands.py check` line before the slot fill while a ru
 | `off` | as the plan says | the tolerance | Nothing. |
 | `on N/cap …` | as the plan says, at most `cap - N` `start-todo` lines this turn | No Hands | Nothing else. |
 | `drain <reason> …` | print no `start-todo` and make no Backlog pick; queued sends still go | No Hands | If the reason is not in state yet (`ticket-cap`), run `no_hands.py drain <reason>`. With no ticket of the run active or queued, end the run (below). |
-| `stop <why>` | none; send nothing from the plan | the tolerance | `check` has already recorded the end, so the run is off from now on. Run kill-switch.md § Kill switch steps 1 to 4 with the note `stopped by No Hands: <why>` in place of `stopped by the user`, then `no_hands.py end <why>` (it prints the summary), then post it. |
+| `stop <why>` | none; send nothing from the plan | the tolerance | `check` has already recorded the end, so the run is off from now on. Run kill-switch.md § Kill switch steps 1 to 4 with the note `stopped by No Hands: <why>` in place of `stopped by the user`, then `no_hands.py end <why>` (without any ticket in parentheses, so `cost unknown`; it prints the summary), then post it. |
 
 Approvals under the run cover only the tickets on its `started` list. A ticket that was in flight when the run began keeps the tolerance and the approval path (approvals.md), and the ticket cap is a rule you keep: `check` counts, the script does not stop a start; the cost cap is the hard limit.
 
