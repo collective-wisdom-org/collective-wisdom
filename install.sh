@@ -57,8 +57,8 @@ mprune() {
 }
 
 # mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command; mode cursor-hook for Cursor's
-# hooks.json) or the instruction block (mode block, arg = template file) into a user file, or write the whole
-# Cursor rule file (mode rule, arg = template file). Prints one status word; writes through a temp file and rename.
+# hooks.json) or the instruction block (mode block, arg = template file) into a user file, or write the whole Cursor rule file
+# (mode rule, arg = template file). Prints one status word; writes through a temp file and rename.
 mpython() {
   python3 -I - "$1" "$2" "$3" "$DRY" <<'PY'
 import json, os, sys, tempfile
