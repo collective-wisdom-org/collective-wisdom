@@ -44,10 +44,10 @@ From <https://cursor.com/docs/hooks>, read 2026-11-08.
 |---|---|
 | `sessionId` | `conversation_id` |
 | `cwd` | `workspace_roots[0]`, else `CURSOR_PROJECT_DIR` |
-| `updatedAt`, row `start`, `end`, `segments` | No timestamps in any payload. The hook's own clock at each event; a subagent's start is also checked against `duration_ms` on stop |
+| `updatedAt`, row `start`, `end`, `segments` | No timestamps in any payload. The hook's own clock at each event; `duration_ms` is used only for a `subagentStop` with no matching start |
 | `threadId` | Not in the payload. `T3CODE_THREAD_ID` from the hook's environment when T3 Code passes it down (not proven), else null |
 | `heading` | The first `beforeSubmitPrompt` `prompt`, through `pickHeading` |
-| row `model` | `model` (main and tasks), `subagent_model` (subagents) |
+| row `model` | `model` as of the prompt that began the task (each task keeps its own), `subagent_model` (subagents) |
 | row `tokens`, `cost`, snapshot `total` | **Not given.** No event, and no line of Cursor's transcripts on this machine, carries token usage or cost. Rows get `tokens: 0`, `cost: null`, and `total: null` |
 | Waits inside a turn (questions, permission asks) | Not given as events. A Cursor turn is one span from prompt to stop |
 | Subagent id on stop | `subagentStop` has no `subagent_id`. The stop is matched to the oldest open subagent with the same `subagent_type` and `task` |
@@ -58,9 +58,10 @@ From <https://cursor.com/docs/hooks>, read 2026-11-08.
 
 Pure functions, no file or process access, next to the code they reuse:
 
-- `applyEvent(state, payload, now)` returns the new state. `state` is `{records: AgentRecord[], heading: {isSet, value}, model: string | null, subagentModels: Record<id, string>}`, the same records the mod keeps. It reuses `beginTask`, `taskName`, `openSegment` and `closeSegment` from `timeline.ts`:
+- `applyEvent(state, payload, now)` returns the new state. `state` is `{records: AgentRecord[], heading: {isSet, value}, model: string | null, subagentModels: Record<id, string>, taskModels: Record<taskIndex, string>}`, the same records the mod keeps; the models live beside them, not in `AgentRecord`. It reuses `beginTask`, `taskName`, `openSegment` and `closeSegment` from `timeline.ts`:
+  - the state an event belongs to is keyed by `parent_conversation_id`, else `conversation_id`, so a subagent's events land in its parent's conversation.
   - any event: the `main` record is made if missing, starting at `now`, with `cwd` from the payload.
-  - `beforeSubmitPrompt`: begins a task named by `taskName(prompt)` and opens a segment on `main` (`turn.start` in the mod). Sets the heading once. Keeps `model`.
+  - `beforeSubmitPrompt`: begins a task named by `taskName(prompt)` and opens a segment on `main` (`turn.start` in the mod). Sets the heading once. Keeps `model` for this task.
   - `stop`: closes the open segment on `main` and the current task.
   - `subagentStart`: adds a record with `id` `subagent_id`, `parentId` `main`, name `task` (else `subagent_type`), an open segment from `now`, and `taskIndex` set to the current task, so it nests the way a Claude Code subagent does.
   - `subagentStop`: finds the open record (oldest with the same type and task), closes its segment and sets `end`. With no match it adds a closed record from `now - duration_ms` to `now`, so a start the hook missed still draws.
@@ -73,11 +74,11 @@ Pure functions, no file or process access, next to the code they reuse:
 
 Run as `node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"`. It imports `cursor.ts` and `snapshot.ts` from `../../mods/agent-gantt/hooks/` the way `dashboard/api.ts` does.
 
-1. Reads stdin and parses it. It prints `hookOutput(event)` **first**, before any other work, so a crash later cannot block a spawn or a prompt. Any error after that is caught; it exits 0.
+1. Reads stdin and parses it. Stdin that cannot be read or parsed as JSON exits 1: Cursor goes on for any exit code other than 0 and 2, and there is no event to answer. Otherwise it prints `hookOutput(event)` **first**, before any other work, so a crash later cannot block a spawn or a prompt. Any error after that is caught; it exits 0.
 2. Finds the root checkout the way `register.tsx` does: `git rev-parse --path-format=absolute --git-common-dir` run in `cwd`, kept only when it ends in `/.git`, else `cwd`. Skips a root without `docs/agents/project.md` or `.agent-team/state.json`.
 3. Skips a `conversation_id` that fails `snapshotName`, a linked `.agent-team`, `gantt` or `gantt/cursor` folder, and a linked target file. These are the mod's checks.
 4. Takes a lock (`mkdir` of `<root>/.agent-team/gantt/cursor/<id>.lock`, retried for up to 2 seconds, removed in `finally`), so two parallel subagent hooks do not lose each other's update. A lock it cannot get within 2 seconds skips the event. A lock older than 30 seconds is removed first.
-5. Reads the state from `<root>/.agent-team/gantt/cursor/<id>.json` (missing or bad: empty state), applies the event, writes the state, then writes `<root>/.agent-team/gantt/<id>.json` with `cursorSnapshot`. Both are written to a temp file in the same folder and renamed.
+5. Reads the state from `<root>/.agent-team/gantt/cursor/<id>.json` (missing, unparsable or of a bad shape: empty state), applies the event, writes the state, then writes `<root>/.agent-team/gantt/<id>.json` with `cursorSnapshot`. Both are written to a temp file in the same folder and renamed.
 
 The state lives in a subfolder, so the dashboard, which reads only the `*.json` files directly in `gantt/`, never reads it as a snapshot. `.agent-team/` is already outside git in an app.
 
@@ -87,7 +88,7 @@ CW-253 adds an `mpython` mode, `cursor-hook`, that merges one `stop` entry (mark
 
 - An event whose list already mentions the entry's marker is left alone, so a rerun adds nothing.
 - New entries are appended, except the gantt `stop` entry, which goes in **before** the rotation hook's entry. Cursor keeps the last `followup_message`, and the gantt hook prints none; putting it first keeps the rotation hook last.
-- The file's other keys and hooks stay. A file CW-253 calls invalid stays invalid: nothing is written, and the TODO lists every entry to add by hand.
+- The file's other keys and hooks stay. A file CW-253 calls invalid stays invalid: nothing is written, and the TODO lists every entry to add by hand, with the gantt `stop` entry before the rotation one.
 - `install.sh` prints one `added  ~/.cursor/hooks.json (<events>)` line.
 
 ### 4. How this lands with CW-253
@@ -105,12 +106,18 @@ CW-253 merges first. This ticket's build:
 - `docs/compatibility.md`: the Local dashboard cell for Cursor becomes `🟡 partial: gantt rows, no spend (G9); rest untested (G3)`. G9 says Cursor threads write snapshots through Cursor hooks with timing and models but no tokens or cost, since Cursor's hooks and transcripts carry none, and that Codex and Antigravity still write none. The note on spend under the matrix names G9.
 - `README.md`: the install paragraph's `~/.cursor/hooks.json` mention (from CW-253) also names the gantt hook.
 
+### 6. The dashboard reads Cursor snapshots as live
+
+The Claude Code mod rewrites its snapshot every 5 seconds, so `api.ts` `cleanWith` reads silence as a stopped session: an agent row open for over 30 seconds is `stale`, and with no working agent the open `main` and task rows are closed at `updatedAt`. The Cursor hook writes only when an event fires, so those rules would draw a running turn as a zero-length bar and a subagent running over 30 seconds as stale. For a snapshot whose rows all have harness `Cursor`, `cleanWith` skips both rules: nothing is stale, open spans stay open and are drawn to now. The one-day cutoff still applies. The team view's `isRunning` (60 seconds without a write) skips its time check for such a snapshot, so a Cursor chief or project manager thread with an open span stays `running`. A Cursor thread killed with no `stop` or `sessionEnd` therefore reads as running until the day cutoff.
+
 ### Tests
 
 - `mods/agent-gantt/hooks/cursor.test.ts`: one table over event sequences, each checked against the rows it should give: prompt then stop (one task, one closed span); two prompts (two tasks); a subagent started and stopped inside a task (nested at depth 2, closed); a stop with no start (a closed row of `duration_ms`); two parallel subagents of one type stopped in order; `sessionEnd` with a span open; an unknown event (state unchanged). Every row checks `harness: 'Cursor'`, `tokens: 0`, `cost: null`, and the model. One table for `hookOutput` over the six events.
 - `agent-team/scripts/dashboard/api.test.ts`: one case that a Cursor snapshot on a ticket's worktree reaches that ticket's `gantt`. This is the acceptance check that runs without Cursor.
 - `test_install_machine.py`: CW-253's `hooks.json` table gains the gantt entries: a fresh file gets all seven entries with the gantt `stop` entry before the rotation one; a rerun adds nothing; a file with only the rotation hook gets the gantt ones added in the right order.
-- No test drives `cursor_gantt_hook.ts` end to end. Its file steps are the mod's checks, run by hand once (below).
+- `api.test.ts`: one more case that a Cursor snapshot with an open task and subagent span, last written 5 minutes ago, stays open and is not stale (and a Cursor chief stays running), while the same rows from Claude Code are closed.
+- `mods/agent-gantt/hooks/cursor_hook.test.ts`: one table that spawns `cursor_gantt_hook.ts` over stdin: a subagent start with no app root answers `allow`, a prompt with a bad cwd answers `continue`, both exit 0; garbage stdin exits 1; a prompt and a subagent (with its own `conversation_id`) in a worktree folder of a scratch app write the root checkout's snapshot.
+- The by-hand run (below) shows the snapshot file; the `api.test.ts` case covers the dashboard read. Neither drives `/api` live.
 
 ## Leaves out
 
@@ -123,13 +130,17 @@ CW-253 merges first. This ticket's build:
 ## Not proven before merge
 
 - No Cursor thread runs the hook in this PR. As in CW-253, whether T3 Code's Cursor provider loads `~/.cursor/hooks.json` and runs these six events, and passes `T3CODE_THREAD_ID` to hooks, is unproven until a Cursor child thread runs on a worktree.
-- The PR runs the hook by hand once: Cursor-shaped payloads piped into `node agent-team/scripts/cursor_gantt_hook.ts` from a scratch worktree, and the dashboard's `/api` shows the row. That proves the file path, not Cursor.
+- The PR runs the hook by hand once: Cursor-shaped payloads piped into `node agent-team/scripts/cursor_gantt_hook.ts` from a scratch worktree, and the snapshot file is there with the rows. The `api.test.ts` case covers the dashboard read; the live `/api` is not exercised. That proves the file path, not Cursor.
+- The hook needs `node` on the `PATH` Cursor gives hooks and a Node that runs `.ts` directly (24 or newer). A GUI-launched Cursor with a minimal `PATH` shows no rows; Cursor goes on after the non-zero exit.
+- Whether Cursor gives a subagent its own `conversation_id` (the hook assumes it may, and keys by `parent_conversation_id` when present), and whether `subagentStop` carries `parent_conversation_id` too. If a stop arrives under a different id than its start, that subagent's span stays open.
 
 ## Calls I made
 
 - **No spend for Cursor rows.** Cursor's hooks and transcripts have no token or cost field, so rows show `0` tokens and no cost, and the compatibility cell stays partial. The ticket asked for spend; it cannot be had from what Cursor sends.
 - **The gantt `stop` entry goes before the rotation hook's**, so the rotation hook's follow-up is the one Cursor keeps.
-- **The hook prints its answer before doing anything else**, and answers allow and continue, so a broken gantt hook can never block a subagent or a prompt.
+- **The hook prints its answer before doing anything else**, and answers allow and continue, so a broken gantt hook can never block a subagent or a prompt. Unreadable stdin exits 1 instead, as there is nothing to answer.
+- **`duration_ms` is used only for a stop with no start.** A matched stop keeps the start the hook recorded.
+- **State is keyed by `parent_conversation_id`, else `conversation_id`.** Cursor may give a subagent its own `conversation_id`; keying by the parent keeps its rows in the parent's snapshot. This is an assumption (see Not proven).
 - **`subagentStop` is matched by type and task**, since it carries no `subagent_id`. Two parallel subagents with the same type and task can swap end times; the chart is still right in count and span.
 - **Harness label `Cursor`**, not `Cursor in T3 Code`, matching the ticket.
 - **Node, not Python**, so the hook reuses `buildRows`, `buildSnapshot`, `pickHeading` and the timeline helpers instead of a second copy. It runs `node` from `PATH`, as the dashboard start does; with no Node, Cursor gets a non-zero exit and goes on.
