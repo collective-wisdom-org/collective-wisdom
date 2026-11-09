@@ -107,7 +107,7 @@ Call `t3_thread_configure` only in startup.md § Setup (read your own model) and
 
 ### Cursor
 
-Startup.md step 3 reads this thread's provider. When it is `cursor`, every model value this skill, startup.md, continuation.md, ticket-helper.md, rotation.md and project-manager/reference.md pass uses this table in place of the Claude Code one. No Cursor run starts on a Claude model, Auto, Grok 4.6 or Gemini, and the context window stays at Cursor's default.
+Startup.md step 3 reads this thread's provider. When it is `cursor`, every model value this skill, startup.md, continuation.md, ticket-helper.md, rotation.md and project-manager/reference.md pass comes from this table, not the Claude Code one. No Cursor run starts on a Claude model, Auto, Grok 4.6 or Gemini, and the context window stays at Cursor's default.
 
 | Role or stage | Model | Options | Set by |
 |---|---|---|---|
@@ -119,9 +119,9 @@ Startup.md step 3 reads this thread's provider. When it is `cursor`, every model
 | Implementer, documenter, compacter | `composer-2.5` | Cursor's default | `model:` in `.cursor/agents/<name>.md` |
 | Code review, security review | `grok-4.7` | Cursor's default | `model:` in `.cursor/agents/<name>.md`; the security review's general subagent asks for it |
 
-The values: Grok 4.7 is `target: {providerInstanceId: "cursor", model: "grok-4.7", options: {reasoning_effort: "high", fastMode: false}}`; Composer 2.5 is `target: {providerInstanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. A switch or launch passes the same as `modelSelection: {instanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. Fast mode is off because it costs more than the standard rate `prices.json` holds.
+The values: Grok 4.7 is `target: {providerInstanceId: "cursor", model: "grok-4.7", options: {reasoning_effort: "high", fastMode: false}}`; Composer 2.5 is `target: {providerInstanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. A switch or launch passes `modelSelection: {instanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. Fast mode is off because it costs more than the standard rate `prices.json` holds.
 
-Not yet observed: this routing comes from the models Cursor offers in T3 Code, not from a Cursor run (CW-256). Open: whether a Cursor subagent honors a `model:` id, whether `t3_thread_configure` switches a Cursor child mid-thread, and whether the run store tells a Fast mode run from a standard one.
+Not yet observed (CW-256): this routing comes from the models T3 Code offers Cursor, not a Cursor run. Open: whether a Cursor subagent honors a `model:` id, whether `t3_thread_configure` switches a Cursor child mid-thread, and whether the run store tells a Fast mode run from a standard one.
 
 ## Lanes
 
@@ -203,7 +203,7 @@ Not run through the tick:
 | `rebuild-relay <PREFIX>-N` | A queued ticket with no `pendingRelay`: startup.md § State rebuild (Queued ticket with no relay). Then rerun. |
 | `head-check <PREFIX>-N pr=<N> head=<sha>` | The head check in § Send or queue, before the queued merge approval goes out. For an auto-approval the next line is `run … cos_approve_pr.py <PREFIX>-N --auto`; anything but exit 0 is handled as § Send or queue says. |
 | `user-check <PREFIX>-N <thread> <itemId> words="…"` | The queued spec approval re-read in § Send or queue (the words on stdin through a quoted heredoc whose delimiter is not in them). An auto-approved spec instead gets `run … approval_policy.py auto <PREFIX>-N spec`, handled the same way. |
-| `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this thread's provider (`claude-sonnet-5-5` effort high on Claude Code, `composer-2.5` fast mode off on Cursor). |
+| `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this provider (`claude-sonnet-5-5` effort high on Claude Code, `composer-2.5` fast mode off on Cursor). |
 | `continuation <PREFIX>-N <lane>` | continuation.md § Continuation child, in place of `send`. It gets no "I may not hear" line. |
 | `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
 | `merge-wait <PREFIX>-N` | Start that ticket's merge wait (§ Merge wait). `cos_route.py` prints `merge-wait: <PREFIX>-N` for an immediate merge send; its `fallback:` line adds "and start the merge wait". |
