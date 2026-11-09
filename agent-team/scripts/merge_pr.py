@@ -33,19 +33,24 @@ Exit 1: a gate failed, nothing changed. Last line: merge-pr: stop #N: <reason>
 Exit 2: bad arguments, a gh or git call failed. Last line: merge-pr: cannot <what>
 """
 
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import approval_policy  # noqa: E402
 import ci_review  # noqa: E402
+import cos_state  # noqa: E402
+import cos_user_check  # noqa: E402
 import project_config  # noqa: E402
 import release_notes  # noqa: E402
 import user_config  # noqa: E402
@@ -168,7 +173,75 @@ def read_facts(pr, approved, run):
         f["root_ahead"] = int(run(["git", "-C", f["root"], "rev-list", "--count", "@{u}..HEAD"]))
     except (CmdError, ValueError):
         f["root_ahead"] = None
+    if f["state"] == "OPEN":
+        f["approval"], f["approvalWarn"] = read_approval(f)
     return f
+
+
+REVIEW_TITLES = ("## Code review", "## Security review")
+
+
+def read_approval(f):
+    """Return (why the user's approval is missing or "", a warning or None) for an open PR. Reads the state file and the message store; writes nothing.
+
+    A repo with no .agent-team/state.json has no Chief of Staff: warn and skip. Otherwise one ticket with this PR must be in stage merge on the
+    record head (the PR head, or its reviewed first parent when resolved_head accepts), with the standing auto-approval rule saying auto or the user's own
+    `approve <N>` newer than the record head's commit and the code and security reviews. A state file or message store that can't be read is a CmdError.
+    """
+    path = cos_state.DEFAULT_FILE
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return "", "no team state; approval not checked"
+    except OSError as e:
+        raise CmdError(f"read the state file: {e}")
+    try:
+        state = cos_state.load(path)
+    except SystemExit:
+        raise CmdError("read the state file")
+    tickets = state.get("tickets")
+    if not isinstance(tickets, dict):
+        raise CmdError("read the state file: no tickets table")
+    mine = {tid: t for tid, t in tickets.items() if isinstance(t, dict) and str(t.get("pr")) == f["pr"]}
+    if len(mine) != 1:
+        return f"{'no' if not mine else 'more than one'} ticket in the state file has pr #{f['pr']}", None
+    tid, t = next(iter(mine.items()))
+    head = resolved_head(f) or f["headRefOid"]
+    number = re.search(r"([0-9]+)$", tid)
+    if t.get("stage") != "merge":
+        return f"{tid} is in stage {t.get('stage')}, not merge", None
+    if t.get("headSha") != head:
+        return f"{tid} was approved at head {str(t.get('headSha'))[:7]}, not {head[:7]}", None
+    if not number:
+        return f"{tid} has no ticket number", None
+    n = str(int(number[1]))
+    status = t.get("status")
+    try:
+        approval_policy.auto_gate(status if isinstance(status, str) else None, f["files"], f, f["login"], tid)
+        return "", None
+    except approval_policy.Stop as e:
+        auto = str(e)
+    except approval_policy.Cannot as e:
+        raise CmdError(str(e))
+    thread = state.get("chiefThreadId")
+    if not isinstance(thread, str) or not thread:
+        return f"state file has no chiefThreadId to find the user's approve {n} in; not auto: {auto}", None
+    commit = next((x for x in f["commits"] if x["oid"] == head), None)
+    if commit is None:
+        return f"head commit {head[:7]} not in the PR's commit list", None
+    times = [ts(commit["committedDate"])]
+    for title in () if f.get("reviewMode") == "ci" else REVIEW_TITLES:
+        times += [ts(c["createdAt"]) for c in f["comments"] if c["author"]["login"] == f["login"] and c["body"].startswith(title)]
+    after = max(times).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            code = cos_user_check.latest(cos_user_check.DEFAULT_DB, thread, f"approve {n}", after)
+    except SystemExit:
+        raise CmdError("read the message store")
+    if code:
+        return f'no verified "approve {n}" from the user since {after} ({out.getvalue().strip()}); not auto: {auto}', None
+    return "", None
 
 
 def real_delta(f, reviewed):
@@ -363,6 +436,10 @@ def gate(f, delta=real_delta):
         return f"base is {f['baseRefName']}, not {target}"
     if not f["headRefOid"].startswith(f["approved"]) and not (resolved_head(f) or "").startswith(f["approved"]):
         return f"head {f['headRefOid']} is not approved head {f['approved']}"
+    if f.get("approval") is None:
+        return "the user's approval was not read"
+    if f["approval"]:
+        return f["approval"]
     problem = review_stop(f)
     if problem:
         return problem
@@ -535,6 +612,8 @@ def main(argv, run=run):
     except Exception as e:
         print(f"merge-pr: cannot read PR #{pr}: {type(e).__name__} {e}")
         return 2
+    if f.get("approvalWarn"):
+        print(f"merge-pr: warn {f['approvalWarn']}")
     if reason:
         print(f"merge-pr: stop #{pr}: {reason}")
         return 1

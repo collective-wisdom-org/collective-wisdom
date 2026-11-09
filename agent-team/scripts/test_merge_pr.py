@@ -1,6 +1,7 @@
 import copy
 import importlib.util
 import json
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -45,7 +46,15 @@ def green():
         "files": [{"path": SPECMD, "changeType": "ADDED"}],
         "docs": {SPECMD: SHIPPED},
         "mergeCommit": None, "root": str(merge_pr.ROOT), "root_branch": "main", "root_dirty": False, "root_ahead": 0,
+        "approval": "",
     }
+
+
+@pytest.fixture(autouse=True)
+def no_team_state(tmp_path, monkeypatch):
+    """No test reads this machine's Chief of Staff state or T3 messages: with no state file the approval check is skipped."""
+    monkeypatch.setattr(merge_pr.cos_state, "DEFAULT_FILE", tmp_path / "no-state.json")
+    monkeypatch.setattr(merge_pr.cos_user_check, "DEFAULT_DB", tmp_path / "no-t3.sqlite")
 
 
 def reviews(**kw):
@@ -92,6 +101,7 @@ def reviews(**kw):
         (lambda f: f.update(body="## Release note\n\nA note.\n\n## Proof\n\nran it\n"), 'has no "Not proven" line'),
         (lambda f: f.update(body="## Proof\n\nNot proven: nothing\n", files=f["files"] + [{"path": NOTEMD, "changeType": "ADDED"}]), 'no "## Release note" section'),
         (lambda f: f.update(root_branch="feat/y"), "root checkout is on feat/y"),
+        (lambda f: f.pop("approval"), "the user's approval was not read"),  # a missing read never passes
         (lambda f: f.update(state="MERGED", approved="bbbbbbb"), None),
     ],
 )
@@ -636,3 +646,70 @@ def test_teammate_row_as_written(tmp_path, monkeypatch, cell, cause):
     f = merge_pr.read_facts("7", HEAD[:7], runner)
     reason = merge_pr.gate(f)
     assert reason is None if cause is None else cause in reason
+
+
+def umsg(text="approve 87", by="user", at="2026-11-02T10:20:00Z"):
+    return ("m1", "chief", "user", 0, at, json.dumps({"text": text, "createdBy": by}))
+
+
+def tkt(**kw):
+    return {"stage": "merge", "pr": 7, "headSha": HEAD, "status": "PR #7 ready. Risk: Low (x).", **kw}
+
+
+# Facts: head commit 09:00, reviews 10:00. Each row changes one thing from the happy path: (id, changes, exit code, output part).
+APPROVAL_ROWS = [
+    ("owner-authored PR with a valid approve", {}, 0, "merged #7"),
+    ("another author", {"facts": lambda f: f["author"].update(login="dev")}, 0, "merged #7"),
+    ("auto-approved, no message and no store", {"tol": "balanced", "msgs": None}, 0, "merged #7"),
+    ("conflict-resolved head, approval on its first parent", {"resolved": True, "tickets": {"ABC-87": tkt(headSha=OLD)}}, 0, "merged #7"),
+    ("no state file", {"state": None}, 0, "merge-pr: warn no team state; approval not checked"),
+    ("no ticket for the PR", {"tickets": {"ABC-87": tkt(pr=8)}}, 1, "no ticket in the state file has pr #7"),
+    ("two tickets for the PR", {"tickets": {"ABC-87": tkt(), "ABC-88": tkt()}}, 1, "more than one ticket"),
+    ("wrong stage", {"tickets": {"ABC-87": tkt(stage="awaiting-merge")}}, 1, "ABC-87 is in stage awaiting-merge, not merge"),
+    ("headSha for another head", {"tickets": {"ABC-87": tkt(headSha="b" * 40)}}, 1, "was approved at head bbbbbbb, not aaaaaaa"),
+    ("no message, caller passes the current head", {"msgs": []}, 1, 'no verified "approve 87"'),
+    ("message older than the head commit", {"msgs": [umsg(at="2026-11-02T08:30:00Z")]}, 1, 'no verified "approve 87"'),
+    ("message older than a review", {"msgs": [umsg(at="2026-11-02T09:30:00Z")]}, 1, 'no verified "approve 87"'),
+    ("message from an agent", {"msgs": [umsg(by="agent")]}, 1, "not-user agent"),
+    ("negated message", {"msgs": [umsg(text="do not approve 87")]}, 1, "not-user negated"),
+    ("auto rule says no", {"tol": "strict", "msgs": []}, 1, "not auto: the user decides: strict"),
+    ("corrupt state file", {"state": "{"}, 2, "cannot read PR #7"),
+    ("message store missing", {"msgs": None}, 2, "read the message store"),
+]
+
+
+@pytest.mark.parametrize("changes, code, want", [r[1:] for r in APPROVAL_ROWS], ids=[r[0] for r in APPROVAL_ROWS])
+def test_main_checks_the_users_approval(tmp_path, monkeypatch, capsys, changes, code, want):
+    monkeypatch.setattr(merge_pr, "publish", lambda *a: None)
+    monkeypatch.setattr(merge_pr.project_config, "approval_setting", lambda: (changes.get("tol", "strict"), ""))
+    monkeypatch.setattr(merge_pr.project_config, "review_after_conflict", lambda: "off")
+    state = tmp_path / "state.json"
+    monkeypatch.setattr(merge_pr.cos_state, "DEFAULT_FILE", state)
+    if changes.get("state", 0) is not None:
+        tickets = changes.get("tickets", {"ABC-87": tkt()})
+        state.write_text(changes.get("state") or json.dumps({"chiefThreadId": "chief", "tickets": tickets}))
+    if changes.get("msgs", 0) is not None:
+        db = tmp_path / "t3.sqlite"
+        monkeypatch.setattr(merge_pr.cos_user_check, "DEFAULT_DB", db)
+        con = sqlite3.connect(db)
+        con.execute("CREATE TABLE orchestration_v2_projection_messages (message_id TEXT, thread_id TEXT, role TEXT, streaming INTEGER, created_at TEXT, payload_json TEXT)")
+        con.executemany("INSERT INTO orchestration_v2_projection_messages VALUES (?,?,?,?,?,?)", changes.get("msgs", [umsg()]))
+        con.commit()
+        con.close()
+    f = green()
+    if changes.get("resolved"):
+        resolved(f)
+    if "facts" in changes:
+        changes["facts"](f)
+    runner, calls = fake(copy.deepcopy(f))
+
+    def run(cmd, input=None):
+        if "--parents" in cmd:
+            return f"{HEAD} {OLD} {'d' * 40}"
+        if any(a.startswith("^") for a in cmd):
+            return HEAD
+        return runner(cmd)
+
+    assert merge_pr.main(["7", f["approved"]], run) == code
+    assert want in capsys.readouterr().out
+    assert any("PUT" in c for c in calls) == (code == 0), "only an approved PR is merged"
