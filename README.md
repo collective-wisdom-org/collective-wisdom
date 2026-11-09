@@ -151,10 +151,11 @@ Skills describe each step as an operation ("set the ticket to In Review"), and o
 
 ```sh
 ./tag-release.sh            # tag origin/main with the next v0.N and push the tag
+./tag-release.sh --minor    # tag origin/main with the next minor of the latest v0.N, such as v0.2.1
 ./tag-release.sh --dry-run  # print the tag it would make
 ```
 
-Run it by hand after a batch of merges you want machines to take. Apps do not pin to a tag. A machine takes a release by checking it out in its clone and rerunning `./install.sh` (see Install on a machine). It reads the tags on `origin` (not local ones), takes `origin/main`, and makes an annotated tag with the next number (`v0.10` follows `v0.9`), or `v0.1` when there are none. It refuses when `origin/main` already carries a `v0.N` tag. It pushes only that tag and never touches a branch. No skill runs it.
+Run it by hand after a batch of merges you want machines to take. Apps do not pin to a tag. A machine takes a release by checking it out in its clone and rerunning `./install.sh` (see Install on a machine). It reads the tags on `origin` (not local ones), takes `origin/main`, and makes an annotated tag with the next number (`v0.10` follows `v0.9`), or `v0.1` when there are none. With `--minor` it numbers from the latest `v0.N` and ignores minors of older releases (`v0.2.10` follows `v0.2.9`), starting at `v0.N.1`; it refuses when there is no `v0.N` yet. A minor tag never changes the plain numbering, so the next plain tag after `v0.2.1` is still `v0.3`. It refuses when `origin/main` already carries a `v0.N` or `v0.N.M` tag. It pushes only that tag and never touches a branch. No skill runs it.
 
 ## Agent pane
 
