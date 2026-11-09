@@ -13,6 +13,8 @@ GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign
 BEGIN, END = "<!-- collective-wisdom:begin -->", "<!-- collective-wisdom:end -->"
 SKILLS = [".claude/skills", ".agents/skills", ".cursor/skills"]
 HOOK = "cos_rotation_check.py"
+RULE = ".cursor/rules/collective-wisdom.mdc"
+RULE_TEXT = "---\ndescription: collective-wisdom agent team. Where the team runs and where it does not.\nalwaysApply: true\n---\n\nTeam text v1.\n"
 
 
 def git(cwd, *args):
@@ -25,7 +27,7 @@ def world(tmp_path):
     cw, home = tmp_path / "cw", tmp_path / "home"
     at = cw / "agent-team"
     for rel, text in {
-        ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n",
+        ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n", ".cursor/agents/ag.md": "ag\n",
         "scripts/cos_rotation_check.py": "x\n", "templates/machine-instruction.md": "Team text v1.\n",
     }.items():
         (at / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -56,10 +58,12 @@ def test_fresh_install_links_everything_and_a_rerun_changes_nothing(world):
         for name in ("alpha", "beta"):
             assert os.readlink(home / base / name) == str(cw / "agent-team/.claude/skills" / name)
     assert os.readlink(home / ".claude/agents/ag.md") == str(cw / "agent-team/.claude/agents/ag.md")
+    assert os.readlink(home / ".cursor/agents/ag.md") == str(cw / "agent-team/.cursor/agents/ag.md")
     hooks = json.loads((home / ".claude/settings.json").read_text())["hooks"]["Stop"]
     assert [h["command"] for e in hooks for h in e["hooks"]] == ['python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true']
     for f in (".claude/CLAUDE.md", ".codex/AGENTS.md"):
         assert (home / f).read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"
+    assert (home / RULE).read_text() == RULE_TEXT and "Paste this into Cursor" not in out
     assert "installed collective-wisdom " + subprocess.run(["git", "rev-parse", "HEAD"], cwd=cw, capture_output=True, text=True).stdout.strip() in out
     before = tree(home)
     rc, out = install(cw, home)
@@ -99,8 +103,11 @@ def test_own_names_are_kept_and_listed_and_dead_links_are_dropped(world):
     (home / ".claude/skills/old").symlink_to(cw / "agent-team/.claude/skills/old")  # ours: dropped by a newer release
     (home / ".cursor/skills").mkdir(parents=True)
     (home / ".cursor/skills/mine").symlink_to(home / "elsewhere")  # not ours, not shipped
+    (home / ".cursor/agents").mkdir(parents=True)
+    (home / ".cursor/agents/old.md").symlink_to(cw / "agent-team/.cursor/agents/old.md")  # ours: dropped by a newer release
     rc, out = install(cw, home)
     assert rc == 0, out
+    assert not (home / ".cursor/agents/old.md").is_symlink()
     assert (home / ".claude/skills/alpha").is_dir() and not (home / ".claude/skills/alpha").is_symlink()
     assert os.readlink(home / ".agents/skills/beta") == str(home / "elsewhere")
     assert os.readlink(home / ".cursor/skills/mine") == str(home / "elsewhere")
@@ -169,3 +176,19 @@ def test_an_unreadable_instruction_file_is_listed_and_the_rest_still_installs(wo
     assert "Fix ~/.codex/AGENTS.md by hand" in out and "Fix ~/.claude/CLAUDE.md" not in out
     assert (home / ".claude/CLAUDE.md").read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"
     assert os.readlink(home / ".collective-wisdom") == str(cw / "agent-team")
+
+
+# name, what is at the rule path before the run (a file with this text, or None for a folder), the Fix TODO expected
+RULE_CASES = [("a stale file is replaced", "old text\n", False), ("a folder is listed and the rest installs", None, True)]
+
+
+@pytest.mark.parametrize("name, text, todo", RULE_CASES, ids=[c[0] for c in RULE_CASES])
+def test_cursor_rule_file(world, name, text, todo):
+    cw, home = world
+    (home / RULE).parent.mkdir(parents=True)
+    (home / RULE).write_text(text) if text else (home / RULE).mkdir()
+    rc, out = install(cw, home)
+    assert rc == 0, out
+    assert ("Fix ~/.cursor/rules/collective-wisdom.mdc by hand" in out) == todo
+    assert (home / RULE).is_dir() == todo and (todo or (home / RULE).read_text() == RULE_TEXT)
+    assert (home / ".claude/CLAUDE.md").read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"

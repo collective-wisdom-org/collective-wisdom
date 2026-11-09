@@ -68,8 +68,8 @@ How:
 
 This file holds the shared instructions for every agent: Cursor, Claude Code, and T3 Code threads on either. `CLAUDE.md` imports it (`@AGENTS.md`).
 
-- The machine install links the team's skills into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex) and `~/.cursor/skills` (Cursor), and its subagents into `~/.claude/agents`. An app may still hold its own skills in `.claude/skills/`.
-- Each team subagent is a short pointer to a role file in `~/.collective-wisdom/docs/agents/`, which holds the real brief. On hosts that don't load that format, start a general subagent with the role file as its prompt.
+- The machine install links the team's skills into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex) and `~/.cursor/skills` (Cursor), and its subagents into `~/.claude/agents` and `~/.cursor/agents`. An app may still hold its own skills in `.claude/skills/`.
+- Each team subagent is a short pointer to a role file in `~/.collective-wisdom/docs/agents/`, which holds the real brief. Cursor gets copies with the same name, description and body, `model: inherit`, and `readonly: true` on reviewers. Elsewhere, start a general subagent with the role file as its prompt.
 - The agent team (skills, subagents, scripts, role docs) is installed once per machine from the collective-wisdom clone with `install.sh`. Update it by checking out a newer release there and rerunning `./install.sh`. Only `docs/agents/project.md` lives in this repo. Change shared files in collective-wisdom.
 - Always-on project rules go in this file, not in `.cursor/rules/`.
 - Who's on the agent team and what each role may do: `~/.collective-wisdom/docs/agents/org-chart.md`.
