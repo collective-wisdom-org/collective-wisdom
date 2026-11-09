@@ -1,6 +1,7 @@
 # CW-258: Produce agent-gantt snapshots from Cursor threads
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #270, as specified
 **Ticket:** [#258](https://github.com/collective-wisdom-org/collective-wisdom/issues/258)
 **Related:** [#253](https://github.com/collective-wisdom-org/collective-wisdom/issues/253) (Cursor rotation hook, which adds the `~/.cursor/hooks.json` merge this spec extends)
 
