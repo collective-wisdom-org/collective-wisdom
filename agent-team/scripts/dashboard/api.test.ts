@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildApi, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
+import { applyEvent, cursorSnapshot, emptyState } from '../../../mods/agent-gantt/hooks/cursor.ts'
 
 const NOW = 1_800_000_000_000
 const GH = { url: 'https://github.com/o/r', isGithubIssues: true }
@@ -183,6 +184,16 @@ test('snapshots join the card of their worktree branch; the rest are dropped', (
   }
   const two = build({ state, snapshots: [snap('/r/.worktrees/x', 0), snap('/r/.worktrees/x/b', 5000)], worktrees, prefix: 'CW' })
   assert.deepEqual((two.status[0].rows.find((r: any) => r.id === 'CW-7') as any).gantt.map((s: any) => s.sessionId), ['/r/.worktrees/x/b', '/r/.worktrees/x'])
+})
+
+test('a Cursor snapshot on a ticket worktree reaches the ticket gantt', () => {
+  const cwd = '/h/.t3/worktrees/r/t3-1'
+  const base = { conversation_id: 'c1', model: 'claude-sonnet-4', workspace_roots: [cwd] }
+  const events = [{ hook_event_name: 'beforeSubmitPrompt', prompt: 'Fix it' }, { hook_event_name: 'stop' }]
+  const state = events.reduce((s, e, i) => applyEvent(s, { ...base, ...e }, NOW - 5000 + i * 1000), emptyState())
+  const snapshot = JSON.parse(cursorSnapshot(state, base, NOW - 4000, null))
+  const gantt = (build({ state: stateOf('CW-7', { branch: 'b' }), snapshots: [snapshot], worktrees: [{ path: cwd, branch: 'b' }] }).status[0].rows[0] as any).gantt
+  assert.deepEqual(gantt.map((s: any) => [s.sessionId, s.total, s.rows.map((r: any) => [r.name, r.harness, r.model, r.tokens])]), [['c1', null, [['Fix it', 'Cursor', 'sonnet-4', 0]]]])
 })
 
 test('merged entries get their ticket spend; a session off the board still matches for the ledger', () => {
