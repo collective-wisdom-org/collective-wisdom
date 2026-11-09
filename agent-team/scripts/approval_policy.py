@@ -25,7 +25,7 @@ Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Ris
 Exit 1: ask.  Last line: approval: ask [<PREFIX>-N] (<why>)
 Exit 2: bad arguments, or the state file failed. Last line: approval: cannot <what>. Treat as ask.
 
-~/.collective-wisdom/scripts/cos_approve_pr.py --auto imports the rule, the Risk tail reader and the approval and hands path lists from here.
+~/.collective-wisdom/scripts/cos_approve_pr.py --auto and ~/.collective-wisdom/scripts/merge_pr.py (an auto-approved ticket) use auto_gate, the Risk tail reader and the approval and hands path lists from here.
 """
 
 import re
@@ -33,6 +33,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+import cos_brief  # noqa: E402
 import cos_state  # noqa: E402
 import no_hands  # noqa: E402
 import project_config  # noqa: E402
@@ -40,6 +41,7 @@ import project_config  # noqa: E402
 AUTO_UP_TO = {"strict": (), "balanced": ("Low",), "permissive": ("Low", "Medium")}
 LEVELS = ("Low", "Medium", "High")
 AUTO_RELAY = "CHIEF OF STAFF: auto-approved"  # a queued auto approval is re-checked just before it is sent
+FILES_CAP = 100  # gh returns at most this many files; a PR this big can't be checked in full
 RISK_TAIL = re.compile(r"Risk: (\w+) \(.*\)\.?\s*$")
 
 # Files a PR may not change and still be auto-approved: the setting, the review rules and every other role doc
@@ -162,6 +164,46 @@ def on_hands_path(path):
     root_shadow = p.split("/")[0] in ROOT_SHADOWS or root_pkg or ("/" not in p and name.endswith(PYTHONISH) and name.split(".")[0] in ROOT_PY)
     return (listed or ".github" in p.split("/")[:-1] or name in ("codeowners", ".gitattributes")
             or root_shadow or nested_rules(p) or shadows_imports(p, name))
+
+
+class Stop(Exception):
+    """A gate failed: exit 1."""
+
+
+class Cannot(Exception):
+    """A read failed: exit 2."""
+
+
+def auto_gate(status, files, f=None, login="", tid=None):
+    """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop.
+
+    While a No Hands run is active and tid is a ticket it started, the tolerance is not read, any level is auto, and the hands
+    path replaces the approval path. Any other ticket (in flight when the run began) uses the tolerance and the approval path.
+    """
+    hands = no_hands.active(ticket=tid)
+    level = risk_level(status)
+    tolerance, note = ("No Hands", "") if hands else project_config.approval_setting()
+    auto, why = decide(tolerance, level, hands)
+    if not auto:
+        raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
+    paths = [x["path"] for x in files]
+    for x in files:
+        if "changeType" not in x:
+            raise Cannot(f"read the PR files: gh gave no changeType for {x['path']}; needs a newer gh")
+    renamed = [x["path"] for x in files if x["changeType"] == "RENAMED"]
+    if renamed:  # gh gives only the new path, so the old one could be on the approval path
+        raise Stop(f"PR renames a file ({renamed[0]}), too hard to check")
+    if len(paths) >= FILES_CAP:
+        raise Stop(f"PR has {len(paths)} or more files, too many to check")
+    on_path = [p for p in paths if (on_hands_path if hands else on_approval_path)(p)]
+    if on_path:
+        raise Stop(f"PR changes the {'hands' if hands else 'approval'} path ({on_path[0]})")
+    flags = cos_brief.flags_for(paths)
+    if flags or cos_brief.migration_numbers(paths):
+        raise Stop(f"PR needs the user: {flags[0] if flags else 'migration file'}")
+    if f and cos_brief.resolved_flag(f["headRefOid"], f.get("comments") or [], login):
+        raise Stop("PR needs the user: conflict resolution not reviewed")
+    return tolerance, level
 
 
 def _verdict(kind, who, level, setting, ticket=None):

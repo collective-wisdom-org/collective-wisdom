@@ -51,21 +51,14 @@ def _load(name):
 merge_pr = _load("merge_pr")
 cos_state = _load("cos_state")
 cos_user_check = _load("cos_user_check")
-cos_brief = _load("cos_brief")
 approval_policy = _load("approval_policy")
 ROOT, GH = merge_pr.ROOT, merge_pr.GH
 PR_FIELDS = "state,isDraft,baseRefName,isCrossRepository,headRefOid"
 AUTO_FIELDS = ",files,comments"
 AUTO_RELAY = approval_policy.AUTO_RELAY
-FILES_CAP = 100  # gh returns at most this many files; a PR this big can't be checked in full
 
 
-class Stop(Exception):
-    """A gate failed: exit 1."""
-
-
-class Cannot(Exception):
-    """A read failed: exit 2."""
+Stop, Cannot = approval_policy.Stop, approval_policy.Cannot  # defined next to auto_gate, which raises them
 
 
 def check_root(run):
@@ -122,38 +115,6 @@ def read_gh(run, pr, auto=False):
     return login, facts
 
 
-def auto_gate(status, files, f=None, login="", tid=None):
-    """Return (tolerance, level) when the rule says auto and nothing in the PR needs the user, else raise Stop.
-
-    While a No Hands run is active and tid is a ticket it started, the tolerance is not read, any level is auto, and the hands
-    path replaces the approval path. Any other ticket (in flight when the run began) uses the tolerance and the approval path.
-    """
-    hands = approval_policy.no_hands.active(ticket=tid)
-    level = approval_policy.risk_level(status)
-    tolerance, note = ("No Hands", "") if hands else project_config.approval_setting()
-    auto, why = approval_policy.decide(tolerance, level, hands)
-    if not auto:
-        raise Stop(f"the user decides: {why}{'; ' + note if note else ''}")
-    paths = [x["path"] for x in files]
-    for x in files:
-        if "changeType" not in x:
-            raise Cannot(f"read the PR files: gh gave no changeType for {x['path']}; needs a newer gh")
-    renamed = [x["path"] for x in files if x["changeType"] == "RENAMED"]
-    if renamed:  # gh gives only the new path, so the old one could be on the approval path
-        raise Stop(f"PR renames a file ({renamed[0]}), too hard to check")
-    if len(paths) >= FILES_CAP:
-        raise Stop(f"PR has {len(paths)} or more files, too many to check")
-    on_path = [p for p in paths if (approval_policy.on_hands_path if hands else approval_policy.on_approval_path)(p)]
-    if on_path:
-        raise Stop(f"PR changes the {'hands' if hands else 'approval'} path ({on_path[0]})")
-    flags = cos_brief.flags_for(paths)
-    if flags or cos_brief.migration_numbers(paths):
-        raise Stop(f"PR needs the user: {flags[0] if flags else 'migration file'}")
-    if f and cos_brief.resolved_flag(f["headRefOid"], f.get("comments") or [], login):
-        raise Stop("PR needs the user: conflict resolution not reviewed")
-    return tolerance, level
-
-
 def approve(tid, run, auto=False):
     n = str(int(tid.rsplit("-", 1)[1]))
     check_root(run)
@@ -183,7 +144,7 @@ def approve(tid, run, auto=False):
     if f["headRefOid"] != sha:
         raise Stop(f"head {f['headRefOid']} is not the approved head {sha}")
     if auto:
-        tolerance, level = auto_gate(status, f["files"], f, login, tid)
+        tolerance, level = approval_policy.auto_gate(status, f["files"], f, login, tid)
         return f"cos-approve: auto-approved #{pr} at {sha} under {tolerance} (Risk: {level or 'unrated'})"
     return f'cos-approve: verified approve {n} for #{pr} at {sha} (user wrote: "{snippet}")'
 
