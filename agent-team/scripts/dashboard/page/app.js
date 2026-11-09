@@ -23,9 +23,9 @@ const riskClass = (risk) => {
 const NEEDS_YOU = ['Awaiting merge approval', 'Awaiting build approval']
 const QUEUED = ['Queued to merge', 'Queued to build', 'Other']
 const BANDS = [
-  { name: 'Needs you', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
+  { name: 'Your turn', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
   { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) },
-  { name: 'Queued', slug: 'queued', has: (n) => QUEUED.includes(n) },
+  { name: 'Up next', slug: 'queued', has: (n) => QUEUED.includes(n) },
 ]
 const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
 const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
@@ -268,27 +268,27 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const sections = mine
       .map((g) => {
         const rows = g.rows.map((r) => ticket(r, { flat, other: g.name === 'Other', open, info })).join('\n')
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(g.name)} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
       })
       .join('\n')
     return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
   }).join('\n')
 }
 
+/** The header: one sentence counting the bands. Blocked tickets (stage `blocked`, which the API puts in `Other`) are counted apart from the waiting ones. */
 export function renderBadges(groups) {
   if (!Array.isArray(groups)) return ''
-  const count = (name) => groups.find((g) => g.name === name)?.count ?? 0
-  const merge = count('Awaiting merge approval')
-  const build = count('Awaiting build approval')
-  const queue = count('Queued to build')
-  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-  return [
-    merge > 0 ? `<span class="badge cta-high">${plural(merge, 'thread')} awaiting merge approval</span>` : '',
-    build > 0 ? `<span class="badge cta-medium">${plural(build, 'thread')} awaiting build approval</span>` : '',
-    `<span class="badge quiet">${queue > 0 ? `${plural(queue, 'ticket')} in the build queue` : 'No tickets in the build queue'}</span>`,
-  ].join('')
+  const sum = (band) => groups.filter((g) => band.has(g.name)).reduce((n, g) => n + (Number(g.count) || 0), 0)
+  const [needs, progress, queued] = BANDS
+  const blocked = list(groups.find((g) => g.name === 'Other')?.rows).filter((r) => r.stage === 'blocked').length
+  const need = sum(needs)
+  const waiting = Math.max(0, sum(queued) - blocked)
+  const parts = [need > 0 ? `<span class="hs-need">${need} ${need === 1 ? 'needs' : 'need'} you</span>` : 'Nothing needs you']
+  if (sum(progress) > 0) parts.push(`${sum(progress)} in progress`)
+  if (waiting > 0) parts.push(`${waiting} waiting`)
+  if (blocked > 0) parts.push(`<span class="hs-blocked">${blocked} blocked</span>`)
+  return `<span class="hs">${parts.join(' · ')}</span>`
 }
-
 const stamp = (ms) => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
