@@ -13,7 +13,7 @@ Nothing here is specific to one app. Each app keeps its own facts (ticket prefix
 `agent-team/` mirrors a consuming repo, so every path inside the skills, scripts and docs stays valid. An app does not copy any of it. The machine install links it into your home folder.
 
 - `agent-team/.claude/skills/`: the team skills (chief-of-staff, project-manager, ship-loop, kickoff-feature, build-from-plan, open-pr, security-review, merge-pr, write-ticket) and the supporting ones (human-writing, owasp-security, agent-security, auditing-security)
-- `agent-team/.claude/agents/`: the documenter, compacter, implementer, code-reviewer and security-reviewer subagents, each a pointer to its role doc
+- `agent-team/.claude/agents/`: the documenter, compacter, implementer, code-reviewer and security-reviewer subagents, each a pointer to its role doc. `agent-team/.cursor/agents/` holds their Cursor copies
 - `agent-team/.claude/mods/`: the `status-pane` Claude Code mod, a pane that shows the Chief of Staff status (see `agent-team/docs/agents/status-pane.md`)
 - `agent-team/scripts/`: the team scripts, their tests, `gh.sh`, `wait-for-ci.sh` and `prices.json` (the price table `agent_usage.py` and the `agent-gantt` mod both read)
 - `agent-team/docs/agents/`: shared role docs (including the documenter), read from `~/.collective-wisdom/docs/agents/`
@@ -78,7 +78,7 @@ To update, check out a newer release in the clone (`git fetch origin && git chec
 It writes only under your home folder and touches no app. It links:
 
 - `~/.collective-wisdom` to the clone's `agent-team/` folder. Skills and role docs call scripts as `~/.collective-wisdom/scripts/<name>`.
-- Each skill into `~/.claude/skills/`, `~/.agents/skills/` (Codex) and `~/.cursor/skills/`, and each subagent into `~/.claude/agents/`. One link per name, so your own skills stay.
+- Each skill into `~/.claude/skills/`, `~/.agents/skills/` (Codex) and `~/.cursor/skills/`, and each subagent into `~/.claude/agents/` and `~/.cursor/agents/`. One link per name, so your own skills stay.
 
 It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json` (other keys and hooks are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone. For Cursor it writes the same text to its own file, `~/.cursor/rules/collective-wisdom.mdc`, with `alwaysApply: true`, and a rerun rewrites that whole file. If you pasted the text into Cursor Settings, Rules before, you can delete that copy.
 

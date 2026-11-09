@@ -107,6 +107,8 @@ Tickets move in three lanes (spec, build, merge), each with its own limit, under
 | Code review | `code-reviewer` Claude Code subagent | No. Posts a `## Code review (pass N)` PR comment, and on a small diff the security review in the same run (`open-pr` § Review scope) | No | No. Never approves or requests changes on GitHub | No | [`.claude/agents/code-reviewer.md`](../../.claude/agents/code-reviewer.md), [role doc](code-review.md), [`open-pr`](../../.claude/skills/open-pr/SKILL.md) § Agent review comment loop |
 | Security review | The `security-reviewer` Claude Code subagent against the OWASP list; Cursor, a general subagent given `security-review.md` | No. Posts a `## Security review (pass N)` PR comment; skipped on a docs-only diff (`open-pr` § Review scope) | No | No | No | [`.claude/agents/security-reviewer.md`](../../.claude/agents/security-reviewer.md), [`security-review`](../../.claude/skills/security-review/SKILL.md), [security-review.md](security-review.md) |
 
+The five subagent rows above also have Cursor copies in `agent-team/.cursor/agents/` (same name, description and body; `model: inherit`; `readonly: true` on the documenter and the two reviewers).
+
 The child fixes what the documenter and the reviews find; they only report. Each role's model: [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) § Models.
 
 When a repo sets `Review mode` to `ci` (`project.md` § Review), the code review and security review roles do not run: the child answers the CI review bot's threads (`open-pr` § CI review mode) and the merge gate checks that none are unresolved.
