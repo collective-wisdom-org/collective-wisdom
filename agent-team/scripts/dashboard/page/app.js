@@ -338,14 +338,14 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
 
 const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene']])
 const STATES = ['running', 'idle', 'paused', 'finished']
-const stateBadge = (state) => `<span class="badge state-${STATES.includes(state) ? state : 'idle'}">${esc(state)}</span>`
-const threadButton = (l) => (l ? `<button type="button" class="copy" data-copy="${esc(l)}" title="Copy thread link">Thread</button>` : '')
+const stateBadge = (state) => `<span class="state state-${STATES.includes(state) ? state : 'idle'}">${esc(state)}</span>`
+const threadButton = (l) => (l ? copyButton(l) : '')
 
 /** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
 export function renderChief(api, page = 0, open = new Set(), size = 10) {
   const chief = api?.chief ?? {}
   const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
-  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
+  const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span> ${stateBadge(chief.state ?? 'idle')}${threadButton(chief.threadLink)}</div>${body}</section>`
   const pm = list(api?.pm)
   const pages = Math.max(1, Math.ceil(pm.length / size))
   const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
@@ -355,9 +355,9 @@ export function renderChief(api, page = 0, open = new Set(), size = 10) {
       const updated = list(p.gantt)[0]?.updatedAt
       const id = esc(p.sessionId)
       return `<li class="row">
-  <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span> ${stateBadge(p.state)}</div>
-  <div class="sub">${typeof updated === 'number' ? `<span class="next">updated ${esc(stamp(updated))}</span>` : ''}${threadButton(p.threadLink)}</div>
-  <details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details>
+  <div class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)} ${stateBadge(p.state)}</div>
+  <div class="meta">${typeof updated === 'number' ? esc(`updated ${dayWords(updated, Date.now())} ${clock(updated)}`) : ''} ${threadButton(p.threadLink)}</div>
+  <div class="foot"><details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details></div>
 </li>`
     })
     .join('\n')

@@ -448,7 +448,12 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   const pm = (i, o = {}) => ({ sessionId: `s${i}`, role: 'ranking', state: 'finished', gantt: [sess({ sessionId: `s${i}`, rows: [task({ segments: [[T, T + MIN]] })] })], ...o })
   const api = { chief: { state: 'running', threadLink: link, gantt: [sess()] }, pm: [pm(1, { role: hostile, state: hostile, sessionId: hostile, threadLink: link }), pm(2, { role: 'hygiene' }), ...Array.from({ length: 10 }, (_, i) => pm(i + 3))] }
   const first = renderChief(api, 0, new Set([hostile]))
-  assert.match(first.html, /state-running/)
+  assert.match(first.html, /<span class="state state-running">running<\/span>/)
+  assert.doesNotMatch(first.html, /badge/)
+  assert.match(first.html, /<button type="button" class="copy" data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;">Copy thread link<\/button>/)
+  assert.match(first.html, /<div class="meta">updated (today|yesterday|\d{4}-\d\d-\d\d) \d\d:\d\d/)
+  const fresh = renderChief({ chief: { state: 'idle' }, pm: [pm(1, { gantt: [sess({ updatedAt: Date.now() })] })] }).html
+  assert.match(fresh, /<div class="title">Backlog ranking <span class="state state-finished">finished<\/span><\/div>\s*<div class="meta">updated today \d\d:\d\d/)
   assert.match(first.html, /data-chief/)
   assert.match(first.html, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(first.html, /Hygiene/)
