@@ -1,6 +1,7 @@
 # CW-259: Let tag-release.sh cut minor release versions
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #268, as specified
 **Ticket:** [#259](https://github.com/collective-wisdom-org/collective-wisdom/issues/259)
 
 ## Goal
