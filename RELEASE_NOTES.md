@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 run the security review on Cursor without review-security (CW-254) (#263)
+
+Merged 2026-11-09 01:53 UTC.
+
+On Cursor, the security review step now runs from files this repo ships, with no Cursor-only skill needed. Nothing to do on your side.
+
 ## 2026-11-09 install the Cursor instruction block as a rule file (CW-252) (#261)
 
 Merged 2026-11-09 01:44 UTC.
