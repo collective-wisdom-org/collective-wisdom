@@ -11,6 +11,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 AGENTS = sorted((ROOT / ".claude" / "agents").glob("*.md"))
+CURSOR_MODEL = {"opus": "grok-4.7", "sonnet": "composer-2.5"}
 
 
 def parse(path):
@@ -43,7 +44,7 @@ def test_cursor_twin_matches_the_claude_agent(path):
     meta, body = parse(path)
     cmeta, cbody = parse(twin)
     assert (cmeta["name"], cmeta["description"], cbody) == (meta["name"], meta["description"], body)
-    assert cmeta["model"] == "inherit" and "tools" not in cmeta
+    assert cmeta["model"] == CURSOR_MODEL[meta["model"]] and "tools" not in cmeta
     read_only = meta["tools"] != "*" and not {"Edit", "Write"} & set(re.split(r"[,\s]+", meta["tools"]))
     assert (cmeta.get("readonly") == "true") == read_only
 
