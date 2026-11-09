@@ -37,7 +37,7 @@ are grouped by git branch and split into spec, build and merge at the
 "CHIEF OF STAFF:" relays. Prices are list prices per million tokens (see PRICES).
 The last section totals child-thread subagent cost by kind (implementer or review) and model.
 Cursor worktree sessions join the child rows by branch and Cursor root sessions get a "root cursor" row;
-unpriced Cursor runs add "not priced: <model> N runs, M.MM tokens" lines. --turns and --context read Claude Code only.
+unpriced Cursor runs add "not priced: <model> N runs, M.M tokens" lines. --turns and --context read Claude Code only.
 
 Root rows show the start of each session's first message. Check the output before
 pasting it into a PR or doc.

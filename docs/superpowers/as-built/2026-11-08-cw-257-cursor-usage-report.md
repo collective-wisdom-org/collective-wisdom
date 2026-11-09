@@ -6,6 +6,7 @@
 
 ## Differs from the spec
 
+- A Cursor store that cannot be opened, or a run whose usage cannot be parsed, makes `--ticket` print `cost unknown (... cannot read a Cursor store ...; $X priced)` for a ticket that has a session, instead of skipping it silently. A ticket with no session still exits 2. The window report skips it with a stderr line.
 - The window report has no test. The spec's Tests section asked only for the `--ticket` and stage-split tests.
 - A Cursor session adds only its runs' start times to the wall span, so a one-turn Cursor session adds no wall time.
 - The `Branch:` line is read up to the first `.`, because the child task reads `feat/...-slug. Create it yourself`. The `git branch` fallback runs only for worktree directories.
