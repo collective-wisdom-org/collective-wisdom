@@ -139,7 +139,7 @@ Usually nothing is left: the spec's `**Shipped:**` line, any as-built and the re
 
 A run ends only with a marker: `BUILD READY`, `MERGE READY`, `BLOCKED:` or `MERGED #N`. Anything else is a progress note; keep going.
 
-Any ticket ID in a `BUILD READY`, `MERGE READY` or `BLOCKED:` message is written `<PREFIX>-N: <short title>`, the ID alone only when the title can't be read. The markers themselves don't change.
+Any ticket ID in a `BUILD READY`, `MERGE READY` or `BLOCKED:` message is written `<PREFIX>-N: <short title>`, the ID alone only when the title can't be read. Drop `[`, `]`, `<`, `>`, backticks and newlines from a title, and write the ID alone when it contains a marker word (`BUILD READY`, `MERGE READY`, `BLOCKED:`, `MERGED #`) or `Auto-approved`. The markers themselves don't change.
 
 - While CI, a review subagent or any background command is pending, keep the run going and wait on it. Start a background command with the tool's background option, never `&`, and call `t3_background_wait` with its task ID right after. Run subagents in the foreground (`run_in_background: false`).
 - After `t3_background_wait`, ending your turn is fine and is not a run ending: you are woken when the command exits. Write no closing message: T3 shows the run as `completed`, and the Chief of Staff tells a waiting child from a stalled one by that call (it reads only the last 10 items), so make the wait one of the last few tool calls before ending the turn.

@@ -37,7 +37,7 @@ Rules:
   order. Up to 5 entries that are "ready" or "needs: ...", plus any "held: ..."
   entries (at most 5) in their rank place. reason, and the text after "needs: "
   or "held: ", is one line of at most 160 characters. Write any other ticket a
-  reason names as <PREFIX>-N: <short title>. priority is one of Urgent,
+  reason names as <PREFIX>-N: <short title> (no `[`, `]`, `<`, `>` or backticks). priority is one of Urgent,
   High, Medium, Low, No priority. createdAt is the ticket's ISO time. An empty
   Backlog is [].
 ```
@@ -90,7 +90,7 @@ Rules:
 - Never call delegate_task, t3_thread_send or any other T3 tool. No subagents.
 - Your final message is only the report lines § Hygiene pass step 5 lists, one
   per line, or the single word "nothing". Each line starts `<PREFIX>-N: <short title>, `
-  (a few words from the tracker title, no `[`, `]` or backticks).
+  (a few words from the tracker title, no `[`, `]`, `<`, `>` or backticks).
 ```
 
 Failures, like the ranking child's: `delegate_task` times out: Cleanup line `Project manager hygiene timed out`. It fails, the wait ends early, or the child returns no message: `Project manager hygiene failed: <one line>`. On every failure, `task_cancel` the child if it may still run. `pm.lastDailyAt` stays at `<started>`.
