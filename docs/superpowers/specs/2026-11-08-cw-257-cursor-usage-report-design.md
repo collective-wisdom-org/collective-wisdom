@@ -1,6 +1,7 @@
 # CW-257: Include Cursor sessions in the usage and cost report
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #269, with differences: [as-built](../as-built/2026-11-08-cw-257-cursor-usage-report.md)
 **Ticket:** [#257](https://github.com/collective-wisdom-org/collective-wisdom/issues/257)
 
 ## Goal
