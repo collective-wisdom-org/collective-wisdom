@@ -83,6 +83,20 @@ Notes:
 - **Jira:** done when the `jira.md` checklist is ticked against a live site, and `pm_hygiene.py` reads Jira's list shape.
 - **Azure DevOps (ADO):** done when `trackers/` has an Azure DevOps adapter that the scripts read, verified against a live organization, and the dashboard and the untracked check read its work items.
 
+## Recording a run
+
+How to record a Chief of Staff run and a ship-loop child on a harness, so the matrix cells rest on a run and not a guess. Do it in a throwaway private repo, not in collective-wisdom: a second Chief of Staff there would fight the first over `.agent-team/state.json` and the Backlog.
+
+1. Make a private GitHub repo with a one-line `README.md` and one small ticket, such as "Add a one-line project description to README.md". Leave out `docs/agents/project.md`: the thread under test has to set the repo up.
+2. Clone it, add the clone as a T3 Code project, and start a thread with the harness under test.
+3. Send `set up this repo`, then `start the team`. Take the ticket through spec, build and merge, approving the spec and the merge from that thread.
+4. Open the dashboard for the repo and note the Chief of Staff tab: the thread's state and link.
+5. Read the Chief of Staff thread and each child thread with `t3_thread_read`. Mark a cell `works` only on a quoted tool call or reply that shows it. Otherwise mark it `partial` or `not supported` with a reason.
+6. File one ticket per failure and put its link on the cell's gap line. Fix nothing in the same ticket.
+7. Add an entry under [Runs](#runs): date, harness, repo, thread ids, how far the ticket got, one line per cell.
+
+A ship-loop child cannot start a thread on another harness, so step 2 is done by the user or the Chief of Staff.
+
 ## Keeping it current
 
 A PR that changes support for a cell updates that cell in the same PR. When a cell goes from not `works` to `works`, drop its gap and its reason. A cell moves to `works` only with the code, or a run the team does today, to show it.
