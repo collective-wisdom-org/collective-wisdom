@@ -1,10 +1,10 @@
 // Cursor hook: writes this conversation's gantt rows to <root checkout>/.agent-team/gantt/<id>.json for the local dashboard.
 // Run by ~/.cursor/hooks.json as `node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"` for six events (CW-258).
-// It answers Cursor first and always exits 0, so a failure here never blocks a prompt or a subagent.
+// It answers Cursor first and exits 0 after any error once stdin parsed; stdin that cannot be read or parsed exits 1, which Cursor goes on from.
 import { execFileSync } from 'node:child_process'
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs'
 
-import { applyEvent, cursorCwd, cursorSnapshot, emptyState, hookOutput } from '../../mods/agent-gantt/hooks/cursor.ts'
+import { applyEvent, cursorCwd, cursorSnapshot, emptyState, hookOutput, sessionKey } from '../../mods/agent-gantt/hooks/cursor.ts'
 import type { CursorPayload, CursorState } from '../../mods/agent-gantt/hooks/cursor.ts'
 import { snapshotName } from '../../mods/agent-gantt/hooks/snapshot.ts'
 
@@ -88,7 +88,7 @@ function takeLock(lock: string): boolean {
 
 function record(payload: CursorPayload, now: number) {
   const cwd = cursorCwd(payload)
-  const id = payload.conversation_id
+  const id = sessionKey(payload)
   if (!cwd || !id) return
   const root = resolveRoot(cwd)
   if (!['docs/agents/project.md', '.agent-team/state.json'].some(m => exists(`${root}/${m}`))) return
@@ -111,22 +111,32 @@ function record(payload: CursorPayload, now: number) {
     } catch {
       // missing or bad: start empty
     }
-    state = applyEvent(state, payload, now)
     const thread = process.env.T3CODE_THREAD_ID
     const threadId = thread && thread.length <= 200 && THREAD_ID.test(thread) ? thread : null
+    let text: string
+    try {
+      state = applyEvent(state, payload, now)
+      text = cursorSnapshot(state, payload, now, threadId)
+    } catch {
+      // a stored state of bad shape: start empty and carry on
+      state = applyEvent(emptyState(), payload, now)
+      text = cursorSnapshot(state, payload, now, threadId)
+    }
     writeAtomic(stateFile, JSON.stringify(state))
-    writeAtomic(snapshot, cursorSnapshot(state, payload, now, threadId))
+    writeAtomic(snapshot, text)
   } finally {
     rmdirSync(lock)
   }
 }
 
 try {
-  let payload: CursorPayload = {}
+  let payload: CursorPayload
   try {
     payload = JSON.parse(readFileSync(0, 'utf8'))
+    if (payload === null || typeof payload !== 'object') throw new Error('not an object')
   } catch {
-    // no payload: nothing to answer or record
+    // Cursor goes on for exit codes other than 0 and 2; with no payload there is nothing to answer or record.
+    process.exit(1)
   }
   const out = hookOutput(payload.hook_event_name ?? '')
   if (out !== '') writeSync(1, out)

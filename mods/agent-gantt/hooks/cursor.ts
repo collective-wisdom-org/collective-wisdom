@@ -10,6 +10,7 @@ const NAME_MAX = 60
 export type CursorPayload = {
   hook_event_name?: string
   conversation_id?: string
+  parent_conversation_id?: string
   model?: string
   workspace_roots?: string[]
   prompt?: string
@@ -27,11 +28,16 @@ export type CursorState = {
   heading: { isSet: boolean; value: string | null }
   model: string | null
   subagentModels: Record<string, string>
+  /** The model each task began with, by task index. */
+  taskModels: Record<string, string>
 }
 
-export const emptyState = (): CursorState => ({ records: [], heading: { isSet: false, value: null }, model: null, subagentModels: {} })
+export const emptyState = (): CursorState => ({ records: [], heading: { isSet: false, value: null }, model: null, subagentModels: {}, taskModels: {} })
 
 const EVENTS = ['sessionStart', 'beforeSubmitPrompt', 'stop', 'subagentStart', 'subagentStop', 'sessionEnd']
+
+/** The key of the state and snapshot an event belongs to: a subagent's event goes to its parent's conversation, since Cursor may give a subagent its own `conversation_id`. */
+export const sessionKey = (p: CursorPayload): string | null => p.parent_conversation_id || p.conversation_id || null
 
 /** The folder the conversation works in, or null. */
 export const cursorCwd = (p: CursorPayload): string | null => p.workspace_roots?.[0] || null
@@ -44,7 +50,7 @@ const mapMain = (records: AgentRecord[], fn: (r: AgentRecord) => AgentRecord) =>
 /** The state after one hook event at `now` (ms since epoch). An unknown event, or a payload without `conversation_id`, gives the state back. */
 export function applyEvent(state: CursorState, p: CursorPayload, now: number): CursorState {
   const event = p.hook_event_name ?? ''
-  if (!EVENTS.includes(event) || !p.conversation_id) return state
+  if (!EVENTS.includes(event) || !sessionKey(p)) return state
   const cwd = cursorCwd(p) ?? ''
   let next: CursorState = { ...state, model: p.model || state.model }
   if (!next.records.some(r => r.id === MAIN)) {
@@ -60,7 +66,8 @@ export function applyEvent(state: CursorState, p: CursorPayload, now: number): C
       // `since` after now: a prompt always begins a new task, as no turn start made one here.
       const begun = beginTask(main, taskName(prompt, main.tasks.map(k => k.name)), now + 1, now)
       const heading = next.heading.isSet ? next.heading : { isSet: true, value: pickHeading(prompt) }
-      return { ...next, heading, records: mapMain(records, () => openSegment(begun, now)) }
+      const taskModels = next.model ? { ...next.taskModels, [begun.tasks.length - 1]: next.model } : next.taskModels
+      return { ...next, heading, taskModels, records: mapMain(records, () => openSegment(begun, now)) }
     }
     case 'stop':
       return { ...next, records: mapMain(records, r => ({ ...closeSegment(r, now), last: now })) }
@@ -95,10 +102,10 @@ const shortModel = (m: string | null | undefined) => (m ? m.replace(/^claude-/, 
 export function cursorSnapshot(state: CursorState, p: CursorPayload, now: number, threadId: string | null): string {
   const rows = buildRows(state.records, [], null, 'Cursor').map(row => ({
     ...row,
-    model: shortModel(row.kind === 'task' ? state.model : state.subagentModels[row.id]),
+    model: shortModel(row.kind === 'task' ? (state.taskModels[row.id.match(/^main:task:(\d+)$/)?.[1] ?? ''] ?? state.model) : state.subagentModels[row.id]),
   }))
   const cwd = cursorCwd(p) ?? state.records.find(r => r.id === MAIN)?.cwd ?? ''
-  return buildSnapshot({ sessionId: p.conversation_id ?? '', cwd, updatedAt: now, total: null, rows, threadId, heading: state.heading.value })
+  return buildSnapshot({ sessionId: sessionKey(p) ?? '', cwd, updatedAt: now, total: null, rows, threadId, heading: state.heading.value })
 }
 
 /** What the hook prints for an event. The gantt hook never blocks, never adds a follow-up and never sets `user_message`. */

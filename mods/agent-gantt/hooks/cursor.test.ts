@@ -19,6 +19,10 @@ test('cursor events become the rows the dashboard draws', () => {
       [1, 'one', 10, 20, [[10, 20]], 'sonnet-4'],
       [1, 'two', 30, 40, [[30, 40]], 'sonnet-4'],
     ]],
+    ['each task keeps the model it began with', [[prompt('one'), 10], [ev('stop'), 20], [{ ...prompt('two'), model: 'gpt-5' }, 30], [{ ...ev('stop'), model: 'gpt-5' }, 40]], [
+      [1, 'one', 10, 20, [[10, 20]], 'sonnet-4'],
+      [1, 'two', 30, 40, [[30, 40]], 'gpt-5'],
+    ]],
     ['subagent inside a task', [[prompt('go'), 10], [sub('s1', 'look around'), 20], [subStop('look around'), 30], [ev('stop'), 40]], [
       [1, 'go', 10, 40, [[10, 40]], 'sonnet-4'],
       [2, 'look around', 20, 30, [[20, 30]], 'gpt-5'],
