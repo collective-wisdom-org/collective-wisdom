@@ -33,7 +33,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 | Chief of Staff thread | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
 | Ship loop child threads | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
 | Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) | 🟡 partial: skill-change rotation only, no size trigger (G8) | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) |
-| Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code transcripts only (G8) | 🔴 not supported: reads Claude Code transcripts only (G8) | 🔴 not supported: reads Claude Code transcripts only (G8) |
+| Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code and Cursor runs only (G8) | 🟡 partial: models without a price show cost unknown (G8) | 🔴 not supported: reads Claude Code and Cursor runs only (G8) |
 | Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G3) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
 | `agent-gantt` | 🟡 partial: hooks run in T3 sessions, pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
 | `status-pane` | ⚪ untested: pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
@@ -43,7 +43,7 @@ Notes:
 
 - Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` and `~/.cursor/agents`. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It writes the same text to `~/.cursor/rules/collective-wisdom.mdc` for Cursor, with `alwaysApply: true`. It writes nothing for Antigravity.
 - `install.sh` adds the rotation Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json`, and to no other harness. The Cursor hook has been tested only against Cursor's documented payload. It becomes `works` once a Cursor Chief of Staff thread has run it.
-- The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Codex, Cursor or Antigravity child leaves no Claude Code transcript, so its cost is unknown and a No Hands run stops.
+- The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Cursor child is priced from its run store in `~/.cursor/projects`; a run on a model `prices.json` has no price for, or a store it cannot read, makes the ticket's cost unknown, and a No Hands run stops. A Codex or Antigravity child leaves nothing the script reads, so its cost is unknown and a No Hands run stops.
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
 
 ### Full compatibility
@@ -99,7 +99,7 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G4.** Subagents are proven only in Claude Code. Per Cursor's docs, Cursor loads Cursor-valid copies from `~/.cursor/agents`, but no Cursor run is recorded: the Cursor agent CLI was not logged in. Whether `readonly` also stops a reviewer's MCP write tools is unchecked. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so Codex and Antigravity still work that way, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
 - **G5 and G6** are retired. Their numbers are not reused.
 - **G7.** The rotation Stop hook is installed for Claude Code and Cursor only. Codex and Antigravity get no hook. Ticket: none yet.
-- **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex, Cursor or Antigravity work. For the same reason a Cursor Chief of Staff has no context size, so its rotation hook rotates only on a skill change. Ticket: none yet.
+- **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts and Cursor's `~/.cursor/projects` run stores, so the cost report and the No Hands cost cap do not see Codex or Antigravity work, and a Cursor run on a model with no price in `prices.json` (such as `grok-4.7`), or a Cursor store that cannot be read, shows `cost unknown`. `--context` still reads Claude Code only, so a Cursor Chief of Staff has no context size and its rotation hook rotates only on a skill change. Ticket: none yet.
 - **G9.** The dashboard's gantt rows and spend come from `agent-gantt` snapshots, which Codex, Cursor and Antigravity threads do not produce. Ticket: none yet.
 - **G10.** `agent-gantt` and `status-pane` are Claude Code plugins, so Codex, Cursor and Antigravity threads do not run them, and whether T3 Code shows their panes for Claude Code is unchecked. Ticket: none yet.
 - **G11** is resolved by CW-254. The `security-review` skill now has a Cursor child start a general subagent with `security-review.md` as its prompt, and ignore an installed `review-security` in the ship loop. No Cursor run is recorded yet (G4).
