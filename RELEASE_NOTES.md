@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 route Cursor to Grok 4.7 and Composer 2.5 and price them (CW-272) (#274)
+
+Merged 2026-11-09 04:56 UTC.
+
+On Cursor, the Chief of Staff now starts its children on Grok 4.7 and Composer 2.5 instead of Claude models, and `agent_usage.py` shows a dollar cost for runs on them. Nothing changes on Claude Code.
+
 ## 2026-11-09 show ticket helpers on the dashboard Chief of Staff tab (CW-260) (#271)
 
 Merged 2026-11-09 03:55 UTC.
