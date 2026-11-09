@@ -197,7 +197,7 @@ Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTI
 - T3 Code thread tools are named directly in the Chief of Staff, project manager and ship-loop skills. Tracker tools are named only in the adapter docs under `agent-team/docs/agents/trackers/`.
 - An old app's copied `scripts/agent-team-update.sh` calls `install.sh --update --from <tag> <app>`. `install.sh` refuses that with exit 2 and a message that names the removal command, so the old call fails loudly and does not write.
 - Plans, specs and as-built notes follow the superpowers docs layout under `docs/superpowers/`.
-- The security review skill refers to Cursor's review-security subagent and Claude Code's `security-reviewer` subagent.
+- The security review skill names Claude Code's `security-reviewer` subagent. Other hosts give `security-review.md` to a general subagent.
 - Role docs for app areas (backend, frontend and so on) are not shared; each app adds its own.
 
 ## License
