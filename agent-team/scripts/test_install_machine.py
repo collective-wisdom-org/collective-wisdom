@@ -27,7 +27,7 @@ def world(tmp_path):
     cw, home = tmp_path / "cw", tmp_path / "home"
     at = cw / "agent-team"
     for rel, text in {
-        ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n",
+        ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n", ".cursor/agents/ag.md": "ag\n",
         "scripts/cos_rotation_check.py": "x\n", "templates/machine-instruction.md": "Team text v1.\n",
     }.items():
         (at / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -58,6 +58,7 @@ def test_fresh_install_links_everything_and_a_rerun_changes_nothing(world):
         for name in ("alpha", "beta"):
             assert os.readlink(home / base / name) == str(cw / "agent-team/.claude/skills" / name)
     assert os.readlink(home / ".claude/agents/ag.md") == str(cw / "agent-team/.claude/agents/ag.md")
+    assert os.readlink(home / ".cursor/agents/ag.md") == str(cw / "agent-team/.cursor/agents/ag.md")
     hooks = json.loads((home / ".claude/settings.json").read_text())["hooks"]["Stop"]
     assert [h["command"] for e in hooks for h in e["hooks"]] == ['python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true']
     for f in (".claude/CLAUDE.md", ".codex/AGENTS.md"):
@@ -102,8 +103,11 @@ def test_own_names_are_kept_and_listed_and_dead_links_are_dropped(world):
     (home / ".claude/skills/old").symlink_to(cw / "agent-team/.claude/skills/old")  # ours: dropped by a newer release
     (home / ".cursor/skills").mkdir(parents=True)
     (home / ".cursor/skills/mine").symlink_to(home / "elsewhere")  # not ours, not shipped
+    (home / ".cursor/agents").mkdir(parents=True)
+    (home / ".cursor/agents/old.md").symlink_to(cw / "agent-team/.cursor/agents/old.md")  # ours: dropped by a newer release
     rc, out = install(cw, home)
     assert rc == 0, out
+    assert not (home / ".cursor/agents/old.md").is_symlink()
     assert (home / ".claude/skills/alpha").is_dir() and not (home / ".claude/skills/alpha").is_symlink()
     assert os.readlink(home / ".agents/skills/beta") == str(home / "elsewhere")
     assert os.readlink(home / ".cursor/skills/mine") == str(home / "elsewhere")

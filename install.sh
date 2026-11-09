@@ -198,7 +198,11 @@ machine_install() {
     [ -f "$a" ] || continue
     mlink "$a" "$HOME/.claude/agents/$(basename "$a")"
   done
-  for p in .claude/skills .agents/skills .cursor/skills .claude/agents; do
+  for a in "$ROOT/agent-team/.cursor/agents"/*; do
+    [ -f "$a" ] || continue
+    mlink "$a" "$HOME/.cursor/agents/$(basename "$a")"
+  done
+  for p in .claude/skills .agents/skills .cursor/skills .claude/agents .cursor/agents; do
     mprune "$HOME/$p"
   done
 

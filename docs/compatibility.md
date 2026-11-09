@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-08.
+Last checked against the code on 2026-11-09.
 
 ## Legend
 
@@ -29,7 +29,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 |---|---|---|---|---|
 | Install (skills and instruction block) | 🟢 works | 🟢 works | 🟡 partial: rule file written, no Cursor thread seen reading it (G1) | 🔴 not supported: `install.sh` writes nothing for it (G17) |
 | Team skills load | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
-| Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) |
+| Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | 🟡 partial: Cursor-valid copies installed, no Cursor run recorded (G4) | ⚪ untested: role file as prompt (G4) |
 | Chief of Staff thread | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
 | Ship loop child threads | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
 | Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code only (G7) | 🔴 not supported: hook installed for Claude Code only (G7) | 🔴 not supported: hook installed for Claude Code only (G7) |
@@ -41,7 +41,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 
 Notes:
 
-- Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` only. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It writes the same text to `~/.cursor/rules/collective-wisdom.mdc` for Cursor, with `alwaysApply: true`. It writes nothing for Antigravity.
+- Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` and `~/.cursor/agents`. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It writes the same text to `~/.cursor/rules/collective-wisdom.mdc` for Cursor, with `alwaysApply: true`. It writes nothing for Antigravity.
 - `install.sh` adds the rotation Stop hook to `~/.claude/settings.json` only.
 - The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Codex, Cursor or Antigravity child leaves no Claude Code transcript, so its cost is unknown and a No Hands run stops.
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
@@ -96,7 +96,7 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. Ticket: none yet.
 - **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
 - **G3.** No recorded Cursor run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
-- **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so this applies to Codex, Cursor and Antigravity, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
+- **G4.** Subagents are proven only in Claude Code. Cursor loads Cursor-valid copies from `~/.cursor/agents`, but no Cursor run is recorded. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so Codex and Antigravity still work that way, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
 - **G5 and G6** are retired. Their numbers are not reused.
 - **G7.** The rotation Stop hook is installed for Claude Code only. Codex, Cursor and Antigravity get no hook. Ticket: none yet.
 - **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex, Cursor or Antigravity work. Ticket: none yet.
