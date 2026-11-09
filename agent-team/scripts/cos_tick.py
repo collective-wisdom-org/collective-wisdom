@@ -194,7 +194,7 @@ def relay_lines(state, thread, tid, t, lane):
     if parent and parent != (state.get("chiefThreadId") or thread):
         return out + [f"continuation {tid} {lane}"]
     if spec:
-        out.append(f"configure {t.get('childThreadId')} claude-sonnet-5-5 effort=high")
+        out.append(f"configure {t.get('childThreadId')} build")
     out.append(f"send {tid} {lane} {json.dumps(relay, ensure_ascii=True)}")
     return out + ([f"merge-wait {tid}"] if lane == "merge" and not parent else [])  # no parent: no finish notice will come
 

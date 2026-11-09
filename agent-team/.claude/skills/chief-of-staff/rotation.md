@@ -36,7 +36,7 @@ A retired thread's newest assistant message always passes, and each retired thre
 Handoff, in the old thread:
 
 1. Set `rotation` to `{from: <own id>, to: null, startedAt: now}`. Save state.
-2. `t3_thread_launch` with `title: "Chief of Staff"`, `workspaceStrategy: {type: "root"}`, `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}` (SKILL.md § Models), and this message:
+2. `t3_thread_launch` with `title: "Chief of Staff"`, `workspaceStrategy: {type: "root"}`, `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}` (SKILL.md § Models; on Cursor, § Models Cursor), and this message:
 
    ```
    CHIEF OF STAFF ROTATION from <old thread id>.
