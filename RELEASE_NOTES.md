@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 install the Cursor instruction block as a rule file (CW-252) (#261)
+
+Merged 2026-11-09 01:44 UTC.
+
+`./install.sh` now writes the agent team instruction for Cursor to `~/.cursor/rules/collective-wisdom.mdc`, so you no longer paste it into Cursor Settings. Delete any copy you pasted earlier if you want only one.
+
 ## 2026-11-08 match the dashboard dark colors to T3 Code dark (CW-248) (#250)
 
 Merged 2026-11-08 23:09 UTC.
