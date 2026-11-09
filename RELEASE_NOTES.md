@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 install the Chief of Staff rotation hook for Cursor (CW-253) (#262)
+
+Merged 2026-11-09 02:14 UTC.
+
+On Cursor, the Chief of Staff thread now gets the rotation stop for a skill change. Run `./install.sh` again to add the hook to `~/.cursor/hooks.json`. Size-based rotation is not available on Cursor.
+
 ## 2026-11-09 install Cursor-valid copies of the team subagents (CW-255) (#265)
 
 Merged 2026-11-09 02:07 UTC.
