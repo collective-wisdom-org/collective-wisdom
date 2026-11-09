@@ -1,7 +1,8 @@
 # CW-272: Define model routing for Cursor and price the Cursor models it uses
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#272](https://github.com/collective-wisdom-org/collective-wisdom/issues/272)
+**Shipped:** in PR #274, as specified
 
 ## Goal
 
