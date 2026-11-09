@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -71,7 +72,7 @@ def test_decide(cap, state, context_over_cap_by, commit, branch, want):
     assert line.startswith(want)
 
 
-def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, readable=True):
+def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, readable=True, commit=OLD):
     path = tmp_path / "state.json"
     if state is not None:
         path.write_text(json.dumps(state))
@@ -85,7 +86,7 @@ def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, rea
         return context, datetime.now(timezone.utc) - timedelta(hours=1)
 
     monkeypatch.setattr(crc, "read_context", read_context)
-    monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
+    monkeypatch.setattr(crc, "skill_commit", lambda: commit)
     monkeypatch.setattr(crc, "branch", lambda: "main")
     assert crc.main(["--hook"]) == 0
     return capsys.readouterr().out
@@ -115,6 +116,50 @@ def test_hook_blocks_only_the_chief_once(monkeypatch, capsys, tmp_path, hook_in,
         d = json.loads(out)
         assert d["decision"] == "block" and blocks in d["reason"]
         assert d["reason"].endswith("Thread rotation")
+
+
+CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "completed", "loop_count": 0}
+
+
+@pytest.mark.parametrize(
+    "hook_in, kw, followup",
+    [
+        (CURSOR, {"commit": NEW}, True),
+        (CURSOR, {}, False),  # context is 230k, over the cap, but Cursor has no size trigger
+        ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, False),
+        ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, True),  # T3 Code names the folder agent-<id>
+        ({**CURSOR, "loop_count": 1}, {"commit": NEW}, False),
+        ({**CURSOR, "status": "aborted"}, {"commit": NEW}, False),
+        ({"conversation_id": "C1"}, {"commit": NEW}, False),  # not Cursor's payload, and no session_id
+    ],
+)
+def test_hook_on_cursor_answers_with_a_followup_only_for_the_chief_once(monkeypatch, capsys, tmp_path, hook_in, kw, followup):
+    out = run_hook(monkeypatch, capsys, tmp_path, hook_in, {**STATE, "chiefSessionId": "C1"}, **kw)
+    assert (list(json.loads(out)) == ["followup_message"] and "rotate: skill changed" in out) if followup else out == ""
+
+
+@pytest.mark.parametrize("ages, want_id, want_line", [
+    ({"C1": 1, "C2": 0.5, "C3": 10}, "C2", "ok (size unknown on Cursor)"),  # the newest fresh one is the Chief's
+    ({"C1": 10}, None, "rotation-check: cannot read context"),  # only stale ones: not Cursor
+])
+def test_plain_on_cursor_saves_the_conversation_id_with_the_size_trigger_off(monkeypatch, capsys, tmp_path, ages, want_id, want_line):
+    app, cursor, path = tmp_path / "my_app.x", tmp_path / "cursor", tmp_path / "state.json"
+    for cid, minutes in ages.items():
+        f = cursor / (str(app).replace("/", "-").replace("_", "-").replace(".", "-").strip("-")) / "agent-transcripts" / cid / f"{cid}.jsonl"
+        f.parent.mkdir(parents=True)
+        f.write_text("{}\n")
+        os.utime(f, (time.time() - minutes * 60,) * 2)
+    path.write_text(json.dumps({"chiefThreadId": "T1", "skillCommit": OLD}))
+    monkeypatch.setattr(crc, "ROOT", app)
+    monkeypatch.setenv("COS_STATE_FILE", str(path))
+    monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(cursor))
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.setattr(crc, "read_context", lambda sid=None: (_ for _ in ()).throw(crc.Unreadable("context")))
+    monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
+    monkeypatch.setattr(crc, "branch", lambda: "main")
+    assert crc.main([]) == (0 if want_id else 2)
+    assert capsys.readouterr().out.strip() == want_line
+    assert json.loads(path.read_text()).get("chiefSessionId") == want_id
 
 
 @pytest.mark.parametrize("context, record, want_line, want_tk", [

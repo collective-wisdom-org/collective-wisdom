@@ -29,21 +29,22 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 |---|---|---|---|---|
 | Install (skills and instruction block) | 🟢 works | 🟢 works | 🟡 partial: rule file written, no Cursor thread seen reading it (G1) | 🔴 not supported: `install.sh` writes nothing for it (G17) |
 | Team skills load | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
-| Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: role file as prompt (G4) |
+| Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | 🟡 partial: Cursor-valid copies installed, no Cursor run recorded (G4) | ⚪ untested: role file as prompt (G4) |
 | Chief of Staff thread | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
 | Ship loop child threads | 🟢 works | ⚪ untested (G2) | ⚪ untested (G3) | ⚪ untested (G18) |
-| Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code only (G7) | 🔴 not supported: hook installed for Claude Code only (G7) | 🔴 not supported: hook installed for Claude Code only (G7) |
-| Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code transcripts only (G8) | 🔴 not supported: reads Claude Code transcripts only (G8) | 🔴 not supported: reads Claude Code transcripts only (G8) |
-| Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G3) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
+| Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) | 🟡 partial: skill-change rotation only, no size trigger (G8) | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) |
+| Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code and Cursor runs only (G8) | 🟡 partial: models outside the routing show cost unknown, and Grok long prompts and Fast mode are priced at the standard rate (G8) | 🔴 not supported: reads Claude Code and Cursor runs only (G8) |
+| Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: gantt rows, no spend (G9); rest untested (G3) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
 | `agent-gantt` | 🟡 partial: hooks run in T3 sessions, pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
 | `status-pane` | ⚪ untested: pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
-| Security review subagent | 🟢 works | ⚪ untested (G4) | 🟡 partial: needs Cursor's own `review-security` (G11) | ⚪ untested: no Antigravity branch in the skill (G4) |
+| Security review subagent | 🟢 works | ⚪ untested (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: no Antigravity branch in the skill (G4) |
 
 Notes:
 
-- Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` only. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It writes the same text to `~/.cursor/rules/collective-wisdom.mdc` for Cursor, with `alwaysApply: true`. It writes nothing for Antigravity.
-- `install.sh` adds the rotation Stop hook to `~/.claude/settings.json` only.
-- The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Codex, Cursor or Antigravity child leaves no Claude Code transcript, so its cost is unknown and a No Hands run stops.
+- Install links each skill into `~/.claude/skills`, `~/.agents/skills` (Codex) and `~/.cursor/skills`, and each subagent into `~/.claude/agents` and `~/.cursor/agents`. It writes the instruction block into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It writes the same text to `~/.cursor/rules/collective-wisdom.mdc` for Cursor, with `alwaysApply: true`. It writes nothing for Antigravity.
+- `install.sh` adds the rotation Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json`, and to no other harness. The Cursor hook has been tested only against Cursor's documented payload. It becomes `works` once a Cursor Chief of Staff thread has run it.
+- `install.sh` also adds the Cursor gantt hook to `~/.cursor/hooks.json`, for six events. A Cursor thread on a worktree then gets gantt rows with timing and models, but no tokens or spend (G9). Like the rotation hook, it has not been seen running in a Cursor thread.
+- The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Cursor child is priced from its run store in `~/.cursor/projects`; a run on a model `prices.json` has no price for, or a store it cannot read, makes the ticket's cost unknown, and a No Hands run stops. A Codex or Antigravity child leaves nothing the script reads, so its cost is unknown and a No Hands run stops.
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
 
 ### Full compatibility
@@ -52,7 +53,7 @@ One line per column, saying what done means.
 
 - **Claude Code in T3 Code:** done. A Chief of Staff and its children run a ticket from spec to merge, with subagents, the rotation hook and cost figures. The two mods are the only open cells.
 - **Codex in T3 Code:** done when a Chief of Staff and its children run a ticket to merge on Codex, with subagents, a rotation hook and cost figures that Codex can supply.
-- **Cursor in T3 Code:** done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor, with subagents and `review-security`, and the hook and cost figures work for it.
+- **Cursor in T3 Code:** done when the instruction block installs without a manual paste, a Chief of Staff and its children run a ticket to merge on Cursor, with subagents, and the hook and cost figures work for it.
 - **Antigravity in T3 Code:** done when `install.sh` installs skills and the instruction block for it, a Chief of Staff and its children run a ticket to merge on it, with subagents, a security review, a rotation hook and cost figures.
 
 ## Matrix 2: trackers
@@ -110,13 +111,13 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. Ticket: none yet.
 - **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
 - **G3.** No recorded Cursor run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
-- **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so this applies to Codex, Cursor and Antigravity, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
+- **G4.** Subagents are proven only in Claude Code. Per Cursor's docs, Cursor loads Cursor-valid copies from `~/.cursor/agents`, but no Cursor run is recorded: the Cursor agent CLI was not logged in. Whether `readonly` also stops a reviewer's MCP write tools is unchecked. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so Codex and Antigravity still work that way, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
 - **G5 and G6** are retired. Their numbers are not reused.
-- **G7.** The rotation Stop hook is installed for Claude Code only. Codex, Cursor and Antigravity get no hook. Ticket: none yet.
-- **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts only, so the cost report and the No Hands cost cap do not see Codex, Cursor or Antigravity work. Ticket: none yet.
-- **G9.** The dashboard's gantt rows and spend come from `agent-gantt` snapshots, which Codex, Cursor and Antigravity threads do not produce. Ticket: none yet.
+- **G7.** The rotation Stop hook is installed for Claude Code and Cursor only. Codex and Antigravity get no hook. Ticket: none yet.
+- **G8.** `agent_usage.py` reads `~/.claude/projects` transcripts and Cursor's `~/.cursor/projects` run stores, so the cost report and the No Hands cost cap do not see Codex or Antigravity work, and a Cursor run on a model with no price in `prices.json` (Auto, Grok 4.6, Gemini), or a Cursor store that cannot be read, shows `cost unknown`. The Cursor routing models `grok-4.7` and `composer-2.5` are priced (CW-272) at the standard rate: a Grok prompt of 200K or more and Fast mode cost more than the report shows. `--context` still reads Claude Code only, so a Cursor Chief of Staff has no context size and its rotation hook rotates only on a skill change. Ticket: none yet.
+- **G9.** The dashboard's gantt rows and spend come from `agent-gantt` snapshots. Cursor threads write them through Cursor hooks (CW-258), with timing and models but no tokens or cost, because Cursor's hooks and transcripts carry none. Codex and Antigravity threads still write none. Ticket: none yet.
 - **G10.** `agent-gantt` and `status-pane` are Claude Code plugins, so Codex, Cursor and Antigravity threads do not run them, and whether T3 Code shows their panes for Claude Code is unchecked. Ticket: none yet.
-- **G11.** The security review skill names Cursor's `review-security`, which this repo does not ship. Ticket: none yet.
+- **G11** is resolved by CW-254. The `security-review` skill now has a Cursor child start a general subagent with `security-review.md` as its prompt, and ignore an installed `review-security` in the ship loop. No Cursor run is recorded yet (G4).
 - **G12.** Jira has never been run: the adapter is marked UNTESTED and its checklist is unticked. Ticket: none yet.
 - **G13.** `pm_hygiene.py` parses the Linear and GitHub list shapes, not Jira's. Ticket: none yet.
 - **G14.** The untracked work check reads `agent`-labelled issues only for GitHub. On Linear and Jira it finds untracked work from open PRs alone. Ticket: none yet.

@@ -27,7 +27,7 @@ def world(tmp_path):
     cw, home = tmp_path / "cw", tmp_path / "home"
     at = cw / "agent-team"
     for rel, text in {
-        ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n",
+        ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n", ".cursor/agents/ag.md": "ag\n",
         "scripts/cos_rotation_check.py": "x\n", "templates/machine-instruction.md": "Team text v1.\n",
     }.items():
         (at / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -58,6 +58,7 @@ def test_fresh_install_links_everything_and_a_rerun_changes_nothing(world):
         for name in ("alpha", "beta"):
             assert os.readlink(home / base / name) == str(cw / "agent-team/.claude/skills" / name)
     assert os.readlink(home / ".claude/agents/ag.md") == str(cw / "agent-team/.claude/agents/ag.md")
+    assert os.readlink(home / ".cursor/agents/ag.md") == str(cw / "agent-team/.cursor/agents/ag.md")
     hooks = json.loads((home / ".claude/settings.json").read_text())["hooks"]["Stop"]
     assert [h["command"] for e in hooks for h in e["hooks"]] == ['python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true']
     for f in (".claude/CLAUDE.md", ".codex/AGENTS.md"):
@@ -94,6 +95,51 @@ def test_settings_merge(world, name, text, keys, count, todo):
     assert sum(HOOK in h["command"] or h["command"] == "echo hi" for e in data["hooks"]["Stop"] for h in e["hooks"]) == count
 
 
+CMD = 'python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true'
+GANTT = {"command": 'node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"', "timeout": 5}
+OTHER = {"command": "echo hi", "timeout": 5}
+OLD = {"command": f"python3 x/{HOOK}"}
+GANTT_EVENTS = ["sessionStart", "beforeSubmitPrompt", "subagentStart", "subagentStop", "sessionEnd"]
+
+
+def cursor_file(stop, **others):
+    """The hooks.json a full run gives: the gantt entry on each of its events, `stop` as given."""
+    return {"version": 1, "hooks": {**{e: [GANTT] for e in GANTT_EVENTS}, **others, "stop": stop}}
+
+
+# name, ~/.cursor/hooks.json before (None: absent; a str is written as is), the file after a run and after a second run (None: left as it was, with a TODO)
+CURSOR_HOOKS = [
+    ("missing: the gantt stop entry goes before the rotation one", None, cursor_file([GANTT, {"command": CMD}])),
+    ("other hooks and keys survive", {"version": 1, "extra": 1, "hooks": {"stop": [OTHER], "beforeShellExecution": [OTHER]}},
+     {**cursor_file([OTHER, GANTT, {"command": CMD}], beforeShellExecution=[OTHER]), "extra": 1}),
+    ("only the old rotation hook: the gantt entries join, stop before it", {"version": 1, "hooks": {"stop": [OLD]}}, cursor_file([GANTT, OLD])),
+    ("all there", cursor_file([GANTT, OLD]), cursor_file([GANTT, OLD])),
+    ("an event already marked is left alone", {"version": 1, "hooks": {"sessionStart": [OLD | {"command": "node x/cursor_gantt_hook.ts"}], "stop": [OLD]}},
+     cursor_file([GANTT, OLD], sessionStart=[OLD | {"command": "node x/cursor_gantt_hook.ts"}])),
+    ("no version gets 1", {"hooks": {}}, cursor_file([GANTT, {"command": CMD}])),
+    ("not an object", "[1]", None),
+    ("stop is not a list", {"hooks": {"stop": {}}}, None),
+]
+
+
+@pytest.mark.parametrize("name, before, after", CURSOR_HOOKS, ids=[c[0] for c in CURSOR_HOOKS])
+def test_cursor_hooks_merge_once(world, name, before, after):
+    cw, home = world
+    f = home / ".cursor/hooks.json"
+    if before is not None:
+        f.parent.mkdir()
+        f.write_text(before if isinstance(before, str) else json.dumps(before))
+    for _ in range(2):  # a rerun adds nothing
+        rc, out = install(cw, home)
+        assert rc == 0, out
+        assert ("hooks to ~/.cursor/hooks.json by hand" in out) == (after is None)
+        assert ("hooks.stop add, in this order, {\"command\": \"node " in out) == (after is None)  # the gantt stop entry goes before the rotation one
+        if after is None:
+            assert f.read_text() == before if isinstance(before, str) else json.loads(f.read_text()) == before
+        else:
+            assert json.loads(f.read_text()) == after
+
+
 def test_own_names_are_kept_and_listed_and_dead_links_are_dropped(world):
     cw, home = world
     (home / ".claude/skills/alpha").mkdir(parents=True)  # the person's own folder of a shipped name
@@ -102,8 +148,11 @@ def test_own_names_are_kept_and_listed_and_dead_links_are_dropped(world):
     (home / ".claude/skills/old").symlink_to(cw / "agent-team/.claude/skills/old")  # ours: dropped by a newer release
     (home / ".cursor/skills").mkdir(parents=True)
     (home / ".cursor/skills/mine").symlink_to(home / "elsewhere")  # not ours, not shipped
+    (home / ".cursor/agents").mkdir(parents=True)
+    (home / ".cursor/agents/old.md").symlink_to(cw / "agent-team/.cursor/agents/old.md")  # ours: dropped by a newer release
     rc, out = install(cw, home)
     assert rc == 0, out
+    assert not (home / ".cursor/agents/old.md").is_symlink()
     assert (home / ".claude/skills/alpha").is_dir() and not (home / ".claude/skills/alpha").is_symlink()
     assert os.readlink(home / ".agents/skills/beta") == str(home / "elsewhere")
     assert os.readlink(home / ".cursor/skills/mine") == str(home / "elsewhere")

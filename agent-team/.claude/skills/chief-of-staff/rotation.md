@@ -10,7 +10,7 @@ As the last Bash call of every turn that made a tool call, run this from the roo
 python3 ~/.collective-wisdom/scripts/cos_rotation_check.py
 ```
 
-Only a run-started notice skips it (no tool calls). A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`~/.claude/settings.json`) runs the same script and sends the turn back on `rotate:`.
+Only a run-started notice skips it (no tool calls). A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`~/.claude/settings.json`, and `~/.cursor/hooks.json` on Cursor) runs the same script and sends the turn back on `rotate:`. Cursor reports no context size, so only a skill change rotates there.
 
 It prints one line, `ok ...` or `rotate: <reason>`, and exits 0. Table (`SIZE_CAP`, `QUIET_RELAY_MIN`, `QUIET_ROTATED_MIN` live in the script; change both together):
 
@@ -36,7 +36,7 @@ A retired thread's newest assistant message always passes, and each retired thre
 Handoff, in the old thread:
 
 1. Set `rotation` to `{from: <own id>, to: null, startedAt: now}`. Save state.
-2. `t3_thread_launch` with `title: "Chief of Staff"`, `workspaceStrategy: {type: "root"}`, `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}` (SKILL.md § Models), and this message:
+2. `t3_thread_launch` with `title: "Chief of Staff"`, `workspaceStrategy: {type: "root"}`, `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}` (SKILL.md § Models; on Cursor, § Models Cursor), and this message:
 
    ```
    CHIEF OF STAFF ROTATION from <old thread id>.

@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -239,3 +240,82 @@ def test_ticket_line(tmp_path, capsys, monkeypatch, user_md, ticket, usage, want
         return
     agent_usage.main()
     assert capsys.readouterr().out.strip() == want
+
+
+def cursor_store(proj, aid, msgs, runs, ref):
+    """Write a Cursor index.db (only the columns agent_usage reads) and transcript for one agent."""
+    store = proj / "sdk-agent-store" / aid
+    store.mkdir(parents=True)
+    db = sqlite3.connect(store / "index.db")
+    db.execute("create table agents (agent_id, workspace_ref)")
+    db.execute("create table runs (agent_id, turn_number, model, usage_json, started_at, created_at)")
+    db.execute("insert into agents values (?, ?)", (aid, str(ref)))
+    db.executemany("insert into runs values (?,?,?,?,?,?)", [(aid, t, m, u and json.dumps(u), ts, ts) for t, m, u, ts in runs])
+    db.commit()
+    db.close()
+    (proj / "agent-transcripts" / aid).mkdir(parents=True)
+    wrap = lambda m: {"role": "user", "message": {"content": [{"type": "text", "text": f"<user_query>\n{m}\n</user_query>"}]}}
+    (proj / "agent-transcripts" / aid / f"{aid}.jsonl").write_text("\n".join(json.dumps(wrap(m)) for m in msgs))
+
+
+OPUS, T0, T1 = "claude-opus-5-5", "2026-11-01T10:01:00Z", "2026-11-01T10:31:00Z"
+# Opus: 1.5M input less 0.5M of cache is 1M at $4, 40k out at $20, 400k read at $0.20, 100k written at $5 (5 minute rate): $5.38.
+PRICED = {"inputTokens": 1_500_000, "cacheReadTokens": 400_000, "cacheWriteTokens": 100_000, "outputTokens": 40_000}
+HERE = "Branch: feat/cw-57-foo. Create it yourself."
+BOTH = "cost $9.38 API-equivalent (0.40% of the subscription), Cursor $5.38, 2.5M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"
+ONLY_CLAUDE = "cost $4.00 API-equivalent (0.40% of the subscription), 1.0M tokens, spec $4.00 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"
+
+
+# Each session is (messages, runs, workspace); claude says whether a Claude Code session ($4.00) ran feat/cw-57-foo too.
+@pytest.mark.parametrize(
+    "claude, sessions, bad, want",
+    [
+        # a cancelled run (no usage) adds nothing
+        (True, [([HERE], [(1, "default", None, T0), (2, OPUS, PRICED, T1)], "/none")], False, BOTH),
+        # an unreadable store may hold this ticket's work: the cost is unknown, not lower
+        (True, [([HERE], [(2, OPUS, PRICED, T1)], "/none")], True,
+         "cost unknown (cannot read a Cursor store; $9.38 priced), 2.5M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"),
+        # the branch only from git in the workspace
+        (True, [(["go"], [(2, OPUS, PRICED, T1)], "git")], False, BOTH),
+        # a run with no price, or no model, makes the whole cost unknown but keeps the priced dollars
+        (True, [([HERE], [(2, OPUS, PRICED, T1), (3, "gemini-4-argon", {"inputTokens": 100_000}, T1), (4, None, {"inputTokens": 100_000}, T1)], "/none")], False,
+         "cost unknown (no price for gemini-4-argon, unknown model; $9.38 priced), 2.7M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"),
+        # each routed Cursor model gives dollars, not cost unknown: 1M input at the input rate, 40k out, 400k read, 100k written at the input rate
+        (False, [([HERE], [(1, "grok-4.7", PRICED, T1)], "/none")], False,
+         "cost $2.64 API-equivalent (0.00% of the subscription), Cursor $2.64, 1.5M tokens, spec $2.64 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
+        (False, [([HERE], [(1, "composer-2.5", PRICED, T1)], "/none")], False,
+         "cost $0.73 API-equivalent (0.00% of the subscription), Cursor $0.73, 1.5M tokens, spec $0.73 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
+        (True, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
+        (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, 2),
+        # an unreadable store does not give a ticket with no session a cost: no_hands relies on exit 2 for it
+        (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], True, 2),
+        # a relay in turn 2 puts turn 1 in spec and turns 2 and 3 in build; 200k input is $0.80 a run
+        (False, [([HERE, "CHIEF OF STAFF: the user approved the spec", "go"], [(n, OPUS, {"inputTokens": 200_000}, T1) for n in (1, 2, 3)], "/none")], False,
+         "cost $2.40 API-equivalent (0.00% of the subscription), Cursor $2.40, 0.6M tokens, spec $0.80 / build $1.60 / merge $0.00, 1 child run, wall 0h 00m"),
+    ],
+)
+def test_ticket_line_with_cursor(tmp_path, capsys, monkeypatch, user_md, claude, sessions, bad, want):
+    user_md("me", "`1000`")
+    wt = tmp_path / f"-Users-x--t3-worktrees-{agent_usage.PROJECT}-t3-aaa"
+    wt.mkdir()
+    if claude:
+        (wt / "s1.jsonl").write_text(asst(T0, "feat/cw-57-foo", "r1", 1_000_000))
+    ws = tmp_path / "ws"
+    subprocess.run(["git", "init", "-q", "-b", "feat/cw-57-foo", str(ws)], check=True)
+    cur = tmp_path / "cursor" / wt.name
+    for i, (msgs, runs, ref) in enumerate(sessions):
+        cursor_store(cur, f"agent-{i}", msgs, runs, ws if ref == "git" else ref)
+    if bad:
+        (cur / "sdk-agent-store" / "bad").mkdir()
+        (cur / "sdk-agent-store" / "bad" / "index.db").write_text("not a database")
+    argv = ["agent_usage", "--projects", str(tmp_path), "--cursor-projects", str(tmp_path / "cursor"), "--ticket", "CW-57"]
+    monkeypatch.setattr(sys, "argv", argv)
+    if want == 2:
+        with pytest.raises(SystemExit) as e:
+            agent_usage.main()
+        assert e.value.code == 2
+        return
+    agent_usage.main()
+    out, err = capsys.readouterr()
+    assert out.strip() == want
+    assert ("cannot read" in err) == bad

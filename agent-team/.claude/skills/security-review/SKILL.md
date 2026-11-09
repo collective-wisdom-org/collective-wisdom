@@ -1,8 +1,8 @@
 ---
 name: security-review
 description: >-
-  OWASP-aligned security review for PRs before merge; uses Cursor's
-  review-security subagent or the security-reviewer subagent on Claude Code.
+  OWASP-aligned security review for PRs before merge; uses the
+  security-reviewer subagent, or a general subagent given security-review.md.
 user-invocable: true
 ---
 
@@ -22,11 +22,13 @@ In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the C
 
 When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
 
-**Cursor:** read and follow the **review-security** skill in full; its subagent launch mechanics are not repeated here. When launching the security-review subagent, use:
+**Cursor:** start a general subagent, on `grok-4.7` (`chief-of-staff` § Models Cursor; if the tool can't pick a model, the child's own model), with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus:
 
-- **Full Repository Path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
-- **Diff:** `branch changes` (default).
+- **Worktree path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
+- **Diff:** the branch changes against `origin/<target>` (`<target>`: the merge target branch).
 - **Custom Instructions:** the list below.
+
+Ignore Cursor's own `review-security` skill in the ship loop, so the review is the same on every machine.
 
 **Claude Code:** from the PR worktree on the head branch, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. Always use the subagent, so the review runs on Opus and not on the child's own model.
 
@@ -94,4 +96,4 @@ Continue this phase after phase 3 **PASS** until security **PASS** before handof
 
 ## Optional (user-initiated)
 
-User may run **`/review-security`** (Cursor) or **`/security-review`** (Claude Code) ad hoc on local changes; the ship loop uses **security-review** for the gated PR comment loop above.
+User may run **`/review-security`** (Cursor, if installed) or **`/security-review`** (Claude Code) ad hoc on local changes; the ship loop uses **security-review** for the gated PR comment loop above.

@@ -11,10 +11,16 @@ of the clone this script sits in), the app's branch (git), and the state file. E
 "rotation-check: cannot read <what>" when the context, git or state is unreadable, or the `Merge target branch` row of project.md is invalid.
 Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) and,
 with --record-takeover, takeoverContext, through cos_state.py. It never rotates anything.
---hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's (session_id equals
-chiefSessionId) and stop_hook_active is false; then it blocks the stop on "rotate:" or
-exit 2. It never writes and any error exits 0 silently.
-COS_STATE_FILE and COS_PROJECTS_DIR override the state file and the transcripts directory.
+With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
+2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size
+trigger is off (no context size on Cursor), so only a skill change rotates.
+--hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
+It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
+{"decision": "block", "reason": ...} on "rotate:" or exit 2. It reads Cursor's stop payload (conversation_id equals
+chiefSessionId, loop_count 0, status completed), with the size trigger off, and answers {"followup_message": reason}.
+It never writes and any error exits 0 silently.
+COS_STATE_FILE, COS_PROJECTS_DIR and COS_CURSOR_PROJECTS_DIR override the state file, the Claude Code transcripts
+directory and the Cursor projects directory (~/.cursor/projects).
 """
 
 import argparse
@@ -26,6 +32,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
@@ -39,9 +46,9 @@ TEAM = Path(os.path.realpath(HERE)).parent
 
 
 def _root():
-    # The Stop hook runs from wherever the session's cwd has wandered; Claude Code names the project.
+    # The Stop hook runs from wherever the session's cwd has wandered (Cursor starts it in ~/.cursor); both name the project.
     # Move there first, so every script this one loads (project.md, agent_usage) finds the same repo.
-    d = os.environ.get("CLAUDE_PROJECT_DIR")
+    d = os.environ.get("CURSOR_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR")
     if d and "--hook" in sys.argv:
         try:
             os.chdir(d)
@@ -53,6 +60,7 @@ def _root():
 ROOT = _root()
 import project_config  # noqa: E402  (after _root(): it must find the same repo)
 SIZE_CAP = 220_000
+CURSOR_FRESH_SECONDS = 120
 QUIET_RELAY_MIN = 10
 QUIET_ROTATED_MIN = 60
 SKILL_PATHS = [
@@ -110,7 +118,7 @@ def quiet_wait(state, now):
 
 
 def decide(state, context, now, commit, branch, cap=SIZE_CAP):
-    """The one line. now is a datetime; context is a token count."""
+    """The one line. now is a datetime; context is a token count, or None when the size is unknown (Cursor)."""
     if state.get("paused"):
         return "ok (held: paused)"
     if state.get("rotation") is not None:
@@ -126,7 +134,7 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
             return f"rotate: skill changed {old[:7]}..{commit[:7]}"
         waits = f"ok (skill change waits: {why})"
     note = None
-    if context >= cap:
+    if context is not None and context >= cap:
         tk = state.get("takeoverContext")
         chief = state.get("chiefThreadId")
         off = (
@@ -143,7 +151,7 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
         return note or waits
     if not old:
         return f"ok; set skillCommit {commit}"
-    return f"ok context={k(context)}"
+    return "ok (size unknown on Cursor)" if context is None else f"ok context={k(context)}"
 
 
 def git(*args, cwd=None):
@@ -198,6 +206,27 @@ def read_context(sid=None):
     return int(m.group(1)), started
 
 
+def bare(cid):
+    """A Cursor conversation id without the `agent-` prefix that sessions started from T3 Code carry in their folder name."""
+    return cid[6:] if isinstance(cid, str) and cid.startswith("agent-") else cid
+
+
+def cursor_conversation():
+    """The id of the newest Cursor transcript of this app changed in the last 2 minutes, or None."""
+    projects = Path(os.environ.get("COS_CURSOR_PROJECTS_DIR") or Path.home() / ".cursor" / "projects")
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", str(ROOT)).strip("-")  # how Cursor names a project folder
+    now = time.time()
+    fresh = []
+    for f in (projects / slug / "agent-transcripts").glob("*/*.jsonl"):
+        try:
+            m = f.stat().st_mtime
+        except OSError:
+            continue
+        if f.stem == f.parent.name and 0 <= now - m <= CURSOR_FRESH_SECONDS:
+            fresh.append((m, f.stem))
+    return max(fresh)[1] if fresh else None
+
+
 def read_state(path):
     try:
         with contextlib.redirect_stderr(io.StringIO()):
@@ -215,11 +244,11 @@ def save_top(path, **keys):
         return False
 
 
-def check(state, record=False, sid=None):
-    """(line, takeoverContext to save or None). Raises Unreadable."""
-    context, _ = read_context(sid)
+def check(state, record=False, sid=None, sized=True):
+    """(line, takeoverContext to save or None). Raises Unreadable. sized=False: no context size (Cursor)."""
+    context = read_context(sid)[0] if sized else None
     tk = None
-    if record and state.get("chiefThreadId"):
+    if record and context is not None and state.get("chiefThreadId"):
         tk = {"threadId": state["chiefThreadId"], "tokens": context}
         state = {**state, "takeoverContext": tk}
     now = datetime.now(timezone.utc)
@@ -228,7 +257,7 @@ def check(state, record=False, sid=None):
     except SystemExit:
         raise Unreadable("the Merge target branch row of project.md")
     line = decide(state, context, now, skill_commit(), branch())
-    return (f"{line}; take-over context={k(context)}" if record else line), tk
+    return (f"{line}; take-over context={k(context)}" if record and context is not None else line), tk
 
 
 def run_hook(path):
@@ -242,16 +271,22 @@ def run_hook(path):
             return 0
         data = json.loads(sys.stdin.read())
         state = read_state(path)
-        sid = data.get("session_id")
-        if not sid or sid != state.get("chiefSessionId") or data.get("stop_hook_active"):
+        cursor = "conversation_id" in data and data.get("hook_event_name") == "stop"
+        if cursor:  # sent back once already, or the user stopped it or it errored: leave it be
+            sid, skip = data["conversation_id"], bool(data.get("loop_count")) or data.get("status") != "completed"
+        else:
+            sid, skip = data.get("session_id"), bool(data.get("stop_hook_active"))
+        mine = state.get("chiefSessionId")
+        if not sid or (bare(sid) != bare(mine) if cursor else sid != mine) or skip:
             return 0
         try:
-            line = check(state, sid=sid)[0]
+            line = check(state, sid=sid, sized=not cursor)[0]
         except Unreadable as e:
             line = f"rotation-check: cannot read {e}"
         if not line.startswith("ok"):
             reason = f"{line}; run chief-of-staff/rotation.md § Thread rotation"
-            print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
+            answer = {"followup_message": reason} if cursor else {"decision": "block", "reason": reason}
+            print(json.dumps(answer, ensure_ascii=False))
     except Exception:
         pass
     return 0
@@ -272,9 +307,11 @@ def main(argv=None):
             return 0
         state = read_state(path)
         sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+        cursor_id = None if sid else cursor_conversation()
+        sid = sid or cursor_id
         if sid and sid != state.get("chiefSessionId"):
             save_top(path, chiefSessionId=sid)
-        line, tk = check(state, record=args.record_takeover)
+        line, tk = check(state, record=args.record_takeover, sized=not cursor_id)
     except Unreadable as e:
         print(f"rotation-check: cannot read {e}")
         return 2

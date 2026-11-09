@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""API-equivalent cost of the agent team, read from Claude Code transcripts.
+"""API-equivalent cost of the agent team, read from Claude Code transcripts and Cursor's run store.
 
 Usage:
-    ~/.collective-wisdom/scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--turns]
+    ~/.collective-wisdom/scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--cursor-projects DIR] [--turns]
     ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --context
-    ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --ticket <PREFIX>-N
+    ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] [--cursor-projects DIR] --ticket <PREFIX>-N
 
 --since and --until are ISO 8601 UTC times (default: the last 24 hours).
---projects defaults to ~/.claude/projects. Read-only: nothing is written.
+--projects defaults to ~/.claude/projects, --cursor-projects to ~/.cursor/projects (a missing dir means no
+Cursor runs). Read-only: the report writes nothing, and each Cursor sdk-agent-store/*/index.db opens read-only (SQLite may add empty -shm and -wal files beside it).
+Cursor runs are priced from prices.json by model family: input minus cache tokens, output, cache read and the
+5 minute cache write rate. A Cursor run on a model with no price is unpriced: its tokens count, its dollars do not.
 --turns adds, per root-checkout session, its request count, its largest context
 (prompt tokens in one request), its start ctx (largest context before the session's
 first user message after the first request) and its average cost per request. Subagents are not counted.
@@ -18,9 +21,13 @@ is unset or the session has no transcript or no requests.
 --ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
 N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
 worktree sessions with a git branch feat/<prefix>-N or feat/<prefix>-N-..., plus their
-subagents, ignores --since and --until, and exits 2 when nothing matches. When the user's user.md
-sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
-API-equivalent (P% of the subscription), ...".
+subagents, ignores --since and --until, and exits 2 when no Claude Code or Cursor session ran the ticket.
+A Cursor session's branch is the "Branch:" line of its first message, else the git branch of its workspace.
+When the user's user.md sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
+API-equivalent (P% of the subscription), ..." with the share of the Claude Code dollars only. When the ticket
+has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the ticket is unpriced, or a Cursor
+store cannot be read (once the ticket has a session) or a run of the ticket's session cannot be parsed, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
+N.NM tokens, spec ..." and still exits 0.
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
 subagent transcripts next to each session. A dir without "worktrees" in its
@@ -29,6 +36,8 @@ solo threads) gets its own row, labelled with its first message. Worktree sessio
 are grouped by git branch and split into spec, build and merge at the
 "CHIEF OF STAFF:" relays. Prices are list prices per million tokens (see PRICES).
 The last section totals child-thread subagent cost by kind (implementer or review) and model.
+Cursor worktree sessions join the child rows by branch and Cursor root sessions get a "root cursor" row;
+unpriced Cursor runs add "not priced: <model> N runs, M.M tokens" lines. --turns and --context read Claude Code only.
 
 Root rows show the start of each session's first message. Check the output before
 pasting it into a PR or doc.
@@ -38,6 +47,7 @@ import argparse
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 from collections import defaultdict
@@ -99,6 +109,18 @@ def costs(model, u):
         "read": u.get("cache_read_input_tokens", 0) * p[2] / 1e6,
         "write": (w1 * p[3] + w5 * p[4]) / 1e6,
     }
+
+
+def cursor_costs(fam, u):
+    """(dollars by token kind, billed tokens) for one Cursor usage record; dollars are None without a price.
+
+    inputTokens includes the cache tokens, and cache writes are priced at the 5 minute rate.
+    """
+    cr, cw, out = u.get("cacheReadTokens", 0), u.get("cacheWriteTokens", 0), u.get("outputTokens", 0)
+    inp = max(u.get("inputTokens", 0) - cr - cw, 0)
+    p = PRICES.get(fam)
+    paid = p and {"input": inp * p[0] / 1e6, "output": out * p[1] / 1e6, "read": cr * p[2] / 1e6, "write": cw * p[4] / 1e6}
+    return paid or None, inp + out + cr + cw
 
 
 def text(message):
@@ -181,6 +203,97 @@ def read_session(path):
     return branch, first, sorted(relays), reqs, sorted(users), tuple(span)
 
 
+def cursor_messages(path):
+    """A Cursor transcript's user messages in turn order, without the <user_query> wrapper."""
+    out = []
+    try:
+        with open(path, errors="replace") as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                    m = d["message"] if d["role"] == "user" else None
+                except (ValueError, KeyError, TypeError):
+                    continue
+                if isinstance(m, dict):
+                    t = text(m)
+                    q = re.search(r"<user_query>\s*(.*?)\s*</user_query>", t, re.S)
+                    out.append((q.group(1) if q else t).strip())
+    except OSError:
+        pass
+    return out
+
+
+def git_branch(workspace):
+    try:
+        r = subprocess.run(["git", "-C", workspace, "branch", "--show-current"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.strip() or None
+
+
+def read_cursor(proj, failed=None):
+    """Cursor sessions of one project dir, one per agent with usage: dicts with id, branch, first, relays, runs.
+
+    Runs are (time, model, family, costs, tokens, turn number); costs is None when the model has no price.
+    A run without usage_json is skipped. A store that cannot be read is reported on stderr, skipped and appended
+    to failed. A run whose usage cannot be parsed is reported on stderr and marks its session bad. Relays are
+    (turn number, text) of the user messages that start "CHIEF OF STAFF:".
+    The branch is only looked for in worktree dirs.
+    """
+    sessions = []
+    for db in sorted(proj.glob("sdk-agent-store/*/index.db")):
+        try:
+            con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
+            try:
+                agents = con.execute("select agent_id, workspace_ref from agents").fetchall()
+                rows = con.execute(
+                    "select agent_id, turn_number, model, usage_json, coalesce(started_at, created_at) "
+                    "from runs where usage_json is not null order by turn_number"
+                ).fetchall()
+            finally:
+                con.close()
+        except sqlite3.Error:
+            print(f"agent_usage: cannot read {db}", file=sys.stderr)
+            if failed is not None:
+                failed.append(db)
+            continue
+        for aid, ref in agents:
+            runs, bad = [], False
+            for a, turn, model, usage, ts in rows:
+                if a != aid:
+                    continue
+                try:
+                    u = json.loads(usage)
+                    fam = family(model)
+                    paid, n = cursor_costs(fam, u)
+                    runs.append((parse_ts(ts), model, fam, paid, n, turn))
+                except (TypeError, ValueError, AttributeError):
+                    print(f"agent_usage: cannot read a run of {db}", file=sys.stderr)
+                    bad = True
+            if not runs and not bad:
+                continue
+            msgs = cursor_messages(proj / "agent-transcripts" / aid / f"{aid}.jsonl")
+            branch = None
+            if "worktrees" in proj.name:
+                m = re.search(r"^Branch:\s*(feat/[A-Za-z0-9_/-]+)", msgs[0] if msgs else "", re.M)
+                branch = m.group(1) if m else git_branch(ref)
+            sessions.append({
+                "id": aid,
+                "branch": branch,
+                "first": " ".join(msgs[0].split()) if msgs else "",
+                "relays": [(n, t) for n, t in enumerate(msgs, 1) if t.startswith("CHIEF OF STAFF:")],
+                "runs": runs,
+                "bad": bad,
+            })
+    return sessions
+
+
+def start_stage(first):
+    """A continuation child's task names the stage it starts in."""
+    m = re.search(r"\bTEAM MODE\. CONTINUE\b", first) and re.search(r"Do the (spec|build|merge) stage", first)
+    return m.group(1) if m else "spec"
+
+
 def start_ctx(reqs, users):
     """Largest context before the first user message that follows the first request."""
     end = next((u for u in users if reqs and u > reqs[0][0]), None)
@@ -225,14 +338,17 @@ def share(cost, usage):
     return f" ({'<0.01' if 0 < pct < 0.005 else f'{pct:.2f}'}% of the subscription)"
 
 
-def ticket_line(projects, ticket, usage=None):
-    """The --ticket line for a ticket like CW-57, or None when no worktree session ran its branch.
+def ticket_line(projects, ticket, usage=None, cursor=None):
+    """The --ticket line for a ticket like CW-57, or None when no Claude Code or Cursor worktree session ran its branch.
 
-    usage is the subscription's API-equivalent dollars; when set, the cost part also shows the share of it.
+    usage is the subscription's API-equivalent dollars; when set, the cost part also shows the share of the Claude Code part.
+    cursor is the Cursor projects dir.
     """
     own = re.compile(r'"gitBranch":"feat/' + re.escape(ticket.lower()) + r'[-"]')
+    mine = re.compile(r"feat/" + re.escape(ticket.lower()) + r"(-.*)?", re.I)
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
-    tokens, runs, times = 0, 0, []
+    tokens, runs, times, cursor_runs, cursor_spent, unpriced, failed = 0, 0, [], 0, 0.0, set(), []
+    unreadable = False
     for proj in sorted(projects.glob(f"*{PROJECT}*")):
         if "worktrees" not in proj.name:
             continue
@@ -245,24 +361,44 @@ def ticket_line(projects, ticket, usage=None):
             _, first, relays, reqs, _, span = read_session(session)
             runs += 1
             times += span
-            # A continuation child's task names the stage it starts in.
-            m = re.search(r"\bTEAM MODE\. CONTINUE\b", first) and re.search(
-                r"Do the (spec|build|merge) stage", first
-            )
-            start = m.group(1) if m else "spec"
+            start = start_stage(first)
             for sub in (proj / session.stem / "subagents").glob("agent-*.jsonl"):
                 _, _, _, sreqs, _, sspan = read_session(sub)
                 reqs, times = reqs + sreqs, times + list(sspan)
             for ts, _, c, _, n in reqs:
                 spent[stage_at(relays, ts, start)] += sum(c.values())
                 tokens += n
+    for proj in sorted(cursor.glob(f"*{PROJECT}*")) if cursor else []:
+        if "worktrees" not in proj.name:
+            continue
+        for s in read_cursor(proj, failed):
+            if not (s["branch"] and mine.fullmatch(s["branch"])):
+                continue
+            runs += 1
+            cursor_runs += 1
+            unreadable = unreadable or s["bad"]
+            for at, model, _, paid, n, turn in s["runs"]:
+                times.append(at)
+                tokens += n
+                if paid is None:
+                    unpriced.add(model or "unknown model")
+                else:
+                    spent[stage_at(s["relays"], turn, start_stage(s["first"]))] += sum(paid.values())
+                    cursor_spent += sum(paid.values())
     if not runs:
         return None
     times = [t for t in times if t]
     wall = int((max(times) - min(times)).total_seconds() // 60) if times else 0
     total = sum(spent.values())
+    unreadable = unreadable or bool(failed)
+    if unpriced or unreadable:
+        why = ([f"no price for {', '.join(sorted(unpriced))}"] if unpriced else []) + (["cannot read a Cursor store"] if unreadable else [])
+        cost = f"cost unknown ({'; '.join(why)}; ${total:.2f} priced)"
+    else:
+        cost = f"cost ${total:.2f} API-equivalent{share(total - cursor_spent, usage)}"
+        cost += f", Cursor ${cursor_spent:.2f}" * bool(cursor_runs)
     return (
-        f"cost ${total:.2f} API-equivalent{share(total, usage)}, {tokens / 1e6:.1f}M tokens, "
+        f"{cost}, {tokens / 1e6:.1f}M tokens, "
         f"spec ${spent['spec']:.2f} / build ${spent['build']:.2f} / merge ${spent['merge']:.2f}, "
         f"{runs} child run{'s' * (runs != 1)}, wall {wall // 60}h {wall % 60:02d}m"
     )
@@ -277,12 +413,15 @@ def ticket_id(s):
 def main():
     now = datetime.now(timezone.utc)
     ap = argparse.ArgumentParser(
-        description="Agent team cost from Claude Code transcripts."
+        description="Agent team cost from Claude Code transcripts and Cursor runs."
     )
     ap.add_argument("--since", type=parse_ts, default=now - timedelta(hours=24))
     ap.add_argument("--until", type=parse_ts, default=now)
     ap.add_argument(
         "--projects", type=Path, default=Path.home() / ".claude" / "projects"
+    )
+    ap.add_argument(
+        "--cursor-projects", type=Path, default=Path.home() / ".cursor" / "projects"
     )
     ap.add_argument(
         "--turns", action="store_true", help="per-session request count and context"
@@ -306,7 +445,7 @@ def main():
             usage = user_config.subscription_usage("Claude")
         except Exception:  # an unreadable user.md reads as unset
             usage = None
-        found = ticket_line(args.projects, args.ticket, usage)
+        found = ticket_line(args.projects, args.ticket, usage, args.cursor_projects)
         if not found:
             print(f"agent_usage: no transcripts for {args.ticket}", file=sys.stderr)
             raise SystemExit(2)
@@ -367,6 +506,23 @@ def main():
                     sreqs,
                 )
 
+    unpriced = defaultdict(lambda: [0, 0])  # Cursor model with no price -> [runs, tokens]
+    for proj in sorted(args.cursor_projects.glob(f"*{PROJECT}*")):
+        is_root = "worktrees" not in proj.name
+        for s in read_cursor(proj):
+            sid = s["id"].removeprefix("agent-")[:8]
+            name = f"{ROOT}cursor {sid} {s['first'][:20]}" if is_root else (s["branch"] or sid)
+            for at, model, fam, paid, n, turn in s["runs"]:
+                if not args.since <= at <= args.until:
+                    continue
+                if paid is None:
+                    unpriced[model or "unknown model"][0] += 1
+                    unpriced[model or "unknown model"][1] += n
+                elif is_root:
+                    add(name, "main", "root", [(at, fam, paid)])
+                else:
+                    add(name, stage_at(s["relays"], turn, start_stage(s["first"])), "children", [(at, fam, paid)])
+
     def total(b):
         return sum(b.values())
 
@@ -400,7 +556,10 @@ def main():
         + f"{grand:10.2f}"
     )
     print(f"{'share':46}" + "".join(f"{sums[c] / grand:12.0%}" for c in cols))
-    print(f"root checkout {sums['root']:.2f} ({sums['root'] / grand:.0%} of total)\n")
+    print(f"root checkout {sums['root']:.2f} ({sums['root'] / grand:.0%} of total)")
+    for model, (n, tok) in sorted(unpriced.items()):
+        print(f"not priced: {model} {n} runs, {tok / 1e6:.1f}M tokens")
+    print()
     print(
         f"{'token types (share of $)':26}"
         + "".join(f"{k:>12}" for k in KINDS)

@@ -68,7 +68,7 @@ How:
 This file holds the shared instructions for every agent: Cursor, Claude Code, and T3 Code threads on either. `CLAUDE.md` imports it (`@AGENTS.md`).
 
 - Project skills live in `agent-team/.claude/skills/` and load from the machine install: `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex) and `~/.cursor/skills` (Cursor). Edit them under `agent-team/.claude/skills/`; a change is live in sessions after it merges and the root checkout fast-forwards.
-- Project subagents live in `agent-team/.claude/agents/` and load from `~/.claude/agents`. Each is a short pointer to a role file in `~/.collective-wisdom/docs/agents/`, which holds the real brief. On hosts that don't load that format, start a general subagent with the role file as its prompt.
+- Project subagents live in `agent-team/.claude/agents/` and load from `~/.claude/agents` (Claude Code). Cursor loads them from `~/.cursor/agents`, from the copies in `agent-team/.cursor/agents/`, which keep the same name, description and body, pin the matching Cursor model in `model:` (`grok-4.7` for `opus`, `composer-2.5` for `sonnet`), and set `readonly: true` on the reviewers. Edit both together. Each is a short pointer to a role file in `~/.collective-wisdom/docs/agents/`, which holds the real brief. On other hosts, start a general subagent with the role file as its prompt.
 - Always-on project rules go in this file, not in `.cursor/rules/`.
 - Who's on the agent team and what each role may do: `~/.collective-wisdom/docs/agents/org-chart.md`.
 

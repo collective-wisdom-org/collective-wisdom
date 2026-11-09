@@ -432,6 +432,7 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   const empty = renderChief({ chief: { state: 'idle' }, pm: [] }).html
   assert.match(empty, /No Chief of Staff session in the last 24 hours\./)
   assert.match(empty, /No project manager threads yet\./)
+  assert.match(empty, /No ticket helper threads yet\./)
   assert.ok(!empty.includes('data-chief'))
   const link = '<t3-thread://v2/env/th1>'
   const hostile = '<img src=x onerror=1>'
@@ -448,10 +449,20 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   assert.match(first.html, /Page 1 of 2/)
   const last = renderChief(api, 99)
   assert.equal(last.page, 1)
+  const helper = (i, o = {}) => pm(i, { role: 'helper', ...o })
+  const withHelpers = { ...api, pm: [], helpers: [helper(1, { sessionId: hostile, state: hostile, threadLink: link }), ...Array.from({ length: 10 }, (_, i) => helper(i + 2))] }
+  const hp = renderChief(withHelpers, 0, new Set([hostile]), 10, 99)
+  assert.equal(hp.helperPage, 1)
+  assert.match(hp.html, /Ticket helper/)
+  assert.match(hp.html, /data-helper-page="0"/)
+  assert.ok(!hp.html.includes('<img') && !hp.html.includes('data-pm-page'))
+  const hp0 = renderChief(withHelpers, 0, new Set([hostile]))
+  assert.ok(/<details class="chart" data-helper="&lt;img[^>]* open>/.test(hp0.html))
+  assert.match(hp0.html, /No project manager threads yet\./)
   assert.equal([...last.html.matchAll(/<li class="row">/g)].length, 2)
   assert.deepEqual(['cos', 'ship', null, undefined, 'x', 'COS', 5].map(tabFromStorage), ['cos', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
-  const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
+  const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }], 'data-helper': [{ dataset: { helper: 'h1' } }] }
   const drawn = []
-  drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
-  assert.deepEqual(drawn, [['s2', true], ['chief', true]])
+  drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api, helpers: [pm('h1', { sessionId: 'h1', role: 'helper' })] }, T, (b, html) => drawn.push([b.dataset.pm ?? b.dataset.helper ?? 'chief', html.includes('class="gantt"')]))
+  assert.deepEqual(drawn, [['s2', true], ['h1', true], ['chief', true]])
 })

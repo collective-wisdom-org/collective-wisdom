@@ -84,7 +84,7 @@ def test_start(tmp_path, capsys, monkeypatch, run, setting, kw, code, line):
         ({**OPEN, "drain": "blocked ABC-1"}, ON, {}, None, "no-hands: drain blocked ABC-1 2/3 $20/$100"),
         ({**OPEN, "started": ["ABC-1", "ABC-2", "ABC-3"]}, ON, {}, None, "no-hands: drain ticket-cap 3/3 $30/$100"),
         (OPEN, ON, {}, lambda t, s: 50.0, "no-hands: stop cost-cap $100/$100"),
-        (OPEN, ON, {}, lambda t, s: None, "no-hands: stop cost unknown"),
+        (OPEN, ON, {}, lambda t, s: None, "no-hands: stop cost unknown (ABC-1)"),
         (OPEN, ON, {}, lambda t, stage: 0.0 if t == "ABC-2" else 10.0, "no-hands: on 2/3 $10/$100"),
         (OPEN, (False, 0, 0, ""), {}, None, "no-hands: stop setting off"),
         # a record the user's `no hands` did not start: an agent's copy, or no such message
@@ -141,7 +141,7 @@ def test_a_failed_write_still_prints_the_stop(tmp_path, capsys, monkeypatch):
     state, db = world(tmp_path, OPEN)
     monkeypatch.setattr(no_hands, "_write", lambda *a: (_ for _ in ()).throw(no_hands.Cannot("write the state file: boom")))
     assert no_hands.main(["--file", str(state), "--db", str(db), "check"], setting=lambda: ON, cost=lambda t, s: None) == 0
-    assert capsys.readouterr().out.strip() == "no-hands: stop cost unknown"
+    assert capsys.readouterr().out.strip() == "no-hands: stop cost unknown (ABC-1)"
 
 
 # approvals under a run cover only the tickets it started

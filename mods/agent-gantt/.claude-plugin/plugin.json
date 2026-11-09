@@ -1,6 +1,6 @@
 {
   "name": "agent-gantt",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "A pane beside the chat that shows this session's agents as a live Gantt chart with tokens and cost.",
   "author": {
     "name": "collective-wisdom-org"

@@ -7,14 +7,19 @@ export type History = { sessions: Record<string, HistoryEntry> }
 const MAX_SESSIONS = 500
 const MAX_TEAM_SESSIONS = 50
 const TICKET = /^[A-Za-z][A-Za-z0-9]*-\d+$/
-const ROLES = ['ranking', 'hygiene']
+const ROLES = ['ranking', 'hygiene', 'helper']
 
 const isTicketEntry = (e: HistoryEntry): e is { ticket: string; session: Session } => 'ticket' in e
 
-/** Keeps the newest 500 ticket sessions and, apart from them, the newest 50 project manager sessions. */
+/** Keeps the newest 500 ticket sessions and, apart from them, the newest 50 project manager sessions and the newest 50 ticket helper sessions. */
 const build = (entries: [string, HistoryEntry][]): History => {
   const newest = (list: [string, HistoryEntry][], max: number) => [...list].sort((a, b) => b[1].session.updatedAt - a[1].session.updatedAt).slice(0, max)
-  const kept = [...newest(entries.filter(([, e]) => isTicketEntry(e)), MAX_SESSIONS), ...newest(entries.filter(([, e]) => !isTicketEntry(e)), MAX_TEAM_SESSIONS)]
+  const isHelper = (e: HistoryEntry) => !isTicketEntry(e) && e.role === 'helper'
+  const kept = [
+    ...newest(entries.filter(([, e]) => isTicketEntry(e)), MAX_SESSIONS),
+    ...newest(entries.filter(([, e]) => !isTicketEntry(e) && !isHelper(e)), MAX_TEAM_SESSIONS),
+    ...newest(entries.filter(([, e]) => isHelper(e)), MAX_TEAM_SESSIONS),
+  ]
   return { sessions: Object.fromEntries(newest(kept, kept.length)) }
 }
 

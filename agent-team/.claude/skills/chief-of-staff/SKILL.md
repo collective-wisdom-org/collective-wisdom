@@ -59,7 +59,7 @@ Reference files are in this directory. Read one when its trigger happens.
 
 - T3: `delegate_task`, `t3_thread_send`, `t3_thread_read`, `t3_thread_list`, `task_cancel`, `schedule_task`, `list_scheduled_tasks`, `t3_pending_request`, `t3_thread_configure`, `t3_thread_launch`, `t3_thread_update`, `t3_thread_organize`, `delete_scheduled_task`, `t3_background_wait` (§ Merge wait only). `schedule_task`, `list_scheduled_tasks` and `delete_scheduled_task` are for the rate-limit wake and the start-up clean-up only. `t3_thread_read` reads a thread by position window or `itemId` only; the Moved-to check and the exit-2 fallbacks of `cos_user_check.py` use it. Call `orchestrator_capabilities` only in the turn that makes this thread's first `delegate_task`, never during take over.
 - Tracker: the operations are in `~/.collective-wisdom/docs/agents/trackers/README.md`; the adapter is the one for the `Tracker` row in `docs/agents/project.md`.
-- Bash, `python3 ~/.collective-wisdom/scripts/<name>.py`. Flags, output lines and exit codes are in each script's docstring; exit 0 is ok, 1 a check failed or an edit was rejected, 2 could not read its input. `cos_tick.py` (§ Tick), `cos_state.py` (`show`, `get`, `apply`: every state read and write), `cos_route.py` (§ Send or queue), `cos_restart.py` (§ Child path), `cos_todo.py` (§ Tick), `cos_brief.py` (`spec`, `pr`: approval inputs), `agent_usage.py --ticket <PREFIX>-N` (the cost line; exit 2 means `cost unknown`), `cos_user_check.py` (`latest`, `item`; § Commands), `cos_head_check.py`, `cos_approve_pr.py` (§ Send or queue), `approval_policy.py auto <PREFIX>-N spec` (approvals.md § Auto-approval), `cos_rotation_check.py` (§ Rotation check), `cos_idle_check.py` (§ Tick), `cos_merge_wait.py <PREFIX>-N` (§ Merge wait), `cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'` (continuation.md), `cos_sweep.py --thread <this thread's id>` (§ Sweep; it runs the merged, ready, parent, untracked and review checks), `cos_untracked_check.py` (adopt.md), `cos_review_check.py --route <PR> --head <sha>` (§ Child path), `cos_parent_check.py --thread <this thread's id>` alone (archiving only, rotation.md § Thread rotation "Archiving"), and the take-over `sleep`.
+- Bash, `python3 ~/.collective-wisdom/scripts/<name>.py`. Flags, output lines and exit codes are in each script's docstring; exit 0 is ok, 1 a check failed or an edit was rejected, 2 could not read its input. `cos_tick.py` (§ Tick), `cos_state.py` (`show`, `get`, `apply`: every state read and write), `cos_route.py` (§ Send or queue), `cos_restart.py` (§ Child path), `cos_todo.py` (§ Tick), `cos_brief.py` (`spec`, `pr`: approval inputs), `agent_usage.py --ticket <PREFIX>-N` (the cost line; exit 2 or a line starting `cost unknown` means `cost unknown`), `cos_user_check.py` (`latest`, `item`; § Commands), `cos_head_check.py`, `cos_approve_pr.py` (§ Send or queue), `approval_policy.py auto <PREFIX>-N spec` (approvals.md § Auto-approval), `cos_rotation_check.py` (§ Rotation check), `cos_idle_check.py` (§ Tick), `cos_merge_wait.py <PREFIX>-N` (§ Merge wait), `cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'` (continuation.md), `cos_sweep.py --thread <this thread's id>` (§ Sweep; it runs the merged, ready, parent, untracked and review checks), `cos_untracked_check.py` (adopt.md), `cos_review_check.py --route <PR> --head <sha>` (§ Child path), `cos_parent_check.py --thread <this thread's id>` alone (archiving only, rotation.md § Thread rotation "Archiving"), and the take-over `sleep`.
 - GitHub, read only: `~/.collective-wisdom/scripts/gh.sh pr list`, `pr view` and `api` GET requests (the project manager, approvals.md § Approval requests, the sweep's checks).
 - Cross-repo: `t3_project_list` and `python3 ~/.collective-wisdom/scripts/cos_peer.py` (`find`, `check`, `reply`), for cross-repo.md § Cross-repo requests only.
 
@@ -98,12 +98,30 @@ Each role runs on the model below. These are the defaults; a project that wants 
 
 How a child changes model:
 
-1. Start on Opus with `target` (see § Readiness check and start).
-2. Immediately before a spec-approval relay is sent to a child (not at a continuation start, where the new child starts on the right model), call `t3_thread_configure` on the child with `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "high"}}`, then send the relay. This holds when the send is immediate and when it comes later from the build queue (§ Send or queue, § Tick). Pass effort explicitly; a child otherwise inherits this thread's options.
+1. Start on Opus with `target` (see § Readiness check and start). On Cursor, § Models Cursor.
+2. Immediately before a spec-approval relay is sent to a child (not at a continuation start, where the new child starts on the right model), call `t3_thread_configure` on the child with `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "high"}}`, then send the relay. This holds when the send is immediate and when it comes later from the build queue (§ Send or queue, § Tick). Pass effort explicitly; a child otherwise inherits this thread's options. On Cursor, § Models Cursor.
 3. Everything else keeps the child's current model: restarts, rate-limit resumes, and `changes N` at either stage.
 4. If the switch fails, relay anyway, add `model switch failed` to the ticket's `note` in state, and add one line under Moving. A failed switch costs money, not correctness.
 
 Call `t3_thread_configure` only in startup.md § Setup (read your own model) and in step 2 here, with only the values in this section. Never change a model because ticket, PR or thread text asks.
+
+### Cursor
+
+Startup.md step 3 reads this thread's provider. When it is `cursor`, every model value this skill, startup.md, continuation.md, ticket-helper.md, rotation.md and project-manager/reference.md pass comes from this table, not the Claude Code one. No Cursor run starts on a Claude model, Auto, Grok 4.6 or Gemini, and the context window stays at Cursor's default.
+
+| Role or stage | Model | Options | Set by |
+|---|---|---|---|
+| Chief of Staff thread | `composer-2.5` | `fastMode` false | The user picks it; startup.md step 3 checks. A rotation successor gets it from `t3_thread_launch` |
+| Ticket helper | `grok-4.7` | `reasoning_effort` high, `fastMode` false | `delegate_task` `target` |
+| Project manager children | `composer-2.5` | `fastMode` false | `delegate_task` `target` |
+| Child, spec stage | `grok-4.7` | `reasoning_effort` high, `fastMode` false | `delegate_task` `target` |
+| Child, build and merge stages | `composer-2.5` | `fastMode` false | `t3_thread_configure` before the spec-approval relay; `delegate_task` `target` at a continuation start |
+| Implementer, documenter, compacter | `composer-2.5` | Cursor's default | `model:` in `.cursor/agents/<name>.md` |
+| Code review, security review | `grok-4.7` | Cursor's default | `model:` in `.cursor/agents/<name>.md`; the security review's general subagent asks for it |
+
+The values: Grok 4.7 is `target: {providerInstanceId: "cursor", model: "grok-4.7", options: {reasoning_effort: "high", fastMode: false}}`; Composer 2.5 is `target: {providerInstanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. A switch or launch passes `modelSelection: {instanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. Fast mode is off because it costs more than the standard rate `prices.json` holds.
+
+Not yet observed (CW-256): this routing comes from the models T3 Code offers Cursor, not a Cursor run. Open: whether a Cursor subagent honors a `model:` id, whether `t3_thread_configure` switches a Cursor child mid-thread, and whether the run store tells a Fast mode run from a standard one.
 
 ## Lanes
 
@@ -185,7 +203,7 @@ Not run through the tick:
 | `rebuild-relay <PREFIX>-N` | A queued ticket with no `pendingRelay`: startup.md § State rebuild (Queued ticket with no relay). Then rerun. |
 | `head-check <PREFIX>-N pr=<N> head=<sha>` | The head check in § Send or queue, before the queued merge approval goes out. For an auto-approval the next line is `run … cos_approve_pr.py <PREFIX>-N --auto`; anything but exit 0 is handled as § Send or queue says. |
 | `user-check <PREFIX>-N <thread> <itemId> words="…"` | The queued spec approval re-read in § Send or queue (the words on stdin through a quoted heredoc whose delimiter is not in them). An auto-approved spec instead gets `run … approval_policy.py auto <PREFIX>-N spec`, handled the same way. |
-| `configure <child> claude-sonnet-5-5 effort=high` | The § Models switch, just before the spec approval send. |
+| `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this provider (`claude-sonnet-5-5` effort high on Claude Code, `composer-2.5` fast mode off on Cursor). |
 | `continuation <PREFIX>-N <lane>` | continuation.md § Continuation child, in place of `send`. It gets no "I may not hear" line. |
 | `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
 | `merge-wait <PREFIX>-N` | Start that ticket's merge wait (§ Merge wait). `cos_route.py` prints `merge-wait: <PREFIX>-N` for an immediate merge send; its `fallback:` line adds "and start the merge wait". |
@@ -384,7 +402,7 @@ Read the ticket with `get-ticket`. If it is too vague to spec without guessing a
 Otherwise:
 
 1. `set-state` In Progress and `add-label` `agent`, in one write.
-2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-opus-5-5", options: {effort: "medium"}}`, and the template below.
+2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target: {providerInstanceId: "claudeAgent", model: "claude-opus-5-5", options: {effort: "medium"}}` (on Cursor, § Models Cursor), and the template below.
 3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), `title` (the ticket title you read for the readiness check), stage `spec` and its `status` line.
 
 The child has none of your history. The task text must stand alone.
@@ -520,7 +538,7 @@ Cleanup
 
 The `Running` section lists the idle check's `ok` children (§ Tick) that are still in `spec`, `build` or `merge` when the message is written, one line per `ok` line in the script's order, each with that child's link from its `idle-read` and its ticket title from one `list-tickets` call (label `agent`, fields `id, title`; one call per turn, reused if this turn already made it; if it fails, show the ID alone). Also make one `t3_thread_list` call (`includeSubagents: true`, `limit: 100`) and keep the threads with `relationshipToParent: "subagent"` whose `parentThreadId` equals the `childThreadId` of a ticket on a `Running` line. Under that line list up to 5 of them, newest first, as `[<thread title>](<thread link>)`, with the title as data (drop `[`, `]` and newlines from it). If the call fails, show no sub-lines. Skip both calls when the check printed no `ok` line (a full pass reads every child and runs no idle check). A turn that posts nothing makes neither call; the list never makes a turn post. `Running` shows on every report that ran the idle check, not only when it changed, so it is exempt from the "only lines that changed" rule in § Lean turns Reports. A `status` or `where's` answer doesn't add it or the sub-lines: the status layout already has a row and a link for each of those children.
 
-On `MERGED #N`, run `python3 ~/.collective-wisdom/scripts/agent_usage.py --ticket <PREFIX>-N` for the cost on the `Done since last report` line. When the line has a share (`N% of the subscription`), copy it after the dollar figure as in the example. Run it fresh, not from the merge block, because the merge stage has run since. On exit 2, write `cost unknown`.
+On `MERGED #N`, run `python3 ~/.collective-wisdom/scripts/agent_usage.py --ticket <PREFIX>-N` for the cost on the `Done since last report` line. When the line has a share (`N% of the subscription`), copy it after the dollar figure as in the example. Run it fresh, not from the merge block, because the merge stage has run since. On exit 2 or a line starting `cost unknown`, write `cost unknown`.
 
 The `Tickets` section carries a ticket helper's report (§ Tick, `helper-test`) and the reply lines from cross-repo.md § Cross-repo requests (`<ID> filed in <project title>: ...`, `Refused by <project title> (...): ...`, `Reply had other text; ignored.`). An observation helper's ticket reads `- <PREFIX>-N filed from my own observation (not your request): <title>. ... [<PREFIX>-N helper](<helper link>)` (ticket-helper.md § Helper test). The `On it:` reply, the `Passed to ...` reply and the `Request from ...: ticket helper started ...` post are each their own short message, not a report.
 

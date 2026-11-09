@@ -11,6 +11,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 AGENTS = sorted((ROOT / ".claude" / "agents").glob("*.md"))
+CURSOR_MODEL = {"opus": "grok-4.7", "sonnet": "composer-2.5"}
 
 
 def parse(path):
@@ -34,6 +35,22 @@ def test_agent_file_shape(path):
     assert docs, f"{path.name}: body names no docs/agents path"
     for doc in docs:
         assert (ROOT / doc).is_file(), f"{path.name}: {doc} does not exist"
+
+
+@pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
+def test_cursor_twin_matches_the_claude_agent(path):
+    twin = ROOT / ".cursor" / "agents" / path.name
+    assert twin.is_file(), f"{path.name}: no Cursor twin"
+    meta, body = parse(path)
+    cmeta, cbody = parse(twin)
+    assert (cmeta["name"], cmeta["description"], cbody) == (meta["name"], meta["description"], body)
+    assert cmeta["model"] == CURSOR_MODEL[meta["model"]] and "tools" not in cmeta
+    read_only = meta["tools"] != "*" and not {"Edit", "Write"} & set(re.split(r"[,\s]+", meta["tools"]))
+    assert (cmeta.get("readonly") == "true") == read_only
+
+
+def test_cursor_and_claude_agent_folders_hold_the_same_names():
+    assert sorted(p.name for p in (ROOT / ".cursor" / "agents").glob("*.md")) == [p.name for p in AGENTS]
 
 
 def test_project_md_is_local_and_never_shipped():
