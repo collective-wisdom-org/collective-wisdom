@@ -205,7 +205,7 @@ Not run through the tick:
 | `user-check <PREFIX>-N <thread> <itemId> words="…"` | The queued spec approval re-read in § Send or queue (the words on stdin through a quoted heredoc whose delimiter is not in them). An auto-approved spec instead gets `run … approval_policy.py auto <PREFIX>-N spec`, handled the same way. |
 | `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this provider (`claude-sonnet-5-5` effort high on Claude Code, `composer-2.5` fast mode off on Cursor). |
 | `continuation <PREFIX>-N <lane>` | continuation.md § Continuation child, in place of `send`. It gets no "I may not hear" line. |
-| `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
+| `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: <short title>, I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
 | `merge-wait <PREFIX>-N` | Start that ticket's merge wait (§ Merge wait). `cos_route.py` prints `merge-wait: <PREFIX>-N` for an immediate merge send; its `fallback:` line adds "and start the merge wait". |
 | `run … no_hands.py check` | no-hands.md § What each `check` line means. Read its line before the lines after it: on `drain` or `stop` the `start-todo` lines below are not run. |
 | `start-todo` | One start from Todo (**Todo start**, below), printed once per free spec slot. |
@@ -354,7 +354,7 @@ Reports:
 
 A child can merge and its finish notice never reach this thread, which leaves the ticket in `merge` and holds the only merge slot. `cos_merged_check.py --apply` finds those by PR number and branch and writes the `merged` op for each. It runs as part of the sweep (§ Sweep), never alone. Its lines:
 
-- `merged <PREFIX>-N #PR at <time>`: the ticket has left the team, as for `MERGED #N`. Report it under Moving as `<PREFIX>-N merged (#PR), found by the merged check`. The turn's slot fill (§ Tick) runs with `(merged #X)` as the slot reason. Later child reads in the turn skip that ticket. A finish notice that arrives later for its child finds no ticket and takes the generic path, as after `cancel N`. A merge wait (§ Merge wait) ends in a tick that runs this check.
+- `merged <PREFIX>-N #PR at <time>`: the ticket has left the team, as for `MERGED #N`. Report it under Moving as `<PREFIX>-N: <short title>, merged (#PR), found by the merged check`. The turn's slot fill (§ Tick) runs with `(merged #X)` as the slot reason. Later child reads in the turn skip that ticket. A finish notice that arrives later for its child finds no ticket and takes the generic path, as after `cancel N`. A merge wait (§ Merge wait) ends in a tick that runs this check.
 - `mismatch <PREFIX>-N #PR head <branch>` and `unreadable <PREFIX>-N #PR`: nothing written. One Cleanup line.
 - Exit 2: the sweep's rule for a part that didn't run applies (§ Sweep).
 
@@ -363,8 +363,8 @@ A child can merge and its finish notice never reach this thread, which leaves th
 A merge sent to a ticket with no known parent thread ends with no finish notice and no tick soon after, so the ticket would hold the only merge slot until the user writes. A merge wait is `cos_merge_wait.py` (read only): it polls the PR every 30 seconds for 30 minutes and ends when the PR is merged or closed or the ticket has left `merge`. It starts for a `merge-wait <PREFIX>-N` plan line, a `merge-wait:` line of `cos_route.py`, a `fallback:` line that says so, and in take over and resume for each `merge` ticket whose `parentThreadId` is not this thread (rotation.md § Thread rotation "Take over" step 4.2).
 
 1. Run `python3 ~/.collective-wisdom/scripts/cos_merge_wait.py <PREFIX>-N` with the Bash tool's background option (never `&`) and keep the task ID.
-2. Call `t3_background_wait` on that ID once, just before the turn's last tool call (the rotation check stays last). If the ID is `unmatched`, start the command again and wait again; a second `unmatched` adds one Cleanup line, `Merge wait for <PREFIX>-N did not start`.
-3. When it exits, the thread wakes. `merged` or `closed`: run the tick with `--trigger 'notice:<childThreadId>'`, the child from `cos_state.py get <PREFIX>-N`: the same plan as the finish notice that never came (child read, idle check, sweep with the merged check, slot fill). `still open`: run that tick once and start no new wait; the Moving line already told the user to say `status`. `left merge`: nothing (no tick, no message). Exit 2: one Cleanup line in the next report, `Merge wait for <PREFIX>-N: <its line>`, and nothing else.
+2. Call `t3_background_wait` on that ID once, just before the turn's last tool call (the rotation check stays last). If the ID is `unmatched`, start the command again and wait again; a second `unmatched` adds one Cleanup line, `Merge wait for <PREFIX>-N: <short title> did not start`.
+3. When it exits, the thread wakes. `merged` or `closed`: run the tick with `--trigger 'notice:<childThreadId>'`, the child from `cos_state.py get <PREFIX>-N`: the same plan as the finish notice that never came (child read, idle check, sweep with the merged check, slot fill). `still open`: run that tick once and start no new wait; the Moving line already told the user to say `status`. `left merge`: nothing (no tick, no message). Exit 2: one Cleanup line in the next report, `Merge wait for <PREFIX>-N: <short title>, <its line>`, and nothing else.
 
 Two waits on one ticket are harmless: both only read, and the second tick finds the ticket gone. Only the merged check writes the `merged` op.
 
@@ -372,11 +372,11 @@ Two waits on one ticket are harmless: both only read, and the second tick finds 
 
 T3 sends no finish notice for a run started by `t3_thread_send` from a thread that isn't the child's parent, so such a ticket keeps its lane slot until the user writes. `python3 ~/.collective-wisdom/scripts/cos_sweep.py --thread <this thread's id>` runs every check that needs no thread reads, in one process: the merged check with `--apply` (§ Merged check), the ready check, the parent check (without its archive lines; archiving calls `cos_parent_check.py` itself), the untracked check, and the review check on the `awaiting-review` tickets. It writes only what the merged check writes. Where it runs: the tick runs it on every trigger, after the child reads and the idle check. Outside the tick it runs in take over, `resume` and resume mode (rotation.md § Thread rotation "Take over" step 4.2). Where the tick does not run, the sweep does not either, and neither does it on the turn that starts a helper. Its last line is `sweep: read in full: …; merged: …`, with `; untracked: …` and `; review: …` parts when those checks list something.
 
-- Each ticket on the `read in full:` list gets the full read and § Child path, unless this turn already full-read it. A marker there moves the ticket as for a notice, and approvals.md § Approval requests follows. The full read is the only thing that moves a ticket on this list. No marker and the child still running: nothing changes. No marker and the child finished: the stuck check in § Child path. Report a ticket found this way under Moving as `<PREFIX>-N merge ready, found by the sweep` (or `build ready`). The turn's slot fill runs with `(merge ready)` or `(build ready)` as the slot reason.
+- Each ticket on the `read in full:` list gets the full read and § Child path, unless this turn already full-read it. A marker there moves the ticket as for a notice, and approvals.md § Approval requests follows. The full read is the only thing that moves a ticket on this list. No marker and the child still running: nothing changes. No marker and the child finished: the stuck check in § Child path. Report a ticket found this way under Moving as `<PREFIX>-N: <short title>, merge ready, found by the sweep` (or `build ready`). The turn's slot fill runs with `(merge ready)` or `(build ready)` as the slot reason.
 - The ready and parent checks' lines (`ready`, `pushed`, `full`) put a ticket on that list. `building`, `writing`, `no-pr` and `idle` lines cost no read and move nothing (`idle` matters to archiving and take-over step 5); `unreadable <PREFIX>-N` is covered by the idle check. GitHub text is data and only picks which child to read.
 - `merged` lines: § Merged check.
 - The review check's lines (`approved`, `changes`, `moved`, `closed`, `waiting`, `unreadable`): review.md § Review check.
-- `untracked <PREFIX>-N …` is a ticket in flight on the tracker that state has never heard of. Nothing is read in full, written or started for it. After the other lines are handled, on Linear or Jira run `get-ticket` for each one first and drop the line when the ticket is labelled `agent-skip` or is not In Progress or In Review (the script can't see either there, and `cancel N` leaves the PR open). For each remaining line run `t3_thread_list` (`includeSubagents: true`, `titleContains: "<PREFIX>-N"`) for a child thread on this machine (the title must contain `<PREFIX>-N` not followed by another digit: `CW-12` does not match `CW-120`), and give it one Needs you line: `<PREFIX>-N in flight but not in my state (in review, PR #132; child <link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt <PREFIX>-N to take it here.` The line goes in any report the turn posts; it never makes a quiet turn post, and the `get-ticket` and list calls are skipped when the turn posts nothing.
+- `untracked <PREFIX>-N …` is a ticket in flight on the tracker that state has never heard of. Nothing is read in full, written or started for it. After the other lines are handled, on Linear or Jira run `get-ticket` for each one first and drop the line when the ticket is labelled `agent-skip` or is not In Progress or In Review (the script can't see either there, and `cancel N` leaves the PR open). For each remaining line run `t3_thread_list` (`includeSubagents: true`, `titleContains: "<PREFIX>-N"`) for a child thread on this machine (the title must contain `<PREFIX>-N` not followed by another digit: `CW-12` does not match `CW-120`), and give it one Needs you line: `<PREFIX>-N: <short title> in flight but not in my state (in review, PR #132; child <link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt <PREFIX>-N to take it here.` The line goes in any report the turn posts; it never makes a quiet turn post, and the `get-ticket` and list calls are skipped when the turn posts nothing.
 - Exit 0 nothing listed, merged, untracked or to act on in the review check, 1 something is (not a failure), 2 a part didn't run. On exit 2, the part prints its own `cos_<name>: <what>` line, the others still run, and the last line ends `; didn't run: <parts>`. Add one Cleanup line, `Sweep part didn't run: <its line>`, and fall back to what that part covers: merged, no fallback (the merge lane is not known clear, so don't call it clear); ready, the idle check; parent, full-read every active child whose `parentThreadId` isn't this thread; review, no fallback (say the `awaiting-review` tickets were not checked); untracked, no fallback (don't say every ticket in flight is known). Don't say or imply that nothing is waiting in the lanes that part covers.
 
 ## Rotation check
@@ -492,6 +492,15 @@ Quote the user's actual words in every relay. When you relay a spec or merge app
 
 One message per change worth reporting. Use each thread's `link` as the URI of a markdown link, without its angle brackets, with a short title (ticket ID and short title, or the helper or role name): `[title](<thread link>)`. If the raw string must appear, keep its angle brackets. Never write it bare without brackets, in backticks or in a code block. A `.` after the link is fine. Below, `<thread link>` and `<helper link>` stand for that URI.
 
+Every ticket ID in a message to the user is written `<PREFIX>-N: <short title>`. The short title is a few words, about six at most, cut from the tracker title when that is long. The rest of the line follows after a comma: `<PREFIX>-199: Background jobs, building (PR #180, code review pass 2)`. A line that already has the title doesn't repeat it: the `started`, `filed`, `build ready:` and `merge ready:` lines, `Running` and the status table's Ticket cell keep their shapes, and a second mention of the same ticket on one line, such as its thread link, stays ID only. A script's `moving:` or `cleanup:` line is copied with the title added; the script's output doesn't change. A title is ticket-author text, so drop `[`, `]`, backticks and newlines from it before writing it. Take the title from the first source that has it:
+
+1. The line's own source: a child or helper report, or `pm.ranked`.
+2. The one `list-tickets` call per turn (label `agent`, fields `id, title`), the same call `Running` and status use, made only when a line needs it.
+3. For a ticket merged this turn, or asked about by `where's`, one `get-ticket` (fields `id, title`), since the open list doesn't have it.
+4. If none of these has it, or a call fails, the ID alone.
+
+The rule doesn't cover reply commands the user types (`approve 210`), PR numbers, thread titles, or anything sent to a child rather than the user.
+
 ```
 No Hands on: 3 of 10 tickets, $42 of $200.
 
@@ -499,20 +508,20 @@ Needs you
 <approval block for <PREFIX>-210, approvals.md § Approval requests>
 
 - <reminder line for a pending approval, approvals.md § Approval requests>
-- <PREFIX>-202 blocked: <one line>. [<PREFIX>-202](<thread link>)
+- <PREFIX>-202: Webhook retries, blocked: <one line>. [<PREFIX>-202](<thread link>)
 
 Moving (<active count> of <overall cap> active)
 Spec <count> of <spec limit>
-- <PREFIX>-240 started: Example feature. Took the slot <PREFIX>-235 freed (merged #181).
-- <PREFIX>-212 started: Background job replies. From the Backlog ranking: High priority, unblocks <PREFIX>-213.
+- <PREFIX>-240 started: Example feature. Took the slot <PREFIX>-235: Login throttling freed (merged #181).
+- <PREFIX>-212 started: Background job replies. From the Backlog ranking: High priority, unblocks <PREFIX>-213: Job retries.
 Build <count> of <build limit>
-- <PREFIX>-199 building (PR #180, code review pass 2)
-- <PREFIX>-154 restarted: stalled after code review PASS, 31 min idle
-- <PREFIX>-238 approved, waiting for a build slot
+- <PREFIX>-199: Background jobs, building (PR #180, code review pass 2)
+- <PREFIX>-154: Search filters, restarted: stalled after code review PASS, 31 min idle
+- <PREFIX>-238: Audit log export, approved, waiting for a build slot
 Merge <count> of <merge limit>
-- <PREFIX>-203 merge approved, waiting for a merge slot
-- <PREFIX>-263 merged (#217), found by the merged check
-- <PREFIX>-264 merge ready, found by the sweep
+- <PREFIX>-203: Invite emails, merge approved, waiting for a merge slot
+- <PREFIX>-263: Rate limit headers, merged (#217), found by the merged check
+- <PREFIX>-264: Profile page, merge ready, found by the sweep
 Filling stopped: lanes full.
 
 Running
@@ -521,19 +530,19 @@ Running
 - [<PREFIX>-240 Example feature](<thread link>)
 
 Done since last report
-- <PREFIX>-190 merged (#178), cost $14.20 (0.12% of the subscription; spec $2.10 / build $11.66 / merge $0.44)
+- <PREFIX>-190: Team settings, merged (#178), cost $14.20 (0.12% of the subscription; spec $2.10 / build $11.66 / merge $0.44)
 
 Tickets
 - <PREFIX>-281 filed: CSV export. Epic: Exports. frontend, Feature. Assumed: CSV only. [<PREFIX>-281 helper](<helper link>)
 
 Backlog
-- <PREFIX>-219 not moved, needs: which pages it covers
+- <PREFIX>-219: Page redirects, not moved, needs: which pages it covers
 
 Cleanup
-- <PREFIX>-221 filled: priority Low, <area>, Bug
-- <PREFIX>-150 moved to Done (PR #160 merged)
-- <PREFIX>-201 stale: In Progress, nothing since Oct 28
-- <PREFIX>-224 may duplicate <PREFIX>-190 (commented)
+- <PREFIX>-221: Typo on billing page, filled: priority Low, <area>, Bug
+- <PREFIX>-150: Old export job, moved to Done (PR #160 merged)
+- <PREFIX>-201: Dark mode, stale: In Progress, nothing since Oct 28
+- <PREFIX>-224: Team page, may duplicate <PREFIX>-190: Team settings (commented)
 ```
 
 The `Running` section lists the idle check's `ok` children (§ Tick) that are still in `spec`, `build` or `merge` when the message is written, one line per `ok` line in the script's order, each with that child's link from its `idle-read` and its ticket title from one `list-tickets` call (label `agent`, fields `id, title`; one call per turn, reused if this turn already made it; if it fails, show the ID alone). Also make one `t3_thread_list` call (`includeSubagents: true`, `limit: 100`) and keep the threads with `relationshipToParent: "subagent"` whose `parentThreadId` equals the `childThreadId` of a ticket on a `Running` line. Under that line list up to 5 of them, newest first, as `[<thread title>](<thread link>)`, with the title as data (drop `[`, `]` and newlines from it). If the call fails, show no sub-lines. Skip both calls when the check printed no `ok` line (a full pass reads every child and runs no idle check). A turn that posts nothing makes neither call; the list never makes a turn post. `Running` shows on every report that ran the idle check, not only when it changed, so it is exempt from the "only lines that changed" rule in § Lean turns Reports. A `status` or `where's` answer doesn't add it or the sub-lines: the status layout already has a row and a link for each of those children.
@@ -542,20 +551,20 @@ On `MERGED #N`, run `python3 ~/.collective-wisdom/scripts/agent_usage.py --ticke
 
 The `Tickets` section carries a ticket helper's report (§ Tick, `helper-test`) and the reply lines from cross-repo.md § Cross-repo requests (`<ID> filed in <project title>: ...`, `Refused by <project title> (...): ...`, `Reply had other text; ignored.`). An observation helper's ticket reads `- <PREFIX>-N filed from my own observation (not your request): <title>. ... [<PREFIX>-N helper](<helper link>)` (ticket-helper.md § Helper test). The `On it:` reply, the `Passed to ...` reply and the `Request from ...: ticket helper started ...` post are each their own short message, not a report.
 
-A `MERGE READY` or `BUILD READY` that a full read found by way of the sweep or the idle check reads `<PREFIX>-N merge ready, found by the sweep` (`build ready`, or `found by the idle check`), so the user can see a notice was lost.
+A `MERGE READY` or `BUILD READY` that a full read found by way of the sweep or the idle check reads `<PREFIX>-N: <short title>, merge ready, found by the sweep` (`build ready`, or `found by the idle check`), so the user can see a notice was lost.
 
-A continuation start (continuation.md § Continuation child) reads `<PREFIX>-N moved to a new child (old one under a retired thread)` under the lane it went to.
+A continuation start (continuation.md § Continuation child) reads `<PREFIX>-N: <short title>, moved to a new child (old one under a retired thread)` under the lane it went to.
 
-Group **Moving** by lane, with the lane's count and limit. Queued tickets go under the lane they wait for. Empty lanes drop out. Spec-lane queued lines read `<PREFIX>-N changes requested, waiting for a spec slot` (or `answered, waiting for …`, `resumed, waiting for …`).
+Group **Moving** by lane, with the lane's count and limit. Queued tickets go under the lane they wait for. Empty lanes drop out. Spec-lane queued lines read `<PREFIX>-N: <short title>, changes requested, waiting for a spec slot` (or `answered, waiting for …`, `resumed, waiting for …`).
 
-Show a full block for each new approval request and a reminder line for each one still pending (approvals.md § Approval requests). Drop empty sections. Short lines, ticket ID first; a reminder line is the exception and starts with `<Level> (<reason>): `, so the user can pick out the low-risk ones at a glance.
+Show a full block for each new approval request and a reminder line for each one still pending (approvals.md § Approval requests). Drop empty sections. Short lines, ticket ID and title first; a reminder line is the exception and starts with `<Level> (<reason>): `, so the user can pick out the low-risk ones at a glance.
 
-For a start or a queued send from the slot fill (§ Tick), name the ticket that left `spec`, `build` or `merge` in that turn (the first, if several), and why: `(merged #X)`, `(cancelled)`, `(build ready)`, `(merge ready)` or `(blocked)`. If none did, drop the "Took the slot" part. A turn with room but nothing to start adds no line.
+For a start or a queued send from the slot fill (§ Tick), name the ticket that left `spec`, `build` or `merge` in that turn (the first, if several), with its title, and why: `(merged #X)`, `(cancelled)`, `(build ready)`, `(merge ready)` or `(blocked)`. If none did, drop the "Took the slot" part. A turn with room but nothing to start adds no line.
 
 When the slot fill stops in a turn that posts a report anyway (it started something, or another step changed what the user sees), **Moving** ends with one `Filling stopped:` line:
 
 - `Filling stopped: lanes full.` The overall cap is reached, or every lane with work queued is at its limit.
-- `Filling stopped: Backlog held. <PREFIX>-N waits on PR #X.` A spec slot is free and nothing `ready` is left, and the latest ranking has `held` entries. Name up to three.
+- `Filling stopped: Backlog held. <PREFIX>-N: <short title> waits on PR #X.` A spec slot is free and nothing `ready` is left, and the latest ranking has `held` entries. Name up to three.
 - `Filling stopped: no ready ticket in the Backlog.` A spec slot is free, but Todo has nothing startable, and the latest ranking found nothing `ready` or `held` and the Backlog hasn't changed since.
 
 If more than one applies, use the first in that order. The line repeats only when the reason changes (§ Lean turns Reports). `status` always shows it. The stop line alone never makes a turn post.

@@ -71,8 +71,8 @@ Rules:
 While an approval is still pending, any later report lists it as one reminder line under `Needs you`. A reminder always keeps the link:
 
 ```
-- Low (docs only, 3 Builds bullets): <PREFIX>-210 spec still waiting on you: <spec URL> (commit <short SHA>). "approve 210" or "changes 210: …"
-- High (touches auth): <PREFIX>-197 merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
+- Low (docs only, 3 Builds bullets): <PREFIX>-210: Example feature, spec still waiting on you: <spec URL> (commit <short SHA>). "approve 210" or "changes 210: …"
+- High (touches auth): <PREFIX>-197: CSV export, merge still waiting on you: <PR URL>, head <short SHA>. "approve 197" or "changes 197: …"
 ```
 
 The reminder line's start is in SKILL.md § Report format.

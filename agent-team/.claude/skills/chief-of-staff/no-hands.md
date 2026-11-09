@@ -69,15 +69,15 @@ Post the summary as its own message:
 ```
 No Hands ended: <reason>.
 Ran <h m>, <N> tickets started, $<X> of $<C>.
-Merged: <PREFIX>-210 (#181, $14), …
-Open: <PREFIX>-212 (building, cancelled by the stop), …
+Merged: <PREFIX>-210: Team settings (#181, $14), …
+Open: <PREFIX>-212: Search filters (building, cancelled by the stop), …
 Waiting on you:
-- <PREFIX>-213 merge: touches <hands-path file | migration | flag: …>. "approve 213" or "changes 213: …"
-- <PREFIX>-214 blocked: <the BLOCKED: line>
+- <PREFIX>-213: CSV export, merge: touches <hands-path file | migration | flag: …>. "approve 213" or "changes 213: …"
+- <PREFIX>-214: Webhook retries, blocked: <the BLOCKED: line>
 Say "resume" to go on without No Hands, or "no hands" for a new run.
 ```
 
-Drop a line that is empty. Write the last line only when you set `paused`. A run that has ended stays ended: `resume` never starts a run (kill-switch.md § Resume), and only the user's next `no hands` does.
+Titles follow SKILL.md § Report format. For the `Merged:` tickets, which have left the open list, make one `list-tickets` call (label `agent`, state Done, updated since the run's `startedAt`, fields `id, title`) instead of one `get-ticket` each; a ticket missing from it, or a failed call, shows the ID alone. Drop a line that is empty. Write the last line only when you set `paused`. A run that has ended stays ended: `resume` never starts a run (kill-switch.md § Resume), and only the user's next `no hands` does.
 
 ## While a run is active
 
