@@ -77,7 +77,7 @@ Waiting on you:
 Say "resume" to go on without No Hands, or "no hands" for a new run.
 ```
 
-Titles follow SKILL.md § Report format. For the `Merged:` tickets, which have left the open list, make one `list-tickets` call (label `agent`, state Done, updated since the run's `startedAt`, fields `id, title`) instead of one `get-ticket` each; a ticket missing from it, or a failed call, shows the ID alone. Drop a line that is empty. Write the last line only when you set `paused`. A run that has ended stays ended: `resume` never starts a run (kill-switch.md § Resume), and only the user's next `no hands` does.
+Titles follow SKILL.md § Report format. For `Merged:` tickets make one `list-tickets` call (label `agent`, state Done, updated since the run's `startedAt`, fields `id, title`) instead of a `get-ticket` each; a ticket missing from it, or a failed call, shows the ID alone. Drop a line that is empty. Write the last line only when you set `paused`. A run that has ended stays ended: `resume` never starts a run (kill-switch.md § Resume), and only the user's next `no hands` does.
 
 ## While a run is active
 
