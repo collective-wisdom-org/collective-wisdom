@@ -95,6 +95,37 @@ def test_settings_merge(world, name, text, keys, count, todo):
     assert sum(HOOK in h["command"] or h["command"] == "echo hi" for e in data["hooks"]["Stop"] for h in e["hooks"]) == count
 
 
+CMD = 'python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true'
+OTHER = {"command": "echo hi", "timeout": 5}
+# name, ~/.cursor/hooks.json before (None: absent; a str is written as is), the file after a run and after a second run (None: left as it was, with a TODO)
+CURSOR_HOOKS = [
+    ("missing", None, {"version": 1, "hooks": {"stop": [{"command": CMD}]}}),
+    ("other hooks and keys survive", {"version": 1, "extra": 1, "hooks": {"stop": [OTHER], "beforeShellExecution": [OTHER]}},
+     {"version": 1, "extra": 1, "hooks": {"stop": [OTHER, {"command": CMD}], "beforeShellExecution": [OTHER]}}),
+    ("already there", {"version": 1, "hooks": {"stop": [{"command": f"python3 x/{HOOK}"}]}}, {"version": 1, "hooks": {"stop": [{"command": f"python3 x/{HOOK}"}]}}),
+    ("no version gets 1", {"hooks": {}}, {"version": 1, "hooks": {"stop": [{"command": CMD}]}}),
+    ("not an object", "[1]", None),
+    ("stop is not a list", {"hooks": {"stop": {}}}, None),
+]
+
+
+@pytest.mark.parametrize("name, before, after", CURSOR_HOOKS, ids=[c[0] for c in CURSOR_HOOKS])
+def test_cursor_hooks_merge_once(world, name, before, after):
+    cw, home = world
+    f = home / ".cursor/hooks.json"
+    if before is not None:
+        f.parent.mkdir()
+        f.write_text(before if isinstance(before, str) else json.dumps(before))
+    for _ in range(2):  # a rerun adds nothing
+        rc, out = install(cw, home)
+        assert rc == 0, out
+        assert ("stop hook to ~/.cursor/hooks.json by hand" in out) == (after is None)
+        if after is None:
+            assert f.read_text() == before if isinstance(before, str) else json.loads(f.read_text()) == before
+        else:
+            assert json.loads(f.read_text()) == after
+
+
 def test_own_names_are_kept_and_listed_and_dead_links_are_dropped(world):
     cw, home = world
     (home / ".claude/skills/alpha").mkdir(parents=True)  # the person's own folder of a shipped name
