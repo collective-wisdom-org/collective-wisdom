@@ -93,7 +93,7 @@ A gap ticket links back to its cell here, by row, column and gap number. When th
 
 One line per gap the matrices point at. A ticket is opened only where the maintainer wants one, so each line says `none yet` until it exists.
 
-- **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. Ticket: [#252](https://github.com/collective-wisdom-org/collective-wisdom/issues/252).
+- **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. Ticket: none yet.
 - **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
 - **G3.** No recorded Cursor run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
 - **G4.** Subagents load only in Claude Code. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so this applies to Codex, Cursor and Antigravity, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.

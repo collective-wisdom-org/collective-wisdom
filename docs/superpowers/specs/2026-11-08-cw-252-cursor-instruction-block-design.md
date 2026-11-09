@@ -13,7 +13,7 @@ A fresh `./install.sh` puts the agent team instruction block where Cursor reads 
 - Cursor's user rules in Settings are account settings, not a file, so `install.sh` cannot write them.
 - Cursor also loads rule files from `~/.cursor/rules/*.mdc`. A file with `alwaysApply: true` in its front matter is added to every agent's context.
 - This machine already relies on that: `~/.cursor/rules/` holds `anti-ai-slop.mdc`, `planner-delegates.mdc` and `run-commands-yourself.mdc`, each with `alwaysApply: true`, and the user's `~/.claude/CLAUDE.md` imports the same three files.
-- Not yet shown: that a Cursor agent in a T3 Code thread sees those rules. The Cursor CLI is not installed on this machine, and a ship loop child cannot start a Cursor thread, so the build cannot run that check itself (see Proof below).
+- Not yet shown: that a Cursor agent in a T3 Code thread sees those rules. The Cursor CLI on this machine is not logged in, and a ship loop child cannot start a Cursor thread, so the build cannot run that check itself (see Proof below).
 
 ## Design
 
