@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-09 produce agent-gantt snapshots from Cursor threads (CW-258) (#270)
+
+Merged 2026-11-09 03:55 UTC.
+
+A Cursor thread on a worktree now shows a gantt row on the local dashboard. Rows show timing and model but no spend, since Cursor does not report tokens. Rerun `./install.sh` to add the hooks to `~/.cursor/hooks.json`.
+
 ## 2026-11-09 include Cursor sessions in the usage and cost report (CW-257) (#269)
 
 Merged 2026-11-09 03:51 UTC.
