@@ -12,7 +12,7 @@ Spec: [design](../specs/2026-11-08-cw-259-tag-release-minor-design.md)
    - Base-10 arithmetic (`10#`) as today. `shellcheck tag-release.sh` clean.
 2. `agent-team/scripts/test_install.py`
    - Add a "tags to add on origin" column to `RELEASE` (name -> commit) and apply it before the run.
-   - Rows: `--minor` after v0.2 -> v0.2.1; v0.2.9 present -> v0.2.10 and a v0.1.5 ignored; plain with v0.2.1 -> v0.3; `--minor` with no v0.N refuses; `--minor` and plain refuse when origin/main carries a v0.N.M; `--minor --dry-run` pushes nothing.
+   - Rows: `--minor` after v0.2 -> v0.2.1; v0.2.9 present -> v0.2.10 and a v0.1.5 ignored; plain with v0.2.1 -> v0.3; `--minor` with no v0.N refuses; `--minor` and plain refuse when origin/main carries a v0.N.M.
 3. `README.md` § Releases: add `--minor` to the command block, one sentence on minor numbering and refusals.
 
 ## Verify

@@ -48,7 +48,7 @@ New rows in `RELEASE` in `test_tag_release`, one per rule, plus a way for a row 
 - Plain with `v0.2.1` present still makes `v0.3`.
 - `--minor` with no `v0.N` refuses.
 - `--minor` when `origin/main` carries a `v0.N.M` refuses, and plain refuses too.
-- `--minor --dry-run` pushes nothing.
+- No separate `--minor --dry-run` row: the dry-run branch is shared, and the plain dry-run row covers it. The numeric row uses `v0.2`, `v0.2.9`, `v0.2.10` and an older `v0.1.15`, so a text sort or counting every minor fails it.
 
 ### Docs
 
