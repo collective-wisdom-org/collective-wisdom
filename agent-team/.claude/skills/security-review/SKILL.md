@@ -25,10 +25,10 @@ When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the h
 **Cursor:** start a general subagent, on the strongest model its tool offers, with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus:
 
 - **Worktree path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
-- **Diff:** the branch changes against `origin/<target>` (`<target>` is the merge target branch).
+- **Diff:** the branch changes against `origin/<target>` (`<target>`: the merge target branch).
 - **Custom Instructions:** the list below.
 
-If Cursor has its own `review-security` skill installed, ignore it in the ship loop, so the review is the same on every machine.
+Ignore Cursor's own `review-security` skill in the ship loop, so the review is the same on every machine.
 
 **Claude Code:** from the PR worktree on the head branch, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. Always use the subagent, so the review runs on Opus and not on the child's own model.
 
@@ -96,4 +96,4 @@ Continue this phase after phase 3 **PASS** until security **PASS** before handof
 
 ## Optional (user-initiated)
 
-User may run **`/review-security`** (Cursor, if your Cursor has it) or **`/security-review`** (Claude Code) ad hoc on local changes; the ship loop uses **security-review** for the gated PR comment loop above.
+User may run **`/review-security`** (Cursor, if installed) or **`/security-review`** (Claude Code) ad hoc on local changes; the ship loop uses **security-review** for the gated PR comment loop above.

@@ -1,6 +1,6 @@
 # Security review
 
-Before merge, the ship loop runs **security-review** (phase 4). On Claude Code that skill uses the `security-reviewer` subagent (Opus) against the OWASP list; on Cursor it starts a general subagent with this doc as its prompt. Either way it runs on the PR branch worktree.
+Before merge, the ship loop runs **security-review** (phase 4). On Claude Code that skill uses the `security-reviewer` subagent (Opus) against the OWASP list; on Cursor, a general subagent given this doc. Either way it runs on the PR branch worktree.
 
 ## OWASP references
 
@@ -14,7 +14,7 @@ Product overlays are listed in the app's `docs/agents/project.md` § Security ov
 
 ## Security reviewer subagent
 
-The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc, as does a general subagent given it as its prompt. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/<target>...HEAD` (`<target>` is the merge target branch) against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
+The `security-reviewer` subagent (`.claude/agents/security-reviewer.md`) reads this doc, as does a general subagent given it. You are read only: do not edit, commit or push. In the PR worktree on the head branch, review `git diff origin/<target>...HEAD` (`<target>` is the merge target branch) against the OWASP list the **security-review** skill gives you and return findings with severity and location. The child posts the PR comment and fixes what you find.
 
 ## PR gate
 
@@ -22,7 +22,7 @@ Security findings are posted as PR issue comments (`## Security review (pass N)`
 
 ## Built-in review commands
 
-- **Cursor:** **`/review-security`**, if your Cursor has it, is for ad hoc use only. The ship loop does not use it.
+- **Cursor:** **`/review-security`**, if installed, is ad hoc only; the ship loop does not use it.
 - **Claude Code:** **`/security-review`** reviews the current branch's changes.
 
 Use either ad hoc; the ship loop uses **security-review** for the PR comment loop and merge gate.
