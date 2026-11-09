@@ -24,12 +24,12 @@ The ticket's acceptance asks for "an install PR here, with `docs/agents/installe
 
 After the existing "head equals approved SHA" gate, an open PR must pass the steps below, or `merge_pr.py` stops with `merge-pr: stop #N: <reason>` (exit 1) and nothing changes.
 
-"Record head" below means the PR's current head, or its reviewed first parent when `resolved_head` accepts a conflict-resolved head (`Review after conflict resolution` is `off`). That approval already covers such a head.
+The "record head" is the PR's current head, or its reviewed first parent when `resolved_head` accepts a conflict-resolved head (`Review after conflict resolution` is `off`). The ticket's `headSha` may name either, and the cut-off below uses the commit it names.
 
 1. **Is this a team repo?** If `.agent-team/state.json` does not exist in the root checkout, there is no Chief of Staff and no record to check. The script prints `merge-pr: warn no team state; approval not checked` and goes on with today's gates. This keeps hand runs working in a repo with no team (see Calls I made).
 2. **Find the ticket.** Exactly one ticket in the state file has `pr` equal to this PR. None or several: stop.
-3. **Stage.** That ticket is in stage `merge`. The Chief of Staff moves it there when it relays the approval, and a withdrawn approval moves it back.
-4. **Head.** The ticket's `headSha` equals the record head in full, whatever SHA the caller passed.
+3. **Stage.** That ticket is in stage `merge`. The Chief of Staff moves it there when it relays the approval, and a withdrawn approval moves it back. A ticket in `merge` with `noApproval: true` (a conflict run with no user approval) is refused, so an older `approve N` can't carry over to it.
+4. **Head.** The ticket's `headSha` equals the PR's current head or, for an accepted conflict resolution, its reviewed first parent, in full, whatever SHA the caller passed.
 5. **The approval**, either of:
    - **The user's message.** `cos_user_check.latest` on `chiefThreadId`, with the words `approve <ticket number>` and the cut-off below, returns a message with `createdBy: "user"` that isn't negated. An agent's copy of the words fails, as it does today.
    - **The standing auto-approval.** The same rule `cos_approve_pr.py --auto` applies (`Approval risk tolerance` on the merge target branch, or an active No Hands run that started this ticket, plus the approval or hands path, renamed-file, file-count, flag, migration and conflict-note stops) says auto for this PR.

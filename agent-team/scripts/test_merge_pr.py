@@ -52,7 +52,7 @@ def green():
 
 @pytest.fixture(autouse=True)
 def no_team_state(tmp_path, monkeypatch):
-    """No test reads this machine's Chief of Staff state or T3 messages: with no state file the approval check is skipped."""
+    """No test reads this machine's Chief of Staff state or T3 messages (the No Hands read is stubbed in the approval table): with no state file the approval check is skipped."""
     monkeypatch.setattr(merge_pr.cos_state, "DEFAULT_FILE", tmp_path / "no-state.json")
     monkeypatch.setattr(merge_pr.cos_user_check, "DEFAULT_DB", tmp_path / "no-t3.sqlite")
 
@@ -662,10 +662,12 @@ APPROVAL_ROWS = [
     ("another author", {"facts": lambda f: f["author"].update(login="dev")}, 0, "merged #7"),
     ("auto-approved, no message and no store", {"tol": "balanced", "msgs": None}, 0, "merged #7"),
     ("conflict-resolved head, approval on its first parent", {"resolved": True, "tickets": {"ABC-87": tkt(headSha=OLD)}}, 0, "merged #7"),
+    ("conflict-resolved head, approval on the resolved head", {"resolved": True, "facts": lambda f: f.update(approved=HEAD[:7]), "msgs": [umsg(at="2026-11-02T10:35:00Z")]}, 0, "merged #7"),
     ("no state file", {"state": None}, 0, "merge-pr: warn no team state; approval not checked"),
     ("no ticket for the PR", {"tickets": {"ABC-87": tkt(pr=8)}}, 1, "no ticket in the state file has pr #7"),
     ("two tickets for the PR", {"tickets": {"ABC-87": tkt(), "ABC-88": tkt()}}, 1, "more than one ticket"),
     ("wrong stage", {"tickets": {"ABC-87": tkt(stage="awaiting-merge")}}, 1, "ABC-87 is in stage awaiting-merge, not merge"),
+    ("ticket is a merge run with no approval", {"tickets": {"ABC-87": tkt(noApproval=True)}}, 1, "noApproval"),
     ("headSha for another head", {"tickets": {"ABC-87": tkt(headSha="b" * 40)}}, 1, "was approved at head bbbbbbb, not aaaaaaa"),
     ("no message, caller passes the current head", {"msgs": []}, 1, 'no verified "approve 87"'),
     ("message older than the head commit", {"msgs": [umsg(at="2026-11-02T08:30:00Z")]}, 1, 'no verified "approve 87"'),
@@ -683,6 +685,7 @@ def test_main_checks_the_users_approval(tmp_path, monkeypatch, capsys, changes, 
     monkeypatch.setattr(merge_pr, "publish", lambda *a: None)
     monkeypatch.setattr(merge_pr.project_config, "approval_setting", lambda: (changes.get("tol", "strict"), ""))
     monkeypatch.setattr(merge_pr.project_config, "review_after_conflict", lambda: "off")
+    monkeypatch.setattr(merge_pr.approval_policy.no_hands, "active", lambda ticket=None: False)
     state = tmp_path / "state.json"
     monkeypatch.setattr(merge_pr.cos_state, "DEFAULT_FILE", state)
     if changes.get("state", 0) is not None:

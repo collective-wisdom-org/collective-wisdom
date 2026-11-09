@@ -13,8 +13,8 @@ Checks (the merge target branch is the `Merge target branch` row of project.md, 
   - gh is signed in as the login user.md maps to this repo (github-auth.md § Account per repo), or as a user on the `*` line of .github/CODEOWNERS (case-insensitive)
   - the PR is open, not a draft, not from a fork, and based on <target>
   - the head equals the approved SHA
-  - the user's approval, when .agent-team/state.json exists in the root checkout (a Chief of Staff runs here): exactly one ticket has this PR, in stage `merge`, with `headSha` equal to the head in full (the reviewed first
-    parent when the head is an accepted conflict resolution), and either the auto-approval rule (approval_policy.auto_gate) says auto or the user's own `approve <N>` in the state's chiefThreadId (cos_user_check.py latest)
+  - the user's approval, when .agent-team/state.json exists in the root checkout (a Chief of Staff runs here): exactly one ticket has this PR, in stage `merge`, with `headSha` equal to the head in full (or the reviewed first
+    parent when the head is an accepted conflict resolution) and no `noApproval` flag, and either the auto-approval rule (approval_policy.auto_gate) says auto or the user's own `approve <N>` in the state's chiefThreadId (cos_user_check.py latest)
     is newer than that head's commit and, outside `ci` review mode, the latest code and security reviews. With no state file it prints `merge-pr: warn no team state; approval not checked` and goes on; a state file or message
     store it cannot read is exit 2
   - no GitHub-required review is pending (the stop line names the requested reviewers), unless the signed-in user is a codeowner, who may merge past a missing review (the PR is then BLOCKED for that reason only)
@@ -210,12 +210,15 @@ def read_approval(f):
     if len(mine) != 1:
         return f"{'no' if not mine else 'more than one'} ticket in the state file has pr #{f['pr']}", None
     tid, t = next(iter(mine.items()))
-    head = resolved_head(f) or f["headRefOid"]
     number = re.search(r"([0-9]+)$", tid)
     if t.get("stage") != "merge":
         return f"{tid} is in stage {t.get('stage')}, not merge", None
-    if t.get("headSha") != head:
-        return f"{tid} was approved at head {str(t.get('headSha'))[:7]}, not {head[:7]}", None
+    if t.get("noApproval"):
+        return f"{tid} is a merge run with no user approval (noApproval), so an older approve does not count", None
+    # The approval names the current head, or the reviewed first parent when the head is an accepted conflict resolution.
+    head = next((h for h in (f["headRefOid"], resolved_head(f)) if h and t.get("headSha") == h), None)
+    if head is None:
+        return f"{tid} was approved at head {str(t.get('headSha'))[:7]}, not {f['headRefOid'][:7]}", None
     if not number:
         return f"{tid} has no ticket number", None
     n = str(int(number[1]))
