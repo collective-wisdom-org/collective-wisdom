@@ -56,8 +56,8 @@ mprune() {
   done
 }
 
-# mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command) or the instruction block
-# (mode block, arg = template file) into a user file. Prints one status word; writes through a temp file and rename.
+# mpython <mode> <path> <arg>: merge the Stop hook (mode hook, arg = command; mode cursor-hook for Cursor's
+# hooks.json) or the instruction block (mode block, arg = template file) into a user file. Prints one status word; writes through a temp file and rename.
 mpython() {
   python3 -I - "$1" "$2" "$3" "$DRY" <<'PY'
 import json, os, sys, tempfile
@@ -81,7 +81,7 @@ def write(text):
         raise
 
 
-def hook():
+def hook(cursor=False):
     existed = os.path.exists(path)
     data = {}
     if existed:
@@ -95,10 +95,12 @@ def hook():
     if "cos_rotation_check.py" in json.dumps(data.get("hooks")):
         return "present"
     hooks = data.setdefault("hooks", {})
-    stop = hooks.setdefault("Stop", []) if isinstance(hooks, dict) else None
+    stop = hooks.setdefault("stop" if cursor else "Stop", []) if isinstance(hooks, dict) else None
     if not isinstance(stop, list):
         return "invalid"
-    stop.append({"hooks": [{"type": "command", "command": arg}]})
+    stop.append({"command": arg} if cursor else {"hooks": [{"type": "command", "command": arg}]})
+    if cursor and "version" not in data:
+        data = {"version": 1, **data}
     if not dry:
         write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     return "added" if existed else "created"
@@ -133,7 +135,7 @@ def block_merge(block, old, existed):
     return "updated" if b >= 0 else ("added" if existed else "created")
 
 
-print({"hook": hook, "block": block}[mode]())
+print({"hook": hook, "cursor-hook": lambda: hook(True), "block": block}[mode]())
 PY
 }
 
@@ -186,6 +188,13 @@ machine_install() {
   case "$status" in
     added|created) msay "$status  ~/.claude/settings.json (Stop hook)"; MCHANGED=$((MCHANGED + 1)) ;;
     invalid) MTODOS+=("Add the Chief of Staff Stop hook to ~/.claude/settings.json by hand (the file is not a JSON object with a list under hooks.Stop, so it was left alone): a Stop hook running  python3 -I \"\$HOME/.collective-wisdom/scripts/cos_rotation_check.py\" --hook || true") ;;
+  esac
+
+  # shellcheck disable=SC2016  # $HOME is expanded when the hook runs, not now
+  status="$(mpython cursor-hook "$HOME/.cursor/hooks.json" 'python3 -I "$HOME/.collective-wisdom/scripts/cos_rotation_check.py" --hook || true')"
+  case "$status" in
+    added|created) msay "$status  ~/.cursor/hooks.json (stop hook)"; MCHANGED=$((MCHANGED + 1)) ;;
+    invalid) MTODOS+=("Add the Chief of Staff stop hook to ~/.cursor/hooks.json by hand (the file is not a JSON object with a list under hooks.stop, so it was left alone): under hooks.stop add  {\"command\": \"python3 -I \\\"\$HOME/.collective-wisdom/scripts/cos_rotation_check.py\\\" --hook || true\"}") ;;
   esac
 
   for f in .claude/CLAUDE.md .codex/AGENTS.md; do
