@@ -1,7 +1,8 @@
 # CW-256: Record a Chief of Staff run and a ship-loop child on Cursor in T3 Code
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#256](https://github.com/collective-wisdom-org/collective-wisdom/issues/256)
+**Shipped:** in PR #277, as specified
 
 ## Goal
 
