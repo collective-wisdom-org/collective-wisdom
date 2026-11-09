@@ -108,28 +108,30 @@ export function cleanThreadId(x: unknown): string | null {
 }
 
 /** Cleans a snapshot whose cwd passes `keep`. `open` is true when a turn of the main loop is in progress: its `main` row or one of its `main:task:N` rows has an open last segment, which the closing rules below would hide. */
-function cleanWith(s: unknown, now: number, keep: (cwd: string) => boolean): { session: Session; open: boolean } | null {
+function cleanWith(s: unknown, now: number, keep: (cwd: string) => boolean): { session: Session; open: boolean; cursor: boolean } | null {
   if (!isObj(s) || !Array.isArray(s.rows) || !keep(str(s.cwd))) return null
   const updatedAt = numOrNull(s.updatedAt)
   if (updatedAt === null || now - updatedAt > DAY) return null
   const cleaned = s.rows.map((r) => cleanRow(r, null)).filter((r): r is SnapshotRow => r !== null)
+  // The Claude Code mod rewrites its snapshot every 5 s, so silence means a stopped session. The Cursor hook writes only when an event fires: its open spans stay open and are drawn to now.
+  const cursor = cleaned.length > 0 && cleaned.every((r) => r.harness === 'Cursor')
   const open = cleaned.some((r) => /^main(:task:\d+)?$/.test(r.id) && r.segments.at(-1)?.[1] === null)
   // The main row and its task rows never end while the session lives, so only the other agents say whether it is stale.
   const working = cleaned.some((r) => r.kind === 'agent' && r.id !== 'main' && r.end === null)
-  const stale = now - updatedAt > STALE_MS && working
+  const stale = !cursor && now - updatedAt > STALE_MS && working
   const close = (r: SnapshotRow): SnapshotRow => ({ ...r, end: updatedAt, segments: r.segments.map(([a, b]) => [a, b === null ? Math.max(a, updatedAt) : b]) })
-  const rows = cleaned.map((r) => (r.end === null && (stale || (!working && (r.id === 'main' || r.kind === 'task'))) ? close(r) : r))
-  return { session: { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), pricing: numOrNull(s.pricing), rows }, open }
+  const rows = cleaned.map((r) => (r.end === null && !cursor && (stale || (!working && (r.id === 'main' || r.kind === 'task'))) ? close(r) : r))
+  return { session: { sessionId: str(s.sessionId), cwd: str(s.cwd), updatedAt, stale, total: numOrNull(s.total), pricing: numOrNull(s.pricing), rows }, open, cursor }
 }
 
 export const cleanSnapshot = (s: unknown, now: number): Session | null => cleanWith(s, now, isWorktree)?.session ?? null
 
 /** Like cleanSnapshot, but for a session outside any worktree (the root checkout), with its thread id and heading. */
-export function cleanTeamSnapshot(s: unknown, now: number): { session: Session; open: boolean } | null {
+export function cleanTeamSnapshot(s: unknown, now: number): { session: Session; open: boolean; cursor: boolean } | null {
   const got = cleanWith(s, now, (cwd) => !isWorktree(cwd))
   if (!got || !isObj(s)) return null
   const heading = typeof s.heading === 'string' && s.heading.length <= HEADING_MAX ? s.heading : null
-  return { open: got.open, session: { ...got.session, threadId: cleanThreadId(s.threadId), heading } }
+  return { open: got.open, cursor: got.cursor, session: { ...got.session, threadId: cleanThreadId(s.threadId), heading } }
 }
 
 /** The chief of staff, a project manager child, or null for any other session. The chief is matched by state; project manager children by heading. */
@@ -139,7 +141,7 @@ export function teamRole(session: Session, state: unknown): 'chief' | TeamRole |
   return Object.hasOwn(HEADINGS, session.heading ?? '') ? HEADINGS[session.heading!] : null
 }
 
-type TeamItem = { role: 'chief' | TeamRole; session: Session; open: boolean }
+type TeamItem = { role: 'chief' | TeamRole; session: Session; open: boolean; cursor?: boolean }
 
 function teamItems(snapshots: unknown[], state: unknown, now: number): TeamItem[] {
   const out: TeamItem[] = []
@@ -242,7 +244,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     return out
   }
   const link = (id: string | null) => (environmentId && id ? `<t3-thread://v2/${environmentId}/${id}>` : undefined)
-  const isRunning = (i: TeamItem) => i.open && now - i.session.updatedAt <= RUNNING_MS
+  const isRunning = (i: TeamItem) => i.open && (i.cursor === true || now - i.session.updatedAt <= RUNNING_MS)
   const team = teamItems(snapshots, state, now)
   const live = team.filter((i) => i.role === 'chief').sort((a, b) => b.session.updatedAt - a.session.updatedAt)[0]
   const st = isObj(state) ? state : {}
