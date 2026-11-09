@@ -80,16 +80,16 @@ It writes only under your home folder and touches no app. It links:
 - `~/.collective-wisdom` to the clone's `agent-team/` folder. Skills and role docs call scripts as `~/.collective-wisdom/scripts/<name>`.
 - Each skill into `~/.claude/skills/`, `~/.agents/skills/` (Codex) and `~/.cursor/skills/`, and each subagent into `~/.claude/agents/`. One link per name, so your own skills stay.
 
-It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json` (other keys and hooks are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone.
+It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json` (other keys and hooks are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone. For Cursor it writes the same text to its own file, `~/.cursor/rules/collective-wisdom.mdc`, with `alwaysApply: true`, and a rerun rewrites that whole file. If you pasted the text into Cursor Settings, Rules before, you can delete that copy.
 
-The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and a `TODO:` list. What lands there:
+The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and, when something needs you, a `TODO:` list. What lands there:
 
 - A real file or folder, or a link to somewhere else, where a skill or agent link should go. (At `~/.collective-wisdom` itself this is not a TODO: the installer refuses and exits before writing anything, so remove it and run again.) The installer never replaces it; move or remove yours and run again.
 - A `~/.claude/settings.json` that is not valid JSON, or whose `hooks.Stop` is not a list, and the same for `~/.cursor/hooks.json` and its `hooks.stop`. It is left alone; add the hook by hand.
 - A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that cannot be read as text, or has only one of the two marker comments. It is left alone; fix the file.
-- The instruction text for Cursor. Its user rules have no file to write, so paste the text into Cursor Settings, Rules.
+- A `~/.cursor/rules/collective-wisdom.mdc` that is a folder or cannot be read as text. It is left alone; fix the path.
 
-A `~/.claude/settings.json`, `~/.cursor/hooks.json`, `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that is itself a link (dotfiles) is written at its target, so the link stays.
+A `~/.claude/settings.json`, `~/.cursor/hooks.json`, `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.cursor/rules/collective-wisdom.mdc` that is itself a link (dotfiles) is written at its target, so the link stays.
 
 Per-machine settings (the GitHub login for each repo, your Claude subscription figure) live in `~/.config/collective-wisdom/user.md`, not in a repo's `project.md`. See `agent-team/docs/agents/github-auth.md` § Account per repo.
 
@@ -197,7 +197,7 @@ Open a PR here, not in the app. The checklist is in [CONTRIBUTING.md](CONTRIBUTI
 - T3 Code thread tools are named directly in the Chief of Staff, project manager and ship-loop skills. Tracker tools are named only in the adapter docs under `agent-team/docs/agents/trackers/`.
 - An old app's copied `scripts/agent-team-update.sh` calls `install.sh --update --from <tag> <app>`. `install.sh` refuses that with exit 2 and a message that names the removal command, so the old call fails loudly and does not write.
 - Plans, specs and as-built notes follow the superpowers docs layout under `docs/superpowers/`.
-- The security review skill refers to Cursor's review-security subagent and Claude Code's `security-reviewer` subagent.
+- The security review skill names Claude Code's `security-reviewer` subagent. Other hosts give `security-review.md` to a general subagent.
 - Role docs for app areas (backend, frontend and so on) are not shared; each app adds its own.
 
 ## License
