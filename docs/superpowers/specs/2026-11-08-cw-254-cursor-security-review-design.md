@@ -1,6 +1,7 @@
 # CW-254: Run the security review on Cursor without a skill this repo does not ship
 
-**Status:** Approved
+**Status:** Shipped
+**Shipped:** in PR #263, as specified
 **Ticket:** [#254](https://github.com/collective-wisdom-org/collective-wisdom/issues/254)
 
 ## Goal
