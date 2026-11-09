@@ -35,6 +35,7 @@ alwaysApply: true
 - A folder at that path, or a file that is not UTF-8 text, prints `invalid` and adds a TODO: `Fix ~/.cursor/rules/collective-wisdom.mdc by hand: ...`. The rest of the install still runs.
 - `--dry-run` writes nothing and reports what it would do, as the other modes do.
 - `machine_install` calls it after the `.claude/CLAUDE.md` and `.codex/AGENTS.md` loop and counts a change the same way. The paste TODO is removed.
+- With no TODOs left on a clean install, the closing `TODO:` heading and list print only when there is at least one item (an empty list failed under `set -u` on macOS bash 3.2).
 
 The template stays the one source: `machine-instruction.md` is not changed or copied.
 
