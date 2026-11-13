@@ -24,7 +24,7 @@ def tk(stage, child=None, **kw):
 def run(tmp_path, capsys, state, trigger, *extra, thread=ME):
     f = tmp_path / "state.json"
     if state is not None:
-        f.write_text(json.dumps({"chiefThreadId": ME, **state}))
+        f.write_text(json.dumps({"chiefThreadId": ME, "chiefProvider": {"threadId": ME, "provider": "claudeAgent"}, **state}))
     code = cos_tick.main(["--thread", thread, "--trigger", trigger, "--file", str(f), "--now", NOW, *extra])
     lines = [re.sub(r"^\d+\. ", "", x) for x in capsys.readouterr().out.splitlines()]
     assert code == 0
@@ -110,6 +110,37 @@ CHANGES = "CHIEF OF STAFF: changes: rename it."
 CONFIGURE = "configure q1 build"
 TAIL = ["observe", "report (filling stopped: lanes full)", ROTATION]
 TODO = ["observe", "report (filling stopped: spec slot free)", ROTATION]
+
+
+def chief_of(provider, thread=ME):
+    return {"chiefProvider": {"threadId": thread, "provider": provider}}
+
+
+@pytest.mark.parametrize(
+    "chief, tickets, want",
+    [
+        (chief_of("claudeAgent"), {"ABC-5": {**BUILD, "provider": "claudeAgent"}}, []),
+        (chief_of("cursor"), {"ABC-5": {**BUILD, "provider": "claudeAgent"}}, ["harness-mismatch ABC-5 child=claudeAgent chief=cursor"]),
+        # no provider saved yet: no line, the child is still read
+        (chief_of("cursor"), {"ABC-5": BUILD}, []),
+        # one child's read failed (no provider saved) next to a mismatched one: only the mismatched one is flagged
+        (
+            chief_of("cursor"),
+            {"ABC-5": {**BUILD, "provider": "claudeAgent"}, "ABC-6": SPEC1, "ABC-7": queued("build-queued", CHANGES, "1", provider="claudeAgent")},
+            ["harness-mismatch ABC-5 child=claudeAgent chief=cursor", "harness-mismatch ABC-7 child=claudeAgent chief=cursor"],
+        ),
+        # chief provider unknown, or recorded by another thread: record it, flag nothing
+        ({"chiefProvider": None}, {"ABC-5": {**BUILD, "provider": "claudeAgent"}}, ["chief-provider"]),
+        (chief_of("cursor", "old"), {"ABC-5": {**BUILD, "provider": "claudeAgent"}}, ["chief-provider"]),
+    ],
+)
+def test_look_plan_flags_a_child_on_another_provider(tmp_path, capsys, chief, tickets, want):
+    out = run(tmp_path, capsys, {"tickets": tickets, **chief}, "user")
+    flagged = [x for x in out if x.startswith(("chief-provider", "harness-mismatch"))]
+    assert flagged == want
+    assert out[: len(want)] == want  # before the other look lines
+    assert out[-1] == "tick --after-reads"
+    assert [x for x in out if x.startswith("read ")] == [READ(i, t["childThreadId"]) for i, t in tickets.items() if t["stage"] in ("spec", "build", "merge")]
 
 
 @pytest.mark.parametrize(

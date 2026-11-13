@@ -103,6 +103,25 @@ A ship-loop child cannot start a thread on another harness, so step 2 is done by
 
 One entry per recorded run, newest first. The steps are in [Recording a run](#recording-a-run).
 
+### 2026-11-13, Claude Code in T3 Code (CW-280 control run)
+
+The counterpart to the Cursor runs ([#256](https://github.com/collective-wisdom-org/collective-wisdom/issues/256), [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275)), recorded for [#280](https://github.com/collective-wisdom-org/collective-wisdom/issues/280): a Claude Code Chief of Staff should keep every child on Claude Code. This is a read of thread providers, not a full ship-loop run.
+
+- **Repo and ticket:** collective-wisdom itself, running CW-280.
+- **Skills:** the machine install while CW-280 was being built, before the harness-mismatch check shipped.
+- **Chief of Staff thread:** `mcp:d9205ef0-5df4-4d79-8036-d25ef24f0888` reads `providerInstanceId` `claudeAgent`, model `claude-sonnet-5-5`.
+- **Children and helpers: works.** The 40 newest threads (of 398 listed) were read with `t3_thread_list`. Eight have this Chief of Staff as parent, and all eight read `claudeAgent`:
+  - Five ship-loop children: CW-280, CW-281, CW-284 and CW-286 on `claude-sonnet-5-5`, CW-288 on `claude-opus-5-5`.
+  - One CW-290 child, on `claude-opus-5-5`.
+  - Two ticket helpers, both on `claude-sonnet-5-5`: "helper gantt compat doc" and "Cursor helpers on ship loop".
+
+  No child or helper was on another provider.
+- **Not covered:**
+  - No Backlog ranking or project manager hygiene child appeared in those 40 threads, so neither is checked.
+  - The subagents inside the children (implementer, reviewers) were not read, so their provider is unchecked.
+  - The count is as of the reading, before the mismatch check shipped. It shows a Claude Code Chief of Staff already kept its children on Claude Code. It does not show that the check catches a mismatch.
+- **Touched, not settled:** the 358 threads outside the 40 newest were not read.
+
 ### 2026-11-09, Cursor in T3 Code (CW-256)
 
 - **Repo and ticket:** `dbeallor/cw-cursor-trial` (private), ticket CT-1 "Add a one-line project description to README.md". The setup PR (#2) and the ticket PR (#3) both merged.

@@ -12,7 +12,10 @@ has startedAt and no endedAt) the act plan carries a `run ... no_hands.py check`
 cannot know its result, so on `drain` or `stop` the model prints no `start-todo` lines and sends nothing beyond what
 no-hands.md says. What the state alone shows, the tick does itself: with `noHands.drain` set it drops `start-todo`
 (queued sends still go) and reports `filling stopped: No Hands <reason>`. A `send <T> merge` to a ticket with no parentThreadId (no finish
-notice will come) is followed by `merge-wait <T>`. Output is numbered lines "N. <text>"; a `stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
+notice will come) is followed by `merge-wait <T>`. Every look plan starts with the provider check: `chief-provider` when the state's `chiefProvider` is missing or names
+another thread (read this thread's provider and save it; no mismatch lines then), else one
+`harness-mismatch <ticket> child=<provider> chief=<provider>` line per active or queued ticket whose `provider` is set and
+differs. A ticket with no `provider` gets no line. Output is numbered lines "N. <text>"; a `stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
 --file is given) through cos_state.load; a missing file counts as empty state. Writes nothing.
 --now is an ISO 8601 time (default: the current UTC time).
 Exit 0 with a plan, 2 with "cos_tick: <what>" when the state file or the arguments can't be used.
@@ -75,8 +78,11 @@ def check_state(state):
         if not cos_state.ID.match(tid):
             fail("unsafe ticket id in state or arguments")
         if isinstance(t, dict):
-            for field in ("childThreadId", "pr", "headSha", "approvalItemId"):
+            for field in ("childThreadId", "pr", "headSha", "approvalItemId", "provider"):
                 safe(t.get(field), field)
+    if isinstance(state.get("chiefProvider"), dict):
+        for field in ("threadId", "provider"):
+            safe(state["chiefProvider"].get(field), f"chiefProvider {field}")
 
 
 def when(s):
@@ -139,7 +145,24 @@ def idle_lines(kids, skip=None):
     return [f"idle-read {i} {t['childThreadId']}" for i, t in kids] + [check]
 
 
+def provider_lines(state, thread):
+    """`chief-provider` when this thread's provider isn't recorded, else a `harness-mismatch` line per child on another provider."""
+    cp = state.get("chiefProvider")
+    chief = cp.get("provider") if isinstance(cp, dict) and cp.get("threadId") == thread else None
+    if not chief:
+        return ["chief-provider"]
+    return [
+        f"harness-mismatch {i} child={t['provider']} chief={chief}"
+        for i, t in tickets_in(state, *cos_state.ACTIVE, *(f"{s}-queued" for s in cos_state.ACTIVE))
+        if t.get("provider") and t["provider"] != chief
+    ]
+
+
 def look(state, thread, trigger):
+    return provider_lines(state, thread) + look_plan(state, thread, trigger)
+
+
+def look_plan(state, thread, trigger):
     kind, _, notice = trigger.partition(":")
     kids = children(state)
     if kind == "status":

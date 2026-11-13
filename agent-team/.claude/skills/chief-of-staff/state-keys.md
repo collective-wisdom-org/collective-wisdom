@@ -9,6 +9,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 ```json
 {
   "paused": false, "chiefThreadId": "…", "chiefSessionId": "…",
+  "chiefProvider": {"threadId": "…", "provider": "<provider id>"},
   "takeoverContext": {"threadId": "…", "tokens": 76000}, "skillCommit": "<sha>…",
   "retiredThreads": [{"threadId": "f402e3fe-…", "retiredAt": "2026-11-02T15:10:00Z", "archivedAt": null, "successor": "9c1a77b0-…"}],
   "rotation": null, "rotationHeldUntil": null, "lastRelayAt": null,
@@ -17,7 +18,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
   "tickets": {"<PREFIX>-210": {
     "stage": "spec", "firstTaskId": "…", "childThreadId": "…", "parentThreadId": "…",
     "status": "spec since 14:05: child started; no BUILD READY yet.",
-    "title": "Example feature", "branch": "feat/<prefix>-210-example-feature",
+    "title": "Example feature", "provider": "<provider id>", "branch": "feat/<prefix>-210-example-feature",
     "specPath": null, "specSha": null, "pr": null, "headSha": null, "rateLimitResumes": 0,
     "lastSeenAt": "2026-11-01T14:05:00Z", "lastPosition": 0, "resumeStage": null,
     "pendingRelay": null, "approvalItemId": null, "queuedAt": null,
@@ -40,6 +41,8 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 - **`heldApproval`**: `{"head": "<40-char sha>", "itemId": "<the user's message item id>", "at": "<time>"}`, set when the user replies `approve N` on a ticket in `awaiting-review`. A reminder only, never the proof: when it is used, `cos_approve_pr.py` still finds the user's own `approve N` after `lastSeenAt`. `cos_state.py` allows it only in `awaiting-review`, rejects a value that is not an object with a full `head`, an `itemId` and an `at`, or whose `head` is not `headSha`, and clears it on a `stage` op to any other stage and on any change to `headSha`. A rebuild never restores it.
 - **`title`**: the ticket title, saved by the `start` op (required; refused when blank after cleaning) so the status pane can show it beside the ID. A `set` may fill it later; it must be a string, and the script turns control characters into spaces, trims it and keeps 200 characters, because a title comes from a ticket author.
 - **`chiefThreadId`**: the current Chief of Staff thread. Written by "start the team" and by each rotation.
+- **`chiefProvider`**: `{"threadId", "provider"}`, the provider (`providerInstanceId`) of the Chief of Staff thread that recorded it. Saved by startup.md step 3 and by resume mode (rotation.md § Thread rotation: Resume mode) with a `top` op. The look plan compares it with each ticket's `provider`; one that is missing or names another thread prints `chief-provider` (SKILL.md § Tick). Both values are plain strings that go into plan lines, so `cos_tick.py` stops the plan on an unsafe one.
+- **`provider`**: a ticket's field, the `thread.providerInstanceId` of its child from the last `read` or `idle-read` that returned one. A read that returns a different provider saves it with a `set` op; a failed read saves nothing. A ticket with no `provider` is never flagged. A plain string, safe-checked like `chiefProvider`.
 - **`chiefSessionId`**: the Claude session id (Cursor: conversation id) of the Chief of Staff thread. The rotation check saves it on every plain run. The Stop hook uses it to tell this thread from every other session.
 - **`takeoverContext`**: `{"threadId", "tokens"}`, saved by take-over step 5 (`--record-takeover`): the context size this thread had when take-over ended. While it names `chiefThreadId` and `tokens` is at or above the size cap, the size trigger stays off, so a take-over that lands above the cap does not rotate again and again.
 - **`skillCommit`**: the output of `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit` (the last commit that touched this skill, `project-manager` or `~/.collective-wisdom/docs/agents/chief-of-staff.md`) when this thread loaded the skill. Written by "start the team", take over and resume mode. A different commit at the rotation check triggers a rotation once the turn is quiet (rotation.md § Thread rotation). `null`: the check prints `ok; set skillCommit <sha>`; save that sha and don't rotate on that trigger.

@@ -36,7 +36,7 @@ A retired thread's newest assistant message always passes, and each retired thre
 Handoff, in the old thread:
 
 1. Set `rotation` to `{from: <own id>, to: null, startedAt: now}`. Save state.
-2. `t3_thread_launch` with `title: "Chief of Staff"`, `workspaceStrategy: {type: "root"}`, `modelSelection: {instanceId: "claudeAgent", model: "claude-sonnet-5-5", options: {effort: "medium"}}` (SKILL.md § Models; on Cursor, § Models Cursor), and this message:
+2. `t3_thread_launch` with `title: "Chief of Staff"`, `workspaceStrategy: {type: "root"}`, `modelSelection` from the Chief of Staff thread row of this thread's table (SKILL.md § Models), and this message:
 
    ```
    CHIEF OF STAFF ROTATION from <old thread id>.
@@ -66,7 +66,7 @@ If the user writes in the `rotation.to` thread while `rotation` is non-null, tak
 
 ## Thread rotation: Resume mode
 
-Resume mode ("start the team" with tickets in state) runs only in the thread state names, or when `chiefThreadId` is absent. If `chiefThreadId` names another thread, don't resume and stop: if this thread is in `retiredThreads`, reply `Moved to [<title>](<its successor link>). This thread is retired; talk to the Chief of Staff there.` (successor as § Thread rotation: Retired thread gives it; with none, take no action and give its no-successor reply), else reply `State names <id> as Chief of Staff; not resuming. Check .agent-team/state.json.` and stop. Otherwise `top` op `chiefThreadId` to this thread and `unretire` it, run `cos_rotation_check.py --skill-commit` (take-over step 1 would have), then take-over steps 2 to 5 with that commit as `skillCommit`, step 5's line being `Resumed. <N> tickets in flight.` plus its additions. Step 5 runs the plain `cos_rotation_check.py`, never `--record-takeover`: this thread may already be large, and recording that would turn the size trigger off.
+Resume mode ("start the team" with tickets in state) runs only in the thread state names, or when `chiefThreadId` is absent. If `chiefThreadId` names another thread, don't resume and stop: if this thread is in `retiredThreads`, reply `Moved to [<title>](<its successor link>). This thread is retired; talk to the Chief of Staff there.` (successor as § Thread rotation: Retired thread gives it; with none, take no action and give its no-successor reply), else reply `State names <id> as Chief of Staff; not resuming. Check .agent-team/state.json.` and stop. Otherwise `top` op `chiefThreadId` to this thread and `unretire` it, run `cos_rotation_check.py --skill-commit` (take-over step 1 would have), read this thread's provider with `t3_thread_configure` (no arguments) and save it with a `top` op as `chiefProvider` = `{"threadId": <this thread's id>, "provider": <provider>}`, then take-over steps 2 to 5 with that commit as `skillCommit`, step 5's line being `Resumed. <N> tickets in flight.` plus its additions. Step 5 runs the plain `cos_rotation_check.py`, never `--record-takeover`: this thread may already be large, and recording that would turn the size trigger off.
 
 ## Thread rotation: Retired thread
 
