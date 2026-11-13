@@ -56,6 +56,17 @@ test('the Cursor hook answers first, exits as Cursor needs, and writes the snaps
       ['stop prices the run', () => {}, 0, [[['Fix it', 1_000_000], ['look', 0]], 2]],
       ['stop with an unreadable store', () => writeFileSync(join(store, 'index.db'), 'not a database'), 0, [[['Fix it', 1_000_000], ['look', 0]], 2]],
     ]
+    const storeWith = (n: number) => {
+      rmSync(join(store, 'index.db'), { force: true })
+      const d = new DatabaseSync(join(store, 'index.db'))
+      d.exec('create table agents (agent_id, workspace_ref); create table runs (agent_id, turn_number, model, usage_json, started_at, created_at)')
+      for (let t = 1; t <= n; t++) d.prepare('insert into runs values (?, ?, ?, ?, ?, ?)').run('c1', t, 'claude-sonnet-4', JSON.stringify({ inputTokens: 1_000_000 }), at, at)
+      d.close()
+    }
+    stops.push(
+      ['stop with 2 runs', () => storeWith(2), 0, [[['Fix it', 2_000_000], ['look', 0]], 4]],
+      ['stop with an older, shorter read keeps the longer saved runs', () => storeWith(1), 0, [[['Fix it', 2_000_000], ['look', 0]], 4]],
+    )
     for (const [name, before, code, want] of stops) {
       before()
       const r = run(ev(work, 'stop'))
