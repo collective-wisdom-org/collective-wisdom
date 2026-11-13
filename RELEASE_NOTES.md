@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-13 keep Chief of Staff children on its own harness (CW-280) (#291)
+
+Merged 2026-11-13 23:45 UTC.
+
+A Chief of Staff now starts every child, helper and project manager thread on its own harness, using that harness's model table, and flags any child that ends up on a different one. A Chief of Staff on Codex or Antigravity starts no children yet because those harnesses have no routing recorded.
+
 ## 2026-11-13 Chief of Staff creates user.md at start when missing (CW-281) (#292)
 
 Merged 2026-11-13 23:44 UTC.
