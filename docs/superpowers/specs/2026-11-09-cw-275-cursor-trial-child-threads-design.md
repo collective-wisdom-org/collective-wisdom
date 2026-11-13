@@ -24,7 +24,7 @@ The user chose to ship the routing first and run the trial in a follow-up. Curso
 - **The routing table** in `agent-team/.claude/skills/chief-of-staff/SKILL.md` § Models `### Cursor`: Auto Intelligence and Auto Fast replace `grok-4.7` and `composer-2.5`.
 - **Its mirrors:** `startup.md`, the configure row, `build-from-plan`, `open-pr`, `security-review`, `ship-loop`, the role docs, both `AGENTS.md` files, and the five `.cursor/agents/*.md` files.
 - **The two tests** that read the routing: `test_agent_files.py` and `test_cursor_routing.py`.
-- **`docs/compatibility.md`:** the Usage and cost report row's Cursor cell and G8, rewritten to say Auto runs show `cost unknown`.
+- **`docs/compatibility.md`:** the Usage and cost report row's Cursor cell and G8, rewritten to say Auto runs show `cost unknown`; the No Hands cost cap Notes bullet, one sentence on Auto counting as unpriced; and the Ticket links on G1, G3 and G9, now pointing at the follow-up for the trial run.
 
 Auto has no price, since it bills at the list price of the model each request is routed to, so the cost report shows `cost unknown` for Auto runs.
 
