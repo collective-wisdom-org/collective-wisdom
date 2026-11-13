@@ -38,7 +38,7 @@ A new mode that prints one Cursor agent's runs as JSON for the hook, reusing the
 - `CursorState` gains `runs: CursorRun[] | null` (`null` until the store was read once). A saved state without it reads as `null`, so old state files keep working.
 - `cursorSnapshot(state, payload, now, threadId, prices)` takes the price table (`null` when `prices.json` cannot be read). When `state.runs` is not `null` it builds the records' usage from the runs before calling `buildRows(records, [], prices, 'Cursor')`:
   - every run adds `{input, output, read, write_5m: write, write_1h: 0}` under its model to `main.usage`, so `modelCost` prices it as `cursor_costs` does;
-  - a run also adds to the usage of the task whose start is closest to the run's `at` (ties go to the earlier task). With no task the run stays in main's usage and shows on the `outside a task` row, as `buildRows` already does;
+  - a run also adds to the usage of the task whose start is closest to the run's `at` (ties go to the earlier task), chosen among tasks that have spans only, since a task with no spans has no row. With no such task the run stays in main's usage and shows on the `outside a task` row, as `buildRows` already does;
   - subagent records get no usage. With a price table their rows show `0` tokens and `$0.00`; their work is counted in the turn that started them.
   - the snapshot `total` is the sum of the row costs, or `null` when any row's cost is `null`.
 - With `state.runs` `null` the snapshot is what it is today: `0` tokens, `cost: null`, `total: null`.
@@ -46,7 +46,7 @@ A new mode that prints one Cursor agent's runs as JSON for the hook, reusing the
 
 ### 3. The hook: `agent-team/scripts/cursor_gantt_hook.ts`
 
-- On `stop`, `subagentStop` and `sessionEnd`, after applying the event and before writing, it runs `python3 -I <hook folder>/agent_usage.py --cursor-agent <session key>` with a 3 second timeout. Exit 0 with a `runs` list of the right shape replaces `state.runs`. Any other result (exit 2, timeout, no `python3`, bad JSON) keeps `state.runs` as it was, so a store that cannot be read leaves the rows as they were and never fails the hook. The other three events do not read the store.
+- On `stop`, `subagentStop` and `sessionEnd`, it runs `python3 -I <hook folder>/agent_usage.py --cursor-agent <session key>` with a 3 second timeout. It makes this read once, before taking the conversation lock, so the 3 second call does not hold the lock. Exit 0 with a `runs` list of the right shape is the read. Any other result (exit 2, timeout, no `python3`, bad JSON) is a failed read (`null`) and keeps the saved state's runs, so a store that cannot be read leaves the rows as they were and never fails the hook. A read with fewer runs than the saved ones never replaces them: the run store only grows, so a shorter read is an older one. The other three events do not read the store.
 - It reads `prices.json` from its own folder (`~/.collective-wisdom/scripts/prices.json` once installed); a missing or bad file gives `null`.
 - The session key is the one `snapshotName` already accepted, so the id passed to Python is safe.
 
@@ -81,6 +81,7 @@ A new mode that prints one Cursor agent's runs as JSON for the hook, reusing the
 - **The hook calls `agent_usage.py` instead of reading SQLite in Node.** The ticket asks to reuse the reading code, and the store query and the token split stay in one place. Pricing uses `prices.json` through `rows.ts` `modelCost`, the code the Claude Code gantt rows use, fed the token split from Python, so the rates and the cache rule exist once each.
 - **The store is read only on `stop`, `subagentStop` and `sessionEnd`**, the events after which usage can change, to keep the other hooks fast. The runs are kept in the hook state, so every snapshot carries the last good read.
 - **A failed read keeps the last good runs**, not zero. A thread whose store was never readable shows rows as today.
+- **The store is read before the conversation lock, and the longer list of runs wins.** The read can take up to 3 seconds, so it happens before the lock and the lock is held only to apply the event and write. Two hooks can then finish out of order, so a read with fewer runs than the saved ones is dropped: the store only grows, so a shorter list is an older read.
 - **Runs go to the task whose start is closest in time**, not by turn number. The hook may miss prompts (installed mid-thread), and on the trial repo the run began 3 seconds before the hook saw the prompt.
 - **Subagent rows show `0` tokens and `$0.00`**, not `–`, so a task's cost is not blanked by subagents whose work Cursor counts, if at all, in the parent turn.
 - **The snapshot `total` is the sum of the row costs.** Cursor reports no total of its own, so the page's "Claude Code reports" note never shows for a Cursor session.
