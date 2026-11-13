@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-13 install the agent-gantt plugin from install.sh (CW-282) (#285)
+
+Merged 2026-11-13 20:27 UTC.
+
+`./install.sh` now installs the `agent-gantt` Claude Code plugin for you when `claude` is on your PATH. If `claude` is missing or the install fails, the command to run by hand is listed under `TODO:`.
+
 ## 2026-11-13 route Cursor to Auto Intelligence and Auto Fast (CW-275) (#283)
 
 Merged 2026-11-13 17:51 UTC.
