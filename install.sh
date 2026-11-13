@@ -298,7 +298,9 @@ sys.exit(0 if isinstance(plugins, list) and any(isinstance(p, dict) and p.get("i
     elif out="$("${gantt[@]}" --scope user 2>&1 </dev/null)"; then
       msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
     else
-      MTODOS+=("Install the agent-gantt plugin (the Gantt pane) by hand: ${gantt[*]}  (it failed: ${out##*$'\n'})")
+      why=" (it failed)"
+      [ -n "$out" ] && why=" (it failed: ${out##*$'\n'})"
+      MTODOS+=("Install the agent-gantt plugin (the Gantt pane) by hand: ${gantt[*]}${why}")
     fi
   fi
 
