@@ -1,6 +1,7 @@
 # CW-290: Add ticket helper support in the agent gantt to the compatibility doc
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #294, as specified
 **Ticket:** [#290](https://github.com/collective-wisdom-org/collective-wisdom/issues/290)
 **Related:** [#286](https://github.com/collective-wisdom-org/collective-wisdom/issues/286) (PR [#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)), [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288)
 
