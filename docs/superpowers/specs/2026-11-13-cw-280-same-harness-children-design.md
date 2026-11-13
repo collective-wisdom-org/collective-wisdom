@@ -1,7 +1,7 @@
 # CW-280: Keep every Chief of Staff child on the Chief of Staff's own harness
 
 **Status:** Shipped
-**Shipped:** in PR #291, as specified
+**Shipped:** in PR #291, with differences: [as-built](../as-built/2026-11-13-cw-280-same-harness-children.md)
 **Ticket:** [#280](https://github.com/collective-wisdom-org/collective-wisdom/issues/280)
 **Related:** [#256](https://github.com/collective-wisdom-org/collective-wisdom/issues/256) (Cursor run record), [#272](https://github.com/collective-wisdom-org/collective-wisdom/issues/272) (Cursor routing), [#273](https://github.com/collective-wisdom-org/collective-wisdom/issues/273), [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275)
 

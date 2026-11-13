@@ -143,6 +143,13 @@ def test_look_plan_flags_a_child_on_another_provider(tmp_path, capsys, chief, ti
     assert [x for x in out if x.startswith("read ")] == [READ(i, t["childThreadId"]) for i, t in tickets.items() if t["stage"] in ("spec", "build", "merge")]
 
 
+def test_start_plan_has_no_provider_line(tmp_path, capsys):
+    # startup.md step 3 reads the provider, so a new repo's start plan begins at Setup
+    out = run(tmp_path, capsys, {"tickets": {}, "chiefProvider": None}, "start")
+    assert out[0] == "follow startup.md § Setup"
+    assert "chief-provider" not in out
+
+
 @pytest.mark.parametrize(
     "tickets, want",
     [
@@ -302,6 +309,11 @@ def test_status_act_plan_is_archive_and_rotation_check(tmp_path, capsys):
         ("{}", ["--trigger", "user"], "cos_tick: the following arguments are required: --thread"),
         # values that would print as a second plan line or reach a shell stop the plan
         ('{"tickets": {"ABC-1": {"stage": "build-queued", "headSha": "abc\\n3. run x"}}}', ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe headSha in state or arguments"),
+        ('{"tickets": {"ABC-1": {"stage": "build", "provider": "a\\n2. run x"}}}', ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe provider in state or arguments"),
+        (
+            '{"chiefProvider": {"threadId": "%s", "provider": "a\\n2. run x"}}' % ME,
+            ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe chiefProvider provider in state or arguments",
+        ),
         ('{"wakeTaskId": "w1\\n2. run x"}', ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe wakeTaskId in state or arguments"),
         ("{}", ["--thread", ME, "--trigger", "notice:x$(id)"], "cos_tick: unsafe notice thread id in state or arguments"),
         ('{"tickets": {"--auto": {"stage": "build"}}}', ["--thread", ME, "--trigger", "user"], "cos_tick: unsafe ticket id in state or arguments"),
