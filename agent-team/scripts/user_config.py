@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
 
-LOGIN = re.compile(r"(?!.{40})[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*")
+LOGIN = re.compile(r"(?!.{40})[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:_[A-Za-z0-9]+)?")
 NAME = r"[\w.-]+"
 URL = re.compile(rf"(?:https|ssh)://(?:[^@/\s]+@)?(?P<host>[A-Za-z0-9][\w.-]*)(?::\d+)?/(?P<repo>{NAME}/{NAME}?)(?:\.git)?/?")
 SCP = re.compile(rf"(?:[^@/\s]+@)?(?P<host>[A-Za-z0-9][\w.-]*):(?P<repo>{NAME}/{NAME}?)(?:\.git)?/?")

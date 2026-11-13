@@ -52,6 +52,13 @@ LOGIN_ROWS = [
     ("\n" + row(OWN, "`-alice`"), ERR + ":2:"),
     (row(OWN, "`a--b`"), ERR + ":1:"),
     (row(OWN, "`" + "a" * 40 + "`"), ERR + ":1:"),
+    (row(OWN, "`Jane-Doe_corp`"), "Jane-Doe_corp"),  # EMU login: one _suffix
+    (row(OWN, "`_x`"), ERR + ":1:"),
+    (row(OWN, "`a_`"), ERR + ":1:"),
+    (row(OWN, "`a__b`"), ERR + ":1:"),
+    (row(OWN, "`a_b_c`"), ERR + ":1:"),
+    (row(OWN, "`a_-b`"), ERR + ":1:"),
+    (row(OWN, "`a-_b`"), ERR + ":1:"),
     (row(OWN, "alice"), ERR + ":1:"),
 ]
 
