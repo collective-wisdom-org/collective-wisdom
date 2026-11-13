@@ -2,7 +2,7 @@
 
 **Status:** Shipped
 **Ticket:** [#282](https://github.com/collective-wisdom-org/collective-wisdom/issues/282)
-**Shipped:** in PR #285, as specified
+**Shipped:** in PR #285, with differences: [as-built](../as-built/2026-11-13-cw-282-install-agent-gantt-as-built.md)
 
 ## Goal
 
