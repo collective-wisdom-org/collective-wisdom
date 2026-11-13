@@ -101,6 +101,22 @@ def test_status(tmp_path, capsys, text, want):
     assert {"prefix_guess", "test_guess", "has_workflows"} <= set(json.loads(out.splitlines()[1]))
 
 
+@pytest.mark.parametrize("file, want", [
+    (None, "no-file"),
+    ("other", "no-row"),
+    ("me", "ok"),
+    ("a b", "error"),
+])
+def test_status_user_md(tmp_path, capsys, user_md, file, want):
+    uc.path().unlink()
+    if file == "other":
+        user_md({"github.com/other/repo": "bob"})
+    elif file:
+        user_md(file)
+    out = run(capsys, "status", "--root", tmp_path)[1]
+    assert json.loads(out.splitlines()[1])["user_md"] == want
+
+
 def test_status_missing_and_unreadable(tmp_path, capsys):
     assert run(capsys, "status", "--root", tmp_path)[1].splitlines()[0] == "missing"
     (tmp_path / "docs" / "agents" / "project.md").mkdir(parents=True)
@@ -424,6 +440,21 @@ def test_user_writes_through_a_link(user_md, capsys, tmp_path):
     uc.path().symlink_to(real)
     run_user(capsys, "--login", "dq")
     assert uc.path().is_symlink() and ("github.com/example/app", "dq") in rows(real.read_text())
+
+
+@pytest.mark.parametrize("start", [None, "| Repo | Login |\n|---|---|\n| `github.com/other/repo` | `bob` |\n"])
+def test_user_dry_run_prints_what_a_real_run_writes_and_writes_nothing(capsys, start):
+    uc.path().unlink()
+    if start:
+        uc.path().write_text(start)
+    else:
+        uc.path().parent.rmdir()
+    code, out, _ = run_user(capsys, "--login", "dq", "--dry-run")
+    first, _, text = out.partition("\n")
+    assert code == 0 and first == f"would write {uc.path().resolve()}"
+    assert (uc.path().read_text() if start else uc.path().parent.exists()) == (start or False)
+    run_user(capsys, "--login", "dq")
+    assert uc.path().read_text() == text
 
 
 @pytest.mark.parametrize("args", [["--login=-x"], ["--login", "a b"], *[["--login", "dq", "--subscription", s] for s in ("0", "-5", "nan", "inf", "abc", "1_0")]])

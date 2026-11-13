@@ -18,12 +18,22 @@ The first full pass starts the project manager hygiene child (the tick's `hygien
 
 ## Start-up clean-up
 
-Runs before the full pass or the take-over pass at "start the team", take over and `resume`. It removes any stray wake.
+Runs before the full pass or the take-over pass at "start the team", take over and `resume`. It starts with § User settings check, then removes any stray wake.
 
 1. `list_scheduled_tasks`. `delete_scheduled_task` every task whose prompt is exactly `run /chief-of-staff wake` other than the `wakeTaskId` in state (a task already gone is fine).
 2. Report each deletion once under Cleanup: `Wake <id> deleted`.
 
 **Deleting the wake.** Everywhere the Chief of Staff deletes `wakeTaskId` (take over, `stop everything`, the `wake` command, clearing `rateLimitedAt`): `delete_scheduled_task` on it, then clear the key. A task already gone is fine.
+
+## User settings check
+
+The first thing § Start-up clean-up does, once per "start the team", take over and `resume`. The second pass through § Start-up clean-up in `resume` skips it, and so does the `wake` command.
+
+1. Read `user_md` from the JSON line of `python3 ~/.collective-wisdom/scripts/setup_repo.py status` (on "start the team", the output of Setup step 0).
+2. `ok`: nothing to do, no report line.
+3. `error`: put `user.md: <user_md_error>` under Needs you, leave the file alone and carry on.
+4. `no-file` or `no-row` with `gh_logins` empty: put `No gh login on this machine; run gh auth login, then resume.` under Needs you and carry on.
+5. Otherwise run `setup_repo.py user --dry-run --login <first of gh_logins>` (add `--subscription none` for `no-file`). Put under Needs you the logins `gh auth status` lists, for `no-file` that the subscription figure is a dollar amount or `none`, the dry-run text, and `Reply yes to write it, give another login or figure, or no to skip.` Then carry on: the question holds up no ticket.
 
 ## State rebuild
 

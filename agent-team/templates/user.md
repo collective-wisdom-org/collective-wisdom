@@ -1,7 +1,7 @@
 # collective-wisdom user settings
 
 Settings for the agent team on this machine. It holds GitHub logins, never tokens.
-`set up this repo` writes it. You can also edit it by hand.
+`set up this repo` or the Chief of Staff's start writes it. You can also edit it by hand.
 
 ## Settings
 
