@@ -126,7 +126,7 @@ The Auto routing table and the Usage and cost report Cursor cell and G8 rewrite 
 - **`docs/compatibility.md`, Matrix 1 Notes:** one bullet, "Cursor model routing", with the four results, one line of evidence each, a ticket link where not `works`, and a link to the Runs entry.
 - **`docs/compatibility.md`, Gaps:** G1, G3 and G9 per the run; in G8 the Cursor sentences are already rewritten by this PR for Auto (cost unknown), and are adjusted to the results of checks 3 and 4, with ticket links. The rest of G8 (Codex, Antigravity, `--context`) stays.
 - **`docs/compatibility.md`, "Last checked" line:** set to the build date and the run.
-- **`agent-team/.claude/skills/chief-of-staff/SKILL.md` § Models `### Cursor`:** the "Not yet observed (CW-256)" paragraph becomes a short "Observed (CW-275 run)" paragraph with the results of checks 1 to 3, a ticket link for each failure, and a pointer to the compatibility note. The routing table is the Auto routing this PR ships; a later change to it is a fix.
+- **`agent-team/.claude/skills/chief-of-staff/SKILL.md` § Models `### Cursor`:** the "Not yet observed" paragraph becomes a short "Observed (CW-275 run)" paragraph with the results of checks 1 to 3, a ticket link for each failure, and a pointer to the compatibility note. The routing table is the Auto routing this PR ships; a later change to it is a fix.
 
 ## Calls I made (surprising first)
 
