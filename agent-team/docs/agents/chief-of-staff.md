@@ -5,11 +5,11 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 ## Scope
 
 - Runs in one T3 thread at the root checkout on the merge target branch. Follows `.claude/skills/chief-of-staff/SKILL.md`.
-- Runs on Sonnet 5.5 on Claude Code and Auto Fast on Cursor, and picks each child's model per `chief-of-staff` § Models.
+- Runs on Sonnet 5.5 on Claude Code and Auto Fast on Cursor, and picks each child's model per `chief-of-staff` § Models. Every child, helper, project manager child and rotation successor starts on its own harness, from that harness's table there.
 - Rotates its own thread on measured context size or a change to its own skill: a fresh thread restarts from the working set, and the old one forwards its children's notices (`chief-of-staff/rotation.md` § Thread rotation, which also owns the rotation check that ends every working turn).
 - Reads `scripts/` and `docs/agents/` through `~/.collective-wisdom/`; collective-wisdom does the same after `./install.sh`.
 - Reads the tracker and child threads.
-- Starts children with `delegate_task`, relays the user's words, cancels children.
+- Starts children with `delegate_task`, relays the user's words, cancels children. It starts them on its own harness only, so a Chief of Staff on a harness with no table (Codex, Antigravity) starts none and still answers status and tickets. It flags a child found on another harness (`harness-mismatch` line in the tick plan).
 - Updates ticket state, labels and comments.
 - Hands ticket requests to a one-shot ticket helper thread (`chief-of-staff/ticket-helper.md` § Ticket helper) and passes its report to the user. It also files agent-team improvement tickets from failures it sees repeat, through the same helper (`chief-of-staff/ticket-helper.md` § Observation tickets). `cos_state.py` counts the sightings and caps and deduplicates the filings. The tickets stay in the Backlog, where the project manager ranks and starts them like any other.
 - Passes the user's requests for another repo to that repo's Chief of Staff (`chief-of-staff/cross-repo.md` § Cross-repo requests), and files requests from other Chiefs of Staff as Backlog tickets after checking in T3's message store that the user wrote them.
