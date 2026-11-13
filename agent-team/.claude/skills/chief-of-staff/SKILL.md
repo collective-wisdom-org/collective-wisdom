@@ -107,21 +107,21 @@ Call `t3_thread_configure` only in startup.md § Setup (read your own model) and
 
 ### Cursor
 
-Startup.md step 3 reads this thread's provider. When it is `cursor`, every model value this skill, startup.md, continuation.md, ticket-helper.md, rotation.md and project-manager/reference.md pass comes from this table, not the Claude Code one. No Cursor run starts on a Claude model, Auto, Grok 4.6 or Gemini, and the context window stays at Cursor's default.
+Startup.md step 3 reads this thread's provider. When it is `cursor`, every model value this skill, startup.md, continuation.md, ticket-helper.md, rotation.md and project-manager/reference.md pass comes from this table, not the Claude Code one. No Cursor run starts on a Claude model, Grok, Composer or Gemini; Auto (`auto-smart`) is the only Cursor model the team routes to, because the user's Cursor cannot pick models (CW-275). Auto Intelligence is `auto-smart` with `optimize_for` `intelligence`; Auto Fast is `auto-smart` with `optimize_for` `balanced`. Cursor's catalog has no fast option on Auto, so "Auto Fast" is the name for the balanced tier. The context window stays at Cursor's default.
 
 | Role or stage | Model | Options | Set by |
 |---|---|---|---|
-| Chief of Staff thread | `composer-2.5` | `fastMode` false | The user picks it; startup.md step 3 checks. A rotation successor gets it from `t3_thread_launch` |
-| Ticket helper | `grok-4.7` | `reasoning_effort` high, `fastMode` false | `delegate_task` `target` |
-| Project manager children | `composer-2.5` | `fastMode` false | `delegate_task` `target` |
-| Child, spec stage | `grok-4.7` | `reasoning_effort` high, `fastMode` false | `delegate_task` `target` |
-| Child, build and merge stages | `composer-2.5` | `fastMode` false | `t3_thread_configure` before the spec-approval relay; `delegate_task` `target` at a continuation start |
-| Implementer, documenter, compacter | `composer-2.5` | Cursor's default | `model:` in `.cursor/agents/<name>.md` |
-| Code review, security review | `grok-4.7` | Cursor's default | `model:` in `.cursor/agents/<name>.md`; the security review's general subagent asks for it |
+| Chief of Staff thread | `auto-smart` | `optimize_for` balanced | The user picks it; startup.md step 3 checks. A rotation successor gets it from `t3_thread_launch` |
+| Ticket helper | `auto-smart` | `optimize_for` intelligence | `delegate_task` `target` |
+| Project manager children | `auto-smart` | `optimize_for` balanced | `delegate_task` `target` |
+| Child, spec stage | `auto-smart` | `optimize_for` intelligence | `delegate_task` `target` |
+| Child, build and merge stages | `auto-smart` | `optimize_for` balanced | `t3_thread_configure` before the spec-approval relay; `delegate_task` `target` at a continuation start |
+| Implementer, documenter, compacter | `auto-smart` | `optimize_for` balanced | `model: auto-smart[optimize_for=balanced]` in `.cursor/agents/<name>.md` |
+| Code review, security review | `auto-smart` | `optimize_for` intelligence | `model: auto-smart[optimize_for=intelligence]` in `.cursor/agents/<name>.md`; the security review's general subagent asks for it |
 
-The values: Grok 4.7 is `target: {providerInstanceId: "cursor", model: "grok-4.7", options: {reasoning_effort: "high", fastMode: false}}`; Composer 2.5 is `target: {providerInstanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. A switch or launch passes `modelSelection: {instanceId: "cursor", model: "composer-2.5", options: {fastMode: false}}`. Fast mode is off because it costs more than the standard rate `prices.json` holds.
+The values: Auto Intelligence is `target: {providerInstanceId: "cursor", model: "auto-smart", options: {optimize_for: "intelligence"}}`; Auto Fast is `target: {providerInstanceId: "cursor", model: "auto-smart", options: {optimize_for: "balanced"}}`. A switch or launch passes `modelSelection: {instanceId: "cursor", model: "auto-smart", options: {optimize_for: "balanced"}}`. Intelligence and Balanced bill at the list price of the model each request is routed to, so `prices.json` has no row for `auto-smart` and `agent_usage.py` reports `cost unknown` for Auto runs, never a low number (G8 in `docs/compatibility.md`). If someone does run `grok-4.7` or `composer-2.5` themselves, Fast mode and Grok prompts of 200K or more still cost more than `prices.json` holds.
 
-Not yet observed (CW-256): this routing comes from the models T3 Code offers Cursor, not a Cursor run. Open: whether a Cursor subagent honors a `model:` id, whether `t3_thread_configure` switches a Cursor child mid-thread, and whether the run store tells a Fast mode run from a standard one.
+Not yet observed: whether a Cursor subagent honors `model: auto-smart[optimize_for=...]` (Cursor documents only concrete ids and `inherit` for subagents), whether `t3_thread_configure` switches a Cursor child to another `optimize_for` mid-thread, and what the run store records for an Auto run (the model it routed to and the `optimize_for` value). Noted: the store already records Fast mode on a run in `runs.model_params_json` (for example `[{"id":"fast","value":"true"}]`).
 
 ## Lanes
 
@@ -203,7 +203,7 @@ Not run through the tick:
 | `rebuild-relay <PREFIX>-N` | A queued ticket with no `pendingRelay`: startup.md § State rebuild (Queued ticket with no relay). Then rerun. |
 | `head-check <PREFIX>-N pr=<N> head=<sha>` | The head check in § Send or queue, before the queued merge approval goes out. For an auto-approval the next line is `run … cos_approve_pr.py <PREFIX>-N --auto`; anything but exit 0 is handled as § Send or queue says. |
 | `user-check <PREFIX>-N <thread> <itemId> words="…"` | The queued spec approval re-read in § Send or queue (the words on stdin through a quoted heredoc whose delimiter is not in them). An auto-approved spec instead gets `run … approval_policy.py auto <PREFIX>-N spec`, handled the same way. |
-| `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this provider (`claude-sonnet-5-5` effort high on Claude Code, `composer-2.5` fast mode off on Cursor). |
+| `configure <child> build` | The § Models switch, just before the spec approval send: switch the child to the build-stage model in § Models for this provider (`claude-sonnet-5-5` effort high on Claude Code, Auto Fast on Cursor: `auto-smart`, `optimize_for` `balanced`). |
 | `continuation <PREFIX>-N <lane>` | continuation.md § Continuation child, in place of `send`. It gets no "I may not hear" line. |
 | `send <PREFIX>-N <lane> <relay as JSON>` | `t3_thread_send` the relay to the ticket's child, then a `stage` op to the lane's active stage that clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. When the ticket's `parentThreadId` is not this thread, add under Moving: `<PREFIX>-N: I may not hear when this run ends; say status to check.` (the run reports to nobody: the sweep and the idle check find its finish; `cos_route.py` prints the same line for an immediate send). A merge send adds a `merge-wait` line. |
 | `merge-wait <PREFIX>-N` | Start that ticket's merge wait (§ Merge wait). `cos_route.py` prints `merge-wait: <PREFIX>-N` for an immediate merge send; its `fallback:` line adds "and start the merge wait". |

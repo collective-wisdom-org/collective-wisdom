@@ -22,7 +22,7 @@ In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the C
 
 When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
 
-**Cursor:** start a general subagent, on `grok-4.7` (`chief-of-staff` § Models Cursor; if the tool can't pick a model, the child's own model), with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus:
+**Cursor:** start a general subagent, on Auto Intelligence (`chief-of-staff` § Models Cursor; if the tool can't pick a model, the child's own model), with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus:
 
 - **Worktree path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
 - **Diff:** the branch changes against `origin/<target>` (`<target>`: the merge target branch).
