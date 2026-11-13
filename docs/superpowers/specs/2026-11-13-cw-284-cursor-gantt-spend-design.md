@@ -1,6 +1,7 @@
 # CW-284: Show tokens and spend on the gantt rows of Cursor threads
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #287, as specified
 **Ticket:** [#284](https://github.com/collective-wisdom-org/collective-wisdom/issues/284)
 **Related:** [#258](https://github.com/collective-wisdom-org/collective-wisdom/issues/258) (Cursor gantt snapshots), [#257](https://github.com/collective-wisdom-org/collective-wisdom/issues/257) (Cursor usage report), [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275), [#282](https://github.com/collective-wisdom-org/collective-wisdom/issues/282)
 
@@ -30,7 +31,7 @@ A new mode that prints one Cursor agent's runs as JSON for the hook, reusing the
 - Split `cursor_costs` in two: `cursor_tokens(u)` returns the billed kinds `{input, output, read, write}` (the rule that input excludes cache tokens lives only here), and `cursor_costs` prices that result. `read_cursor` and the report are unchanged in behavior.
 - Move the per-store query out of `read_cursor` into a helper that both use, so the SQL and the read-only open exist once.
 - `--cursor-agent <id>` (with `--cursor-projects`, default `~/.cursor/projects`) looks through every `*/sdk-agent-store/*/index.db` for that agent and prints `{"runs": [{"at": <ms since epoch>, "model": <str or null>, "input": n, "output": n, "read": n, "write": n}, ...]}` in turn order. Runs without `usage_json` are left out, as in the report.
-- Exit 2 with a stderr line when the id fails `[A-Za-z0-9_-]{1,80}` (the hook's `snapshotName` rule), when no readable store has the agent, when a store that could hold it cannot be read, or when one of its runs cannot be parsed. Anything else exits 0. It writes nothing.
+- Exit 2 with a stderr line when the id fails `[A-Za-z0-9_-]{1,80}` (the hook's `snapshotName` rule), when no readable store has the agent (an unreadable store is ignored when another store has the agent, so one corrupt store never stops a thread from getting tokens), or when one of its runs cannot be parsed. Anything else exits 0. It writes nothing.
 
 ### 2. The mapping: `mods/agent-gantt/hooks/cursor.ts`
 
