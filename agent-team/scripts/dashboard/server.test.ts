@@ -249,6 +249,24 @@ test('a root checkout project manager session reaches /api pm and stays after it
   }
 })
 
+test('a root checkout helper that filed a ticket is recorded as that ticket\'s session; one with none is not', async () => {
+  const root = tmpRoot()
+  const agent = join(root, '.agent-team')
+  mkdirSync(join(agent, 'gantt'), { recursive: true })
+  mkdirSync(join(root, 'docs/agents'), { recursive: true })
+  writeFileSync(join(root, 'docs/agents/project.md'), '| Issue identifier prefix | `CW` |\n')
+  const row = { id: 'main', depth: 0, name: 'm', repo: 'r', start: 1, end: null, tokens: 7, cost: null, kind: 'session', segments: [[1, 2]] }
+  for (const [id, ticket] of [['h1', 'CW-9'], ['h2', null], ['h3', 'XX-9']]) writeFileSync(join(agent, `gantt/${id}.json`), JSON.stringify({ ...goodSnap, sessionId: id, cwd: root, rows: [row], heading: 'TICKET HELPER', ticket }))
+  const srv = await startServer({ root, port: 0 })
+  try {
+    assert.deepEqual(Object.entries(JSON.parse(readFileSync(join(agent, 'gantt-history.json'), 'utf8')).sessions).map(([id, e]: [string, any]) => [id, e.ticket]), [['h1', 'CW-9']])
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(agent, 'spend.json'), 'utf8')).sessions), ['h1'])
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('keeps last good state when state.json is half-written', async () => {
   const root = tmpRoot()
   mkdirSync(join(root, '.agent-team'))
