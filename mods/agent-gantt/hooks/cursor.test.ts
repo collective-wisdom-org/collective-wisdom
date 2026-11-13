@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { applyEvent, cursorSnapshot, emptyState, hookOutput } from './cursor.ts'
+import { applyEvent, cursorSnapshot, emptyState, hookOutput, withFiledTicket } from './cursor.ts'
 import type { CursorPayload, CursorRun } from './cursor.ts'
 
 const base = { conversation_id: 'c1', model: 'claude-sonnet-4', workspace_roots: ['/w/app'] }
@@ -93,6 +93,30 @@ test('a state saved before runs existed reads as never read', () => {
 test('the heading comes from the first prompt only', () => {
   const state = [prompt('BACKLOG RANKING. Rank it.'), prompt('TEAM MODE. later')].reduce((s, p, i) => applyEvent(s, p, i * 10), emptyState())
   assert.equal(JSON.parse(cursorSnapshot(state, base, 1, null)).heading, 'BACKLOG RANKING')
+})
+
+test('a TICKET HELPER gets its request and the ticket it filed from the run store results', () => {
+  const helper = (task: string) => `TICKET HELPER. Chief of Staff thread: t1\n\nThe user's request, verbatim:\n\n${task}\nMore detail`
+  const done = (tickets: string) => `Filed.\n\nTICKET HELPER DONE\nTickets: ${tickets}\nPlaced: none\nLinks: none`
+  // name, first prompt, results (null: store unreadable), a ticket already set, then the snapshot's [ticket, request]
+  const cases: [string, string, string[] | null, string | null, [string | null, string | null]][] = [
+    ['one ticket', helper('Add dark mode'), [done('CW-12: Dark mode, https://example.test/12')], null, ['CW-12', 'Add dark mode']],
+    ['several: the first wins', helper('x'), ['no block here', done('\nCW-12: A\nCW-13: B'), done('CW-20: C')], null, ['CW-12', 'x']],
+    ['Tickets: none', helper('x'), [done('none')], null, [null, 'x']],
+    ['no block', helper('x'), ['Filed CW-12 for you.'], null, [null, 'x']],
+    ['an errored run has no results', helper('x'), [], null, [null, 'x']],
+    ['an unreadable store', helper('x'), null, null, [null, 'x']],
+    ['a ticket already set is kept', helper('x'), [done('CW-30: New')], 'CW-12', ['CW-12', 'x']],
+    ['another heading stays null', 'BACKLOG RANKING. Rank it.\n\nThe user\'s request, verbatim:\nrank', [done('CW-12: A')], null, [null, null]],
+  ]
+  for (const [name, first, results, ticket, want] of cases) {
+    const state = withFiledTicket({ ...applyEvent(emptyState(), prompt(first), 10), ticket }, results)
+    const snap = JSON.parse(cursorSnapshot(state, base, 1, null))
+    assert.deepEqual([snap.ticket, snap.request], want, name)
+  }
+  // The request is the first prompt's and never changes
+  const later = applyEvent(applyEvent(emptyState(), prompt(helper('first')), 10), prompt(helper('second')), 20)
+  assert.equal(later.request, 'first')
 })
 
 test('hookOutput never blocks and answers only the events Cursor reads', () => {

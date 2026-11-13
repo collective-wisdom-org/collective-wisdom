@@ -72,6 +72,20 @@ test('the Cursor hook answers first, exits as Cursor needs, and writes the snaps
       const r = run(ev(work, 'stop'))
       assert.deepEqual([r.stdout, r.status, spend()], ['', code, want], name)
     }
+
+    // A TICKET HELPER conversation: its request shows at once, and a stop reads the ticket from the `result` of its run.
+    const helperStore = join(tmp, '.cursor/projects/p/sdk-agent-store/h1')
+    mkdirSync(helperStore, { recursive: true })
+    const hdb = new DatabaseSync(join(helperStore, 'index.db'))
+    hdb.exec('create table agents (agent_id, workspace_ref); create table runs (agent_id, turn_number, model, usage_json, started_at, created_at, result)')
+    hdb.prepare('insert into runs values (?, ?, ?, ?, ?, ?, ?)').run('h1', 1, 'claude-sonnet-4', JSON.stringify({ inputTokens: 10 }), at, at, 'TICKET HELPER DONE\nTickets: CW-7: Fix it, https://example.test/7\nPlaced: none')
+    hdb.close()
+    const helper = (name: string, extra: object = {}) => run(JSON.stringify({ hook_event_name: name, conversation_id: 'h1', model: 'm', workspace_roots: [work], ...extra }))
+    const filed = () => { const s = JSON.parse(readFileSync(join(gantt, 'h1.json'), 'utf8')); return [s.heading, s.request, s.ticket] }
+    helper('beforeSubmitPrompt', { prompt: "TICKET HELPER. Rules.\n\nThe user's request, verbatim:\n\nFix it\n" })
+    assert.deepEqual(filed(), ['TICKET HELPER', 'Fix it', null], 'request before the ticket')
+    helper('stop')
+    assert.deepEqual(filed(), ['TICKET HELPER', 'Fix it', 'CW-7'], 'stop reads the ticket from result')
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }
