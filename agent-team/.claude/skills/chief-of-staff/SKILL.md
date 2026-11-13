@@ -152,7 +152,7 @@ Not yet observed: whether a Cursor subagent honors `model: auto-smart[optimize_f
 
 ### Codex
 
-Provider id: not recorded yet. Every row of the table shape above is `not routed yet`: no model, options or values are recorded. A Chief of Staff on this harness can report status and tickets but starts no child or helper (the rule above).
+Provider id: not recorded yet. Every row of the table shape above is `not routed yet`. A Chief of Staff on this harness can report status and tickets but starts no child or helper (the rule above).
 
 ### Antigravity
 
