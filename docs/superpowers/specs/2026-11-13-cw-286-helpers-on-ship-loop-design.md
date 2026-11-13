@@ -1,7 +1,8 @@
 # CW-286: Show ticket helpers on the Ship loop tab and count their time in the ticket gantt
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#286](https://github.com/collective-wisdom-org/collective-wisdom/issues/286)
+**Shipped:** in PR #289, with differences: [as-built](../as-built/2026-11-13-cw-286-helpers-on-ship-loop-as-built.md)
 
 ## Goal
 

@@ -1,6 +1,6 @@
 # As-built: Show ticket helpers on the Ship loop tab and count their time in the ticket gantt
 
-**Shipped:** in PR #PRN
+**Shipped:** in PR #289
 **Ticket:** CW-286
 **Spec:** [2026-11-13-cw-286-helpers-on-ship-loop-design.md](../specs/2026-11-13-cw-286-helpers-on-ship-loop-design.md)
 
