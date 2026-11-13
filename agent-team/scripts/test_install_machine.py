@@ -40,8 +40,41 @@ def world(tmp_path):
     return cw.resolve(), home
 
 
-def install(cw, home, *args):
-    r = subprocess.run(["bash", str(cw / "install.sh"), *args], env={**os.environ, "HOME": str(home)}, capture_output=True, text=True)
+# A stub claude, by mode: "installed" lists agent-gantt, "ok" lists nothing and installs, "fail" lists nothing and fails to install.
+# "missing" has no claude at all. It logs its arguments, one call per line, to claude.log beside HOME.
+STUB = """#!/bin/sh
+echo "$*" >> "$(dirname "$0")/claude.log"
+case "$1 $2" in
+  "plugin list") echo '{list}' ;;
+  "plugin install") {install} ;;
+esac
+"""
+STUBS = {
+    "installed": ('[{"id":"agent-gantt@collective-wisdom","scope":"user"}]', "exit 0"),
+    "ok": ("[]", "exit 0"),
+    "fail": ("[]", 'echo "fetching" >&2; echo "network down" >&2; exit 1'),
+}
+
+
+def install(cw, home, *args, claude="installed"):
+    """Runs install.sh with a stub claude first on PATH, so no test reaches a real one. In "missing" mode a PATH folder holding a real claude is dropped and its other programs are linked into the stub folder."""
+    stub = home.parent / "stub-bin"
+    shutil.rmtree(stub, ignore_errors=True)
+    stub.mkdir()
+    path = os.environ["PATH"].split(os.pathsep)
+    if claude == "missing":
+        for d in [d for d in path if d and shutil.which("claude", path=d)]:
+            path.remove(d)
+            for f in Path(d).iterdir():
+                if f.name != "claude" and f.is_file() and os.access(f, os.X_OK) and not (stub / f.name).exists():
+                    try:
+                        (stub / f.name).symlink_to(f)
+                    except OSError:
+                        pass
+    else:
+        (stub / "claude").write_text(STUB.format(list=STUBS[claude][0], install=STUBS[claude][1]))
+        (stub / "claude").chmod(0o755)
+    r = subprocess.run(["bash", str(cw / "install.sh"), *args], env={**os.environ, "HOME": str(home), "PATH": os.pathsep.join([str(stub), *path])}, capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -237,3 +270,28 @@ def test_cursor_rule_file(world, name, text, todo):
     assert ("Fix ~/.cursor/rules/collective-wisdom.mdc by hand" in out) == todo
     assert (home / RULE).is_dir() == todo and (todo or (home / RULE).read_text() == RULE_TEXT)
     assert (home / ".claude/CLAUDE.md").read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"
+
+
+# name, the claude stub mode, install.sh flags, whether `plugin install` is called, the Done count, a line expected in the output (None: none), whether a TODO is listed
+GANTT_PLUGIN = [
+    ("no claude on PATH", "missing", [], False, 0, "claude is not on PATH", True),
+    ("already installed", "installed", [], False, 0, None, False),
+    ("not installed, install works", "ok", [], True, 1, "install  agent-gantt plugin", False),
+    ("install fails", "fail", [], True, 0, "(it failed: network down)", True),
+    ("dry run, not installed", "ok", ["--dry-run"], False, 1, "[dry-run] install  agent-gantt plugin", False),
+]
+
+
+@pytest.mark.parametrize("name, claude, flags, called, changes, line, todo", GANTT_PLUGIN, ids=[c[0] for c in GANTT_PLUGIN])
+def test_agent_gantt_plugin_install(world, name, claude, flags, called, changes, line, todo):
+    cw, home = world
+    assert install(cw, home)[0] == 0  # a first run links everything, so the run under test counts only the plugin
+    log = home.parent / "stub-bin/claude.log"
+    rc, out = install(cw, home, *flags, claude=claude)
+    calls = log.read_text().splitlines() if log.exists() else []
+    assert rc == 0, out
+    assert any(c.startswith("plugin install agent-gantt ") and c.endswith(" --scope user") for c in calls) == called
+    assert f"Done{' (dry run, nothing written)' if flags else ''}: {changes} change(s)" in out
+    assert (line is None) or line in out
+    assert ("Install the agent-gantt plugin" in out.split("TODO:")[-1]) == todo
+    assert "claude plugin install agent-gantt --marketplace collective-wisdom-org/collective-wisdom" in out or not todo
