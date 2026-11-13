@@ -27,13 +27,13 @@ Runs before the full pass or the take-over pass at "start the team", take over a
 
 ## User settings check
 
-The first thing § Start-up clean-up does, once per "start the team", take over and `resume`. The second pass through § Start-up clean-up in `resume` skips it, and so does the `wake` command.
+Runs first in § Start-up clean-up, once per "start the team", take over and `resume`. The second pass in `resume` and the `wake` command skip it.
 
 1. Read `user_md` from the JSON line of `python3 ~/.collective-wisdom/scripts/setup_repo.py status` (on "start the team", the output of Setup step 0).
-2. `ok`: nothing to do, no report line.
+2. `ok`: no report line.
 3. `error`: put `user.md: <user_md_error>` under Needs you, leave the file alone and carry on.
 4. `no-file` or `no-row` with `gh_logins` empty: put `No gh login on this machine; run gh auth login, then resume.` under Needs you and carry on.
-5. Otherwise run `setup_repo.py user --dry-run --login <first of gh_logins>` (add `--subscription none` for `no-file`). Put under Needs you the logins `gh auth status` lists, for `no-file` that the subscription figure is a dollar amount or `none`, the dry-run text, and `Reply yes to write it, give another login or figure, or no to skip.` Then carry on: the question holds up no ticket.
+5. Otherwise run `setup_repo.py user --dry-run --login <first of gh_logins>` (add `--subscription none` for `no-file`). Put under Needs you the logins `gh auth status` lists, for `no-file` that the subscription figure is a dollar amount or `none`, the dry-run text, and `Reply yes to write it, give another login or figure, or no to skip.` Then carry on; no ticket waits on it.
 
 ## State rebuild
 
