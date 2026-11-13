@@ -1,5 +1,5 @@
 // Cursor hook events mapped onto the mod's records and the dashboard's snapshot. Pure, so the rules are testable without Cursor.
-import type { AgentRecord } from '../types/index.d.ts'
+import type { AgentRecord, Prices, Tokens } from '../types/index.d.ts'
 import { buildRows, MAIN } from './rows.ts'
 import { buildSnapshot, pickHeading } from './snapshot.ts'
 import { beginTask, closeSegment, openSegment, taskName } from './timeline.ts'
@@ -22,6 +22,9 @@ export type CursorPayload = {
   duration_ms?: number
 }
 
+/** One Cursor run (a turn) as `agent_usage.py --cursor-agent` prints it: `at` in ms since epoch, tokens by billed kind. */
+export type CursorRun = { at: number; model: string | null; input: number; output: number; read: number; write: number }
+
 /** What the hook keeps between events of one conversation. */
 export type CursorState = {
   records: AgentRecord[]
@@ -30,9 +33,11 @@ export type CursorState = {
   subagentModels: Record<string, string>
   /** The model each task began with, by task index. */
   taskModels: Record<string, string>
+  /** The runs of the last good read of Cursor's run store; null until it was read once, and in a state saved before CW-284. */
+  runs: CursorRun[] | null
 }
 
-export const emptyState = (): CursorState => ({ records: [], heading: { isSet: false, value: null }, model: null, subagentModels: {}, taskModels: {} })
+export const emptyState = (): CursorState => ({ records: [], heading: { isSet: false, value: null }, model: null, subagentModels: {}, taskModels: {}, runs: null })
 
 const EVENTS = ['sessionStart', 'beforeSubmitPrompt', 'stop', 'subagentStart', 'subagentStop', 'sessionEnd']
 
@@ -98,14 +103,42 @@ export function applyEvent(state: CursorState, p: CursorPayload, now: number): C
 
 const shortModel = (m: string | null | undefined) => (m ? m.replace(/^claude-/, '') : null)
 
-/** The JSON text the local dashboard reads for this conversation. Cursor gives no tokens or cost, so rows have 0 tokens, no cost and the snapshot no total. */
-export function cursorSnapshot(state: CursorState, p: CursorPayload, now: number, threadId: string | null): string {
-  const rows = buildRows(state.records, [], null, 'Cursor').map(row => ({
+/** `usage` with one run added under its model. Cursor's cache writes are priced at the 5 minute rate, as `agent_usage.py` does. */
+function plusRun(usage: Record<string, Tokens>, run: CursorRun): Record<string, Tokens> {
+  const model = run.model ?? 'unknown model'
+  const t = usage[model] ?? { input: 0, output: 0, read: 0, write_5m: 0, write_1h: 0 }
+  return { ...usage, [model]: { ...t, input: t.input + run.input, output: t.output + run.output, read: t.read + run.read, write_5m: t.write_5m + run.write } }
+}
+
+/** The records with each run's tokens on `main` and on the task that began closest to the run (the earlier one on a tie; a task with no spans has no row and is skipped). Subagents get none: Cursor counts their work in the turn that started them. */
+function withRuns(records: AgentRecord[], runs: CursorRun[]): AgentRecord[] {
+  return records.map(r => {
+    if (r.id !== MAIN) return r
+    const tasks = r.tasks.map(k => ({ ...k }))
+    let usage = r.usage
+    for (const run of runs) {
+      usage = plusRun(usage, run)
+      let near = -1
+      tasks.forEach((k, i) => {
+        if (k.segments.length === 0) return
+        if (near < 0 || Math.abs(k.start - run.at) < Math.abs(tasks[near]!.start - run.at)) near = i
+      })
+      if (near >= 0) tasks[near]!.usage = plusRun(tasks[near]!.usage, run)
+    }
+    return { ...r, usage, tasks }
+  })
+}
+
+/** The JSON text the local dashboard reads for this conversation. With the run store read (`state.runs`) and a price table, rows carry the runs' tokens and cost and `total` is the sum of the row costs (null when a row has none); else rows have 0 tokens, no cost and the snapshot no total. */
+export function cursorSnapshot(state: CursorState, p: CursorPayload, now: number, threadId: string | null, prices: Prices | null = null): string {
+  const runs = state.runs ?? null
+  const rows = buildRows(runs === null ? state.records : withRuns(state.records, runs), [], runs === null ? null : prices, 'Cursor').map(row => ({
     ...row,
     model: shortModel(row.kind === 'task' ? (state.taskModels[row.id.match(/^main:task:(\d+)$/)?.[1] ?? ''] ?? state.model) : state.subagentModels[row.id]),
   }))
+  const total = runs === null || rows.some(r => r.cost === null) ? null : rows.reduce((sum, r) => sum + (r.cost ?? 0), 0)
   const cwd = cursorCwd(p) ?? state.records.find(r => r.id === MAIN)?.cwd ?? ''
-  return buildSnapshot({ sessionId: sessionKey(p) ?? '', cwd, updatedAt: now, total: null, rows, threadId, heading: state.heading.value })
+  return buildSnapshot({ sessionId: sessionKey(p) ?? '', cwd, updatedAt: now, total, rows, threadId, heading: state.heading.value })
 }
 
 /** What the hook prints for an event. The gantt hook never blocks, never adds a follow-up and never sets `user_message`. */

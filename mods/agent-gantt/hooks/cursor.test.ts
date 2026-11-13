@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { applyEvent, cursorSnapshot, emptyState, hookOutput } from './cursor.ts'
-import type { CursorPayload } from './cursor.ts'
+import type { CursorPayload, CursorRun } from './cursor.ts'
 
 const base = { conversation_id: 'c1', model: 'claude-sonnet-4', workspace_roots: ['/w/app'] }
 const ev = (name: string, extra: Partial<CursorPayload> = {}): CursorPayload => ({ ...base, hook_event_name: name, ...extra })
@@ -52,6 +52,42 @@ test('cursor events become the rows the dashboard draws', () => {
     for (const r of snap.rows) assert.deepEqual([r.harness, r.tokens, r.cost, r.repo], ['Cursor', 0, null, 'app'], name)
     assert.deepEqual([snap.sessionId, snap.cwd, snap.updatedAt, snap.total, snap.threadId], ['c1', '/w/app', 999, null, 'th:1'], name)
   }
+})
+
+const prices = { sonnet: { input: 2, output: 10, read: 0.1, write_1h: 4, write_5m: 2.5 } }
+const run = (at: number, extra: Partial<CursorRun> = {}): CursorRun => ({ at, model: 'claude-sonnet-4', input: 0, output: 0, read: 0, write: 0, ...extra })
+// 1M input at $2 and 100k output at $10: $3.00 over 1.1M tokens. 1M read at $0.10 and 400k written at the 5 minute $2.50: $1.10 over 1.4M tokens.
+const A = { input: 1_000_000, output: 100_000 }
+const B = { read: 1_000_000, write: 400_000 }
+
+test('Cursor runs give the rows their tokens and cost, and the snapshot a total', () => {
+  const two: [CursorPayload, number][] = [[prompt('one'), 10_000], [ev('stop'), 20_000], [prompt('two'), 100_000], [ev('stop'), 110_000]]
+  // name, events, runs, prices, the rows as [name, tokens, cost], total, and the task (if any) to strip of its spans, as a slash command has
+  const cases: [string, [CursorPayload, number][], CursorRun[] | null, typeof prices | null, [string, number, number | null][], number | null, number?][] = [
+    ['each prompt gets its run', two, [run(10_000, A), run(100_000, B)], prices, [['one', 1_100_000, 3], ['two', 1_400_000, 1.1]], 4.1],
+    ['a run that began 3 seconds before its prompt', two, [run(97_000, A)], prices, [['one', 0, 0], ['two', 1_100_000, 3]], 3],
+    ['a run halfway between two prompts goes to the earlier', two, [run(55_000, A)], prices, [['one', 1_100_000, 3], ['two', 0, 0]], 3],
+    ['a run with no task', [[ev('sessionStart'), 5]], [run(10_000, A)], prices, [['outside a task', 1_100_000, 3]], 3],
+    ['an unpriced model keeps its tokens and blanks the cost', two, [run(10_000, A), run(100_000, { ...B, model: 'gpt-5' })], prices, [['one', 1_100_000, 3], ['two', 1_400_000, null]], null],
+    ['no price table', two, [run(10_000, A)], null, [['one', 1_100_000, null], ['two', 0, null]], null],
+    ['runs never read', two, null, prices, [['one', 0, null], ['two', 0, null]], null],
+    ['a subagent has none of its own', [[prompt('go'), 10], [sub('s1', 'look'), 20], [subStop('look'), 30], [ev('stop'), 40]], [run(10, A)], prices, [['go', 1_100_000, 3], ['look', 0, 0]], 3],
+    ['a task with no spans is skipped', two, [run(100_000, A)], prices, [['one', 1_100_000, 3]], 3, 1],
+  ]
+  for (const [name, events, runs, table, want, total, bare] of cases) {
+    const full = { ...events.reduce((s, [p, t]) => applyEvent(s, p, t), emptyState()), runs }
+    const state = { ...full, records: full.records.map(r => ({ ...r, tasks: r.tasks.map((k, i) => (i === bare ? { ...k, segments: [] } : k)) })) }
+    const snap = JSON.parse(cursorSnapshot(state, base, 999, null, table))
+    const got = snap.rows.map((r: any) => [r.name, r.tokens, r.cost === null ? null : Math.round(r.cost * 1e6) / 1e6])
+    assert.deepEqual(got, want, name)
+    assert.equal(snap.total === null ? null : Math.round(snap.total * 1e6) / 1e6, total, name)
+  }
+})
+
+test('a state saved before runs existed reads as never read', () => {
+  const { runs: _runs, ...old } = applyEvent(emptyState(), prompt('go'), 10)
+  const snap = JSON.parse(cursorSnapshot(old as ReturnType<typeof emptyState>, base, 1, null, prices))
+  assert.deepEqual([snap.rows[0].tokens, snap.rows[0].cost, snap.total], [0, null, null])
 })
 
 test('the heading comes from the first prompt only', () => {

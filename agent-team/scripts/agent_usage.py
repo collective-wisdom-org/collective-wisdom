@@ -5,6 +5,7 @@ Usage:
     ~/.collective-wisdom/scripts/agent_usage.py [--since ISO] [--until ISO] [--projects DIR] [--cursor-projects DIR] [--turns]
     ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] --context
     ~/.collective-wisdom/scripts/agent_usage.py [--projects DIR] [--cursor-projects DIR] --ticket <PREFIX>-N
+    ~/.collective-wisdom/scripts/agent_usage.py [--cursor-projects DIR] --cursor-agent <agent id>
 
 --since and --until are ISO 8601 UTC times (default: the last 24 hours).
 --projects defaults to ~/.claude/projects, --cursor-projects to ~/.cursor/projects (a missing dir means no
@@ -28,6 +29,10 @@ API-equivalent (P% of the subscription), ..." with the share of the Claude Code 
 has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the ticket is unpriced, or a Cursor
 store cannot be read (once the ticket has a session) or a run of the ticket's session cannot be parsed, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
 N.NM tokens, spec ..." and still exits 0.
+--cursor-agent prints one Cursor agent's runs with usage as JSON, {"runs": [{"at": <ms since epoch>, "model": <str or null>,
+"input": n, "output": n, "read": n, "write": n}, ...]}, in turn order, for the Cursor gantt hook. It looks through every
+project's stores, ignores the other options, and exits 2 when the id is not [A-Za-z0-9_-]{1,80}, no store has the agent
+(an unreadable store counts as one that might), or a run of the agent cannot be parsed.
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
 subagent transcripts next to each session. A dir without "worktrees" in its
@@ -111,16 +116,26 @@ def costs(model, u):
     }
 
 
+def cursor_tokens(u):
+    """The billed token kinds of one Cursor usage record. inputTokens includes the cache tokens, so input is net of them."""
+    cr, cw = u.get("cacheReadTokens", 0), u.get("cacheWriteTokens", 0)
+    return {
+        "input": max(u.get("inputTokens", 0) - cr - cw, 0),
+        "output": u.get("outputTokens", 0),
+        "read": cr,
+        "write": cw,
+    }
+
+
 def cursor_costs(fam, u):
     """(dollars by token kind, billed tokens) for one Cursor usage record; dollars are None without a price.
 
-    inputTokens includes the cache tokens, and cache writes are priced at the 5 minute rate.
+    Cache writes are priced at the 5 minute rate.
     """
-    cr, cw, out = u.get("cacheReadTokens", 0), u.get("cacheWriteTokens", 0), u.get("outputTokens", 0)
-    inp = max(u.get("inputTokens", 0) - cr - cw, 0)
+    t = cursor_tokens(u)
     p = PRICES.get(fam)
-    paid = p and {"input": inp * p[0] / 1e6, "output": out * p[1] / 1e6, "read": cr * p[2] / 1e6, "write": cw * p[4] / 1e6}
-    return paid or None, inp + out + cr + cw
+    paid = p and {"input": t["input"] * p[0] / 1e6, "output": t["output"] * p[1] / 1e6, "read": t["read"] * p[2] / 1e6, "write": t["write"] * p[4] / 1e6}
+    return paid or None, sum(t.values())
 
 
 def text(message):
@@ -231,6 +246,23 @@ def git_branch(workspace):
     return r.stdout.strip() or None
 
 
+def read_store(db):
+    """(agents, runs) of one Cursor index.db, opened read-only; raises sqlite3.Error when it cannot be read.
+
+    agents are (agent_id, workspace_ref); runs are (agent_id, turn number, model, usage_json, time) with usage, by turn.
+    """
+    con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
+    try:
+        agents = con.execute("select agent_id, workspace_ref from agents").fetchall()
+        rows = con.execute(
+            "select agent_id, turn_number, model, usage_json, coalesce(started_at, created_at) "
+            "from runs where usage_json is not null order by turn_number"
+        ).fetchall()
+    finally:
+        con.close()
+    return agents, rows
+
+
 def read_cursor(proj, failed=None):
     """Cursor sessions of one project dir, one per agent with usage: dicts with id, branch, first, relays, runs.
 
@@ -243,15 +275,7 @@ def read_cursor(proj, failed=None):
     sessions = []
     for db in sorted(proj.glob("sdk-agent-store/*/index.db")):
         try:
-            con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
-            try:
-                agents = con.execute("select agent_id, workspace_ref from agents").fetchall()
-                rows = con.execute(
-                    "select agent_id, turn_number, model, usage_json, coalesce(started_at, created_at) "
-                    "from runs where usage_json is not null order by turn_number"
-                ).fetchall()
-            finally:
-                con.close()
+            agents, rows = read_store(db)
         except sqlite3.Error:
             print(f"agent_usage: cannot read {db}", file=sys.stderr)
             if failed is not None:
@@ -286,6 +310,33 @@ def read_cursor(proj, failed=None):
                 "bad": bad,
             })
     return sessions
+
+
+def cursor_agent_runs(projects, agent):
+    """The runs with usage of one Cursor agent, in turn order, as dicts with at (ms since epoch), model and the billed kinds.
+
+    Looks through every project's stores. Raises LookupError when no readable store has the agent (or a store that
+    could hold it cannot be read) or when one of its runs cannot be parsed.
+    """
+    failed = []
+    for db in sorted(projects.glob("*/sdk-agent-store/*/index.db")):
+        try:
+            _, rows = read_store(db)
+        except sqlite3.Error:
+            failed.append(db)
+            continue
+        mine = [r for r in rows if r[0] == agent]
+        if not mine:
+            continue
+        runs = []
+        for _, _, model, usage, ts in mine:
+            try:
+                at = int(parse_ts(ts).timestamp() * 1000)
+                runs.append({"at": at, "model": model, **cursor_tokens(json.loads(usage))})
+            except (TypeError, ValueError, AttributeError):
+                raise LookupError(f"cannot read a run of {db}")
+        return runs
+    raise LookupError(f"cannot read {failed[0]}" if failed else f"no Cursor store has agent {agent}")
 
 
 def start_stage(first):
@@ -410,6 +461,12 @@ def ticket_id(s):
     return s
 
 
+def agent_id(s):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", s):
+        raise argparse.ArgumentTypeError(f"{s!r} is not a Cursor agent id")
+    return s
+
+
 def main():
     now = datetime.now(timezone.utc)
     ap = argparse.ArgumentParser(
@@ -436,7 +493,19 @@ def main():
         type=ticket_id,
         help="print one cost line for a ticket's child threads (all time), then exit",
     )
+    ap.add_argument(
+        "--cursor-agent",
+        type=agent_id,
+        help="print one Cursor agent's runs as JSON, then exit",
+    )
     args = ap.parse_args()
+    if args.cursor_agent:
+        try:
+            print(json.dumps({"runs": cursor_agent_runs(args.cursor_projects, args.cursor_agent)}))
+        except LookupError as e:
+            print(f"agent_usage: {e}", file=sys.stderr)
+            raise SystemExit(2)
+        return
     if args.context:
         print(context_line(args.projects))
         return

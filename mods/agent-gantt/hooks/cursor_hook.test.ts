@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 
 const HOOK = fileURLToPath(new URL('../../../agent-team/scripts/cursor_gantt_hook.ts', import.meta.url))
@@ -37,6 +38,39 @@ test('the Cursor hook answers first, exits as Cursor needs, and writes the snaps
       assert.deepEqual([r.stdout, r.status], [stdout, code], name)
       if (files === null) assert.ok(!existsSync(gantt) && !existsSync(join(plain, '.agent-team')), name)
       else assert.deepEqual([readdirSync(gantt).sort(), names()], files, name)
+    }
+
+    // A stop reads c1's run from Cursor's store under HOME: 1M input on sonnet is $2.00 at prices.json. A store it cannot read keeps the rows.
+    const store = join(tmp, '.cursor/projects/p/sdk-agent-store/c1')
+    mkdirSync(store, { recursive: true })
+    const db = new DatabaseSync(join(store, 'index.db'))
+    db.exec('create table agents (agent_id, workspace_ref); create table runs (agent_id, turn_number, model, usage_json, started_at, created_at)')
+    const at = new Date().toISOString()
+    db.prepare('insert into runs values (?, ?, ?, ?, ?, ?)').run('c1', 1, 'claude-sonnet-4', JSON.stringify({ inputTokens: 1_000_000 }), at, at)
+    db.close()
+    const spend = () => {
+      const snap = JSON.parse(readFileSync(join(gantt, 'c1.json'), 'utf8'))
+      return [snap.rows.map((r: any) => [r.name, r.tokens]), snap.total]
+    }
+    const stops: [string, () => void, number, unknown][] = [
+      ['stop prices the run', () => {}, 0, [[['Fix it', 1_000_000], ['look', 0]], 2]],
+      ['stop with an unreadable store', () => writeFileSync(join(store, 'index.db'), 'not a database'), 0, [[['Fix it', 1_000_000], ['look', 0]], 2]],
+    ]
+    const storeWith = (n: number) => {
+      rmSync(join(store, 'index.db'), { force: true })
+      const d = new DatabaseSync(join(store, 'index.db'))
+      d.exec('create table agents (agent_id, workspace_ref); create table runs (agent_id, turn_number, model, usage_json, started_at, created_at)')
+      for (let t = 1; t <= n; t++) d.prepare('insert into runs values (?, ?, ?, ?, ?, ?)').run('c1', t, 'claude-sonnet-4', JSON.stringify({ inputTokens: 1_000_000 }), at, at)
+      d.close()
+    }
+    stops.push(
+      ['stop with 2 runs', () => storeWith(2), 0, [[['Fix it', 2_000_000], ['look', 0]], 4]],
+      ['stop with an older, shorter read keeps the longer saved runs', () => storeWith(1), 0, [[['Fix it', 2_000_000], ['look', 0]], 4]],
+    )
+    for (const [name, before, code, want] of stops) {
+      before()
+      const r = run(ev(work, 'stop'))
+      assert.deepEqual([r.stdout, r.status, spend()], ['', code, want], name)
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true })
