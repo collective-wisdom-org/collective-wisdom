@@ -1,18 +1,33 @@
-# CW-275: Run the Cursor trial again with Cursor child threads and record the ship loop cell
+# CW-275: Route Cursor to Auto, then run the Cursor trial with Cursor child threads (follow-up)
 
 **Status:** Draft
 **Ticket:** [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275) (also covers [#273](https://github.com/collective-wisdom-org/collective-wisdom/issues/273), closed as a duplicate)
 
 ## Goal
 
-Find out whether a ship-loop child running on Cursor takes a ticket to `MERGED #N`, now that CW-272 routes a Cursor Chief of Staff's children to Cursor models, and whether that routing holds up in a real run. The user's Cursor cannot pick models, so this ticket also changes the routing from named models to Cursor's Auto router: Auto Intelligence is `auto-smart` with `optimize_for` `intelligence` (it replaces `grok-4.7`), and Auto Fast is `auto-smart` with `optimize_for` `balanced` (it replaces `composer-2.5`). Cursor's catalog has no fast option on Auto, so "Auto Fast" is the user's name for the balanced tier. Record the run in `docs/compatibility.md` § Runs, set the Ship loop child threads cell on the Cursor column, say what the run showed for the rule file (G1) and the Cursor gantt hooks (G9), and give each of the four routing checks from #273 a result:
+This PR ships the Cursor routing change. The user's Cursor cannot pick models, so the routing moves from named models to Cursor's Auto router: Auto Intelligence is `auto-smart` with `optimize_for` `intelligence` (it replaces `grok-4.7`), and Auto Fast is `auto-smart` with `optimize_for` `balanced` (it replaces `composer-2.5`). Cursor's catalog has no fast option on Auto, so "Auto Fast" is the user's name for the balanced tier.
+
+The Cursor trial run is a follow-up ticket, not part of this PR (see `## Follow-up ticket: the Cursor trial run`). The follow-up finds out whether a ship-loop child running on Cursor takes a ticket to `MERGED #N`, now that CW-272 routes a Cursor Chief of Staff's children to Cursor models, and whether the Auto routing holds up in a real run. It records the run in `docs/compatibility.md` § Runs, sets the Ship loop child threads cell on the Cursor column, says what the run showed for the rule file (G1) and the Cursor gantt hooks (G9), and gives each of the four routing checks from #273 a result:
 
 1. Does a Cursor subagent run the model its file names, `auto-smart[optimize_for=intelligence]` for the code reviewer and `auto-smart[optimize_for=balanced]` for the implementer, documenter and compacter, read from the subagent's `runs.model` and `runs.model_params_json` (`optimize_for` value), not the parent's?
 2. Does `t3_thread_configure` switch a Cursor child to `auto-smart` `balanced` partway through a thread?
 3. What does the run store record for an Auto run (the model Auto routed to, and the `optimize_for` value in `model_params_json`), and does it still tell a `fast` true run from a false one on a model that has the option (the CW-256 run on `composer-2.5` recorded `[{"id":"fast","value":"true"}]`)?
 4. What does `agent_usage.py --ticket` report for a real run on Auto?
 
-Then replace the "Not yet observed" paragraph in `chief-of-staff/SKILL.md` § Models `### Cursor` with what was observed.
+Then it replaces the "Not yet observed" paragraph in `chief-of-staff/SKILL.md` § Models `### Cursor` with what was observed.
+
+## Shipped in this PR
+
+The user chose to ship the routing first and run the trial in a follow-up. Cursor sessions read the machine install and the root checkout stays on `main`, so the routing has to be merged and `./install.sh` re-run before a Cursor run can test it.
+
+- **The routing table** in `agent-team/.claude/skills/chief-of-staff/SKILL.md` § Models `### Cursor`: Auto Intelligence and Auto Fast replace `grok-4.7` and `composer-2.5`.
+- **Its mirrors:** `startup.md`, the configure row, `build-from-plan`, `open-pr`, `security-review`, `ship-loop`, the role docs, both `AGENTS.md` files, and the five `.cursor/agents/*.md` files.
+- **The two tests** that read the routing: `test_agent_files.py` and `test_cursor_routing.py`.
+- **`docs/compatibility.md`:** the Usage and cost report row's Cursor cell and G8, rewritten to say Auto runs show `cost unknown`.
+
+Auto has no price, since it bills at the list price of the model each request is routed to, so the cost report shows `cost unknown` for Auto runs.
+
+Not changed: the scripts, `prices.json`, `install.sh` and the `.claude/agents` files. The `grok-4.7` and `composer-2.5` price rows stay for anyone who picks those models.
 
 ## Today
 
@@ -27,11 +42,15 @@ Facts from `main` at `304891f` and the machine, read 2026-11-09.
 - `docs/compatibility.md` on `main`: the Usage and cost report row's Cursor cell and G8 say Grok long prompts and Fast mode are priced at the standard rate. This ticket rewrites both to say Auto runs show `cost unknown`.
 - The CW-256 run cannot answer the routing checks: it ran on skills from before CW-272, and no Cursor child or Cursor subagent ran.
 
-## The run
+## Follow-up ticket: the Cursor trial run
+
+Not part of this PR. The follow-up ticket the Chief of Staff files carries it, and it starts only after this PR merges and `./install.sh` is re-run. The rest of this section is that ticket's spec.
+
+### The run
 
 A ship-loop child cannot start a Cursor thread (its task forbids `t3_thread_launch`, `create_threads` and `delegate_task`), so the user starts it, as in CW-256. The build stops once for the user with `BLOCKED: Cursor run needed` and picks up when the Chief of Staff relays that the run and its top-up are done. The ticket changes markdown files only (the doc and one skill paragraph), so the build works from this spec and writes no plan.
 
-### Build steps
+#### Build steps
 
 1. **Wait for #277.** This ticket edits the `## Runs` entry, the Ship loop cell, G1, G3 and G9 that PR #277 writes. If #277 has not merged when the build starts, stop with `BLOCKED: waiting on #277`. Once it has, merge `origin/main` into this branch.
 2. **Machine check.** Confirm the install is current: `git -C ~/.collective-wisdom rev-parse HEAD` is at or after `304891f`, and the rule file, hooks and agent files above are in place. Record the commit. If any is missing, stop with `BLOCKED:` and ask the user to run `./install.sh` from the root checkout; the child does not run it (it writes to `$HOME` and links the root checkout).
@@ -48,7 +67,7 @@ A ship-loop child cannot start a Cursor thread (its task forbids `t3_thread_laun
 7. **Tickets.** File one ticket in collective-wisdom per failure with the `write-ticket` skill, linking its cell, gap or check. Fix nothing.
 8. **Docs.** Edit `docs/compatibility.md` and the skill paragraph (§ Doc changes), then open the PR.
 
-### What the run checks
+#### What the run checks
 
 | Check | Works when |
 |---|---|
@@ -59,7 +78,7 @@ A ship-loop child cannot start a Cursor thread (its task forbids `t3_thread_laun
 | Harness consistency | Every thread and subagent the run starts runs on the Chief of Staff's own provider, `cursor` (see below) |
 | Routing checks 1 to 4 | See § Routing checks |
 
-### Routing checks
+#### Routing checks
 
 Each result is `works`, `partial`, `not supported` or `untested`, rests on something quoted from a store, a thread or a script's output, and has a ticket link where it is not `works`.
 
@@ -72,7 +91,7 @@ Each result is `works`, `partial`, `not supported` or `untested`, rests on somet
 
 `partial` means part of a check holds: for example, the implementer honors `model:` but the code reviewer runs on its parent's model. Check 4 is `partial` if the script prices the Auto runs as a number. A check with no evidence even after the top-up stays `untested` and gets a ticket. The security review is not in check 1: on Cursor it is a general subagent given `security-review.md` (CW-254), not a `.cursor/agents` file, and a docs-only CT-4 may skip it.
 
-### Harness consistency
+#### Harness consistency
 
 One Chief of Staff runs on one harness: a Cursor Chief of Staff starts only Cursor children, and a Claude Code one only Claude Code children, per the routing in `chief-of-staff/SKILL.md` § Models. The Runs entry gets a table with one row for every thread and subagent the CT-4 run starts:
 
@@ -86,48 +105,51 @@ Each row gives the thread id or subagent name, who started it, its provider and 
 
 The Ship loop child threads cell and G3 can be `works` only when no row is flagged. A flagged row makes the cell `partial`, names the row, and gets a ticket link on G3.
 
-### Claude Code control line
+#### Claude Code control line
 
 The Runs entry gets one control line for the Claude Code column, from threads that already exist, so it costs no extra run: the collective-wisdom Chief of Staff thread that started this CW-275 child (Claude Code), this child, and the subagents this child starts during the build. Each gets the same provider and model fields, flagged if its provider is not `claudeAgent`. The line is read with `t3_thread_read` and costs nothing beyond that. If those threads do not show the provider and model for every row, the control line is dropped from the entry and a follow-up ticket covers a Claude Code control run.
 
 Cells the run touches but the ticket does not ask about (Subagents G4, Security review G11, Stop hook) get a note in the entry when the run shows something, and keep their value unless the run settles them.
 
-### Ship loop cell result
+#### Ship loop cell result
 
 - `works` when every Ship loop check above holds and the Harness consistency table has no flagged row. G3 is then dropped, per `## Keeping it current`.
 - Otherwise `partial` or `not supported`, saying what broke (and naming any flagged row), with a ticket link on G3.
 
-## Doc changes
+#### Doc changes (follow-up)
+
+The Auto routing table and the Usage and cost report Cursor cell and G8 rewrite are this PR's changes (see `## Shipped in this PR`). The follow-up makes these:
 
 - **`docs/compatibility.md`, Runs:** a new entry above the CW-256 one, with the checks above, the Harness consistency table, the Claude Code control line and the routing evidence.
-- **`docs/compatibility.md`, Matrix 1:** the Ship loop child threads cell, the Install cell (G1), the Local dashboard cell if the run settles it, and the Usage and cost report Cursor cell (checks 3 and 4).
+- **`docs/compatibility.md`, Matrix 1:** the Ship loop child threads cell, the Install cell (G1), the Local dashboard cell if the run settles it, and the Usage and cost report Cursor cell as this PR rewrote it (checks 3 and 4).
 - **`docs/compatibility.md`, Matrix 1 Notes:** one bullet, "Cursor model routing", with the four results, one line of evidence each, a ticket link where not `works`, and a link to the Runs entry.
-- **`docs/compatibility.md`, Gaps:** G1, G3 and G9 per the run; in G8 the Cursor sentences are already rewritten by this ticket for Auto (cost unknown), and are adjusted to the results of checks 3 and 4, with ticket links. The rest of G8 (Codex, Antigravity, `--context`) stays.
+- **`docs/compatibility.md`, Gaps:** G1, G3 and G9 per the run; in G8 the Cursor sentences are already rewritten by this PR for Auto (cost unknown), and are adjusted to the results of checks 3 and 4, with ticket links. The rest of G8 (Codex, Antigravity, `--context`) stays.
 - **`docs/compatibility.md`, "Last checked" line:** set to the build date and the run.
-- **`agent-team/.claude/skills/chief-of-staff/SKILL.md` § Models `### Cursor`:** the "Not yet observed (CW-256)" paragraph becomes a short "Observed (CW-275 run)" paragraph with the results of checks 1 to 3, a ticket link for each failure, and a pointer to the compatibility note. The routing table is the Auto routing this ticket writes; a later change to it is a fix.
+- **`agent-team/.claude/skills/chief-of-staff/SKILL.md` § Models `### Cursor`:** the "Not yet observed (CW-256)" paragraph becomes a short "Observed (CW-275 run)" paragraph with the results of checks 1 to 3, a ticket link for each failure, and a pointer to the compatibility note. The routing table is the Auto routing this PR ships; a later change to it is a fix.
 
 ## Calls I made (surprising first)
 
 - **The routing change is part of this ticket's scope**, because your Cursor cannot pick models. Auto Intelligence is `auto-smart` with `optimize_for` `intelligence` and Auto Fast is `auto-smart` with `optimize_for` `balanced`; that naming is your choice. It replaces `grok-4.7` and `composer-2.5` in the routing table, the `.cursor/agents` files, the skills and role docs that mention them, and the two tests that read them.
 - **Auto has no price in `prices.json`**, since it bills at the list price of the model each request is routed to, so the cost report shows `cost unknown` for Auto runs. Scripts and `prices.json` do not change; the `grok-4.7` and `composer-2.5` rows stay for anyone who picks them.
-- **OPEN, asked of the Chief of Staff:** the Cursor run only tests the new routing once it is merged to `main` and `install.sh` is re-run, because Cursor sessions read the machine install and the root checkout stays on `main`. So the routing change and the run record cannot be one PR without the run testing the old routing. The build stopped to ask how to sequence them.
-- **The run includes a top-up thread after CT-4 merges**: one message asking the `implementer` and `code-reviewer` subagents to name their model, in case the CT-4 child started none. It sits in the one hand-off, so the build stops only once for you.
-- **A subagent's provider comes from the Cursor run store or the thread that started it.** T3 does not list subagents as threads, so where neither shows the provider the row is flagged `unknown`, which also keeps the cell from `works`.
-- **The Claude Code control line reads this ticket's own threads** (the collective-wisdom Chief of Staff, this child, and its subagents) instead of starting a second run. It is dropped, with a follow-up ticket, if those threads do not show every provider and model.
-- **The build waits on PR #277 and stops if it has not merged.** This ticket edits the Runs entry and cells that PR adds; starting from `main` without it would fork the doc.
-- **The build stops halfway for you to start the Cursor thread**, as CW-256 did. That `BLOCKED:` is planned.
-- **You start the Chief of Staff thread on Auto with Balanced ("Auto Fast")**, the model § Models Cursor names for it, so the run tests the routing as written.
-- **G1 is tested with one question before `start the team`**: ask the thread to quote the rule. A thread that only finds the skills by searching would not know the rule's first line.
-- **The child files trial ticket CT-4** in `dbeallor/cw-cursor-trial`: "Add a Contributing line to README.md that points to the issue tracker". Docs-only, so the security review may skip; the cell accepts a skip comment that ends `Verdict: PASS`.
-- **The routing results go in a new Notes bullet and the skill paragraph, with evidence in the Runs entry.** The routing table in the skill does not change after this ticket's Auto edit even if a check fails; the failure's ticket covers the fix.
-- **The security review is left out of check 1**, since on Cursor it is a general subagent with a prompt, not a `.cursor/agents` file with `model:`.
-- **The trial store and repo are read-only for the build.** Stores open with SQLite `mode=ro`, and `agent_usage.py` is read-only already.
-- **The trial clone goes to `~/Documents/git/cw-cursor-trial`**, next to the other repos; the CW-256 clone at `~/Documents/cw-cursor-trial` is gone.
-- **The child does not run `install.sh`.** The machine install is already current; if it is not, the run stops and asks you.
-- **No new gap number.** Failures go on G1, G3, G8 and G9; a new gap only if the run finds something no gap covers.
+- **Settled: the routing PR ships first, and the run is a follow-up ticket the build does not file.** The Cursor run only tests the new routing once it is merged to `main` and `install.sh` is re-run, because Cursor sessions read the machine install and the root checkout stays on `main`. So the routing change and the run record cannot be one PR without the run testing the old routing. The user chose this option, via the Chief of Staff. The Chief of Staff files the follow-up ticket.
+- **Follow-up: the run includes a top-up thread after CT-4 merges**: one message asking the `implementer` and `code-reviewer` subagents to name their model, in case the CT-4 child started none. It sits in the one hand-off, so the build stops only once for you.
+- **Follow-up: a subagent's provider comes from the Cursor run store or the thread that started it.** T3 does not list subagents as threads, so where neither shows the provider the row is flagged `unknown`, which also keeps the cell from `works`.
+- **Follow-up: the Claude Code control line reads this ticket's own threads** (the collective-wisdom Chief of Staff, this child, and its subagents) instead of starting a second run. It is dropped, with a follow-up ticket, if those threads do not show every provider and model.
+- **Follow-up: the build waits on PR #277 and stops if it has not merged.** The follow-up edits the Runs entry and cells that PR adds; starting from `main` without it would fork the doc.
+- **Follow-up: the build stops halfway for you to start the Cursor thread**, as CW-256 did. That `BLOCKED:` is planned.
+- **Follow-up: you start the Chief of Staff thread on Auto with Balanced ("Auto Fast")**, the model § Models Cursor names for it, so the run tests the routing as written.
+- **Follow-up: G1 is tested with one question before `start the team`**: ask the thread to quote the rule. A thread that only finds the skills by searching would not know the rule's first line.
+- **Follow-up: the child files trial ticket CT-4** in `dbeallor/cw-cursor-trial`: "Add a Contributing line to README.md that points to the issue tracker". Docs-only, so the security review may skip; the cell accepts a skip comment that ends `Verdict: PASS`.
+- **Follow-up: the routing results go in a new Notes bullet and the skill paragraph, with evidence in the Runs entry.** The routing table in the skill does not change after this PR's Auto edit even if a check fails; the failure's ticket covers the fix.
+- **Follow-up: the security review is left out of check 1**, since on Cursor it is a general subagent with a prompt, not a `.cursor/agents` file with `model:`.
+- **Follow-up: the trial store and repo are read-only for the build.** Stores open with SQLite `mode=ro`, and `agent_usage.py` is read-only already.
+- **Follow-up: the trial clone goes to `~/Documents/git/cw-cursor-trial`**, next to the other repos; the CW-256 clone at `~/Documents/cw-cursor-trial` is gone.
+- **Follow-up: the child does not run `install.sh`.** The machine install is already current; if it is not, the run stops and asks you.
+- **Follow-up: no new gap number.** Failures go on G1, G3, G8 and G9; a new gap only if the run finds something no gap covers.
 
 ## Leaves out
 
+- Running the Cursor trial and filing the follow-up ticket for it. This PR does neither; the Chief of Staff files the follow-up.
 - Fixing anything that fails (one ticket each), including pricing Fast mode or Grok long prompts and any further change to the routing table.
 - A price for Auto in `prices.json` or `agent_usage.py`.
 - Codex and Antigravity runs.
@@ -139,6 +161,6 @@ Cells the run touches but the ticket does not ask about (Subagents G4, Security 
 
 ## Touches
 
-None of: data, money, auth, user email, migrations. It files one issue in the private trial repo, the run merges one PR there, and the top-up spends one message.
+None of: data, money, auth, user email, migrations. This PR touches no repo outside collective-wisdom. The follow-up run files one issue in the private trial repo, merges one PR there, and spends one top-up message.
 
 **Risk: Medium.** The ticket edits the routing table in `agent-team/.claude/skills/chief-of-staff/SKILL.md`, which is on the approval path and the hands path, so the spec and the merge wait for your approval. The edit is now a routing table edit, a behavior change on the approval path: every Cursor child, helper and subagent runs on Auto instead of a named model. Cost reports show `cost unknown` for those runs.
