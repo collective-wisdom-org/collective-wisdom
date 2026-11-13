@@ -1,7 +1,8 @@
 # CW-275: Route Cursor to Auto, then run the Cursor trial with Cursor child threads (follow-up)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275) (also covers [#273](https://github.com/collective-wisdom-org/collective-wisdom/issues/273), closed as a duplicate)
+**Shipped:** in PR #283, as specified
 
 ## Goal
 
@@ -33,7 +34,7 @@ Not changed: the scripts, `prices.json`, `install.sh` and the `.claude/agents` f
 
 Facts from `main` at `304891f` and the machine, read 2026-11-09.
 
-- `docs/compatibility.md` on `main` has no `## Recording a run` or `## Runs` section, and the Cursor cells still read `untested (G3)`. Both sections, the CW-256 run entry and the `partial` Ship loop cell come from PR #277 (CW-256), which is open and not merged. This ticket edits text that PR adds.
+- `docs/compatibility.md` on `main` now has `## Recording a run`, `## Runs`, the CW-256 run entry and the `partial` Ship loop cell, from PR #277 (CW-256), which merged; the follow-up edits that text.
 - The machine install (`~/.collective-wisdom`) points at the root checkout, at `304891f`: it includes CW-272 (Cursor model routing) and CW-258 (Cursor gantt hooks). It has the CW-272 routing, not the Auto routing: `~/.cursor/agents/*.md` pin the new Auto values only once this change is on main and `install.sh` has run.
 - `install.sh` has been run with those skills: `~/.cursor/rules/collective-wisdom.mdc` exists, `~/.cursor/hooks.json` holds the `cursor_gantt_hook.ts` entries and the `cos_rotation_check.py --hook` stop hook, and `~/.cursor/agents/*.md` pin `grok-4.7` (code-reviewer, security-reviewer) and `composer-2.5` (implementer, documenter, compacter) until then.
 - `dbeallor/cw-cursor-trial` exists with issue #1 (CT-1, closed) and PRs #2 and #3 (merged). It already has `docs/agents/project.md` from the CW-256 run. No local clone of it is on the machine any more.
@@ -52,7 +53,7 @@ A ship-loop child cannot start a Cursor thread (its task forbids `t3_thread_laun
 
 #### Build steps
 
-1. **Wait for #277.** This ticket edits the `## Runs` entry, the Ship loop cell, G1, G3 and G9 that PR #277 writes. If #277 has not merged when the build starts, stop with `BLOCKED: waiting on #277`. Once it has, merge `origin/main` into this branch.
+1. **Check #277 is merged** (it is as of 2026-11-13); if not, stop with `BLOCKED: waiting on #277`. This ticket edits the `## Runs` entry, the Ship loop cell, G1, G3 and G9 that PR #277 writes. Merge `origin/main` into this branch.
 2. **Machine check.** Confirm the install is current: `git -C ~/.collective-wisdom rev-parse HEAD` is at or after `304891f`, and the rule file, hooks and agent files above are in place. Record the commit. If any is missing, stop with `BLOCKED:` and ask the user to run `./install.sh` from the root checkout; the child does not run it (it writes to `$HOME` and links the root checkout).
 3. **Trial ticket.** File one new issue in `dbeallor/cw-cursor-trial` with `~/.collective-wisdom/scripts/gh.sh issue create -R dbeallor/cw-cursor-trial`: "Add a Contributing line to README.md that points to the issue tracker", type Improvement, one sentence of scope. It gets the next issue number, so its id is `CT-4`. Give it the labels the trial repo's tracker adapter needs to be ready for the team (the ones CT-1 had).
 4. **Hand-off.** Stop with `BLOCKED: Cursor run needed` and these steps for the user:
@@ -135,7 +136,7 @@ The Auto routing table and the Usage and cost report Cursor cell and G8 rewrite 
 - **Follow-up: the run includes a top-up thread after CT-4 merges**: one message asking the `implementer` and `code-reviewer` subagents to name their model, in case the CT-4 child started none. It sits in the one hand-off, so the build stops only once for you.
 - **Follow-up: a subagent's provider comes from the Cursor run store or the thread that started it.** T3 does not list subagents as threads, so where neither shows the provider the row is flagged `unknown`, which also keeps the cell from `works`.
 - **Follow-up: the Claude Code control line reads this ticket's own threads** (the collective-wisdom Chief of Staff, this child, and its subagents) instead of starting a second run. It is dropped, with a follow-up ticket, if those threads do not show every provider and model.
-- **Follow-up: the build waits on PR #277 and stops if it has not merged.** The follow-up edits the Runs entry and cells that PR adds; starting from `main` without it would fork the doc.
+- **Follow-up: the build checks PR #277 is merged, which it is.** The follow-up edits the Runs entry and cells that PR adds; it stops with `BLOCKED: waiting on #277` if that ever proves false, since starting from `main` without it would fork the doc.
 - **Follow-up: the build stops halfway for you to start the Cursor thread**, as CW-256 did. That `BLOCKED:` is planned.
 - **Follow-up: you start the Chief of Staff thread on Auto with Balanced ("Auto Fast")**, the model § Models Cursor names for it, so the run tests the routing as written.
 - **Follow-up: G1 is tested with one question before `start the team`**: ask the thread to quote the rule. A thread that only finds the skills by searching would not know the rule's first line.
