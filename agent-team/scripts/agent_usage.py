@@ -30,8 +30,9 @@ has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the tic
 store cannot be read (once the ticket has a session) or a run of the ticket's session cannot be parsed, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
 N.NM tokens, spec ..." and still exits 0.
 --cursor-agent prints one Cursor agent's runs with usage as JSON, {"runs": [{"at": <ms since epoch>, "model": <str or null>,
-"input": n, "output": n, "read": n, "write": n}, ...]}, in turn order, for the Cursor gantt hook. It looks through every
-project's stores, ignores the other options, and exits 2 when the id is not [A-Za-z0-9_-]{1,80}, no store has the agent
+"input": n, "output": n, "read": n, "write": n}, ...], "results": ["<final reply>", ...]}, in turn order, for the Cursor gantt hook.
+"results" holds the non-empty "result" text of every run of the agent, with or without usage ([] when a store has no
+"result" column). It looks through every project's stores, ignores the other options, and exits 2 when the id is not [A-Za-z0-9_-]{1,80}, no store has the agent
 (an unreadable store counts as one that might), or a run of the agent cannot be parsed.
 
 Reads every session under project dirs whose name contains the main checkout's directory name (PROJECT, correct from a worktree too), plus the
@@ -312,8 +313,21 @@ def read_cursor(proj, failed=None):
     return sessions
 
 
+def read_results(db, agent):
+    """The non-empty result text of every run of one agent in an index.db, by turn; [] when the store has no result column."""
+    con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
+    try:
+        rows = con.execute("select result from runs where agent_id = ? order by turn_number", (agent,)).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        con.close()
+    return [r[0] for r in rows if isinstance(r[0], str) and r[0].strip()]
+
+
 def cursor_agent_runs(projects, agent):
-    """The runs with usage of one Cursor agent, in turn order, as dicts with at (ms since epoch), model and the billed kinds.
+    """(runs, results) of one Cursor agent, in turn order. runs are the runs with usage, as dicts with at (ms since epoch),
+    model and the billed kinds; results are the non-empty result texts of all its runs.
 
     Looks through every project's stores. Raises LookupError when no readable store has the agent (or a store that
     could hold it cannot be read) or when one of its runs cannot be parsed.
@@ -335,7 +349,11 @@ def cursor_agent_runs(projects, agent):
                 runs.append({"at": at, "model": model, **cursor_tokens(json.loads(usage))})
             except (TypeError, ValueError, AttributeError):
                 raise LookupError(f"cannot read a run of {db}")
-        return runs
+        try:
+            results = read_results(db, agent)
+        except sqlite3.Error:
+            results = []
+        return runs, results
     raise LookupError(f"cannot read {failed[0]}" if failed else f"no Cursor store has agent {agent}")
 
 
@@ -501,7 +519,8 @@ def main():
     args = ap.parse_args()
     if args.cursor_agent:
         try:
-            print(json.dumps({"runs": cursor_agent_runs(args.cursor_projects, args.cursor_agent)}))
+            runs, results = cursor_agent_runs(args.cursor_projects, args.cursor_agent)
+            print(json.dumps({"runs": runs, "results": results}))
         except LookupError as e:
             print(f"agent_usage: {e}", file=sys.stderr)
             raise SystemExit(2)
