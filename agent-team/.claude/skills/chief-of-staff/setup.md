@@ -7,10 +7,10 @@ The scripts are `python3 ~/.collective-wisdom/scripts/setup_repo.py` (below, `se
 | Command | What it does |
 |---|---|
 | `status [--root DIR]` | Line 1 is `missing`, `set` or `placeholders: <rows>`. Line 2 is one line of JSON facts. Writes nothing. |
-| `user --login L [--subscription N\|none]` | Writes this repo's row in `~/.config/collective-wisdom/user.md`. Creates the file from the template when it is missing; the subscription figure applies only then. |
+| `user --login L [--subscription N\|none] [--dry-run]` | Writes this repo's row in `~/.config/collective-wisdom/user.md`. Creates the file from the template when it is missing; the subscription figure applies only then. `--dry-run` prints `would write <path>` and the full text; writes nothing. |
 | `write --dir WT --answers JSON\|@file` | Renders or updates `docs/agents/project.md` and the `.agent-team/` line in `.gitignore`, inside the worktree WT. Refuses a WT that is not a worktree of this repo, or is on the merge target. |
 
-Run them from the root checkout. The facts in `status` line 2 are `host`, `repo`, `repo_key`, `target`, `gh_logins`, `mapped_login`, `user_md_exists`, `pinned`, `has_workflows`, `test_guess`, `prefix_guess` and `product_guess`. `user_md_error` is there only when `user.md` is malformed: show it to the user and stop.
+Run them from the root checkout. The facts in `status` line 2 are `host`, `repo`, `repo_key`, `target`, `gh_logins`, `mapped_login`, `user_md_exists`, `user_md` (`ok`, `no-file`, `no-row` or `error`), `pinned`, `has_workflows`, `test_guess`, `prefix_guess` and `product_guess`. `user_md_error` is there only when `user.md` is malformed: show it to the user and stop.
 
 The user's replies and the facts become the `--answers` JSON. Keys: `product`, `tracker` (`github`, `linear` or `jira`), `tracker_scope` (the Linear team name or Jira project key; derived for `github`), `prefix`, `repo` (`owner/repo`), `host`, `target`, `test`, `approver`, `login`, `ci` (`none` when the repo has no CI, else leave it out) and `rules` (a list of strings). Put nothing with a backtick, a `|` or a newline in a value; ask again for a shorter, plainer answer. Free-text values (`product`, `tracker_scope`, `test`) take no `<` or `>` either. Always pass `login`. Pass the JSON as a file (`@file`) so the shell does not have to quote it.
 

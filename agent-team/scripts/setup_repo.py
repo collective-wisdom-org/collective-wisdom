@@ -1,8 +1,8 @@
 """Set up the agent team in a repo: read what is set, write the user's account row, render project.md.
 
     setup_repo.py status [--root DIR]    line 1 `missing`, `set` or `placeholders: <rows>`, line 2 the facts as JSON; writes nothing
-    setup_repo.py user --login L [--subscription N|none] [--repo-key K]
-                                         add or replace this repo's row in ~/.config/collective-wisdom/user.md
+    setup_repo.py user --login L [--subscription N|none] [--repo-key K] [--dry-run]
+                                         add or replace this repo's row in ~/.config/collective-wisdom/user.md; --dry-run prints the text instead
     setup_repo.py write --dir WT --answers JSON|@file [--root DIR]
                                          render or update WT/docs/agents/project.md and add `.agent-team/` to WT/.gitignore
 
@@ -224,6 +224,11 @@ def _gh_logins(host):
     return list(dict.fromkeys(f for f in found if user_config.LOGIN.fullmatch(f)))
 
 
+def user_md_need(exists, mapped_login, error):
+    """Whether user.md needs writing: `error`, `no-file`, `no-row` or `ok`."""
+    return "error" if error else "no-file" if not exists else "ok" if mapped_login else "no-row"
+
+
 def facts(d):
     url = _git(["remote", "get-url", "origin"], d) or ""
     m = user_config.URL.fullmatch(url) or user_config.SCP.fullmatch(url)
@@ -240,11 +245,13 @@ def facts(d):
         out["mapped_login"] = user_config.login(d)
     except user_config.UserConfigError as e:
         out["mapped_login"], out["user_md_error"] = None, str(e)
+    exists = user_config.path().exists()
+    out["user_md"] = user_md_need(exists, out["mapped_login"], out.get("user_md_error"))
     name = re.sub(r"[^A-Za-z0-9._-]", "", repo.split("/")[1] if repo else d.resolve().name) or "repo"
     pinned = _git(["cat-file", "-e", f"refs/remotes/origin/{target}:docs/agents/installed-from.txt"], d)
     workflows = d / ".github" / "workflows"
     out.update(
-        user_md_exists=user_config.path().exists(),
+        user_md_exists=exists,
         pinned=pinned is not None,
         has_workflows=workflows.is_dir() and any(workflows.iterdir()),
         test_guess=guess_test(d),
@@ -273,7 +280,8 @@ def _example_free(lines, s, e):
     return [line for i, line in enumerate(lines) if not (s < i < e and line.lstrip().startswith("|") and "`example-login`" in line)]
 
 
-def cmd_user(args):
+def _user_text(args):
+    """(file, text) that `user` writes."""
     key = (args.repo_key or user_config.repo_key(app_root.root()) or "").lower()
     if not KEY.fullmatch(key):
         raise Fail(2, "no repo key: the origin remote is not a recognised URL, pass --repo-key")
@@ -309,8 +317,17 @@ def cmd_user(args):
         if not lines[at - 1].endswith("\n"):
             lines[at - 1] += "\n"
         lines[at:at] = [row] if rows else ["\n", "| Repo | Login |\n", "|---|---|\n", row]
+    return file, "".join(lines)
+
+
+def cmd_user(args):
+    file, text = _user_text(args)
+    if args.dry_run:
+        print(f"would write {file}")
+        print(text, end="")
+        return 0
     file.parent.mkdir(parents=True, exist_ok=True)
-    _write(file, "".join(lines), 0o600)
+    _write(file, text, 0o600)
     print(file)
     return 0
 
@@ -617,6 +634,7 @@ def main(argv):
     u.add_argument("--login", required=True)
     u.add_argument("--subscription")
     u.add_argument("--repo-key")
+    u.add_argument("--dry-run", action="store_true")
     w = sub.add_parser("write")
     w.add_argument("--dir", required=True)
     w.add_argument("--answers", required=True)
