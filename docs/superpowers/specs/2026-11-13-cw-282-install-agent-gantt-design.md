@@ -1,7 +1,8 @@
 # CW-282: Install the agent-gantt plugin from install.sh
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#282](https://github.com/collective-wisdom-org/collective-wisdom/issues/282)
+**Shipped:** in PR #285, as specified
 
 ## Goal
 

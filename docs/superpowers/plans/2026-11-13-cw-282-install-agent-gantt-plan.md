@@ -11,7 +11,7 @@ Test command: `python3 -I -m pytest -q agent-team/scripts` (use `uvx pytest` if 
 
 ## Task 2: Tests
 
-- `agent-team/scripts/test_install_machine.py`: `install()` puts a stub-bin folder first on PATH and drops every PATH folder that holds a real `claude`. The stub reports the plugin installed by default, so the existing tests keep their assertions. A `claude=` keyword picks `installed`, `missing`, `ok` or `fail`.
+- `agent-team/scripts/test_install_machine.py`: `install()` puts a stub-bin folder first on PATH and shadows any real `claude`. The stub reports the plugin installed by default, so the existing tests keep their assertions. A `claude=` keyword picks `installed`, `missing`, `ok` or `fail`.
 - One table-driven test, `test_agent_gantt_plugin_install`, with five rows: no claude, already installed, install works, install fails, dry run. Each checks the exit code, whether `plugin install` ran, the `Done: N change(s)` count and the to-do or dry-run line.
 - Check: `python3 -I -m pytest -q agent-team/scripts/test_install_machine.py`.
 
