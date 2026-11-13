@@ -51,15 +51,16 @@ test('project manager entries parse next to ticket entries, keep their own cap a
     r: { role: 'ranking', session: body('r', { threadId: 'thread:x%3Ay' }) },
     h: { role: 'hygiene', session: body('h', { threadId: 'bad id' }) },
     k: { role: 'helper', session: body('k') },
+    hp: { ticket: 'CW-2', session: body('hp', { cwd: '/r' }) },
     bad: { role: 'chief', session: body('bad') },
     both: { ticket: 'x', role: 'ranking', session: body('both') },
     none: { session: body('none') },
   } })
   const parsed = parseHistory(file)
-  assert.deepEqual(Object.keys(parsed.sessions).sort(), ['h', 'k', 'r', 't'])
+  assert.deepEqual(Object.keys(parsed.sessions).sort(), ['h', 'hp', 'r', 't'])
   assert.equal(parsed.sessions.r.session.threadId, 'thread:x%3Ay')
   assert.equal(parsed.sessions.h.session.threadId, undefined)
-  assert.deepEqual(Object.keys(historyByTicket(parsed)), ['CW-1'])
+  assert.deepEqual(Object.keys(historyByTicket(parsed)).sort(), ['CW-1', 'CW-2'])
 
   let history: History = recordHistory({ sessions: {} }, Array.from({ length: 500 }, (_, i) => ({ ticket: 'CW-1', session: sess(`t${i}`, 1000 + i) })))
   history = recordTeamHistory(history, Array.from({ length: 51 }, (_, i) => ({ role: 'ranking' as const, session: sess(`p${i}`, i, [row(null)]) })))
@@ -67,7 +68,4 @@ test('project manager entries parse next to ticket entries, keep their own cap a
   assert.ok(!('p0' in history.sessions) && 'p1' in history.sessions && 't0' in history.sessions)
   assert.equal(teamHistory(history).length, 50)
   assert.equal(teamHistory(history)[0].session.rows[0].end, teamHistory(history)[0].session.updatedAt)
-  history = recordTeamHistory(history, Array.from({ length: 51 }, (_, i) => ({ role: 'helper' as const, session: sess(`k${i}`, i) })))
-  assert.equal(Object.keys(history.sessions).length, 600)
-  assert.ok(!('k0' in history.sessions) && 'k1' in history.sessions && 'p1' in history.sessions && 't0' in history.sessions)
 })

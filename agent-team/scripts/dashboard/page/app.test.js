@@ -386,6 +386,33 @@ test('groups sort into bands, keep api order inside a band, and show the stage o
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
+test('a running ticket helper is a placeholder card, and Todo and Backlog are flat rows under Not started', () => {
+  const hostile = '<img src=x onerror=1>'
+  const link = '<t3-thread://v2/env/th1>'
+  const mine = sess({ rows: [task({ segments: [[T, T + MIN]] })] })
+  const writing = { name: 'Writing tickets', count: 1, rows: [row({ id: `helper:${hostile}`, title: hostile, helper: true, risk: '', next: '', stage: '', threadLink: link, gantt: [mine] })] }
+  const todo = { name: 'Todo', count: 1, rows: [row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
+  const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
+  const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
+  const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
+  const card = part('progress')
+  assert.match(card, /<span class="id">Ticket helper<\/span> <span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
+  assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
+  assert.match(card, /<details class="chart" data-ticket="helper:&lt;img[^>]*>/)
+  const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
+  assert.ok(!/<a |Details|class="info"/.test(placeholder), 'no link or Details on the placeholder')
+  assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
+  assert.ok(!html.includes('<img'))
+  const idle = part('not-started')
+  assert.ok(idle.indexOf('>Todo ') < idle.indexOf('>Backlog '), 'api order kept: Todo then Backlog')
+  assert.equal([...idle.matchAll(/<li class="row">/g)].length, 2)
+  assert.ok(!idle.includes('<li class="ticket"') && !idle.includes('badge risk'))
+  assert.match(idle, /href="https:\/\/x\.test\/issues\/7"/)
+  assert.match(idle, /data-ticket="CW-8"/)
+  assert.ok(html.indexOf('band-queued') < html.indexOf('band-not-started'), 'Not started follows Queued')
+  assert.equal(renderStatus([todo]).includes('No state yet'), false)
+})
+
 test('merged row with sessions has a closed Agents chart that stays open when its id is in the open set; one without has none', () => {
   const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
   const html = (gantt, open) => renderMerged([{ ...e, ...(gantt ? { gantt } : {}) }, { ...e, id: 'CW-2' }], 0, 10, open).html
@@ -432,7 +459,7 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   const empty = renderChief({ chief: { state: 'idle' }, pm: [] }).html
   assert.match(empty, /No Chief of Staff session in the last 24 hours\./)
   assert.match(empty, /No project manager threads yet\./)
-  assert.match(empty, /No ticket helper threads yet\./)
+  assert.ok(!empty.includes('Ticket helper'))
   assert.ok(!empty.includes('data-chief'))
   const link = '<t3-thread://v2/env/th1>'
   const hostile = '<img src=x onerror=1>'
@@ -449,20 +476,10 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   assert.match(first.html, /Page 1 of 2/)
   const last = renderChief(api, 99)
   assert.equal(last.page, 1)
-  const helper = (i, o = {}) => pm(i, { role: 'helper', ...o })
-  const withHelpers = { ...api, pm: [], helpers: [helper(1, { sessionId: hostile, state: hostile, threadLink: link }), ...Array.from({ length: 10 }, (_, i) => helper(i + 2))] }
-  const hp = renderChief(withHelpers, 0, new Set([hostile]), 10, 99)
-  assert.equal(hp.helperPage, 1)
-  assert.match(hp.html, /Ticket helper/)
-  assert.match(hp.html, /data-helper-page="0"/)
-  assert.ok(!hp.html.includes('<img') && !hp.html.includes('data-pm-page'))
-  const hp0 = renderChief(withHelpers, 0, new Set([hostile]))
-  assert.ok(/<details class="chart" data-helper="&lt;img[^>]* open>/.test(hp0.html))
-  assert.match(hp0.html, /No project manager threads yet\./)
   assert.equal([...last.html.matchAll(/<li class="row">/g)].length, 2)
   assert.deepEqual(['cos', 'ship', null, undefined, 'x', 'COS', 5].map(tabFromStorage), ['cos', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
-  const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }], 'data-helper': [{ dataset: { helper: 'h1' } }] }
+  const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
   const drawn = []
-  drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api, helpers: [pm('h1', { sessionId: 'h1', role: 'helper' })] }, T, (b, html) => drawn.push([b.dataset.pm ?? b.dataset.helper ?? 'chief', html.includes('class="gantt"')]))
-  assert.deepEqual(drawn, [['s2', true], ['h1', true], ['chief', true]])
+  drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
+  assert.deepEqual(drawn, [['s2', true], ['chief', true]])
 })

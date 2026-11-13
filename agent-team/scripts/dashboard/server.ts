@@ -10,6 +10,7 @@ import type { Worktree } from './api.ts'
 import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 import { createUpdated } from './updated.ts'
+import { createBacklog } from './backlog.ts'
 import { createMerged } from './merged.ts'
 import { createDetails, gitRunner } from './details.ts'
 import type { DetailWant } from './details.ts'
@@ -206,6 +207,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
   const updated = createUpdated({ run: ghRunner(root) })
+  const backlog = createBacklog({ run: ghRunner(root) })
   const details = createDetails({ run: ghRunner(root), git: gitRunner(root) })
 
   // Worktree list for matching sessions to tickets: read once at start, then refreshed in the background, cached 30s, last good list kept.
@@ -352,8 +354,9 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     for (const e of shown) wants.push({ id: e.id, stage: 'merged', pr: e.number, merged: true })
     details.want(wants, mergedCfg)
     updated.want(titleCfg)
+    backlog.want(titleCfg)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history) })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history), backlog: backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
