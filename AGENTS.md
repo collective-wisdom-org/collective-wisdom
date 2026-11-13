@@ -6,10 +6,10 @@ Run `./install.sh` once on the machine before anything else. This repo runs the 
 
 ## Product
 
-**collective-wisdom** is the shared agent team: skills, scripts and role docs that move tickets from spec to merge, plus the `install.sh` that installs the clone for the machine by linking into `$HOME`. `install.sh` touches no app: an app commits only `docs/agents/project.md`. The product is the agent team itself, plus one per-machine Claude Code mod, `agent-gantt` (`mods/agent-gantt/`), that `install.sh` does not install. There is no app stack.
+**collective-wisdom** is the shared agent team: skills, scripts and role docs that move tickets from spec to merge, plus the `install.sh` that installs the clone for the machine by linking into `$HOME`. `install.sh` touches no app: an app commits only `docs/agents/project.md`. The product is the agent team itself, plus one per-machine Claude Code mod, `agent-gantt` (`mods/agent-gantt/`), that `install.sh` installs with `claude plugin install`. There is no app stack.
 
 - Shared files live in `agent-team/`, which mirrors a consuming repo. Sessions reach them through the machine install at `~/.collective-wisdom`; this repo has no links into `agent-team/`. Edit the source under `agent-team/`.
-- The `agent-gantt` mod and `.claude-plugin/marketplace.json` live outside `agent-team/` and are edited in place. People install the mod with `/plugin install`; it is never copied into apps. The marketplace also lists `status-pane`, which lives in `agent-team/.claude/mods/status-pane/` (edit it there) and which installs from the marketplace like the mod; `install.sh` does not copy it into apps.
+- The `agent-gantt` mod and `.claude-plugin/marketplace.json` live outside `agent-team/` and are edited in place. `install.sh` installs the mod with `claude plugin install`; it is never copied into apps. The marketplace also lists `status-pane`, which lives in `agent-team/.claude/mods/status-pane/` (edit it there) and which installs from the marketplace like the mod; `install.sh` does not copy it into apps.
 - Repo-specific facts (tracker, its scope and prefix, commands, repo invariants): `docs/agents/project.md`. That file is local to this repo and is never shipped.
 
 ## Required reading

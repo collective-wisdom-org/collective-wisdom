@@ -203,7 +203,7 @@ machine_install() {
   MCHANGED=0
   MTODOS=()
   msay() { if [ "$DRY" -eq 1 ]; then echo "[dry-run] $*"; else echo "$*"; fi; }
-  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd item stop_first stop_second
+  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd item stop_first stop_second gantt out
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   MCLONE="$ROOT"
   { [ -n "${HOME:-}" ] && [ -d "$HOME" ]; } || { echo "Refusing: HOME is not set to a folder." >&2; exit 1; }
@@ -281,6 +281,28 @@ machine_install() {
       todo+=" under hooks.stop add, in this order, $stop_first then $stop_second;"
       MTODOS+=("$todo") ;;
   esac
+
+  # The agent-gantt plugin, at user scope, through the claude CLI. Any failure is a to-do; the run goes on.
+  gantt=(claude plugin install agent-gantt --marketplace collective-wisdom-org/collective-wisdom)
+  if ! command -v claude >/dev/null 2>&1; then
+    MTODOS+=("Install the agent-gantt plugin (the Gantt pane): claude is not on PATH, so run  ${gantt[*]}  once it is, or use the Plugins menu in the desktop app (README, Agent pane).")
+  # A failing list, or output that is not a JSON array, counts as not installed. Any scope, enabled or not, counts as installed.
+  elif ! claude plugin list --json 2>/dev/null </dev/null | python3 -I -c 'import json, sys
+try:
+    plugins = json.load(sys.stdin)
+except ValueError:
+    sys.exit(1)
+sys.exit(0 if isinstance(plugins, list) and any(isinstance(p, dict) and p.get("id") == "agent-gantt@collective-wisdom" for p in plugins) else 1)'; then
+    if [ "$DRY" -eq 1 ]; then
+      msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
+    elif out="$("${gantt[@]}" --scope user 2>&1 </dev/null)"; then
+      msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
+    else
+      why=" (it failed)"
+      [ -n "$out" ] && why=" (it failed: ${out##*$'\n'})"
+      MTODOS+=("Install the agent-gantt plugin (the Gantt pane) by hand: ${gantt[*]}${why}")
+    fi
+  fi
 
   for f in .claude/CLAUDE.md .codex/AGENTS.md; do
     status="$(mpython block "$HOME/$f" "$ROOT/agent-team/templates/machine-instruction.md")"

@@ -69,7 +69,7 @@ An app that was installed the old way, with the team copied into it, follows Mov
 One clone of this repo runs the agent team in every repo on the machine. Clone it somewhere permanent (not a worktree, which can go away), then run the installer with no target path from the clone's root:
 
 ```
-./install.sh --dry-run   # preview, writes nothing
+./install.sh --dry-run   # preview: installs nothing and writes none of the linked files
 ./install.sh             # install
 ```
 
@@ -80,7 +80,7 @@ It writes only under your home folder and touches no app. It links:
 - `~/.collective-wisdom` to the clone's `agent-team/` folder. Skills and role docs call scripts as `~/.collective-wisdom/scripts/<name>`.
 - Each skill into `~/.claude/skills/`, `~/.agents/skills/` (Codex) and `~/.cursor/skills/`, and each subagent into `~/.claude/agents/` and `~/.cursor/agents/`. One link per name, so your own skills stay.
 
-It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json`, plus the Cursor gantt hooks (`cursor_gantt_hook.ts`, for `sessionStart`, `beforeSubmitPrompt`, `stop`, `subagentStart`, `subagentStop` and `sessionEnd`) to `~/.cursor/hooks.json` (other keys and hooks are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone. For Cursor it writes the same text to its own file, `~/.cursor/rules/collective-wisdom.mdc`, with `alwaysApply: true`, and a rerun rewrites that whole file. If you pasted the text into Cursor Settings, Rules before, you can delete that copy.
+It also adds the Chief of Staff Stop hook to `~/.claude/settings.json` and `~/.cursor/hooks.json`, plus the Cursor gantt hooks (`cursor_gantt_hook.ts`, for `sessionStart`, `beforeSubmitPrompt`, `stop`, `subagentStart`, `subagentStop` and `sessionEnd`) to `~/.cursor/hooks.json` (other keys and hooks are kept), and writes a short instruction between `<!-- collective-wisdom:begin -->` and `<!-- collective-wisdom:end -->` in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`. It says the team runs only in a repo with `docs/agents/project.md`. A rerun replaces that block and leaves the rest of the file alone. For Cursor it writes the same text to its own file, `~/.cursor/rules/collective-wisdom.mdc`, with `alwaysApply: true`, and a rerun rewrites that whole file. When `claude` is on PATH and the plugin is not installed yet, it also runs `claude plugin install agent-gantt` at user scope (see Agent pane). A dry run only lists that step, though `claude plugin list` may create its own config (such as `~/.claude.json`) on a machine where Claude Code never ran. If you pasted the text into Cursor Settings, Rules before, you can delete that copy.
 
 The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and, when something needs you, a `TODO:` list. What lands there:
 
@@ -88,6 +88,8 @@ The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and, 
 - A `~/.claude/settings.json` that is not valid JSON, or whose `hooks.Stop` is not a list, and the same for `~/.cursor/hooks.json` and any event list under its `hooks`. It is left alone; add the hooks by hand.
 - A `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md` that cannot be read as text, or has only one of the two marker comments. It is left alone; fix the file.
 - A `~/.cursor/rules/collective-wisdom.mdc` that is a folder or cannot be read as text. It is left alone; fix the path.
+- `claude` not on PATH. The plugin install command is listed to run by hand.
+- A plugin install that failed. The command and the last line of its output are listed.
 
 A `~/.claude/settings.json`, `~/.cursor/hooks.json`, `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.cursor/rules/collective-wisdom.mdc` that is itself a link (dotfiles) is written at its target, so the link stays.
 
@@ -159,7 +161,7 @@ Run it by hand after a batch of merges you want machines to take. Apps do not pi
 
 ## Agent pane
 
-`mods/agent-gantt/` is a Claude Code mod that opens a pane beside the chat and draws this session's agents as a Gantt chart. Each row shows the agent's name, repo, start, end, tokens, cost and model, with a bar that covers only the time the agent was working (waiting for a subagent, a background command or you is a gap). There is one row per task (one per prompt you send, named after the prompt's first line; a ship-loop child shows its stage, `Spec`, `Build` or `Merge`, and a ticket helper, backlog ranking or hygiene child shows its role), a subagent sits under the task it was spawned in, and main's usage that no task carries gets an `outside a task` row. Running bars grow while you watch. It is per person, not per app: install it once per machine at the user scope and it works in every repo and worktree you open. `install.sh` does not install it.
+`mods/agent-gantt/` is a Claude Code mod that opens a pane beside the chat and draws this session's agents as a Gantt chart. Each row shows the agent's name, repo, start, end, tokens, cost and model, with a bar that covers only the time the agent was working (waiting for a subagent, a background command or you is a gap). There is one row per task (one per prompt you send, named after the prompt's first line; a ship-loop child shows its stage, `Spec`, `Build` or `Merge`, and a ticket helper, backlog ranking or hygiene child shows its role), a subagent sits under the task it was spawned in, and main's usage that no task carries gets an `outside a task` row. Running bars grow while you watch. It is per person, not per app: install it once per machine at the user scope and it works in every repo and worktree you open. `./install.sh` installs it at the user scope when `claude` is on PATH, and lists the command under `TODO:` when it is not. To install it from the desktop app, or on a machine where `install.sh` skipped it or failed, use one of these.
 
 At the prompt of a terminal session:
 
