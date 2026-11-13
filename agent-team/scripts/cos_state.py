@@ -52,6 +52,10 @@ the last run's endedAt) when no run is active (none, or endedAt set); a drain st
 run. Anything else is rejected, so an ended run stays ended and itemId and started never change through it. The start op
 appends its ticket to started while a run has no endedAt.
 
+chiefProvider ({"threadId", "provider"}, both plain strings) is the provider (T3's providerInstanceId) of the Chief of Staff
+thread that recorded it; the top op sets it. The ticket field provider (a string, or null) is the provider of the ticket's
+child thread, set from a thread read. cos_tick.py compares them to flag a child on another harness.
+
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
 """
@@ -76,13 +80,13 @@ DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
     "retiredThreads", "rotation", "rotationHeldUntil", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
-    "merged", "tickets", "pm", "observed", "noHands",
+    "merged", "tickets", "pm", "observed", "noHands", "chiefProvider",
 }
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
     "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
-    "noApproval",
+    "noApproval", "provider",
 }
 STAGES = (
     "spec", "awaiting-build", "spec-queued", "build-queued", "build",

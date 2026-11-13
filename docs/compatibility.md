@@ -31,7 +31,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 | Team skills load | 🟢 works | ⚪ untested (G2) | 🟢 works | ⚪ untested (G18) |
 | Subagents | 🟢 works | ⚪ untested: role file as prompt (G4) | 🟡 partial: Cursor-valid copies installed, no Cursor run recorded (G4) | ⚪ untested: role file as prompt (G4) |
 | Chief of Staff thread | 🟢 works | ⚪ untested (G2) | 🟢 works | ⚪ untested (G18) |
-| Ship loop child threads | 🟢 works | ⚪ untested (G2) | 🟡 partial: a Cursor Chief of Staff drove Claude Code children to merge, no Cursor child run (G3) | ⚪ untested (G18) |
+| Ship loop child threads | 🟢 works | 🔴 not supported yet: no model routing recorded (CW-280, G2) | 🟡 partial: a Cursor Chief of Staff drove Claude Code children to merge, no Cursor child run (G3) | 🔴 not supported yet: no model routing recorded (CW-280, G18) |
 | Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) | 🟡 partial: skill-change rotation only, no size trigger (G8) | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) |
 | Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code and Cursor runs only (G8) | 🟡 partial: Auto runs (all the Cursor routing) are expected to show cost unknown (unconfirmed, G8); `grok-4.7` and `composer-2.5` runs are priced at the standard rate, so Fast mode and Grok long prompts show too little (G8) | 🔴 not supported: reads Claude Code and Cursor runs only (G8) |
 | Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: the Chief of Staff tab data shows the Cursor thread's state and link; gantt rows with tokens and cost are written from Cursor's run store, but no Cursor thread has run that code (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
@@ -103,6 +103,25 @@ A ship-loop child cannot start a thread on another harness, so step 2 is done by
 
 One entry per recorded run, newest first. The steps are in [Recording a run](#recording-a-run).
 
+### 2026-11-13, Claude Code in T3 Code (CW-280 control run)
+
+The counterpart to the Cursor runs ([#256](https://github.com/collective-wisdom-org/collective-wisdom/issues/256), [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275)), recorded for [#280](https://github.com/collective-wisdom-org/collective-wisdom/issues/280): a Claude Code Chief of Staff should keep every child on Claude Code. This is a read of thread providers, not a full ship-loop run.
+
+- **Repo and ticket:** collective-wisdom itself, running CW-280.
+- **Skills:** the machine install while CW-280 was being built, before the harness-mismatch check shipped.
+- **Chief of Staff thread:** `mcp:d9205ef0-5df4-4d79-8036-d25ef24f0888` reads `providerInstanceId` `claudeAgent`, model `claude-sonnet-5-5`.
+- **Children and helpers: works.** The 40 newest threads (of 398 listed) were read with `t3_thread_list`. Eight have this Chief of Staff as parent, and all eight read `claudeAgent`:
+  - Five ship-loop children: CW-280, CW-281, CW-284 and CW-286 on `claude-sonnet-5-5`, CW-288 on `claude-opus-5-5`.
+  - One CW-290 child, on `claude-opus-5-5`.
+  - Two ticket helpers, both on `claude-sonnet-5-5`: "helper gantt compat doc" and "Cursor helpers on ship loop".
+
+  No child or helper was on another provider.
+- **Not covered:**
+  - No Backlog ranking or project manager hygiene child appeared in those 40 threads, so neither is checked.
+  - The subagents inside the children (implementer, reviewers) were not read, so their provider is unchecked.
+  - The count is as of the reading, before the mismatch check shipped. It shows a Claude Code Chief of Staff already kept its children on Claude Code. It does not show that the check catches a mismatch.
+- **Touched, not settled:** the 358 threads outside the 40 newest were not read.
+
 ### 2026-11-09, Cursor in T3 Code (CW-256)
 
 - **Repo and ticket:** `dbeallor/cw-cursor-trial` (private), ticket CT-1 "Add a one-line project description to README.md". The setup PR (#2) and the ticket PR (#3) both merged.
@@ -134,7 +153,7 @@ A gap ticket links back to its cell here, by row, column and gap number. When th
 One line per gap the matrices point at. A ticket is opened only where the maintainer wants one, so each line says `none yet` until it exists.
 
 - **G1.** `install.sh` writes the instruction block to `~/.cursor/rules/collective-wisdom.mdc`, but no Cursor thread in T3 Code is recorded reading it. The 2026-11-09 run had no rule file installed, so it settles nothing here. The next Cursor run checks it. Ticket: the follow-up for the Cursor trial run, filed after #283 (the trial was deferred from [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275)).
-- **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Ticket: none yet.
+- **G2.** No recorded Codex run in T3 Code: skills load, the Chief of Staff thread and the child threads are unchecked. Since CW-280 a Chief of Staff on Codex starts no children until a routing table exists. Ticket: none yet.
 - **G3.** No recorded Cursor ship-loop child. In the 2026-11-09 run ([Runs](#runs)) the Cursor Chief of Staff, on skills from before CW-272, started every child on Claude Code. Whether a Cursor child runs the ship loop to merge is unchecked. Ticket: the follow-up for the Cursor trial run, filed after #283 (the trial was deferred from [#275](https://github.com/collective-wisdom-org/collective-wisdom/issues/275)).
 - **G4.** Subagents are proven only in Claude Code. Per Cursor's docs, Cursor loads Cursor-valid copies from `~/.cursor/agents`, but no Cursor run is recorded: the Cursor agent CLI was not logged in. Whether `readonly` also stops a reviewer's MCP write tools is unchecked. `AGENTS.md` says other hosts start a general subagent with the role file as its prompt, so Codex and Antigravity still work that way, and nobody has recorded doing it. The `security-review` skill has no Antigravity branch, so its security review runs the same way there. Ticket: none yet.
 - **G5 and G6** are retired. Their numbers are not reused.
@@ -149,6 +168,6 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G15.** The dashboard's issue links, issue titles and update order call `gh issue` and are on only for GitHub. Ticket: none yet.
 - **G16.** The Linear adapter has no verification line. Ticket: none yet.
 - **G17.** `install.sh` writes nothing for Antigravity, neither skills nor the instruction block. Ticket: none yet.
-- **G18.** No recorded Antigravity run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Ticket: none yet.
+- **G18.** No recorded Antigravity run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Since CW-280 a Chief of Staff on Antigravity starts no children until a routing table exists. Ticket: none yet.
 - **G19.** There is no Azure DevOps adapter: `trackers/` has GitHub, Linear and Jira only, and the `Tracker` row in `project.md` cannot name it. Ticket: none yet.
 - **G20.** `trackers/github.md` § `ensure-labels` names the team labels but not their colors or descriptions, so the Cursor Chief of Staff in the 2026-11-09 run copied them from the collective-wisdom repo. The same step on the other harnesses is not recorded. No matrix cell points at it: it came from the 2026-11-09 run. Ticket: [#276](https://github.com/collective-wisdom-org/collective-wisdom/issues/276).
