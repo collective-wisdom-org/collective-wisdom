@@ -33,7 +33,7 @@ Runs first in § Start-up clean-up, once per "start the team", take over and `re
 2. `ok`: no report line.
 3. `error`: put `user.md: <user_md_error>` under Needs you, leave the file alone and carry on.
 4. `no-file` or `no-row` with `gh_logins` empty: put `No gh login on this machine; run gh auth login, then resume.` under Needs you and carry on.
-5. Otherwise run `setup_repo.py user --dry-run --login <first of gh_logins>` (add `--subscription none` for `no-file`). Put under Needs you the logins `gh auth status` lists, for `no-file` that the subscription figure is a dollar amount or `none`, the dry-run text, and `Reply yes to write it, give another login or figure, or no to skip.` Then carry on; no ticket waits on it.
+5. Otherwise run `setup_repo.py user --dry-run --login <first of gh_logins>` (add `--subscription none` for `no-file`). Take the logins from the `gh_logins` of `status`; never run `gh auth status` yourself or paste its output. Put under Needs you, for `no-file`, that the subscription figure is a dollar amount or `none`, then the dry-run text: for `no-file` the whole text (the template), for `no-row` only the one new row (the table line holding this repo's key), not the rest of the file, because it may hold other repos' logins. Then add `Reply yes to write it, give another login or figure, or no to skip.` If the dry run exits 2, put the script's line under Needs you instead and carry on. Otherwise carry on; no ticket waits on it.
 
 ## State rebuild
 

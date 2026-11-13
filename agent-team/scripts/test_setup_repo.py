@@ -452,7 +452,10 @@ def test_user_dry_run_prints_what_a_real_run_writes_and_writes_nothing(capsys, s
     code, out, _ = run_user(capsys, "--login", "dq", "--dry-run")
     first, _, text = out.partition("\n")
     assert code == 0 and first == f"would write {uc.path().resolve()}"
-    assert (uc.path().read_text() if start else uc.path().parent.exists()) == (start or False)
+    if start:
+        assert uc.path().read_text() == start
+    else:
+        assert not uc.path().parent.exists()
     run_user(capsys, "--login", "dq")
     assert uc.path().read_text() == text
 

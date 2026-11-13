@@ -245,12 +245,13 @@ def facts(d):
         out["mapped_login"] = user_config.login(d)
     except user_config.UserConfigError as e:
         out["mapped_login"], out["user_md_error"] = None, str(e)
-    out["user_md"] = user_md_need(user_config.path().exists(), out["mapped_login"], out.get("user_md_error"))
+    exists = user_config.path().exists()
+    out["user_md"] = user_md_need(exists, out["mapped_login"], out.get("user_md_error"))
     name = re.sub(r"[^A-Za-z0-9._-]", "", repo.split("/")[1] if repo else d.resolve().name) or "repo"
     pinned = _git(["cat-file", "-e", f"refs/remotes/origin/{target}:docs/agents/installed-from.txt"], d)
     workflows = d / ".github" / "workflows"
     out.update(
-        user_md_exists=user_config.path().exists(),
+        user_md_exists=exists,
         pinned=pinned is not None,
         has_workflows=workflows.is_dir() and any(workflows.iterdir()),
         test_guess=guess_test(d),
