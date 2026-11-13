@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-13 show tokens and spend on Cursor gantt rows (CW-284) (#287)
+
+Merged 2026-11-13 22:14 UTC.
+
+A Cursor thread's rows on the local dashboard now show tokens and cost, and the ticket's spend includes them, except the cost of a run on a model with no price. Such a run (Auto, for example) shows a dash for cost, not $0. Nothing to do: rerun `./install.sh` to pick up the change.
+
 ## 2026-11-13 install the agent-gantt plugin from install.sh (CW-282) (#285)
 
 Merged 2026-11-13 20:27 UTC.
