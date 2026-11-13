@@ -178,7 +178,7 @@ Run `~/.collective-wisdom/scripts/wait-for-ci.sh <N>` from the worktree, by abso
 
 ## Models
 
-The child's model per stage is in `chief-of-staff` § Models. Subagents name their model: implementer `sonnet`, code review and security review `opus`. On Cursor: implementer, documenter and compacter Auto Fast; code review and security review Auto Intelligence (`chief-of-staff` § Models Cursor).
+The child's model per stage is in `chief-of-staff` § Models. Subagents name their model: implementer `sonnet`, code review and security review `opus`. On Cursor: implementer, documenter and compacter Auto Fast; code review and security review Auto Intelligence.
 
 ## GitHub account
 
