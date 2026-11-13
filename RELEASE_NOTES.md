@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-13 Chief of Staff creates user.md at start when missing (CW-281) (#292)
+
+Merged 2026-11-13 23:44 UTC.
+
+When this machine has no `user.md`, or no row for the repo, the Chief of Staff now asks for your gh login at start, take over and resume, shows what it will write, and writes it after you say yes. A merge approval no longer needs a hand-written file.
+
 ## 2026-11-13 show ticket helpers on the Ship loop tab and count their time in the ticket gantt (CW-286) (#289)
 
 Merged 2026-11-13 23:05 UTC.
