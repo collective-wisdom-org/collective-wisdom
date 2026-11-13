@@ -319,3 +319,42 @@ def test_ticket_line_with_cursor(tmp_path, capsys, monkeypatch, user_md, claude,
     out, err = capsys.readouterr()
     assert out.strip() == want
     assert ("cannot read" in err) == bad
+
+
+# --cursor-agent: stores hold agent-1 (runs given out of turn order) and agent-2; want is the runs printed, or 2 for an exit 2.
+MS0, MS1 = 1_793_527_260_000, 1_793_529_060_000  # T0 and T1 in ms since epoch
+@pytest.mark.parametrize(
+    "agent, extra, want",
+    [
+        # turn order, input net of cache, an unpriced or missing model kept, a run without usage left out
+        ("agent-1", None, [
+            {"at": MS0, "model": OPUS, "input": 1_000_000, "output": 40_000, "read": 400_000, "write": 100_000},
+            {"at": MS1, "model": None, "input": 100_000, "output": 0, "read": 0, "write": 0},
+        ]),
+        ("agent-3", None, 2),
+        # an unreadable store might hold the agent
+        ("agent-3", "bad store", 2),
+        # an unreadable store beside the one that has the agent changes nothing
+        ("agent-2", "bad store", [{"at": MS0, "model": "gemini-4-argon", "input": 5, "output": 0, "read": 0, "write": 0}]),
+        ("agent-4", "bad usage", 2),
+        ("../agent-1", None, 2),
+    ],
+)
+def test_cursor_agent(tmp_path, capsys, monkeypatch, agent, extra, want):
+    cur = tmp_path / "cursor" / "proj"
+    cursor_store(cur, "agent-1", ["go"], [(2, None, {"inputTokens": 100_000}, T1), (3, "default", None, T1), (1, OPUS, PRICED, T0)], "/none")
+    cursor_store(tmp_path / "cursor" / "other", "agent-2", ["go"], [(1, "gemini-4-argon", {"inputTokens": 5}, T0)], "/none")
+    if extra == "bad store":
+        (cur / "sdk-agent-store" / "bad").mkdir()
+        (cur / "sdk-agent-store" / "bad" / "index.db").write_text("not a database")
+    if extra == "bad usage":
+        cursor_store(cur, "agent-4", ["go"], [(1, OPUS, 5, T0)], "/none")
+    monkeypatch.setattr(sys, "argv", ["agent_usage", "--cursor-projects", str(tmp_path / "cursor"), "--cursor-agent", agent])
+    if want == 2:
+        with pytest.raises(SystemExit) as e:
+            agent_usage.main()
+        assert e.value.code == 2
+        assert capsys.readouterr().out == ""
+        return
+    agent_usage.main()
+    assert json.loads(capsys.readouterr().out) == {"runs": want}

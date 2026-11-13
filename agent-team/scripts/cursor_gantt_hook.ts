@@ -1,18 +1,26 @@
 // Cursor hook: writes this conversation's gantt rows to <root checkout>/.agent-team/gantt/<id>.json for the local dashboard.
 // Run by ~/.cursor/hooks.json as `node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"` for six events (CW-258).
+// On stop, subagentStop and sessionEnd it also reads the conversation's tokens from Cursor's run store (agent_usage.py --cursor-agent) and prices them from prices.json beside it (CW-284).
 // It answers Cursor first and exits 0 after any error once stdin parsed; stdin that cannot be read or parsed exits 1, which Cursor goes on from.
 import { execFileSync } from 'node:child_process'
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 import { applyEvent, cursorCwd, cursorSnapshot, emptyState, hookOutput, sessionKey } from '../../mods/agent-gantt/hooks/cursor.ts'
-import type { CursorPayload, CursorState } from '../../mods/agent-gantt/hooks/cursor.ts'
+import type { CursorPayload, CursorRun, CursorState } from '../../mods/agent-gantt/hooks/cursor.ts'
 import { snapshotName } from '../../mods/agent-gantt/hooks/snapshot.ts'
+import type { Prices } from '../../mods/agent-gantt/types/index.d.ts'
 
 const GANTT = '.agent-team/gantt'
 const LOCK_WAIT_MS = 2000
 const LOCK_STALE_MS = 30_000
 // The dashboard's thread id rule (api.ts cleanThreadId).
 const THREAD_ID = /^[A-Za-z0-9:%._-]+$/
+
+// The events after which Cursor's run store may hold new usage; the others do not read it.
+const USAGE_EVENTS = ['stop', 'subagentStop', 'sessionEnd']
+const USAGE_SCRIPT = fileURLToPath(new URL('./agent_usage.py', import.meta.url))
+const PRICES_FILE = fileURLToPath(new URL('./prices.json', import.meta.url))
 
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 
@@ -86,6 +94,30 @@ function takeLock(lock: string): boolean {
   }
 }
 
+/** The price table next to this script, or null when it is missing or bad. */
+function readPrices(): Prices | null {
+  try {
+    const table = JSON.parse(readFileSync(PRICES_FILE, 'utf8'))
+    return table !== null && typeof table === 'object' ? table : null
+  } catch {
+    return null
+  }
+}
+
+const isRun = (r: any): r is CursorRun =>
+  r !== null && typeof r === 'object' && ['at', 'input', 'output', 'read', 'write'].every(k => Number.isFinite(r[k])) && (r.model === null || typeof r.model === 'string')
+
+/** The conversation's runs from Cursor's run store through agent_usage.py; `old` when the read fails in any way (the store cannot be read, no python3, a timeout, output of the wrong shape). */
+function readRuns(id: string, old: CursorRun[] | null): CursorRun[] | null {
+  try {
+    const out = execFileSync('python3', ['-I', USAGE_SCRIPT, '--cursor-agent', id], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 })
+    const runs = JSON.parse(out)?.runs
+    return Array.isArray(runs) && runs.every(isRun) ? runs : old
+  } catch {
+    return old
+  }
+}
+
 function record(payload: CursorPayload, now: number) {
   const cwd = cursorCwd(payload)
   const id = sessionKey(payload)
@@ -114,13 +146,18 @@ function record(payload: CursorPayload, now: number) {
     const thread = process.env.T3CODE_THREAD_ID
     const threadId = thread && thread.length <= 200 && THREAD_ID.test(thread) ? thread : null
     let text: string
+    const prices = readPrices()
+    const advance = (from: CursorState) => {
+      const next = applyEvent(from, payload, now)
+      return USAGE_EVENTS.includes(payload.hook_event_name ?? '') ? { ...next, runs: readRuns(id, next.runs ?? null) } : next
+    }
     try {
-      state = applyEvent(state, payload, now)
-      text = cursorSnapshot(state, payload, now, threadId)
+      state = advance(state)
+      text = cursorSnapshot(state, payload, now, threadId, prices)
     } catch {
       // a stored state of bad shape: start empty and carry on
-      state = applyEvent(emptyState(), payload, now)
-      text = cursorSnapshot(state, payload, now, threadId)
+      state = advance(emptyState())
+      text = cursorSnapshot(state, payload, now, threadId, prices)
     }
     writeAtomic(stateFile, JSON.stringify(state))
     writeAtomic(snapshot, text)
