@@ -110,7 +110,7 @@ function plusRun(usage: Record<string, Tokens>, run: CursorRun): Record<string, 
   return { ...usage, [model]: { ...t, input: t.input + run.input, output: t.output + run.output, read: t.read + run.read, write_5m: t.write_5m + run.write } }
 }
 
-/** The records with each run's tokens on `main` and on the task that began closest to the run (the earlier one on a tie). Subagents get none: Cursor counts their work in the turn that started them. */
+/** The records with each run's tokens on `main` and on the task that began closest to the run (the earlier one on a tie; a task with no spans has no row and is skipped). Subagents get none: Cursor counts their work in the turn that started them. */
 function withRuns(records: AgentRecord[], runs: CursorRun[]): AgentRecord[] {
   return records.map(r => {
     if (r.id !== MAIN) return r
@@ -120,6 +120,7 @@ function withRuns(records: AgentRecord[], runs: CursorRun[]): AgentRecord[] {
       usage = plusRun(usage, run)
       let near = -1
       tasks.forEach((k, i) => {
+        if (k.segments.length === 0) return
         if (near < 0 || Math.abs(k.start - run.at) < Math.abs(tasks[near]!.start - run.at)) near = i
       })
       if (near >= 0) tasks[near]!.usage = plusRun(tasks[near]!.usage, run)

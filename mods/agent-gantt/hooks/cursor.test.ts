@@ -62,8 +62,8 @@ const B = { read: 1_000_000, write: 400_000 }
 
 test('Cursor runs give the rows their tokens and cost, and the snapshot a total', () => {
   const two: [CursorPayload, number][] = [[prompt('one'), 10_000], [ev('stop'), 20_000], [prompt('two'), 100_000], [ev('stop'), 110_000]]
-  // name, events, runs, prices, the rows as [name, tokens, cost], total
-  const cases: [string, [CursorPayload, number][], CursorRun[] | null, typeof prices | null, [string, number, number | null][], number | null][] = [
+  // name, events, runs, prices, the rows as [name, tokens, cost], total, and the task (if any) to strip of its spans, as a slash command has
+  const cases: [string, [CursorPayload, number][], CursorRun[] | null, typeof prices | null, [string, number, number | null][], number | null, number?][] = [
     ['each prompt gets its run', two, [run(10_000, A), run(100_000, B)], prices, [['one', 1_100_000, 3], ['two', 1_400_000, 1.1]], 4.1],
     ['a run that began 3 seconds before its prompt', two, [run(97_000, A)], prices, [['one', 0, 0], ['two', 1_100_000, 3]], 3],
     ['a run halfway between two prompts goes to the earlier', two, [run(55_000, A)], prices, [['one', 1_100_000, 3], ['two', 0, 0]], 3],
@@ -72,9 +72,11 @@ test('Cursor runs give the rows their tokens and cost, and the snapshot a total'
     ['no price table', two, [run(10_000, A)], null, [['one', 1_100_000, null], ['two', 0, null]], null],
     ['runs never read', two, null, prices, [['one', 0, null], ['two', 0, null]], null],
     ['a subagent has none of its own', [[prompt('go'), 10], [sub('s1', 'look'), 20], [subStop('look'), 30], [ev('stop'), 40]], [run(10, A)], prices, [['go', 1_100_000, 3], ['look', 0, 0]], 3],
+    ['a task with no spans is skipped', two, [run(100_000, A)], prices, [['one', 1_100_000, 3]], 3, 1],
   ]
-  for (const [name, events, runs, table, want, total] of cases) {
-    const state = { ...events.reduce((s, [p, t]) => applyEvent(s, p, t), emptyState()), runs }
+  for (const [name, events, runs, table, want, total, bare] of cases) {
+    const full = { ...events.reduce((s, [p, t]) => applyEvent(s, p, t), emptyState()), runs }
+    const state = { ...full, records: full.records.map(r => ({ ...r, tasks: r.tasks.map((k, i) => (i === bare ? { ...k, segments: [] } : k)) })) }
     const snap = JSON.parse(cursorSnapshot(state, base, 999, null, table))
     const got = snap.rows.map((r: any) => [r.name, r.tokens, r.cost === null ? null : Math.round(r.cost * 1e6) / 1e6])
     assert.deepEqual(got, want, name)

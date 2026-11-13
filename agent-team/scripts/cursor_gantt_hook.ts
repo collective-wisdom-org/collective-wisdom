@@ -133,6 +133,8 @@ function record(payload: CursorPayload, now: number) {
   const stateFile = `${stateDir}/${name}`
   if (isLink(snapshot) || isLink(stateFile)) return
   mkdirSync(stateDir, { recursive: true })
+  // Read before the lock so the 3 second python call does not hold it; null (a failed read) keeps the saved state's runs.
+  const fresh = USAGE_EVENTS.includes(payload.hook_event_name ?? '') ? readRuns(id, null) : null
   const lock = `${stateDir}/${id}.lock`
   if (!takeLock(lock)) return
   try {
@@ -149,7 +151,7 @@ function record(payload: CursorPayload, now: number) {
     const prices = readPrices()
     const advance = (from: CursorState) => {
       const next = applyEvent(from, payload, now)
-      return USAGE_EVENTS.includes(payload.hook_event_name ?? '') ? { ...next, runs: readRuns(id, next.runs ?? null) } : next
+      return fresh === null ? next : { ...next, runs: fresh }
     }
     try {
       state = advance(state)
