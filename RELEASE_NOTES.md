@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-13 show ticket helpers on the Ship loop tab and count their time in the ticket gantt (CW-286) (#289)
+
+Merged 2026-11-13 23:05 UTC.
+
+The dashboard's Ship loop tab now shows a running ticket helper as a card under In progress, and lists open Todo and Backlog tickets in a Not started section. A ticket a helper filed shows the helper's time and cost in its gantt. The Ticket helpers list is gone from the Chief of Staff tab. Update the agent-gantt plugin to get the filed ticket recorded.
+
+Context size: pass skipped (no agent files changed)
+
 ## 2026-11-13 show tokens and spend on Cursor gantt rows (CW-284) (#287)
 
 Merged 2026-11-13 22:14 UTC.
