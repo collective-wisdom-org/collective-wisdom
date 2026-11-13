@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code and the 2026-11-09 Cursor run on 2026-11-13, after CW-286 ([#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)) merged.
+Last checked against the code on 2026-11-13, after CW-286 ([#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)) merged; recorded runs are in [Runs](#runs).
 
 ## Legend
 
@@ -47,7 +47,7 @@ Notes:
 - `install.sh` also adds the Cursor gantt hook to `~/.cursor/hooks.json`, for six events. A Cursor thread on a worktree then gets gantt rows with timing, models, tokens and cost (G9). Like the rotation hook, it has not been seen running in a Cursor thread.
 - The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Cursor child is priced from its run store in `~/.cursor/projects`; a run on a model `prices.json` has no price for, or a store it cannot read, makes the ticket's cost unknown, and a No Hands run stops. A Codex or Antigravity child leaves nothing the script reads, so its cost is unknown and a No Hands run stops. Auto, which is all the Cursor routing since CW-275, is expected to count as unpriced here too (unconfirmed, G8).
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
-- Ticket helper in the gantt: the mod reads the ticket from the `TICKET HELPER DONE` block of a Claude Code helper's final answer (it needs the `agent-gantt` plugin at 0.1.11 or later), and the dashboard adds that session to the ticket's gantt and spend. A running helper with no ticket yet is a `Writing tickets` card. A finished helper that filed nothing leaves no card. The Cursor card has no title and stays until its turn ends, because the Cursor hook sets no `ticket` or `request` (G21).
+- Ticket helper in the gantt: the mod reads the ticket from the `TICKET HELPER DONE` block of a Claude Code helper's final answer (it needs the `agent-gantt` plugin at 0.1.11 or later), and the dashboard adds that session to the ticket's gantt and spend. A session joins a ticket's gantt only when that ticket has a row on the board; a just-filed ticket gets its row from the Not started band, which reads GitHub Issues only, so on Linear or Jira the session reaches the ticket's chart once the ticket is in state. Spend does not depend on the board. A running helper with no ticket yet is a `Writing tickets` card. A finished helper that filed nothing leaves no card. The Cursor card has no title and stays until its turn ends, because the Cursor hook sets no `ticket` or `request` (G21).
 - The Cursor column's Team skills load, Chief of Staff thread, Ship loop and Local dashboard cells rest on the 2026-11-09 run in [Runs](#runs). That run used the skills only: the Cursor rule file and Cursor hooks were not installed on its machine.
 
 ### Full compatibility
