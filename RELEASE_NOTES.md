@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-13 record a Cursor Chief of Staff run on the trial repo (CW-256) (#277)
+
+Merged 2026-11-13 17:07 UTC.
+
+The compatibility page now records a Cursor run: a Cursor Chief of Staff can set up a repo and take a ticket to merge, with Claude Code children. A Cursor child thread is still untested, and a follow-up ticket covers it.
+
 ## 2026-11-09 route Cursor to Grok 4.7 and Composer 2.5 and price them (CW-272) (#274)
 
 Merged 2026-11-09 04:56 UTC.
