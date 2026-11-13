@@ -32,10 +32,10 @@ A ship-loop child cannot start a Cursor thread (its task forbids `t3_thread_laun
    3. Before `start the team`, send: `Quote the first line of your collective-wisdom rule, and say where it came from.` This is the G1 check.
    4. Send `start the team`. Approve the spec and the merge for CT-4 from that thread when it asks. Do not tell it which provider to give the child.
    5. Reply here with `CHIEF OF STAFF:` and the Cursor Chief of Staff thread id and how far CT-4 got. The child thread ids are read from the threads.
-5. **Read the run.** With `t3_thread_read`, read the Cursor Chief of Staff thread and each child it started. For each check below, record the result from a quoted tool call or reply, not a guess.
+5. **Read the run.** With `t3_thread_read`, read the Cursor Chief of Staff thread and each child it started. For each check below, record the result from a quoted tool call or reply, not a guess. List every thread and subagent the run starts for the Harness consistency table, and read the CW-275 Chief of Staff thread and this child for the Claude Code control line.
 6. **Files and stores.** Read the trial root checkout's `.agent-team/state.json` and `.agent-team/gantt/`, run the dashboard API for the trial repo (`agent-team/scripts/dashboard/server.ts`, `/api`), and run `agent_usage.py --ticket CT-4` from the trial clone. Read the trial PR's comments with `gh.sh`.
 7. **Tickets.** File one ticket in collective-wisdom per failure with the `write-ticket` skill, linking its cell and gap. Fix nothing.
-8. **Doc.** Edit `docs/compatibility.md`: a new Runs entry above the CW-256 one, the Ship loop child threads cell, G1, G3, G9, the Install cell, and the Local dashboard cell if the run settles it. Update the "Last checked" line. Then open the PR.
+8. **Doc.** Edit `docs/compatibility.md`: a new Runs entry above the CW-256 one (with the Harness consistency table and the Claude Code control line), the Ship loop child threads cell, G1, G3, G9, the Install cell, and the Local dashboard cell if the run settles it. Update the "Last checked" line. Then open the PR.
 
 ### What the run checks
 
@@ -46,6 +46,25 @@ A ship-loop child cannot start a Cursor thread (its task forbids `t3_thread_laun
 | Mid-thread switch | `t3_thread_configure` moves the child to `composer-2.5` before the spec-approval relay, and the child's later turns run on it |
 | G1, rule file | The thread quotes the rule file's first line and names `collective-wisdom.mdc` or Cursor rules as the source, before any skill file is read |
 | G9, gantt | `.agent-team/gantt/` in the trial root checkout holds a snapshot for the Cursor Chief of Staff thread, and the dashboard API shows a gantt row for it |
+| Harness consistency | Every thread and subagent the run starts runs on the Chief of Staff's own provider, `cursor` (see below) |
+
+### Harness consistency
+
+One Chief of Staff runs on one harness: a Cursor Chief of Staff starts only Cursor children, and a Claude Code one only Claude Code children, per the routing in `chief-of-staff/SKILL.md` § Models. The Runs entry gets a table with one row for every thread and subagent the CT-4 run starts:
+
+- the Chief of Staff thread itself,
+- the CT-4 child, once per model it runs on (spec, then build and merge),
+- the project manager hygiene child and each Backlog ranking child, if it starts any,
+- a ticket helper, if it starts one,
+- each subagent a child starts (implementer, compacter, code reviewer, security reviewer or its general subagent, documenter).
+
+Each row gives the thread id or subagent name, who started it, its provider and its model, and where that came from: the `delegate_task` or `t3_thread_configure` call, the thread's provider in `t3_thread_read`, or the model id in the Cursor run store. A row whose provider is not `cursor` is flagged. A row whose provider the threads and stores do not show is flagged `unknown`.
+
+The Ship loop child threads cell and G3 can be `works` only when no row is flagged. A flagged row makes the cell `partial`, names the row, and gets a ticket link on G3.
+
+### Claude Code control line
+
+The Runs entry gets one control line for the Claude Code column, from threads that already exist, so it costs no extra run: the collective-wisdom Chief of Staff thread that started this CW-275 child (Claude Code), this child, and the subagents this child starts during the build. Each gets the same provider and model fields, flagged if its provider is not `claudeAgent`. The line is read with `t3_thread_read` and costs nothing beyond that. If those threads do not show the provider and model for every row, the control line is dropped from the entry and a follow-up ticket covers a Claude Code control run.
 
 The run also records the evidence #273 asks for: the model ids in each child's and subagent's run store, the fast mode setting where the store shows it, and the `agent_usage.py --ticket CT-4` output. Recording it here means #273 needs no second run; its own doc and skill edits stay in #273.
 
@@ -53,10 +72,13 @@ Cells the run touches but the ticket does not ask about (Subagents G4, Security 
 
 ### Ship loop cell result
 
-- `works` when every Ship loop check above holds and the child's provider is `cursor`. G3 is then dropped, per `## Keeping it current`.
-- Otherwise `partial` or `not supported`, saying what broke, with a ticket link on G3.
+- `works` when every Ship loop check above holds and the Harness consistency table has no flagged row. G3 is then dropped, per `## Keeping it current`.
+- Otherwise `partial` or `not supported`, saying what broke (and naming any flagged row), with a ticket link on G3.
 
 ## Calls I made (surprising first)
+
+- **A subagent's provider comes from the Cursor run store or the thread that started it.** T3 does not list subagents as threads, so where neither shows the provider the row is flagged `unknown`, which also keeps the cell from `works`.
+- **The Claude Code control line reads this ticket's own threads** (the collective-wisdom Chief of Staff, this child, and its subagents) instead of starting a second run. It is dropped, with a follow-up ticket, if those threads do not show every provider and model.
 
 - **The build waits on PR #277 and stops if it has not merged.** This ticket edits the Runs entry and cells that PR adds; starting from `main` without it would fork the doc.
 - **The build stops halfway for you to start the Cursor thread**, as CW-256 did. That `BLOCKED:` is planned.
@@ -74,6 +96,8 @@ Cells the run touches but the ticket does not ask about (Subagents G4, Security 
 - Codex and Antigravity runs.
 - The `chief-of-staff` § Models "not yet observed" note and G8 edits (#273).
 - Any change to skills, scripts or `install.sh`.
+- The general one-harness-per-Chief-of-Staff rule in `chief-of-staff/SKILL.md` and a script check that flags a child on another provider. Both belong to a separate team-change ticket.
+- A separate Claude Code control run. It happens only if the control line above is dropped, and then a follow-up ticket covers it.
 - Deleting the trial repo or the clone.
 
 ## Touches
