@@ -1,7 +1,8 @@
 # CW-288: Attach a Cursor ticket helper's session to the ticket it filed
 
-**Status:** Spec
+**Status:** Shipped
 **Ticket:** [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288)
+**Shipped:** in PR #295, as specified
 **Related:** [#286](https://github.com/collective-wisdom-org/collective-wisdom/issues/286) (helpers on the Ship loop tab, PR #289), [#284](https://github.com/collective-wisdom-org/collective-wisdom/issues/284) (Cursor gantt spend), [#258](https://github.com/collective-wisdom-org/collective-wisdom/issues/258) (Cursor gantt snapshots)
 
 ## Goal
