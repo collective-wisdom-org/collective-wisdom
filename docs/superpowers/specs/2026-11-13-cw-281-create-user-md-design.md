@@ -1,7 +1,8 @@
 # CW-281: Have the Chief of Staff create user.md when this machine has none
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#281](https://github.com/collective-wisdom-org/collective-wisdom/issues/281)
+**Shipped:** in PR #292, with differences: [as-built](../as-built/2026-11-13-cw-281-create-user-md-as-built.md)
 
 ## Goal
 
