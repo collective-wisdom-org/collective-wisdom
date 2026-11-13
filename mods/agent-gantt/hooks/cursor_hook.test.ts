@@ -86,6 +86,19 @@ test('the Cursor hook answers first, exits as Cursor needs, and writes the snaps
     assert.deepEqual(filed(), ['TICKET HELPER', 'Fix it', null], 'request before the ticket')
     helper('stop')
     assert.deepEqual(filed(), ['TICKET HELPER', 'Fix it', 'CW-7'], 'stop reads the ticket from result')
+
+    // Long results (3 x 600 KB, over Node's 1 MiB default output limit) must not make the store read fail and drop the usage.
+    const bigStore = join(tmp, '.cursor/projects/p/sdk-agent-store/b1')
+    mkdirSync(bigStore, { recursive: true })
+    const bdb = new DatabaseSync(join(bigStore, 'index.db'))
+    bdb.exec('create table agents (agent_id, workspace_ref); create table runs (agent_id, turn_number, model, usage_json, started_at, created_at, result)')
+    for (let t = 1; t <= 3; t++) bdb.prepare('insert into runs values (?, ?, ?, ?, ?, ?, ?)').run('b1', t, 'claude-sonnet-4', JSON.stringify({ inputTokens: 1_000_000 }), at, at, 'x'.repeat(600_000))
+    bdb.close()
+    const big = (name: string, extra: object = {}) => run(JSON.stringify({ hook_event_name: name, conversation_id: 'b1', model: 'm', workspace_roots: [work], ...extra }))
+    big('beforeSubmitPrompt', { prompt: 'Go' })
+    big('stop')
+    const bigSnap = JSON.parse(readFileSync(join(gantt, 'b1.json'), 'utf8'))
+    assert.deepEqual([bigSnap.rows.map((r: any) => r.tokens), bigSnap.total], [[3_000_000], 6], 'stop with long results still records the usage')
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }

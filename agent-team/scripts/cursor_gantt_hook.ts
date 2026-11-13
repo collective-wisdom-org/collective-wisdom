@@ -22,6 +22,8 @@ const THREAD_ID = /^[A-Za-z0-9:%._-]+$/
 const USAGE_EVENTS = ['stop', 'subagentStop', 'sessionEnd']
 const USAGE_SCRIPT = fileURLToPath(new URL('./agent_usage.py', import.meta.url))
 const PRICES_FILE = fileURLToPath(new URL('./prices.json', import.meta.url))
+// agent_usage.py prints every run's full `result`; Node's 1 MiB default would throw ENOBUFS on a long conversation.
+const MAX_STORE_READ_BYTES = 64 * 1024 * 1024
 
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 
@@ -111,7 +113,7 @@ const isRun = (r: any): r is CursorRun =>
 /** The conversation's runs and final replies from Cursor's run store through agent_usage.py. When the read fails in any way (the store cannot be read, no python3, a timeout, output of the wrong shape) the runs are `old` and the results null; output without a list of strings as `results` gives null results. */
 function readRuns(id: string, old: CursorRun[] | null): { runs: CursorRun[] | null; results: string[] | null } {
   try {
-    const out = execFileSync('python3', ['-I', USAGE_SCRIPT, '--cursor-agent', id], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 })
+    const out = execFileSync('python3', ['-I', USAGE_SCRIPT, '--cursor-agent', id], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000, maxBuffer: MAX_STORE_READ_BYTES })
     const parsed = JSON.parse(out)
     const results = Array.isArray(parsed?.results) && parsed.results.every((t: unknown) => typeof t === 'string') ? parsed.results : null
     return { runs: Array.isArray(parsed?.runs) && parsed.runs.every(isRun) ? parsed.runs : old, results }
