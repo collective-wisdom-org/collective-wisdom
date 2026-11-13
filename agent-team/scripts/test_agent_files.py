@@ -11,7 +11,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 AGENTS = sorted((ROOT / ".claude" / "agents").glob("*.md"))
-CURSOR_MODEL = {"opus": "grok-4.7", "sonnet": "composer-2.5"}
+CURSOR_MODEL = {"opus": "auto-smart[optimize_for=intelligence]", "sonnet": "auto-smart[optimize_for=balanced]"}
 
 
 def parse(path):
