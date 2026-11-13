@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-13 route Cursor to Auto Intelligence and Auto Fast (CW-275) (#283)
+
+Merged 2026-11-13 17:51 UTC.
+
+The Cursor Chief of Staff and its children now run on Cursor's Auto router (Auto Intelligence for specs, reviews and the ticket helper; Auto Fast for the Chief of Staff, build, merge, project manager children and the implementer, documenter and compacter) instead of named Grok and Composer models, because Cursor cannot pick models for everyone. Run `./install.sh` after this merges so `~/.cursor/agents` picks up the new `model:` values. The usage report is expected to show `cost unknown` for Auto runs (unconfirmed until a real Auto run is read), and a No Hands run under a Cursor Chief of Staff then stops on cost unknown. Cursor reviews now run on the Auto router, which pins no model, so a review PASS on Cursor carries less assurance than on Claude Code: keep the approval risk tolerance strict for a Cursor Chief of Staff until the follow-up checks the review model.
+
 ## 2026-11-13 record a Cursor Chief of Staff run on the trial repo (CW-256) (#277)
 
 Merged 2026-11-13 17:07 UTC.
