@@ -4,6 +4,8 @@
 Usage:
     ~/.collective-wisdom/scripts/cos_idle_check.py [--file STATE] [--now ISO] [--skip ABC-N ...] < reads.json
     ~/.collective-wisdom/scripts/cos_idle_check.py --wait ABC-N [--now ISO] < thread_read.json
+    ~/.collective-wisdom/scripts/cos_idle_check.py --store [--db PATH] [--file STATE] [--now ISO] [--skip ABC-N ...]
+    ~/.collective-wisdom/scripts/cos_idle_check.py --wait ABC-N --store <childThreadId> [--db PATH] [--now ISO]
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and a
 JSON list on stdin with one entry per small child read:
@@ -23,14 +25,31 @@ t3_background_wait call with matched IDs and ended at most 45 minutes before --n
 Prints "waiting ABC-N ..." and exits 0 when it is waiting, prints "stalled ABC-N
 <reason>" and exits 1 when it is not, and exits 2 when the input can't be judged
 (bad input, no run id, or a wait call cut off before its matched list shows).
+
+--store reads the reads from T3's local store (`mode=ro`; --db defaults to
+~/.t3/userdata/statev2.sqlite) instead of stdin: each active ticket's `childThreadId` from state, then
+the thread's `updated_at`, its newest run's status and its provider. A thread missing from the store
+is `full ABC-N unread`. It prints the same lines and exit codes as above, with these additions:
+  - each `ok` line ends with the child's link `<t3-thread://v2/<environment id>/<thread id>>`, the id
+    from `environment-id` beside the database (the thread id itself when the file is missing);
+  - up to 5 `  sub <title> <link>` lines follow an `ok` line, newest first: the threads whose
+    lineage parent is that child and whose relationship is `subagent` (not archived or deleted), with
+    `[`, `]` and newlines dropped from the title;
+  - `provider ABC-N <provider>` follows a ticket's line when the store's provider differs from the
+    `provider` saved in state.
+Exit 2 and "cos_idle_check: schema changed" when the store or a table is not as expected.
+--wait ABC-N --store <childThreadId> does the wait check on the store instead of stdin: the thread's
+newest run and its last 10 `dynamic_tool` items go through the same rules.
 """
 
 import argparse
 import json
 import re
+import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
@@ -38,6 +57,8 @@ from app_root import root  # noqa: E402
 ACTIVE = ("spec", "build", "merge")
 IDLE_AFTER = timedelta(minutes=45)
 DEFAULT_STATE = root() / ".agent-team" / "state.json"
+DEFAULT_DB = Path.home() / ".t3" / "userdata" / "statev2.sqlite"
+SUBS = 5
 
 
 def parse_ts(s):
@@ -197,6 +218,120 @@ def check_wait(ticket, raw, now):
     return 0, f"waiting {ticket}{on}, run ended {hhmm(ended)}"
 
 
+def store_rows(db, work):
+    """work(con), with the store opened read-only; a store that is not as expected is exit 2."""
+    try:
+        con = sqlite3.connect(f"file:{quote(str(db))}?mode=ro", uri=True)
+        try:
+            return work(con)
+        finally:
+            con.close()
+    except sqlite3.Error:
+        fail("schema changed")
+
+
+def environment_id(db):
+    try:
+        env = (Path(db).parent / "environment-id").read_text().strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return env if re.fullmatch(r"[A-Za-z0-9-]+", env) else None
+
+
+def thread_link(env, thread):
+    return f"<t3-thread://v2/{env}/{thread}>" if env else thread
+
+
+def child_row(con, thread):
+    """A read for check(), the store's provider and the newest sub-threads of one child."""
+    row = con.execute(
+        "SELECT updated_at, COALESCE(provider_instance_id, default_provider), "
+        "(SELECT status FROM orchestration_v2_projection_runs r WHERE r.thread_id = t.thread_id ORDER BY r.ordinal DESC LIMIT 1) "
+        "FROM orchestration_v2_projection_threads t WHERE thread_id = ?",
+        (thread,),
+    ).fetchone()
+    if row is None:
+        return None, None, []
+    subs = con.execute(
+        "SELECT thread_id, title FROM orchestration_v2_projection_threads "
+        "WHERE json_extract(payload_json, '$.lineage.parentThreadId') = ? "
+        "AND json_extract(payload_json, '$.lineage.relationshipToParent') = 'subagent' "
+        "AND archived_at IS NULL AND deleted_at IS NULL ORDER BY updated_at DESC, thread_id LIMIT ?",
+        (thread, SUBS),
+    ).fetchall()
+    return {"updatedAt": row[0], "runStatus": row[2]}, row[1], subs
+
+
+def run_store(args):
+    state = load_state(args.file)
+    active = sorted(
+        t
+        for t, info in state["tickets"].items()
+        if isinstance(info, dict) and info.get("stage") in ACTIVE and t not in args.skip
+    )
+
+    def work(con):
+        return {
+            t: child_row(con, state["tickets"][t].get("childThreadId"))
+            if isinstance(state["tickets"][t].get("childThreadId"), str)
+            else (None, None, [])
+            for t in active
+        }
+
+    got = store_rows(args.db, work)
+    env, full = environment_id(args.db), 0
+    for ticket in active:
+        info = state["tickets"][ticket]
+        read, provider, subs = got[ticket]
+        needs, out = check(ticket, info, read, args.now)
+        full += needs
+        if needs:
+            print(out)
+        else:
+            print(f"{out} {thread_link(env, info['childThreadId'])}")
+            for thread, title in subs:
+                title = " ".join(re.sub(r"[\[\]]", "", title or "").split())[:80]
+                print(f"  sub {title} {thread_link(env, thread)}")
+        if provider and provider != info.get("provider"):
+            print(f"provider {ticket} {provider}")
+    print(f"idle-check: {len(active)} active, {full} need a full read")
+    return 1 if full else 0
+
+
+def parsed(text):
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError):
+        return text
+
+
+def wait_read_from_store(db, thread):
+    """The JSON a t3_thread_read activity read gives check_wait(), from the store."""
+
+    def work(con):
+        run = con.execute(
+            "SELECT run_id, status, completed_at FROM orchestration_v2_projection_runs "
+            "WHERE thread_id = ? ORDER BY ordinal DESC LIMIT 1",
+            (thread,),
+        ).fetchone()
+        if run is None:
+            return {}
+        rows = con.execute(
+            "SELECT json_extract(i.payload_json, '$.toolName'), json_extract(i.payload_json, '$.output') "
+            "FROM orchestration_v2_projection_turn_items i JOIN orchestration_v2_turn_item_positions p "
+            "ON p.turn_item_id = i.turn_item_id WHERE i.thread_id = ? AND i.run_id = ? AND i.type = 'dynamic_tool' "
+            "ORDER BY p.ordinal DESC LIMIT 10",
+            (thread, run[0]),
+        ).fetchall()
+        items = [
+            {"runId": run[0], "type": "dynamic_tool", "text": json.dumps({"toolName": tool, "output": parsed(out)})}
+            for tool, out in rows
+        ]
+        return {"recentRuns": [{"runId": run[0], "status": run[1], "completedAt": run[2]}], "items": items}
+
+    return json.dumps(store_rows(db, work))
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="Which active Chief of Staff children need a full read."
@@ -208,12 +343,21 @@ def main():
     )
     ap.add_argument("--skip", action="append", default=[], metavar="TICKET")
     ap.add_argument("--wait", metavar="TICKET")
+    ap.add_argument("--store", nargs="?", const=True, metavar="CHILD_THREAD_ID")
+    ap.add_argument("--db", type=Path, default=DEFAULT_DB)
     ap.add_argument("--now", type=parse_ts, default=datetime.now(timezone.utc))
     args = ap.parse_args()
     if args.wait:
-        code, line = check_wait(args.wait, sys.stdin.read(), args.now)
+        if args.store is True:
+            fail("--wait --store needs the child thread id")
+        raw = wait_read_from_store(args.db, args.store) if args.store else sys.stdin.read()
+        code, line = check_wait(args.wait, raw, args.now)
         print(line)
         raise SystemExit(code)
+    if args.store:
+        if args.store is not True:
+            fail("--store takes a thread id only with --wait")
+        raise SystemExit(run_store(args))
     state = load_state(args.file)
     reads = load_reads(sys.stdin.read())
 
