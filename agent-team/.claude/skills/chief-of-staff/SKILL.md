@@ -160,7 +160,7 @@ Provider id: not recorded yet. Every row of the table shape above is `not routed
 
 ## Lanes
 
-Work moves in three lanes, each with its own limit, under one cap on active children.
+Work moves in three lanes, each with its own limit. A cap on active children covers spec and build, not merge.
 
 | Lane | Active stage | Queue | Limit | Why this number |
 |---|---|---|---|---|
