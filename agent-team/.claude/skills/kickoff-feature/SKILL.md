@@ -16,7 +16,7 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 ## Steps
 
 1. Ticket: if the task names a ticket, it exists; don't create one. Otherwise write the issue with **write-ticket** first, and link the spec in its description once the spec is pushed.
-2. Worktree: follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants (branch pattern, tracker scope and issue prefix are there too). `<head>` below is one of the heads in the `Branch pattern` row of `project.md`, `feat/` unless the task names another. In a worktree T3 made, create the branch from `origin/<target>` (`<target>` is the merge target branch, the `Merge target branch` row of `project.md`, default `main`):
+2. Worktree: follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants (branch pattern, tracker scope and issue prefix are there too). `<head>` below is a head from the `Branch pattern` row of `project.md`: `feat/` unless the task names another. In a worktree T3 made, create the branch from `origin/<target>` (`<target>` is the merge target branch, the `Merge target branch` row of `project.md`, default `main`):
 
    ```bash
    git fetch origin

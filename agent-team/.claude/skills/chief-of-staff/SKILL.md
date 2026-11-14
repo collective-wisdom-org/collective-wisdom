@@ -456,7 +456,7 @@ Chief of Staff thread: <your own thread ID>
 
 Branch: <head><prefix>-<N>-<slug>. Create it yourself in this worktree from origin/<target>
 (git fetch origin && git switch -c <head><prefix>-<N>-<slug> origin/<target>), where <target> is the Merge target branch row of docs/agents/project.md (main when unset); write the name in, the child has none of your history.
-<head> is the first head in the Branch pattern row of docs/agents/project.md (feat/ when the row has none), unless the user or the ticket asked for another head listed there; write the whole branch name in, not <head>.
+<head> is the first head in the Branch pattern row of docs/agents/project.md (feat/ if none), unless the user or ticket asked for another head listed there; write the whole branch name in, not <head>.
 
 Follow ship-loop. Stop at BUILD READY after you commit and push the
 spec. Do nothing past that until a message in this thread starts with

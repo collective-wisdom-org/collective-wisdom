@@ -43,7 +43,7 @@ Do not stop after opening the PR, after CI passes, or after code review **PASS**
 
 A child changes only its own ticket (`project-manager` owns Todo and the Backlog start).
 
-If the task names a ticket, don't create one. In a worktree T3 made, run `git fetch origin && git switch -c <head><prefix>-N-short-title origin/<target>`, where `<head>` is the head the task's `Branch:` line names, else the first head in the `Branch pattern` row of `docs/agents/project.md` (`feat/` when the row has none). Write the spec per brainstorming without asking the user anything, and list every choice the user didn't specify under `## Calls I made`. Commit and push it before you report; the Chief of Staff reads the spec from GitHub at the commit SHA. Stop with a final message whose last block is `BUILD READY`, in this order. The Chief of Staff turns it into the user's approval request, so write plain bullets they can decide from, surprising calls first.
+If the task names a ticket, don't create one. In a worktree T3 made, run `git fetch origin && git switch -c <head><prefix>-N-short-title origin/<target>`, where `<head>` is the head on the task's `Branch:` line, else the first in the `Branch pattern` row of `docs/agents/project.md` (`feat/` if none). Write the spec per brainstorming without asking the user anything, and list every choice the user didn't specify under `## Calls I made`. Commit and push it before you report; the Chief of Staff reads the spec from GitHub at the commit SHA. Stop with a final message whose last block is `BUILD READY`, in this order. The Chief of Staff turns it into the user's approval request, so write plain bullets they can decide from, surprising calls first.
 
 ```
 BUILD READY
@@ -198,7 +198,7 @@ If the provider rate-limits you, stop with `BLOCKED: rate limited`.
 - Merge target branch: the `Merge target branch` row of `project.md` § Git and GitHub, `main` when unset. `<target>` in this skill means that branch. The root checkout stays on it and nothing pushes to it; feature work in a worktree (`.worktrees/<short-name>/` or T3 Code's under `~/.t3/worktrees/`).
 - GitHub: `~/.collective-wisdom/scripts/gh.sh`, never bare `gh` (see `~/.collective-wisdom/docs/agents/github-auth.md`).
 - Tracker operations and which adapter applies: `~/.collective-wisdom/docs/agents/trackers/README.md`.
-- One ticket = one branch = one PR. Branch: `<head><prefix>-N-short-title`, where `<head>` is one of the heads in the pattern in `docs/agents/project.md` (`feat/` unless the task names another).
+- One ticket = one branch = one PR. Branch: `<head><prefix>-N-short-title`, `<head>` is a head from that pattern (`feat/` unless the task names another).
 
 ## Running one phase by hand
 
