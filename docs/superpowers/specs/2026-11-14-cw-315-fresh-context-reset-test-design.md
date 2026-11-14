@@ -1,6 +1,7 @@
 # CW-315: Test the T3 Code fresh-context reset on the Chief of Staff thread
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #330, with differences: [as-built](../as-built/2026-11-14-cw-315-fresh-context-reset-test-as-built.md)
 **Ticket:** [#315](https://github.com/collective-wisdom-org/collective-wisdom/issues/315)
 **Related:** CW-53 (the compaction test it deferred), `chief-of-staff/rotation.md` § Thread rotation
 
