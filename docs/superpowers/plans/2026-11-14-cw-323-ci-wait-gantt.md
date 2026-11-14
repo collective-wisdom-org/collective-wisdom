@@ -18,7 +18,7 @@ Verify with: `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scri
 
 ## Task 3: the chart
 
-- `page/app.js`: `renderGantt(sessions, now, ci)` adds the `CI wait` row under `Total` per spec § 4 (merged length with `union`, open span runs to `now`, `Total` unchanged, row shows even with no sessions). `drawCharts` passes `entry.ci` for ticket and merged charts. Style in `page/index.html` only if the existing `.grow`/`.gtotal` classes do not do.
+- `page/app.js`: `renderGantt(sessions, now, ci)` adds the `CI wait` row under `Total` per spec § 4 (merged length with `union`, open span runs to `now`, `Total` unchanged, row only where a chart is drawn). `drawCharts` passes `entry.ci` for ticket and merged charts. Style in `page/index.html` only if the existing `.grow`/`.gtotal` classes do not do.
 - Test in `app.test.js`.
 
 ## Task 4: README

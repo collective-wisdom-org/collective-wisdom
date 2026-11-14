@@ -52,9 +52,9 @@ Same shape as `createDetails`: `want(prs, cfg)` and `get()`.
 `renderGantt(sessions, now, ci)` takes the spans. When `ci` is non-empty:
 
 - Below `Total`, a `CI wait` row: no bars (the axis is active time, and CI wait is the gaps), the merged length of the spans in the dashboard's duration format, and an empty cost cell. An open span runs to `now` and the row gets the `running` look the other running rows use.
-- The row's tooltip: how many commits ran CI, and the first start and last end as clock times.
+- The row's tooltip: how many commits ran CI, and the first start and the last end as clock times (`now, running` while a span is open).
 - `Total` stays active time only. CI wait is not added to it.
-- The row shows only where a chart is drawn. A card or merged row with no sessions or no tasks shows no chart, so no `CI wait` row, and its PR is not read.
+- The row shows only where a chart is drawn. A card or merged row with no sessions or no tasks shows no chart, so no `CI wait` row. A merged entry with no saved gantt history is not read; an open ticket's PR is still read (see Leaves out).
 
 `drawCharts` passes `entry.ci` for ticket and merged charts. Chief of Staff and project manager charts pass nothing.
 
