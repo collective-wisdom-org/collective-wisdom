@@ -1,6 +1,7 @@
 # CW-313: Read child threads through a script that prints a short result
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #320, with differences: [as-built](../as-built/2026-11-14-cw-313-child-read-script-as-built.md)
 **Ticket:** [#313](https://github.com/collective-wisdom-org/collective-wisdom/issues/313)
 **Related:** #314 (thread-start load)
 
