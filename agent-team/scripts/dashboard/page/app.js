@@ -384,11 +384,10 @@ function ciRow(ci, now) {
 }
 
 export function renderGantt(sessions, now, ci) {
-  const wait = ciRow(ci, now)
-  const alone = (text) => `<p class="quiet">${text}</p>${wait ? `<div class="gantt">${wait}</div>` : ''}`
-  if (!sessions || sessions.length === 0) return alone('No sessions yet')
+  if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   const items = ganttTasks(sessions, now)
-  if (items.length === 0) return alone('No tasks yet')
+  if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
+  const wait = ciRow(ci, now)
   // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
   const active = union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)

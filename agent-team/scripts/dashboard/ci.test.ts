@@ -32,10 +32,10 @@ test('requiredFromProject: names from the row, none for no CI, no names when uns
   assert.deepEqual(requiredFromProject('| Repo | x |\n'), { none: false, names: [] })
 })
 
-test('ci reader: an open PR is re-read after a minute, a merged PR once, a failed read keeps the spans', async () => {
+test('ci reader: an open PR is re-read after a minute (5 minutes once its spans are closed), a merged PR once, a failed read keeps the spans', async () => {
   let clock = 1_000_000
   const calls: string[][] = []
-  let reply: string | Error = pr([{ start: 1, end: 4 }])
+  let reply: string | Error = pr([{ start: 1, end: null }])
   const ci = createCi({ now: () => clock, run: async (args) => { calls.push(args); if (reply instanceof Error) throw reply; return reply } })
   const cfg = { slug: 'o/r', required: ['checks'] }
   const wants = [{ id: 'CW-1', pr: 7 }, { id: 'CW-2', pr: 8, merged: true }, { id: 'CW-3', pr: null }]
@@ -57,4 +57,11 @@ test('ci reader: an open PR is re-read after a minute, a merged PR once, a faile
   ci.want(wants, cfg)
   await ci.idle()
   assert.equal(calls.length, 5)
+  reply =pr([{ start: 1, end: 4 }])
+  await tick(60_000)
+  assert.equal(calls.length, 7)
+  for (const [by, n] of [[60_000, 7], [239_000, 7], [1_000, 8]]) {
+    await tick(by)
+    assert.equal(calls.length, n, `closed spans, ${by}`)
+  }
 })

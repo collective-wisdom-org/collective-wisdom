@@ -493,7 +493,7 @@ test('a group with an http(s) moreUrl ends with an escaped Full backlog link ins
   for (const bad of ['javascript:alert(1)', '//x.test/issues', undefined]) assert.ok(!html(bad).includes('Full backlog'), String(bad))
 })
 
-test('renderGantt ends with a CI wait row of the merged spans, leaves Total alone, and shows with no sessions', () => {
+test('renderGantt ends with a CI wait row of the merged spans and leaves the Total row alone', () => {
   const sessions = [sess({ rows: [task({ segments: [[T, T + 2 * MIN]], end: T + 2 * MIN })] })]
   const now = T + 20 * MIN
   const spans = [[T + 3 * MIN, T + 8 * MIN], [T + 6 * MIN, T + 10 * MIN]]
@@ -502,13 +502,11 @@ test('renderGantt ends with a CI wait row of the merged spans, leaves Total alon
     ['overlap counts once', renderGantt(sessions, now, spans), 'CI wait', '7m 00s'],
     ['an open span runs to now and looks running', renderGantt(sessions, now, [[T + 3 * MIN, null]]), 'CI wait', '17m 00s'],
     ['no spans, no row', renderGantt(sessions, now, []), 'Total', '2m 00s'],
-    ['no sessions', renderGantt([], now, spans), 'CI wait', '7m 00s'],
   ]
   for (const [name, html, rowName, dur] of cases) assert.deepEqual([last(html)?.name, last(html)?.dur], [rowName, dur], name)
   const withWait = view(renderGantt(sessions, now, spans))
   assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
-  assert.equal(withWait[1].dur, view(renderGantt(sessions, now))[1].dur)
+  assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
   assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
   assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d:\d\d to \d\d:\d\d"/)
-  assert.match(renderGantt([], now, spans), /No sessions yet/)
 })

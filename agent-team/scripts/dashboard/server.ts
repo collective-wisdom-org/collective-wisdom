@@ -348,6 +348,10 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     } catch {}
     const tickets = (lastState as { tickets?: unknown } | null)?.tickets
     const wants: DetailWant[] = []
+    merged.want(mergedCfg)
+    const mergedAll = merged.get()
+    const mergedPrs = new Set(mergedAll.map((e) => `${e.id}#${e.number}`))
+    const ganttIds = historyByTicket(history)
     const ciWants: CiWant[] = []
     if (typeof tickets === 'object' && tickets !== null && !Array.isArray(tickets)) {
       const blank = Object.entries(tickets).filter(([, t]) => {
@@ -358,14 +362,13 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
       for (const [id, t] of Object.entries(tickets)) {
         const { stage, specPath, specSha, pr } = (t ?? {}) as Record<string, unknown>
         if (typeof stage === 'string' && DETAIL_STAGES.includes(stage)) wants.push({ id, stage, specPath, specSha, pr })
-        ciWants.push({ id, pr })
+        if (!mergedPrs.has(`${id}#${pr}`)) ciWants.push({ id, pr })
       }
     }
-    merged.want(mergedCfg)
-    const shown = merged.get().slice(mergedPage * MERGED_PAGE_SIZE, (mergedPage + 1) * MERGED_PAGE_SIZE)
+    const shown = mergedAll.slice(mergedPage * MERGED_PAGE_SIZE, (mergedPage + 1) * MERGED_PAGE_SIZE)
     for (const e of shown) {
       wants.push({ id: e.id, stage: 'merged', pr: e.number, merged: true })
-      ciWants.push({ id: e.id, pr: e.number, merged: true })
+      if (ganttIds[e.id]?.length) ciWants.push({ id: e.id, pr: e.number, merged: true })
     }
     details.want(wants, mergedCfg)
     ci.want(ciWants, mergedCfg && required ? { slug: mergedCfg.slug, required } : null)
@@ -375,7 +378,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const fromFile = repo !== null && !repo.isGithubIssues && prefix !== null
     trackerLists.want(fromFile ? prefix : null)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, heads, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, heads, merged: mergedAll, updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

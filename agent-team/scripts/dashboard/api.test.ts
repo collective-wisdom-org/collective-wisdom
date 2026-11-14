@@ -454,6 +454,6 @@ test('ci spans reach the ticket row and the merged entry that own the PR; a PR w
   const rows = Object.fromEntries(api.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
   assert.deepEqual(rows['CW-1'].ci, spans)
   assert.ok(!('ci' in rows['CW-2']))
-  assert.deepEqual(api.merged.map((e) => e.ci), [spans, undefined])
+  assert.deepEqual(api.merged[0].ci, spans)
   assert.ok(!('ci' in api.merged[1]))
 })

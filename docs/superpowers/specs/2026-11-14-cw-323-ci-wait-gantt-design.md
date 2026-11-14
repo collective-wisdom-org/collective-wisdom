@@ -19,7 +19,7 @@ A ticket's gantt shows only the time an agent was working. While a child waits f
 
 ### 1. The wait, per PR (`agent-team/scripts/dashboard/ci.ts`, new)
 
-One read per PR, a GraphQL query through `gh.sh api graphql`: the PR's last 100 commits, and for each, its check suites (first 20) and their check runs (first 50) with `name`, `startedAt`, `completedAt`.
+One read per PR, a GraphQL query through `gh.sh api graphql`: the PR's last 50 commits, and for each, its check suites (first 5) and their check runs (first 20, every attempt: `filterBy:{checkType:ALL}`) with `name`, `startedAt`, `completedAt`. The query costs 3 rate-limit points a read (measured with `rateLimit{cost}`).
 
 `ciWait(json, required)` turns that into a list of wait spans `[start, end | null]`:
 
@@ -36,8 +36,8 @@ So a push that cancels a run gives two spans: the cancelled run's commit (start 
 
 Same shape as `createDetails`: `want(prs, cfg)` and `get()`.
 
-- Wanted PRs: every ticket on the board whose state has a `pr` number, and the merged entries on the merged page being shown.
-- An open PR is read at most once a minute. A merged PR is read once and kept while it is wanted, since its checks no longer change.
+- Wanted PRs: every ticket on the board whose state has a `pr` number that is not already in the merged list, and the merged entries on the merged page being shown that have recorded gantt history. A PR with no chart to draw it on is not read.
+- An open PR is read at most once a minute, or once in 5 minutes when it has spans and all of them are closed. A merged PR is read once and kept while it is wanted, since its checks no longer change.
 - Reads run one at a time. A failed read keeps the last good spans and is retried after a minute.
 - An entry no longer wanted is dropped after a minute, like a detail.
 
@@ -54,7 +54,7 @@ Same shape as `createDetails`: `want(prs, cfg)` and `get()`.
 - Below `Total`, a `CI wait` row: no bars (the axis is active time, and CI wait is the gaps), the merged length of the spans in the dashboard's duration format, and an empty cost cell. An open span runs to `now` and the row gets the `running` look the other running rows use.
 - The row's tooltip: how many commits ran CI, and the first start and last end as clock times.
 - `Total` stays active time only. CI wait is not added to it.
-- When the chart has no sessions (`No sessions yet`), the `CI wait` row still shows under that line.
+- The row shows only where a chart is drawn. A card or merged row with no sessions or no tasks shows no chart, so no `CI wait` row, and its PR is not read.
 
 `drawCharts` passes `entry.ci` for ticket and merged charts. Chief of Staff and project manager charts pass nothing.
 
@@ -74,7 +74,8 @@ Same shape as `createDetails`: `want(prs, cfg)` and `get()`.
 - The mod pane (Claude Code) and the Cursor hook. They draw their own charts and do not read GitHub.
 - Bars for CI on the chart's axis.
 - Adding CI wait to the Chief of Staff or project manager charts.
-- PRs with more than 100 commits, 20 check suites per commit or 50 runs per suite: the read sees the latest 100 commits and the first suites and runs on each.
+- PRs with more than 50 commits, 5 check suites per commit or 20 runs per suite: the read sees the latest 50 commits and the first suites and runs on each.
+- Skipping the read for an open ticket that has no chart. Whether a snapshot matches the ticket is known only inside `buildApi`, so only merged entries without history and PRs already merged are skipped.
 - Saving CI wait to `gantt-history.json`. It is re-read from GitHub each time the dashboard starts.
 
 ## Calls I made (surprising first)
@@ -84,6 +85,7 @@ Same shape as `createDetails`: `want(prs, cfg)` and `get()`.
 - **The wait starts when the first run starts, not when it was queued.** That is the ticket's wording. Queue time before a runner picks the job is left out.
 - **A re-run of the same commit (GitHub's "Re-run jobs") counts from the commit's first run start to the last required run's end**, gap included. This is rare in this repo.
 - **One GraphQL read per PR, through `gh.sh api graphql`**, instead of one REST call per commit. It also covers checks from any provider, not only GitHub Actions.
+- **Query limits are 50 commits, 5 suites and 20 runs.** The first version (100, 20, 50) cost 21 points a read, and every open PR was read each minute. The smaller query costs 3, and a PR whose spans are all closed is read every 5 minutes.
 - **Required names come from project.md's `Required CI checks` row**, the same row `wait-for-ci.sh` and `merge_pr.py` use. A cell that does not parse counts every run, so an app with an unset row still sees a wait.
 - **A merged PR is read once per dashboard run.** Its checks are final.
 - **CI wait is not saved to the gantt history.** It can always be read again from GitHub, and keeping it out leaves the history format alone.

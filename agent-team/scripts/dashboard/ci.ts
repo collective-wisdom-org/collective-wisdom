@@ -2,9 +2,10 @@ type Run = (args: string[]) => Promise<string>
 export type Span = [number, number | null]
 
 const REFRESH_MS = 60_000
+const CLOSED_REFRESH_MS = 300_000
 
-/** The PR's last 100 commits with their check suites (first 20) and check runs (first 50). */
-export const CI_QUERY = `query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){commits(last:100){nodes{commit{checkSuites(first:20){nodes{checkRuns(first:50){nodes{name startedAt completedAt}}}}}}}}}}`
+/** The PR's last 50 commits with their check suites (first 5) and check runs (first 20, every attempt). Costs 3 points a read. */
+export const CI_QUERY = `query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){commits(last:50){nodes{commit{checkSuites(first:5){nodes{checkRuns(first:20,filterBy:{checkType:ALL}){nodes{name startedAt completedAt}}}}}}}}}}`
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const nodes = (x: unknown): unknown[] => (isObj(x) && Array.isArray(x.nodes) ? x.nodes : [])
@@ -48,7 +49,7 @@ export type CiWant = { id: string; pr: unknown; merged?: boolean }
 
 /**
  * CI wait spans per PR, read from GitHub in the background, one read at a time. Keys are `<id>#<pr>`.
- * An open PR is read at most once a minute, a merged PR once. A failed read keeps the last spans and is retried after a minute. An entry no longer wanted is dropped after a minute.
+ * An open PR is read at most once a minute, or once in 5 minutes while it has spans and all of them are closed. A merged PR is read once. A failed read keeps the last spans and is retried after a minute. An entry no longer wanted is dropped after a minute.
  */
 export function createCi(opts: { run: Run; now?: () => number }) {
   const now = opts.now ?? Date.now
@@ -80,7 +81,8 @@ export function createCi(opts: { run: Run; now?: () => number }) {
         wanted.add(key)
         const have = entries.get(key)
         if (have) have.merged ||= w.merged === true
-        const due = !have || (!(have.merged && have.ok) && t - have.startedAt >= REFRESH_MS)
+        const closed = have?.ok && have.spans?.length && have.spans.every((p) => p[1] !== null)
+        const due = !have || (!(have.merged && have.ok) && t - have.startedAt >= (closed ? CLOSED_REFRESH_MS : REFRESH_MS))
         if (!due || queue.includes(key)) continue
         entries.set(key, { pr: w.pr as number, startedAt: t, merged: have?.merged ?? w.merged === true, spans: have?.spans, ok: false })
         queue.push(key)
