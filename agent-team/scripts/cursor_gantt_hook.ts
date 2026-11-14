@@ -1,12 +1,13 @@
 // Cursor hook: writes this conversation's gantt rows to <root checkout>/.agent-team/gantt/<id>.json for the local dashboard.
 // Run by ~/.cursor/hooks.json as `node "$HOME/.collective-wisdom/scripts/cursor_gantt_hook.ts"` for six events (CW-258).
 // On stop, subagentStop and sessionEnd it also reads the conversation's tokens from Cursor's run store (agent_usage.py --cursor-agent) and prices them from prices.json beside it (CW-284).
+// The same read gives the final replies (`results`); a TICKET HELPER's ticket is taken from them (CW-288), and the text itself is not kept.
 // It answers Cursor first and exits 0 after any error once stdin parsed; stdin that cannot be read or parsed exits 1, which Cursor goes on from.
 import { execFileSync } from 'node:child_process'
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { applyEvent, cursorCwd, cursorSnapshot, emptyState, hookOutput, sessionKey } from '../../mods/agent-gantt/hooks/cursor.ts'
+import { applyEvent, cursorCwd, cursorSnapshot, emptyState, hookOutput, sessionKey, withFiledTicket } from '../../mods/agent-gantt/hooks/cursor.ts'
 import type { CursorPayload, CursorRun, CursorState } from '../../mods/agent-gantt/hooks/cursor.ts'
 import { snapshotName } from '../../mods/agent-gantt/hooks/snapshot.ts'
 import type { Prices } from '../../mods/agent-gantt/types/index.d.ts'
@@ -21,6 +22,8 @@ const THREAD_ID = /^[A-Za-z0-9:%._-]+$/
 const USAGE_EVENTS = ['stop', 'subagentStop', 'sessionEnd']
 const USAGE_SCRIPT = fileURLToPath(new URL('./agent_usage.py', import.meta.url))
 const PRICES_FILE = fileURLToPath(new URL('./prices.json', import.meta.url))
+// agent_usage.py prints every run's full `result`; Node's 1 MiB default would throw ENOBUFS on a long conversation.
+const MAX_STORE_READ_BYTES = 64 * 1024 * 1024
 
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 
@@ -107,14 +110,15 @@ function readPrices(): Prices | null {
 const isRun = (r: any): r is CursorRun =>
   r !== null && typeof r === 'object' && ['at', 'input', 'output', 'read', 'write'].every(k => Number.isFinite(r[k])) && (r.model === null || typeof r.model === 'string')
 
-/** The conversation's runs from Cursor's run store through agent_usage.py; `old` when the read fails in any way (the store cannot be read, no python3, a timeout, output of the wrong shape). */
-function readRuns(id: string, old: CursorRun[] | null): CursorRun[] | null {
+/** The conversation's runs and final replies from Cursor's run store through agent_usage.py. When the read fails in any way (the store cannot be read, no python3, a timeout, output of the wrong shape) the runs are `old` and the results null; output without a list of strings as `results` gives null results. */
+function readRuns(id: string, old: CursorRun[] | null): { runs: CursorRun[] | null; results: string[] | null } {
   try {
-    const out = execFileSync('python3', ['-I', USAGE_SCRIPT, '--cursor-agent', id], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 })
-    const runs = JSON.parse(out)?.runs
-    return Array.isArray(runs) && runs.every(isRun) ? runs : old
+    const out = execFileSync('python3', ['-I', USAGE_SCRIPT, '--cursor-agent', id], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000, maxBuffer: MAX_STORE_READ_BYTES })
+    const parsed = JSON.parse(out)
+    const results = Array.isArray(parsed?.results) && parsed.results.every((t: unknown) => typeof t === 'string') ? parsed.results : null
+    return { runs: Array.isArray(parsed?.runs) && parsed.runs.every(isRun) ? parsed.runs : old, results }
   } catch {
-    return old
+    return { runs: old, results: null }
   }
 }
 
@@ -134,7 +138,9 @@ function record(payload: CursorPayload, now: number) {
   if (isLink(snapshot) || isLink(stateFile)) return
   mkdirSync(stateDir, { recursive: true })
   // Read before the lock so the 3 second python call does not hold it; null (a failed read) keeps the saved state's runs, and a shorter (older) read never replaces them.
-  const fresh = USAGE_EVENTS.includes(payload.hook_event_name ?? '') ? readRuns(id, null) : null
+  const read = USAGE_EVENTS.includes(payload.hook_event_name ?? '') ? readRuns(id, null) : null
+  const fresh = read?.runs ?? null
+  const results = read?.results ?? null
   const lock = `${stateDir}/${id}.lock`
   if (!takeLock(lock)) return
   try {
@@ -151,7 +157,7 @@ function record(payload: CursorPayload, now: number) {
     const prices = readPrices()
     const advance = (from: CursorState) => {
       const next = applyEvent(from, payload, now)
-      return fresh === null || fresh.length < (next.runs?.length ?? 0) ? next : { ...next, runs: fresh }
+      return withFiledTicket(fresh === null || fresh.length < (next.runs?.length ?? 0) ? next : { ...next, runs: fresh }, results)
     }
     try {
       state = advance(state)

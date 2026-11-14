@@ -1,7 +1,7 @@
 // Cursor hook events mapped onto the mod's records and the dashboard's snapshot. Pure, so the rules are testable without Cursor.
 import type { AgentRecord, Prices, Tokens } from '../types/index.d.ts'
 import { buildRows, MAIN } from './rows.ts'
-import { buildSnapshot, pickHeading } from './snapshot.ts'
+import { buildSnapshot, pickFiledTicket, pickHeading, pickRequest } from './snapshot.ts'
 import { beginTask, closeSegment, openSegment, taskName } from './timeline.ts'
 
 const NAME_MAX = 60
@@ -35,9 +35,13 @@ export type CursorState = {
   taskModels: Record<string, string>
   /** The runs of the last good read of Cursor's run store; null until it was read once, and in a state saved before CW-284. */
   runs: CursorRun[] | null
+  /** The ticket a TICKET HELPER filed, from its final reply in Cursor's run store; null until seen, and in a state saved before CW-288. */
+  ticket: string | null
+  /** A TICKET HELPER's request line, from its first prompt; null for any other conversation, and in a state saved before CW-288. */
+  request: string | null
 }
 
-export const emptyState = (): CursorState => ({ records: [], heading: { isSet: false, value: null }, model: null, subagentModels: {}, taskModels: {}, runs: null })
+export const emptyState = (): CursorState => ({ records: [], heading: { isSet: false, value: null }, model: null, subagentModels: {}, taskModels: {}, runs: null, ticket: null, request: null })
 
 const EVENTS = ['sessionStart', 'beforeSubmitPrompt', 'stop', 'subagentStart', 'subagentStop', 'sessionEnd']
 
@@ -71,8 +75,9 @@ export function applyEvent(state: CursorState, p: CursorPayload, now: number): C
       // `since` after now: a prompt always begins a new task, as no turn start made one here.
       const begun = beginTask(main, taskName(prompt, main.tasks.map(k => k.name)), now + 1, now)
       const heading = next.heading.isSet ? next.heading : { isSet: true, value: pickHeading(prompt) }
+      const request = !next.heading.isSet && heading.value === 'TICKET HELPER' ? pickRequest(prompt) : next.request
       const taskModels = next.model ? { ...next.taskModels, [begun.tasks.length - 1]: next.model } : next.taskModels
-      return { ...next, heading, taskModels, records: mapMain(records, () => openSegment(begun, now)) }
+      return { ...next, heading, request, taskModels, records: mapMain(records, () => openSegment(begun, now)) }
     }
     case 'stop':
       return { ...next, records: mapMain(records, r => ({ ...closeSegment(r, now), last: now })) }
@@ -99,6 +104,16 @@ export function applyEvent(state: CursorState, p: CursorPayload, now: number): C
     default:
       return next
   }
+}
+
+/** The state with the ticket a TICKET HELPER filed: the first ticket found in `results` (the final replies of the conversation's runs, in turn order). Anything else gives the state back: results null (not read), another heading, a ticket already set, or no ticket in any reply. */
+export function withFiledTicket(state: CursorState, results: string[] | null): CursorState {
+  if (state.heading.value !== 'TICKET HELPER' || state.ticket !== null || results === null) return state
+  for (const text of results) {
+    const ticket = pickFiledTicket(text)
+    if (ticket !== null) return { ...state, ticket }
+  }
+  return state
 }
 
 const shortModel = (m: string | null | undefined) => (m ? m.replace(/^claude-/, '') : null)
@@ -138,7 +153,7 @@ export function cursorSnapshot(state: CursorState, p: CursorPayload, now: number
   }))
   const total = runs === null || rows.some(r => r.cost === null) ? null : rows.reduce((sum, r) => sum + (r.cost ?? 0), 0)
   const cwd = cursorCwd(p) ?? state.records.find(r => r.id === MAIN)?.cwd ?? ''
-  return buildSnapshot({ sessionId: sessionKey(p) ?? '', cwd, updatedAt: now, total, rows, threadId, heading: state.heading.value })
+  return buildSnapshot({ sessionId: sessionKey(p) ?? '', cwd, updatedAt: now, total, rows, threadId, heading: state.heading.value, ticket: state.ticket, request: state.request })
 }
 
 /** What the hook prints for an event. The gantt hook never blocks, never adds a follow-up and never sets `user_message`. */

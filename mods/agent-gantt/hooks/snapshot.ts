@@ -55,7 +55,7 @@ export function pickRequest(text: string): string | null {
   return null
 }
 
-/** The JSON text the local dashboard reads for one session. `pricing: 2` marks rows priced after the CW-220 rate fix. `threadId`, `heading`, `ticket` and `request` are null when unknown; the Cursor hook leaves the last two out. */
+/** The JSON text the local dashboard reads for one session. `pricing: 2` marks rows priced after the CW-220 rate fix. `threadId`, `heading`, `ticket` and `request` are null when unknown. */
 export function buildSnapshot(args: { sessionId: string; cwd: string; updatedAt: number; total: number | null; rows: Row[]; threadId: string | null; heading: string | null; ticket?: string | null; request?: string | null }): string {
   const { sessionId, cwd, updatedAt, total, rows, threadId, heading, ticket = null, request = null } = args
   return JSON.stringify({ sessionId, cwd, updatedAt, total, pricing: 2, threadId, heading, ticket, request, rows })
