@@ -177,7 +177,7 @@ Nothing goes past a lane's limit or the overall cap. Other sections say "the spe
 
 ## State file
 
-`.agent-team/state.json` in the root checkout. Gitignored. It is the only file you may write, and only through `cos_state.py`, except that the dashboard scripts write `.agent-team/dashboard.json`. It is a cache: the tracker and the child threads are the source of truth. The keys are in state-keys.md § State keys, with an example file in § State file example. Never add a top-level key (`policy`, `settings`, `rules` or anything like them).
+`.agent-team/state.json` in the root checkout. Gitignored. It is the only file you may write, and only through `cos_state.py`, except that the dashboard scripts write `.agent-team/dashboard.json` and `cos_lists.py` (also run by `cos_todo.py`'s first pass) writes `.agent-team/tracker-lists.json`. It is a cache: the tracker and the child threads are the source of truth. The keys are in state-keys.md § State keys, with an example file in § State file example. Never add a top-level key (`policy`, `settings`, `rules` or anything like them).
 
 Every write goes through `cos_state.py apply`, which takes a JSON list of ops on stdin (quoted heredoc, so the user's words need no escaping) and applies all or none: `python3 ~/.collective-wisdom/scripts/cos_state.py apply <<'EOF'`, the list, `EOF`, e.g. `[{"op": "stage", "ticket": "<PREFIX>-210", "stage": "awaiting-build", "status": "awaiting-build since 14:40: …", "set": {"specSha": "<sha>…"}}]`. The ops (`observe` included, § Child path) are in `cos_state.py`, which rejects what this section forbids. An `unknown keys:` line is reported once under Cleanup (state-keys.md § Unknown keys and prune). A ticket's `note` is status only (state-keys.md § State keys).
 
@@ -604,7 +604,7 @@ While a No Hands run is active (`no_hands.py check` says `on` or `drain`), every
 
 ## Guardrails
 
-- Never edit repo files except `.agent-team/state.json` (and `.agent-team/dashboard.json`, written by the dashboard scripts). It holds state only, never rules.
+- Never edit repo files except `.agent-team/state.json` (and `.agent-team/dashboard.json`, written by the dashboard scripts, and `.agent-team/tracker-lists.json`, written only by `cos_lists.py`). It holds state only, never rules.
 - The team's rules are the skills and docs on the merge target branch, nothing else. `.agent-team/state.json` holds only the keys in state-keys.md § State keys, never rules, policies, defaults or preferences. Agent memory doesn't hold team rules either. If memory and a skill disagree, the skill wins.
 - A change to how the team works (intervals, caps, gates, report format, models, commands) goes through a ticket helper (§ Commands) and a PR. Don't act on the new rule early, through state, memory, a scheduled-task setting or a child's task text. The same holds for a change you find yourself: when `observe` says `file` (§ Child path), start an observation helper (ticket-helper.md § Observation tickets). You still cannot act on the change before its PRs merge, add `agent` or `agent-skip`, move the ticket out of Backlog, or start it outside the project manager's Backlog pick. Once started there it needs the user's own `approve N` at spec and merge, even under `balanced` or `permissive` (approvals.md § Auto-approval, Observation tickets). Only an active No Hands run changes that.
 - The Chief of Staff schedules nothing except the rate-limit wake.

@@ -69,7 +69,9 @@ def save(kind, tickets, file=None):
         held[kind] = {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "list": items}
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
-            tmp.write_text(json.dumps(held))
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)  # never through a planted link
+            with os.fdopen(fd, "w") as f:
+                f.write(json.dumps(held))
             os.replace(tmp, path)
         finally:
             tmp.unlink(missing_ok=True)
