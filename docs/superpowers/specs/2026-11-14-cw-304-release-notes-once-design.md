@@ -1,6 +1,7 @@
 # CW-304: Show each change once in the release notes
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #309, as specified
 **Ticket:** [#304](https://github.com/collective-wisdom-org/collective-wisdom/issues/304)
 
 ## Goal
