@@ -79,6 +79,7 @@ test('earlierRows keeps and closes the rows that started before the current main
     ['no rows array', old({ rows: 'x' }), 400, []],
     ['no updatedAt', old({ updatedAt: '5' }), 400, []],
     ['bad rows skipped', old({ rows: [null, { id: 3, start: 1 }, { id: 'a', start: 'x' }, closed.id] }), 400, []],
+    ['bad segment', old({ rows: [{ ...row('a', 100, 300), segments: [null] }, { ...row('b', 100, 300), segments: [[1]] }, row('c', 100, 300)] }), 400, [row('r500:c', 100, 300)]],
     ['not an object', null, 400, []],
   ]
   for (const [name, snap, mainStart, want] of cases) assert.deepEqual(earlierRows(snap, 's1', mainStart), want, name)

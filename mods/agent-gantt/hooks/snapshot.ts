@@ -57,6 +57,7 @@ export function pickRequest(text: string): string | null {
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const isSegment = (v: unknown): v is Segment => Array.isArray(v) && v.length === 2 && typeof v[0] === 'number' && (typeof v[1] === 'number' || v[1] === null)
 
 /** The parsed old snapshot when it is an object with a numeric `updatedAt` and this session's id, else null. */
 function ownSnapshot(old: unknown, sessionId: string): (Record<string, unknown> & { updatedAt: number }) | null {
@@ -76,7 +77,7 @@ export function earlierRows(old: unknown, sessionId: string, mainStart: number):
   const { updatedAt } = snap
   const rows: Row[] = []
   for (const r of snap.rows as unknown[]) {
-    if (!isObject(r) || typeof r.id !== 'string' || typeof r.start !== 'number' || r.start >= mainStart || !Array.isArray(r.segments)) continue
+    if (!isObject(r) || typeof r.id !== 'string' || typeof r.start !== 'number' || r.start >= mainStart || !Array.isArray(r.segments) || !r.segments.every(isSegment)) continue
     const segments = (r.segments as Segment[]).map((s): Segment => [s[0], s[1] ?? Math.max(s[0], updatedAt)])
     rows.push({ ...(r as Row), id: `r${updatedAt}:${r.id}`, end: typeof r.end === 'number' ? r.end : updatedAt, segments })
   }

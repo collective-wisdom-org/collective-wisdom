@@ -138,8 +138,10 @@ async function isLink($: EngineInterface, path: string): Promise<boolean> {
   }
 }
 
-// This session's snapshot file as the last process left it, parsed and read once. Undefined until read; null when missing or bad.
+// This session's snapshot file as the last process left it, parsed and read once. Undefined until the read settles; null when missing or bad.
 let previous: unknown
+// The read in flight, so two writes at once share it.
+let reading: Promise<unknown> | null = null
 
 /** The parsed JSON file, or null when it is missing, unreadable or not JSON. */
 async function readJson($: EngineInterface, path: string): Promise<unknown> {
@@ -160,7 +162,10 @@ async function writeSnapshot($: EngineInterface) {
     if (name === null) return
     if ((await isUnsafeDir($, `${dir}/.agent-team`)) || (await isUnsafeDir($, `${dir}/${SNAPSHOT_DIR}`))) return
     if (await isLink($, `${dir}/${SNAPSHOT_DIR}/${name}`)) return
-    if (previous === undefined) previous = await readJson($, `${dir}/${SNAPSHOT_DIR}/${name}`)
+    if (previous === undefined) {
+      reading ??= readJson($, `${dir}/${SNAPSHOT_DIR}/${name}`)
+      previous = await reading
+    }
     const list = await read($, records)
     const earlier = earlierRows(previous, sessionId, list.find(r => r.id === MAIN)?.start ?? 0)
     const rows = [...earlier, ...buildRows(list, await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)]
