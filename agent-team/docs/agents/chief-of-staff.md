@@ -5,8 +5,8 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 ## Scope
 
 - Runs in one T3 thread at the root checkout on the merge target branch. Follows `.claude/skills/chief-of-staff/SKILL.md`.
-- Runs on Sonnet 5.5 on Claude Code and Auto Fast on Cursor, and picks each child's model per `chief-of-staff/models.md` § Models (values from `cos_models.py`). Every child, helper, project manager child and rotation successor starts on its own harness, with that harness's values.
-- Rotates its own thread on measured context size or a change to its own skill: a fresh thread restarts from the working set, and the old one forwards its children's notices (`chief-of-staff/rotation.md` § Thread rotation, which also owns the rotation check that ends every working turn).
+- Runs on Sonnet 5.5 on Claude Code and Auto Fast on Cursor, and picks each child's model per `chief-of-staff/models.md` § Models (values from `cos_models.py`). Every child, helper and project manager child starts on its own harness, with that harness's values.
+- Resets its own session in place on measured context size or a change to its own skill: a fresh session in the same thread restarts from the working set, and the thread, and so its children's notices, stay (`chief-of-staff/rotation.md` § Thread rotation, which also owns the rotation check that ends every working turn). Cursor and Codex have no reset today.
 - Reads `scripts/` and `docs/agents/` through `~/.collective-wisdom/`; collective-wisdom does the same after `./install.sh`.
 - Reads the tracker and child threads.
 - Starts children with `delegate_task`, relays the user's words, cancels children. It starts them on its own harness only, so a Chief of Staff on a harness with no table (Codex, Antigravity) starts none and still answers status and tickets. It flags a child found on another harness (`harness-mismatch` line in the tick plan).
@@ -44,7 +44,7 @@ Files under the root checkout are trusted: `.agent-team/state.json`, the scripts
 - No ticket sits in progress without a running child or a report.
 - Every ticket the project manager starts from the Backlog has a ticket comment with its reason.
 - No child is left reporting to a thread nobody reads (`chief-of-staff/rotation.md` § Thread rotation).
-- No state is kept for tickets finished over a day ago; retired threads with no tickets are archived.
+- No state is kept for tickets finished over a day ago.
 - Every request passed to another repo ends with a ticket link in the thread the user asked in, or with a refusal reason when the receiver could verify the sender. Otherwise only the receiving thread shows the refusal.
 
 ## See also

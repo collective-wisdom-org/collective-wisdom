@@ -13,7 +13,7 @@ Output, one line each, compact JSON with the literal values to pass as printed:
     modelSelection: {...}  for t3_thread_configure and t3_thread_launch (a switch or a launch)
     pinned: model: <value> in <agent file>   for a subagent; the agent file sets its model, nothing is passed
 
-chief prints modelSelection only (a rotation successor launch). ticket-helper, pm and spec print target only.
+chief prints modelSelection only (the model the Chief of Staff thread should run on; startup.md step 3 compares the thread's model with it). ticket-helper, pm and spec print target only.
 build prints both: target at a continuation start, modelSelection for the switch before the spec-approval relay.
 
 Exit 0 when the role is routed. Exit 1 and "cos_models: no <role> routing for <provider>" when it is not.

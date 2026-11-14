@@ -10,10 +10,7 @@ Usage:
 Prints one line per ticket whose parentThreadId is not --thread:
     full <ticket> old-parent <id>      active ticket (spec, build, merge): read the child in full
     full <ticket> unknown-parent       active ticket with no parentThreadId
-    idle <ticket> old-parent <id|unknown>   any other stage: no read, but it blocks archiving
-Then the archive rule over retiredThreads (oldest first, entries without archivedAt):
-    archive <threadId>
-    keep <threadId> (<tickets>)        the entry where the walk stopped
+    idle <ticket> old-parent <id|unknown>   any other stage: no read
 and a last line "parent-check: <T> tickets, <O> under an older thread, <F> need a full read".
 Exit 0 when no ticket is under an older thread, 1 when one is, 2 when the check did not run.
 """
@@ -32,11 +29,10 @@ ID = re.compile(r"[A-Za-z0-9._:-]+")
 DEFAULT_STATE = root() / ".agent-team" / "state.json"
 
 
-def check(state, thread, archive=True):
+def check(state, thread):
     tickets = state.get("tickets") or {}
     bad = [str(n) for n, t in tickets.items() if not ID.fullmatch(str(n))]
     bad += [str(t.get("parentThreadId")) for t in tickets.values() if t.get("parentThreadId") and not ID.fullmatch(str(t.get("parentThreadId")))]
-    bad += [str(r.get("threadId")) for r in state.get("retiredThreads") or [] if r.get("threadId") and not ID.fullmatch(str(r.get("threadId")))]
     if bad:
         raise ValueError("odd id")
     lines = []
@@ -54,34 +50,13 @@ def check(state, thread, archive=True):
         else:
             lines.append(f"idle {name} old-parent {parent or 'unknown'}")
 
-    unknown = sorted(n for n, t in tickets.items() if not t.get("parentThreadId"))
-    retired = [r.get("threadId") for r in state.get("retiredThreads") or []] if archive else []
-    archived = {r.get("threadId") for r in state.get("retiredThreads") or [] if r.get("archivedAt")}
-    for i, tid in enumerate(retired):
-        if not tid:
-            lines.append("keep (retired entry without threadId)")
-            break
-        if tid in archived:
-            continue
-        if tid == thread:
-            lines.append(f"keep {tid} (current thread)")
-            break
-        holders = sorted(n for n, t in tickets.items() if t.get("parentThreadId") in retired[: i + 1])
-        if unknown:
-            lines.append(f"keep {tid} (unknown parent: {', '.join(unknown)})")
-            break
-        if holders:
-            lines.append(f"keep {tid} ({', '.join(holders)})")
-            break
-        lines.append(f"archive {tid}")
-
     lines.append(
         f"parent-check: {len(tickets)} tickets, {older} under an older thread, {full} need a full read"
     )
     return lines, older
 
 
-def run(thread, path, archive=True):
+def run(thread, path):
     """(lines, older), or None after printing why the check did not run."""
     if not thread.strip():
         print("cos_parent_check: empty --thread")
@@ -90,7 +65,7 @@ def run(thread, path, archive=True):
         print("cos_parent_check: no state file")
         return None
     try:
-        return check(json.loads(path.read_text()), thread, archive)
+        return check(json.loads(path.read_text()), thread)
     except (OSError, ValueError, AttributeError, TypeError):
         print("cos_parent_check: unreadable state file")
         return None

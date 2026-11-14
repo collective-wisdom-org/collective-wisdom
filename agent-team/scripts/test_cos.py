@@ -32,6 +32,7 @@ STATE = {
     "pm": {},
     "staleKey": "x",
 }
+RESET = {"id": "0a1b2c3d", "startedAt": "2026-11-14T10:00:00Z", "reason": "size 231k >= 220k"}
 START = {"op": "start", "ticket": "ABC-3", "firstTaskId": "f", "childThreadId": "c3", "parentThreadId": "t9",
          "status": "s", "title": "Add X"}
 QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q",
@@ -46,7 +47,7 @@ QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q
     [{"op": "set", "ticket": "ABC-1", "set": {"headSha": "abc", "lastPosition": 4}}],
     [{"op": "merged", "ticket": "ABC-1", "pr": 5}],
     [{"op": "drop", "ticket": "ABC-1"}],
-    [{"op": "top", "set": {"paused": True, "rotation": {"from": "a", "to": None}}}],
+    [{"op": "top", "set": {"paused": True, "reset": RESET, "lastResetAt": "2026-11-14T10:05:00Z"}}],
     [{"op": "pm", "set": {"rankedAt": "x"}}],
     [{"op": "retire", "threadId": "t2"}],
     [{"op": "archive", "threadId": "t1", "archivedAt": "2026-11-02T00:00:00Z"}],
@@ -127,7 +128,13 @@ def test_new_head_in_a_stamped_stage_restamps_lastSeenAt(stage, op, restamped):
     {"op": "drop", "ticket": "nope"},
     {"op": "unknown"},
     {k: v for k, v in START.items() if k != "parentThreadId"},
-    {"op": "retire", "threadId": "t2", "successor": "t2"},
+    {"op": "retire", "threadId": "t2", "successor": "t3"},
+    {"op": "top", "set": {"rotation": {"from": "a"}}},
+    {"op": "top", "set": {"reset": {**RESET, "id": "xyz"}}},
+    {"op": "top", "set": {"reset": {**RESET, "mode": "rotate"}}},
+    {"op": "top", "set": {"reset": {"id": "0a1b2c3d", "startedAt": "2026-11-14T10:00:00Z"}}},
+    {"op": "top", "set": {"reset": {**RESET, "startedAt": "2026-11-14T10:00:00"}}},
+    {"op": "top", "set": {"lastResetAt": "soon"}},
     {"op": "observe", "kind": "nope"},
     {"op": "observe", "kind": "other:Bad Slug"},
 ])
@@ -210,14 +217,21 @@ def test_prune_drops_observed_older_than_a_week():
 
 
 @pytest.mark.parametrize("ops, retired, shown", [
-    ([{"op": "retire", "threadId": "t2", "successor": "t3"}], ["t1", "t2"], "t1>? t2>t3"),
-    ([{"op": "retire", "threadId": "t2"}], ["t1", "t2"], "t1>? t2>?"),
-    ([{"op": "retire", "threadId": "t1", "successor": "t3"}], ["t1"], "t1>?"),
+    ([{"op": "retire", "threadId": "t2"}], ["t1", "t2"], "t1>t0 t2>?"),
+    ([{"op": "retire", "threadId": "t1"}], ["t1"], "t1>t0"),
 ])
-def test_retire_keeps_successor(ops, retired, shown):
-    new, _, _ = cos_state.apply_ops(STATE, ops)
+def test_retire_keeps_an_existing_successor(ops, retired, shown):
+    state = {**STATE, "retiredThreads": [{**STATE["retiredThreads"][0], "successor": "t0"}]}
+    new, _, _ = cos_state.apply_ops(state, ops)
     assert [r["threadId"] for r in new["retiredThreads"]] == retired
     assert f"\nretired: {shown}\n" in cos_state.show(new)
+
+
+def test_top_sets_reset_and_drops_a_leftover_rotation():
+    old = {**STATE, "rotation": {"from": "a"}, "rotationHeldUntil": "2026-11-14T12:00:00Z"}
+    new, _, _ = cos_state.apply_ops(old, [{"op": "top", "set": {"reset": RESET, "lastResetAt": "2026-11-14T10:05:00Z"}}])
+    assert new["reset"] == RESET and "rotation" not in new and "rotationHeldUntil" not in new
+    assert "reset={" in cos_state.show(new) and "lastResetAt=" in cos_state.show(new)
 
 
 def message(mid, role="user", by="user", text="hi", streaming=0, created="2026-11-02T01:00:00Z", thread="t"):

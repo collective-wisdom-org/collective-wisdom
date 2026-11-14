@@ -10,7 +10,8 @@ Usage:
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket, and the retired
-threads as <id>><successor>, oldest first, with "(archived)" on archived ones). get prints
+threads as <id>><successor>, oldest first, with "(archived)" on archived ones; a successor is
+only on entries retired before CW-316). get prints
 one ticket (or the pm block) as JSON. apply reads a JSON list of operations on stdin and
 applies all of them or none: it prints "unchanged", or "saved" and one line per changed
 ticket, and writes through a temp file, fsync and os.replace under a flock on state.lock
@@ -26,9 +27,10 @@ Operations (each {"op": NAME, ...}):
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
-    top       set (top-level keys other than tickets, merged, retiredThreads, pm, lastRelayAt)
+    top       set (top-level keys other than tickets, merged, retiredThreads, pm, lastRelayAt); also drops a leftover
+              rotation or rotationHeldUntil (keys of the old thread rotation) from the state
     pm        set
-    retire    threadId; optional successor (the thread id that took over)
+    retire    threadId
     archive   threadId, archivedAt (a time, or null to undo)
     unretire  threadId
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
@@ -57,6 +59,10 @@ chiefProvider ({"threadId", "provider"}, both plain strings) is the provider (T3
 thread that recorded it; the top op sets it. The ticket field provider (a string, or null) is the provider of the ticket's
 child thread, set from a thread read. cos_tick.py compares them to flag a child on another harness.
 
+reset is null, or the marker of a session reset in flight: {"id" (8 hex chars), "startedAt" (a time with a zone), "reason" (a
+non-empty string), optional "mode" (reset, reset-scheduled or compact)}. lastResetAt is a time with a zone, or null. The top op
+rejects any other shape.
+
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
 """
@@ -80,7 +86,7 @@ import project_config  # noqa: E402
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
-    "retiredThreads", "rotation", "rotationHeldUntil", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
+    "retiredThreads", "reset", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
     "merged", "tickets", "pm", "observed", "noHands", "chiefProvider",
 }
 TICKET = {
@@ -325,7 +331,21 @@ def op_drop(s, op):
 def op_top(s, op):
     need(op, "set")
     keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed", "noHands"}, "top-level")
+    zoned = lambda x: isinstance(x, str) and getattr(parse(x), "tzinfo", None) is not None  # noqa: E731
+    marker = op["set"].get("reset")
+    if marker is not None:
+        if not (
+            isinstance(marker, dict) and set(marker) <= {"id", "startedAt", "reason", "mode"}
+            and isinstance(marker.get("id"), str) and re.fullmatch(r"[0-9a-f]{8}", marker["id"])
+            and zoned(marker.get("startedAt")) and isinstance(marker.get("reason"), str) and marker["reason"]
+            and marker.get("mode", "reset") in ("reset", "reset-scheduled", "compact")
+        ):
+            raise Reject("reset needs null, or an id (8 hex chars), a startedAt with a zone and a reason, and optionally a mode")
+    if op["set"].get("lastResetAt") is not None and not zoned(op["set"]["lastResetAt"]):
+        raise Reject("lastResetAt needs a time with a zone, or null")
     s.update(op["set"])
+    for old in ("rotation", "rotationHeldUntil"):  # keys of the thread rotation this replaced
+        s.pop(old, None)
 
 
 NO_HANDS = ("startedAt", "itemId", "started", "drain", "endedAt", "endReason")
@@ -374,14 +394,9 @@ def retired(s, op):
 
 
 def op_retire(s, op):
-    need(op, "threadId", optional=("successor",))
-    if op.get("successor") == op["threadId"]:
-        raise Reject("successor is the thread itself")
+    need(op, "threadId")
     if not retired(s, op):
-        s["retiredThreads"].append({
-            "threadId": op["threadId"], "retiredAt": now(), "archivedAt": None,
-            "successor": op.get("successor"),
-        })
+        s["retiredThreads"].append({"threadId": op["threadId"], "retiredAt": now(), "archivedAt": None})
 
 
 def op_archive(s, op):
@@ -587,8 +602,8 @@ def show(s):
     out = [
         f"chief={v(s.get('chiefThreadId'))} paused={v(s.get('paused'))} "
         f"rateLimitedAt={t(s.get('rateLimitedAt'))} wakeTaskId={v(s.get('wakeTaskId'))} "
-        f"wakeAt={t(s.get('wakeAt'))} rotation={v(s.get('rotation'))} "
-        f"rotationHeldUntil={t(s.get('rotationHeldUntil'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
+        f"wakeAt={t(s.get('wakeAt'))} reset={v(s.get('reset'))} "
+        f"lastResetAt={t(s.get('lastResetAt'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)
         + f" active={len(by(*ACTIVE))} awaiting-build={len(by('awaiting-build'))}"

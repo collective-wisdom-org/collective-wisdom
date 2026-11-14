@@ -23,7 +23,7 @@ Runs before the full pass or the take-over pass at "start the team", take over a
 1. `list_scheduled_tasks`. `delete_scheduled_task` every task whose prompt is exactly `run /chief-of-staff wake` other than the `wakeTaskId` in state (a task already gone is fine).
 2. Report each deletion once under Cleanup: `Wake <id> deleted`.
 
-**Deleting the wake.** Everywhere the Chief of Staff deletes `wakeTaskId` (take over, `stop everything`, the `wake` command, clearing `rateLimitedAt`): `delete_scheduled_task` on it, then clear the key. A task already gone is fine.
+**Deleting the wake.** Everywhere the Chief of Staff deletes `wakeTaskId` (`stop everything`, the `wake` command, clearing `rateLimitedAt`): `delete_scheduled_task` on it, then clear the key. A task already gone is fine.
 
 ## User settings check
 
