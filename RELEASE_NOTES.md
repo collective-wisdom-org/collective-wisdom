@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 keep the spec phase on a ticket gantt after a model switch (CW-325) (#331)
+
+Merged 2026-11-14 23:40 UTC.
+
+A ticket's gantt now keeps its spec rows after the build starts on a different model. Tickets built from now on show both phases; spec rows already lost stay lost. Run `claude plugin update agent-gantt` (or `./install.sh`) to get it.
+
 ## 2026-11-14 record the T3 Code fresh-context reset run (CW-315) (#330)
 
 Merged 2026-11-14 23:25 UTC.
