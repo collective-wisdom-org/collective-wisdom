@@ -1,6 +1,7 @@
 # CW-300: Add tracker support for the Todo and Backlog list and the ticket helper gantt to the compatibility doc
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #301, as specified
 **Ticket:** [#300](https://github.com/collective-wisdom-org/collective-wisdom/issues/300)
 **Related:** [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298), [#299](https://github.com/collective-wisdom-org/collective-wisdom/issues/299)
 
