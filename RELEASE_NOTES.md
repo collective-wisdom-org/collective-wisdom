@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 attach a Cursor ticket helper's session to the ticket it filed (CW-288) (#295)
+
+Merged 2026-11-14 00:06 UTC.
+
+A ticket helper run on Cursor now shows as a card while it runs and, once it files a ticket, its time and cost appear in that ticket's gantt and spend, like a Claude Code helper. A ticket is attached when Cursor has written the helper's final reply by the time its last hook event fires.
+
 ## 2026-11-14 record ticket helper support in the agent gantt (CW-290) (#294)
 
 Merged 2026-11-14 00:05 UTC.
