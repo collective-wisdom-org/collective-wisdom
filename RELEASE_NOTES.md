@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-14 add a copy icon for the thread link next to each ticket title (CW-307) (#311)
+
+Merged 2026-11-14 20:29 UTC.
+
+Each ticket on the dashboard now has a small copy icon right after its title that copies the ticket's thread link. The old `Copy thread link` text button is gone.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-14 allow infra/ branches for ticket work (CW-306) (#312)
 
 Merged 2026-11-14 20:28 UTC.
