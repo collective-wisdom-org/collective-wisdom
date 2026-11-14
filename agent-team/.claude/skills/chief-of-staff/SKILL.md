@@ -164,8 +164,8 @@ Work moves in three lanes, each with its own limit, under one cap on active chil
 
 | Lane | Active stage | Queue | Limit | Why this number |
 |---|---|---|---|---|
-| Spec | `spec` | `spec-queued`, then Todo tickets | `user.md` (default 2) | Short runs. By default two keep a spec ready while the user reviews another. |
-| Build | `build` | `build-queued` | `user.md` (default 2) | The longest, costliest runs. By default two keep approved specs moving without doubling Opus time. |
+| Spec | `spec` | `spec-queued`, then Todo tickets | `user.md` (default 2) | Short runs. Two keep a spec ready while the user reviews another. |
+| Build | `build` | `build-queued` | `user.md` (default 2) | The longest, costliest runs. Two keep approved specs moving without doubling Opus time. |
 | Merge | `merge` | `merge-queued` | 1, fixed | Merges rebase onto the merge target branch; one at a time avoids conflicts. |
 | **Overall** | `spec` + `build` | | `user.md` (default: the two limits added) | The merge lane is outside the cap, so a merge can always take its one slot. |
 
@@ -247,7 +247,7 @@ Not run through the tick:
 | `run … no_hands.py check` | no-hands.md § What each `check` line means. Read its line before the lines after it: on `drain` or `stop` the `start-todo` lines below are not run. |
 | `start-todo` | One start from Todo (**Todo start**, below), printed once per free spec slot. |
 | `observe` | § Child path "Observe". |
-| `report cap=N spec=S build=B merge=1 (filling stopped: …)` | The cap and limits you print come from the `cap=`, `spec=`, `build=` and `merge=` values. § Report format, only if the turn changed what the user sees. Never write "none stuck" or the like. `lanes full` is `Filling stopped: lanes full.`; `spec slot free` means a spec slot is open and the reason is one of the other two `Filling stopped:` lines. With no parenthetical (rate limited) there is no slot fill and no such line. |
+| `report cap=N spec=S build=B merge=1 (filling stopped: …)` | Print the cap and limits from those values. § Report format, only if the turn changed what the user sees. Never write "none stuck" or the like. `lanes full` is `Filling stopped: lanes full.`; `spec slot free` means a spec slot is open and the reason is one of the other two `Filling stopped:` lines. With no parenthetical (rate limited) there is no slot fill and no such line. |
 | `archive <thread>` | rotation.md § Thread rotation "Archiving", for that `retiredThreads` entry. |
 | `run … cos_rotation_check.py` | Always the last tool call (§ Rotation check). |
 
