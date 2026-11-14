@@ -21,7 +21,7 @@ It ignores --since and --until, prints no cost report, and exits 2 if the variab
 is unset or the session has no transcript or no requests.
 --ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
 N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
-worktree sessions with a git branch <head><prefix>-N or <head><prefix>-N-..., where <head> is a head of the Branch pattern row,, plus their
+worktree sessions with a git branch <head><prefix>-N or <head><prefix>-N-..., where <head> is a head of the Branch pattern row, plus their
 subagents, ignores --since and --until, and exits 2 when no Claude Code or Cursor session ran the ticket.
 A Cursor session's branch is the "Branch:" line of its first message, else the git branch of its workspace.
 When the user's user.md sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X

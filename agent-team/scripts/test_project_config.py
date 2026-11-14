@@ -282,6 +282,9 @@ def test_no_hands_setting(tmp_path, text, want):
 def test_branch_heads(cell, heads):
     rows = project_config._parse(f"| Branch pattern | {cell} |\n")
     assert (project_config.branch_heads(rows), project_config.branch_head(rows)) == (heads, heads[0])
+
+
+def test_missing_row_reads_feat():
     assert project_config.branch_heads([]) == ("feat/",)
 
 

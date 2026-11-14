@@ -198,7 +198,7 @@ If the provider rate-limits you, stop with `BLOCKED: rate limited`.
 - Merge target branch: the `Merge target branch` row of `project.md` § Git and GitHub, `main` when unset. `<target>` in this skill means that branch. The root checkout stays on it and nothing pushes to it; feature work in a worktree (`.worktrees/<short-name>/` or T3 Code's under `~/.t3/worktrees/`).
 - GitHub: `~/.collective-wisdom/scripts/gh.sh`, never bare `gh` (see `~/.collective-wisdom/docs/agents/github-auth.md`).
 - Tracker operations and which adapter applies: `~/.collective-wisdom/docs/agents/trackers/README.md`.
-- One ticket = one branch = one PR. Branch: `<head><prefix>-N-short-title`, `<head>` is a head from that pattern (`feat/` unless the task names another).
+- One ticket = one branch = one PR. Branch: `<head><prefix>-N-short-title`, `<head>` is the first head in that pattern (`feat/` if none) unless the task names another.
 
 ## Running one phase by hand
 
