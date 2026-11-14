@@ -5,7 +5,7 @@ import type { TitleConfig } from './titles.ts'
 
 export type MergedConfig = TitleConfig & { issueUrls: boolean; heads?: string[] }
 /** `number` is the PR number, kept for the server's detail reads and left out of the api. */
-export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; number?: number; specUrl?: string; detail?: Detail; spend?: { cost: number | null; tokens: number }; gantt?: Session[] }
+export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; number?: number; specUrl?: string; detail?: Detail; spend?: { cost: number | null; tokens: number }; gantt?: Session[]; ci?: [number, number | null][] }
 type Run = (args: string[]) => Promise<string>
 
 const REFRESH_MS = 60_000

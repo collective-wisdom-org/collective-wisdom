@@ -371,10 +371,24 @@ const rowTitle = ({ r, s, clockNow }) => {
   return [r.name, meta.join(' · '), s.cwd].join('\n')
 }
 
-export function renderGantt(sessions, now) {
-  if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
+/** The `CI wait` row: the merged length of the PR's CI spans [start, end|null], an open end running to `now`. Empty when there are no spans. */
+function ciRow(ci, now) {
+  const spans = (Array.isArray(ci) ? ci : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0])).map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
+  if (spans.length === 0) return ''
+  const merged = union(spans)
+  const open = merged.some((p) => p[2])
+  const last = Math.max(...spans.map((p) => p[1]))
+  const range = `${clock(Math.min(...spans.map((p) => p[0])))} to ${open ? 'now, running' : clock(last)}`
+  const title = esc(`CI wait\n${spans.length} ${spans.length === 1 ? 'commit' : 'commits'} ran CI · ${range}`)
+  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
+}
+
+export function renderGantt(sessions, now, ci) {
+  const wait = ciRow(ci, now)
+  const alone = (text) => `<p class="quiet">${text}</p>${wait ? `<div class="gantt">${wait}</div>` : ''}`
+  if (!sessions || sessions.length === 0) return alone('No sessions yet')
   const items = ganttTasks(sessions, now)
-  if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
+  if (items.length === 0) return alone('No tasks yet')
   // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
   const active = union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)
@@ -423,6 +437,7 @@ export function renderGantt(sessions, now) {
   return `<div class="gantt">
 ${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
+${wait}
 ${note}
 ${oldNote}
 </div>`
@@ -437,7 +452,7 @@ export function drawCharts(root, data, now, apply) {
   const merged = new Map(data.merged.map((e) => [e.id, e]))
   const draw = (body, entry) => {
     if (!entry) return
-    const html = renderGantt(entry.gantt, now)
+    const html = renderGantt(entry.gantt, now, entry.ci)
     if (shownCharts.get(body) === html) return
     apply(body, html)
     shownCharts.set(body, html)

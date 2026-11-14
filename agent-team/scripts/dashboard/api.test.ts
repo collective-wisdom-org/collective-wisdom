@@ -445,3 +445,15 @@ test('a ticket whose PR is already in merged is dropped from status; its group g
     assert.deepEqual(status.map((g) => [g.name, g.count, g.rows.map((r) => r.id)]), want, name)
   }
 })
+
+test('ci spans reach the ticket row and the merged entry that own the PR; a PR with none has no ci key', () => {
+  const spans: [number, number | null][] = [[1, 5], [4, null]]
+  const entry = { id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/9', mergedAt: 1, number: 9 }
+  const ci = { 'CW-1#5': spans, 'CW-9#9': spans, 'CW-2#6': [] as [number, number][], 'CW-1#6': spans }
+  const api = build({ state: { tickets: { 'CW-1': { title: 't', stage: 'build', status: 'x. Risk: low', pr: 5 }, 'CW-2': { title: 't', stage: 'build', status: 'x. Risk: low', pr: 6 } } }, merged: [entry, { ...entry, id: 'CW-8', number: 8 }], ci })
+  const rows = Object.fromEntries(api.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
+  assert.deepEqual(rows['CW-1'].ci, spans)
+  assert.ok(!('ci' in rows['CW-2']))
+  assert.deepEqual(api.merged.map((e) => e.ci), [spans, undefined])
+  assert.ok(!('ci' in api.merged[1]))
+})
