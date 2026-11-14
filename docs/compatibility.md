@@ -71,7 +71,7 @@ Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` ca
 | Untracked work check | 🟢 works | 🟡 partial: finds open PRs only (G14) | 🟡 partial: finds open PRs only (G14) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Dashboard issue links, titles and update order | 🟢 works | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) |
 | Dashboard Todo and Backlog list | 🟢 works | 🔴 not supported: GitHub only (G22) | 🔴 not supported: GitHub only (G22) | 🔴 not supported: no adapter in `trackers/` (G19) |
-| Ticket helper in the gantt | 🟢 works | 🟡 partial: spend and history attach, the session shows on the ticket's chart only once the ticket is in state (G23) | 🟡 partial: as Linear (G23); untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| Ticket helper in the gantt | 🟢 works | 🟡 partial: spend attaches and the session is kept in the ticket's history, but it shows on the ticket's chart only once the ticket is in state (G23) | 🟡 partial: as Linear (G23); untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Setup (`set up this repo`) | 🟢 works | 🟢 works | ⚪ untested: writes the Jira rows, never run against Jira (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | PR flow and merge (needs GitHub for code) | 🟢 works | 🟢 works, code on GitHub | ⚪ untested, code on GitHub (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 
