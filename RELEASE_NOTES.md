@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 read child threads through a script that prints a short result (CW-313) (#320)
+
+Merged 2026-11-14 21:41 UTC.
+
+The Chief of Staff now reads each child through a small script instead of pulling whole thread messages into its context, so it can run longer before it needs to rotate. Nothing to do: if T3's store can't be read, it falls back to the old thread reads and says so under Cleanup.
+
 ## 2026-11-14 configurable active-agent cap and lane limits, merge lane outside the cap (CW-310) (#318)
 
 Merged 2026-11-14 21:09 UTC.
