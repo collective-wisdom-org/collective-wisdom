@@ -5,9 +5,9 @@ Usage:
     ~/.collective-wisdom/scripts/cos_todo.py < list-tickets JSON
     ~/.collective-wisdom/scripts/cos_todo.py --relations < {"list": <list-tickets JSON>, "tickets": {"ABC-N": <get-ticket JSON>}}
 
-Reads stdin and nothing else; writes nothing. Two passes, like pm_hygiene.py drift. The list is the one `list-tickets` call
-for the team's Todo tickets (fields id, labels, priority, createdAt), as the tracker adapter returns it: a JSON list, or
-an object holding an `issues` or `tickets` list. Tickets are tried by priority (Urgent, High, Medium, Low, then none; a
+Reads stdin. The first pass also saves the list for the dashboard (cos_lists.py todo); a failed save changes nothing here.
+Two passes, like pm_hygiene.py drift. The list is the one `list-tickets` call for the team's Todo tickets (fields id, title,
+labels, priority, createdAt), as the tracker adapter returns it: a JSON list, or an object holding an `issues` or `tickets` list. Tickets are tried by priority (Urgent, High, Medium, Low, then none; a
 `priority:<name>` label, a name, or Linear's 1 to 4), ties by oldest createdAt, and then in list order.
 
 First pass (the list alone): drops tickets labelled `agent-skip`, prints `get <ID>` for each one left, in order. Make that
@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
+import cos_lists  # noqa: E402
 import cos_state  # noqa: E402
 import pm_hygiene  # noqa: E402
 
@@ -78,6 +79,10 @@ def is_open(blocker):
 def plan(text, relations):
     try:
         if not relations:
+            try:
+                cos_lists.save("todo", text)
+            except Exception:
+                pass
             return [t["id"] for t in tried_in_order(pm_hygiene.ticket_list(text))], "get"
         data = json.loads(text)
         tickets, got = data["list"], data["tickets"]

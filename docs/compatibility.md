@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-13, after CW-286 ([#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)) merged; recorded runs are in [Runs](#runs).
+Last checked against the code on 2026-11-14, with CW-298 ([#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)) added to CW-286 ([#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)); recorded runs are in [Runs](#runs).
 
 ## Legend
 
@@ -70,6 +70,7 @@ Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` ca
 | Project manager hygiene and ranking | 🟢 works | 🟢 works | 🔴 not supported: `pm_hygiene.py` has no Jira shape; ranking untested (G13) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Untracked work check | 🟢 works | 🟡 partial: finds open PRs only (G14) | 🟡 partial: finds open PRs only (G14) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Dashboard issue links, titles and update order | 🟢 works | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) |
+| Dashboard Todo and Backlog list | 🟢 works | 🟡 partial: read from the Chief of Staff's last Todo read and Backlog ranking, so it can lag the tracker (G22) | 🟡 partial: the same lag (G22); untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Setup (`set up this repo`) | 🟢 works | 🟢 works | ⚪ untested: writes the Jira rows, never run against Jira (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | PR flow and merge (needs GitHub for code) | 🟢 works | 🟢 works, code on GitHub | ⚪ untested, code on GitHub (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 
@@ -174,3 +175,4 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G19.** There is no Azure DevOps adapter: `trackers/` has GitHub, Linear and Jira only, and the `Tracker` row in `project.md` cannot name it. Ticket: none yet.
 - **G20.** `trackers/github.md` § `ensure-labels` names the team labels but not their colors or descriptions, so the Cursor Chief of Staff in the 2026-11-09 run copied them from the collective-wisdom repo. The same step on the other harnesses is not recorded. No matrix cell points at it: it came from the 2026-11-09 run. Ticket: [#276](https://github.com/collective-wisdom-org/collective-wisdom/issues/276).
 - **G21.** The Cursor gantt hook (`cursor_gantt_hook.ts` via `mods/agent-gantt/hooks/cursor.ts`) writes no `ticket` or `request`, so a Cursor helper's card has no title, stays until its turn ends, and its session never joins the ticket it filed or that ticket's spend. No Cursor hook run is recorded (see G9). Ticket: [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288).
+- **G22.** On Linear and Jira the dashboard's Todo and Backlog lists come from `.agent-team/tracker-lists.json`, which the Chief of Staff writes: the Todo list on each turn that reads Todo (a free spec slot) and the Backlog list after each ranking. Between reads the lists can lag the tracker. A fresher list would need a tracker read on every turn. Issue: [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298).
