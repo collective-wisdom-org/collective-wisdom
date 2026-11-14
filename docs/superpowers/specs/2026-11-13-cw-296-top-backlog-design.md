@@ -1,7 +1,8 @@
 # CW-296: Show the 3 top Backlog tickets on the Ship loop tab with a link to the full backlog
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#296](https://github.com/collective-wisdom-org/collective-wisdom/issues/296)
+**Shipped:** in PR #297, as specified
 
 ## Goal
 
