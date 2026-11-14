@@ -250,7 +250,7 @@ def drain_reason(state):
     return " ".join(reason.split())
 
 
-def slot_fill(state, thread, fill=True):
+def slot_fill(state, thread, lim, fill=True):
     """(lines, whether a spec slot is left for Todo). Paused and rate limited turns never get here. fill=False sends the queue but starts no Todo."""
     counts = {lane: len(tickets_in(state, lane)) for lane in LANES}
     queues = {
@@ -260,7 +260,7 @@ def slot_fill(state, thread, fill=True):
         )
         for lane in LANES
     }
-    out, (lane_limit, cap) = [], limits()
+    out, (lane_limit, cap) = [], lim
     used = lambda: counts["spec"] + counts["build"]  # noqa: E731  the merge lane is outside the cap
     while True:
         lane = next((x for x in LANES if counts[x] < lane_limit[x] and queues[x] and (x == "merge" or used() < cap)), None)
@@ -308,13 +308,14 @@ def act(state, thread, trigger, now):
         out.append("hygiene")
     if full:
         out.append("prune")
-    lane_limit, cap = limits()
+    lim = limits()
+    lane_limit, cap = lim
     report = f"report cap={cap} spec={lane_limit['spec']} build={lane_limit['build']} merge={lane_limit['merge']}"
     if no_hands_run(state):
         out.append(NO_HANDS_CHECK)
     if not limited:
         draining = drain_reason(state)
-        lines, free = slot_fill(state, thread, fill=draining is None)
+        lines, free = slot_fill(state, thread, lim, fill=draining is None)
         out += lines
         if not state.get("rotation"):
             out.append("observe")
