@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 record the T3 Code fresh-context reset run (CW-315) (#330)
+
+Merged 2026-11-14 23:25 UTC.
+
+The compatibility page now records a live test of the T3 Code fresh-context reset on the Chief of Staff thread: it mostly works on Claude Code with the notice fix (a nightly from 2026-11-13 or later), though a child's notice can be lost across the reset and the idle check recovers it, and a queued `/compact` cuts off part of the Chief of Staff skill. Nothing to do yet; Codex and Cursor are untested.
+
 ## 2026-11-14 show the stage and its start time on dashboard cards (CW-324) (#327)
 
 Merged 2026-11-14 23:24 UTC.
