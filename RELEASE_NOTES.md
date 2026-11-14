@@ -1,5 +1,19 @@
 # Release notes
 
+## 2026-11-14 record ticket helper support in the agent gantt (CW-290) (#294)
+
+Merged 2026-11-14 00:05 UTC.
+
+The compatibility page now says what a ticket helper gets in the agent gantt on each harness: Claude Code attaches it to the ticket it filed, Cursor shows only a placeholder card until #288 lands, and Codex and Antigravity show nothing.
+
+Context size: pass skipped (no agent files changed)
+
+## 2026-11-13 accept one _suffix in a GitHub login (EMU) (#293)
+
+Merged 2026-11-13 23:50 UTC.
+
+User config now accepts EMU-style GitHub logins with one `_suffix`.
+
 ## 2026-11-13 keep Chief of Staff children on its own harness (CW-280) (#291)
 
 Merged 2026-11-13 23:45 UTC.
