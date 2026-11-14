@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-14 reset the Chief of Staff session in place (CW-316) (#333)
+
+Merged 2026-11-14 23:59 UTC.
+
+The Chief of Staff now resets its own session in place when its context grows large or its skill changes, so its thread no longer changes and children keep reporting to it. Nothing to do. On Cursor and Codex there is no reset yet, so Cursor no longer rotates on a skill change.
+
+Closes #316
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-14 keep the spec phase on a ticket gantt after a model switch (CW-325) (#331)
 
 Merged 2026-11-14 23:40 UTC.
