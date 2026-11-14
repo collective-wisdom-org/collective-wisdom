@@ -89,7 +89,7 @@ Not needed:
 
 ## Models
 
-Each role's model comes from `python3 ~/.collective-wisdom/scripts/cos_models.py <provider> <role>`, where the provider is the one startup.md step 3 reads and the role is `chief`, `ticket-helper`, `pm`, `spec`, `build`, `implementer`, `documenter`, `compacter`, `code-review` or `security-review`. Pass its output as printed; no template names a model itself. Exit 1 means that role does not start: report `BLOCKED: no <role> routing for <provider>` under Needs you, and never fall back to another harness. The model switch before a spec-approval relay and the notes for each harness are in models.md § Models.
+Each role's model comes from `python3 ~/.collective-wisdom/scripts/cos_models.py <provider> <role>`, where the provider is the one startup.md step 3 reads. Pass its output as printed; no template names a model itself. Exit 1 means that role does not start: report `BLOCKED: no <role> routing for <provider>` under Needs you, and never fall back to another harness. The role list, the model switch before a spec-approval relay and the notes for each harness are in models.md § Models.
 
 ## Lanes
 
