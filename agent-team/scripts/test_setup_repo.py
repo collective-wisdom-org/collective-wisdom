@@ -34,6 +34,8 @@ STATUS = [
     (FILLED.replace("| Tracker (`linear`, `github` or `jira`) | `github` |\n", "") + TEAM, "set"),
     (FILLED.replace("| Tracker (`linear`, `github` or `jira`) | `github` |\n| Tracker scope (`<TEAM>`) | `a/b` |\n", "") + TEAM, "set"),
     (FILLED.replace("| Tracker (`linear`, `github` or `jira`) | `github` |\n", ""), "placeholders: Linear team name"),
+    (FILLED + "| Branch pattern | feat or infra branches named after the ticket |\n", "placeholders: Branch pattern"),
+    (FILLED + "| Branch pattern | `{feat,infra}/<prefix>-N-short-title` |\n", "set"),
     (TEMPLATE, "placeholders: Tracker scope, Issue identifier prefix, Repo, Test, Linear team name"),
 ]
 
@@ -337,6 +339,21 @@ def commit(repo, text):
 
 def drop_rows(text, *keys):
     return "".join(line for line in text.splitlines(keepends=True) if not any(line.startswith(f"| {k}") for k in keys))
+
+
+@pytest.mark.parametrize("cell, kept", [
+    ("feat or infra branches named after the ticket", False),
+    ("`work/<prefix>-N-x` (one head)", True),
+])
+def test_repair_replaces_a_branch_pattern_row_that_does_not_parse(repo, capsys, cell, kept):
+    write(capsys, repo, GITHUB)
+    template_row = next(x for x in md(repo[1]).splitlines() if x.startswith("| Branch pattern |"))
+    old = md(repo[1]).replace(template_row, f"| Branch pattern | {cell} |").replace("| Test | `pytest` |", "| Test | TODO(a) |")
+    commit(repo, old)
+    assert write(capsys, repo, {"test": "pytest"})[0] == 0
+    want = old.replace("| Test | TODO(a) |", "| Test | `pytest` |")
+    assert md(repo[1]) == (want if kept else want.replace(f"| Branch pattern | {cell} |", template_row))
+    assert run(capsys, "status", "--root", repo[1])[1].splitlines()[0] == "set"
 
 
 @pytest.mark.parametrize("answers, has, lacks", [

@@ -32,7 +32,7 @@ Run `git fetch origin` first, so `pinned` is current.
 
 Ask one at a time, in this thread. A bare reply takes the guess.
 
-Status `placeholders`: questions 1 and 2 still follow their "Ask when" rules. Ask questions 3 to 5 only for the rows `status` lists (`Tracker`, `Tracker scope` and `Linear team name` are question 3; `Issue identifier prefix` is 4; `Test` is 5; `Repo` has none, it comes from the remote). Use the file's current value as the guess where it has one, and pass only the answers for those rows. `write` applies an answer only to an unset row; every row the file already sets keeps its value, and a file without a `Publish release notes` row does not get one.
+Status `placeholders`: questions 1 and 2 still follow their "Ask when" rules. Ask questions 3 to 5 only for the rows `status` lists (`Tracker`, `Tracker scope` and `Linear team name` are question 3; `Issue identifier prefix` is 4; `Test` is 5; `Repo` has none, it comes from the remote). Use the file's current value as the guess where it has one, and pass only the answers for those rows. `write` applies an answer only to an unset row; every row the file already sets keeps its value, and a file without a `Publish release notes` row does not get one. `Branch pattern` has no question: `status` lists it when the row is set but does not parse, `write` puts the template's row in its place, and the PR walk-through tells the user the old row did not parse and that they can edit the heads in the PR.
 
 | # | Question | Ask when | Guess |
 |---|---|---|---|

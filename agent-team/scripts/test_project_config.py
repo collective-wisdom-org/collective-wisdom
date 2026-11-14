@@ -284,6 +284,27 @@ def test_branch_heads(cell, heads):
     assert (project_config.branch_heads(rows), project_config.branch_head(rows)) == (heads, heads[0])
 
 
+@pytest.mark.parametrize(
+    "row, heads, warns",
+    [
+        ("| Branch pattern | feat or infra branches named after the ticket |", ("feat/",), True),
+        ("| Branch pattern | `feat/cw-N-x` |", ("feat/",), True),
+        ("| Branch pattern | `{feat,Infra}/<prefix>-N-x` |", ("feat/",), True),
+        ("| Branch pattern | `{feat,infra}/<prefix>-N-x` |", ("feat/", "infra/"), False),
+        ("| Branch pattern | `work/<prefix>-N-x` |", ("work/",), False),
+        ("", ("feat/",), False),
+        ("| Branch pattern |  |", ("feat/",), False),
+        ("| Branch pattern | TODO(me) |", ("feat/",), False),
+    ],
+)
+def test_branch_pattern_warns_once_when_the_row_does_not_parse(capsys, monkeypatch, row, heads, warns):
+    monkeypatch.setattr(project_config, "_warned", False)
+    rows = project_config._parse(row)
+    assert (project_config.branch_heads(rows), project_config.branch_heads(rows)) == (heads, heads)
+    assert capsys.readouterr().err.count("the Branch pattern row does not parse") == warns
+    assert (project_config.branch_pattern_error(rows) is not None) == warns
+
+
 def test_missing_row_reads_feat():
     assert project_config.branch_heads([]) == ("feat/",)
 
