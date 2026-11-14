@@ -1,7 +1,8 @@
 # CW-325: Keep the spec phase on a ticket gantt after the build session starts
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#325](https://github.com/collective-wisdom-org/collective-wisdom/issues/325)
+**Shipped:** in PR #331, as specified
 
 ## Goal
 
