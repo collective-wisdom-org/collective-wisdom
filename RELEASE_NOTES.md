@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 show the stage and its start time on dashboard cards (CW-324) (#327)
+
+Merged 2026-11-14 23:24 UTC.
+
+Dashboard ticket cards now show the stage and the time it began, such as "awaiting merge since 14:05", instead of the status text. Tickets already in state.json show the stage alone until their next stage change.
+
 ## 2026-11-14 show CI wait time on the agent gantt (CW-323) (#326)
 
 Merged 2026-11-14 23:20 UTC.
