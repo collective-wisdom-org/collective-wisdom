@@ -32,7 +32,7 @@ Run `git fetch origin` first, so `pinned` is current.
 
 Ask one at a time, in this thread. A bare reply takes the guess.
 
-Status `placeholders`: questions 1 and 2 still follow their "Ask when" rules. Ask questions 3 to 5 only for the rows `status` lists (`Tracker`, `Tracker scope` and `Linear team name` are question 3; `Issue identifier prefix` is 4; `Test` is 5; `Repo` has none, it comes from the remote). Use the file's current value as the guess where it has one, and pass only the answers for those rows. `write` applies an answer only to an unset row; every row the file already sets keeps its value, and a file without a `Publish release notes` row does not get one.
+Status `placeholders`: questions 1 and 2 still follow their "Ask when" rules. Ask questions 3 to 5 only for the rows `status` lists (`Tracker`, `Tracker scope` and `Linear team name` are question 3; `Issue identifier prefix` is 4; `Test` is 5; `Repo` has none, it comes from the remote). Use the file's current value as the guess where it has one, and pass only the answers for those rows. `write` applies an answer only to an unset row; every row the file already sets keeps its value, and a file without a `Publish release notes` row does not get one. `Branch pattern` has no question: `status` lists it when the row is set but does not parse, `write` swaps in the template's row, and the PR walk-through says the old row did not parse and the heads can be edited in the PR.
 
 | # | Question | Ask when | Guess |
 |---|---|---|---|
@@ -103,7 +103,7 @@ Show each git and gh step as the command it will run, and run it only after a ye
    ```
    ~/.collective-wisdom/scripts/gh.sh pr create --base <target> --head agent-team-setup --title "docs: set up the agent team" --body-file "<file>"
    ```
-   The body, written to `<file>` first, lists the answers, the removed copies (if any) and: "Merge this, pull the root checkout, then say `start the team`." Put the PR link in the reply.
+   The body, written to `<file>` first, lists the answers, the removed copies (if any), a line naming the old `Branch pattern` row when `status` listed it (it did not parse, the template's row replaced it, edit the heads here) and: "Merge this, pull the root checkout, then say `start the team`." Put the PR link in the reply.
 7. **Clean up.** `git worktree remove "<wt>"`, then `git branch -D agent-team-setup` (only after the worktree is gone), then `rmdir "<tmp>"`.
 
 The user merges the PR. No merge gate applies: there is no ticket or state yet. Do not merge it or pull the root checkout for them.

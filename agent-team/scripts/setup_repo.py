@@ -184,7 +184,7 @@ def _get(rows, key):
 
 
 def unset_rows(text):
-    """Names of the required rows that are unset or hold a template placeholder. A missing `Tracker` row reads as linear."""
+    """Names of the required rows that are unset or hold a template placeholder, then `Branch pattern` when it does not parse. A missing `Tracker` row reads as linear."""
     rows = project_config._parse(text)
     tracker = (_get(rows, "Tracker")[0] or "linear").lower()
     team_unset = _get(rows, "Linear team name")[1]
@@ -192,7 +192,7 @@ def unset_rows(text):
         k for k in REQUIRED
         if (tracker not in project_config.TRACKERS if k == "Tracker" else _get(rows, k)[1] and not (k == "Tracker scope" and tracker == "linear" and not team_unset))
     ]
-    return bad + (["Linear team name"] if tracker == "linear" and team_unset else [])
+    return bad + (["Linear team name"] if tracker == "linear" and team_unset else []) + (["Branch pattern"] if project_config.branch_pattern_error(rows) else [])
 
 
 def _known(text):
@@ -518,7 +518,7 @@ def _anchor(lines, new, j):
 
 
 def _merge(lines, new):
-    """Take the fresh render's row for each row of `lines` that holds a placeholder it fills, and add the rows `lines` lacks."""
+    """Take the fresh render's row for each row of `lines` that holds a placeholder it fills (or a Branch pattern that does not parse), and add the rows `lines` lacks."""
     title = lambda ls: next((i for i, line in enumerate(ls) if line.startswith("# Project config (")), None)
     ot, nt = title(lines), title(new)
     if None not in (ot, nt) and _ph(lines[ot]) and not _ph(new[nt]):
@@ -529,7 +529,8 @@ def _merge(lines, new):
             continue
         found = _find(lines, key)
         if found:
-            if _ph(found[1][1]) and not _ph(_cells(line)[1]):
+            bad_pattern = key == "Branch pattern" and project_config.branch_pattern_error([tuple(found[1][:2])])
+            if bad_pattern or (_ph(found[1][1]) and not _ph(_cells(line)[1])):
                 lines[found[0]] = line
         elif key not in READ_AS_ON and (at := _anchor(lines, new, j)) is not None:
             if not lines[at - 1].endswith("\n"):

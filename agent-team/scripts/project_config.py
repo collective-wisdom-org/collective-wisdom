@@ -89,17 +89,50 @@ def repo():
     return r if r and re.fullmatch(r"[\w.-]+/[\w.-]+", r) else None
 
 
-def branch_heads(rows=None):
-    """Heads before `<prefix>` in the branch pattern, in row order: `{feat,infra}/<prefix>-N` gives ("feat/", "infra/").
+_warned = False
 
-    A plain head (`work/<prefix>-N`) gives that one head. No row, no `<prefix>` or a brace list that does not parse gives ("feat/",).
-    """
+
+def _pattern_heads(rows):
+    """The heads the Branch pattern row parses to, or None when nothing parsed."""
     pat = value("Branch pattern", rows) or ""
     head = pat.split("<prefix>")[0] if "<prefix>" in pat else ""
     m = re.fullmatch(r"\{([a-z0-9-]+(?:,[a-z0-9-]+)*)\}/", head)
     if m:
         return tuple(f"{name}/" for name in m.group(1).split(","))
-    return (head,) if head and not re.search(r"[{},]", head) else (FALLBACK_BRANCH_HEAD,)
+    return (head,) if head and not re.search(r"[{},]", head) else None
+
+
+def branch_pattern_error(rows=None):
+    """A one-line message when the Branch pattern row is set but does not parse, else None.
+
+    A missing, empty or TODO( row is None: that reads as the default feat/, as meant.
+    """
+    rows = _rows() if rows is None else rows
+    cell = setting("Branch pattern", rows)
+    if cell is None or _pattern_heads(rows):
+        return None
+    return (
+        f"project.md: the Branch pattern row does not parse ({cell}), so the scripts use {FALLBACK_BRANCH_HEAD}. "
+        "Write it as {feat,infra}/<prefix>-N-short-title, or a plain head such as work/<prefix>-N-short-title."
+    )
+
+
+def branch_heads(rows=None):
+    """Heads before `<prefix>` in the branch pattern, in row order: `{feat,infra}/<prefix>-N` gives ("feat/", "infra/").
+
+    A plain head (`work/<prefix>-N`) gives that one head. No row, no `<prefix>` or a brace list that does not parse gives ("feat/",);
+    a row that is set but does not parse also prints branch_pattern_error() to stderr, once per process.
+    """
+    global _warned
+    rows = _rows() if rows is None else rows
+    heads = _pattern_heads(rows)
+    if heads:
+        return heads
+    err = branch_pattern_error(rows)
+    if err and not _warned:
+        _warned = True
+        print(err, file=sys.stderr)
+    return (FALLBACK_BRANCH_HEAD,)
 
 
 def branch_head(rows=None):

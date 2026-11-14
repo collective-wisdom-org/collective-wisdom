@@ -270,22 +270,26 @@ def test_no_hands_setting(tmp_path, text, want):
 
 
 @pytest.mark.parametrize(
-    "cell, heads",
+    "cell, heads, warns",
     [
-        ("`work/<prefix>-N-x`", ("work/",)),
-        ("`{infra,feat}/<prefix>-N-x` (first is the default)", ("infra/", "feat/")),
-        ("`feat/cw-N-x`", ("feat/",)),
-        ("`{feat,Infra}/<prefix>-N-x`", ("feat/",)),
-        ("none", ("feat/",)),
+        ("`work/<prefix>-N-x`", ("work/",), False),
+        ("`{feat,infra}/<prefix>-N-x`", ("feat/", "infra/"), False),
+        ("`{infra,feat}/<prefix>-N-x` (first is the default)", ("infra/", "feat/"), False),
+        ("`feat/cw-N-x`", ("feat/",), True),
+        ("`{feat,Infra}/<prefix>-N-x`", ("feat/",), True),
+        ("none", ("feat/",), True),
+        ("feat or infra branches named after the ticket", ("feat/",), True),
+        (None, ("feat/",), False),
+        ("", ("feat/",), False),
+        ("TODO(me)", ("feat/",), False),
     ],
 )
-def test_branch_heads(cell, heads):
-    rows = project_config._parse(f"| Branch pattern | {cell} |\n")
-    assert (project_config.branch_heads(rows), project_config.branch_head(rows)) == (heads, heads[0])
-
-
-def test_missing_row_reads_feat():
-    assert project_config.branch_heads([]) == ("feat/",)
+def test_branch_heads(capsys, monkeypatch, cell, heads, warns):
+    monkeypatch.setattr(project_config, "_warned", False)
+    rows = [] if cell is None else project_config._parse(f"| Branch pattern | {cell} |\n")
+    assert (project_config.branch_heads(rows), project_config.branch_heads(rows), project_config.branch_head(rows)) == (heads, heads, heads[0])
+    assert capsys.readouterr().err.count("the Branch pattern row does not parse") == warns
+    assert (project_config.branch_pattern_error(rows) is not None) == warns
 
 
 def test_merge_target_on_any_listed_head_is_refused(tmp_path):
