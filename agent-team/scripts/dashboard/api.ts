@@ -1,4 +1,4 @@
-import { groupTickets } from '../../.claude/mods/status-pane/hooks/groups.ts'
+import { groupTickets } from './groups.ts'
 import type { MergedEntry } from './merged.ts'
 import { specUrlOf } from './details.ts'
 import type { Detail, Found } from './details.ts'
