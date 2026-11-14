@@ -56,6 +56,7 @@ The build checks a real Cursor ticket helper run if one exists on the machine by
 - `readRuns` also returns `results` when the output has a `results` list of strings; anything else counts as no results, and the runs are still taken.
 - After `applyEvent` and the runs, the hook applies `withFiledTicket` with the results of this event's read (null when it did not read or the read failed). The results are not saved in the state file; only the ticket is.
 - A store that cannot be read, a timeout, an empty `result` or a `result` with no block leaves `ticket` null and the hook still exits 0, as today.
+- The `--cursor-agent` read gets an explicit 64 MiB output limit (`maxBuffer`), since the output now holds every run's full `result` and Node's 1 MiB default would make a long conversation's read fail and freeze its usage.
 
 ### 5. Docs
 
