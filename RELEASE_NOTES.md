@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 allow infra/ branches for ticket work (CW-306) (#312)
+
+Merged 2026-11-14 20:28 UTC.
+
+A ticket branch can now be `infra/<prefix>-N-short-title` as well as `feat/...`. To allow it in an app, change the Branch pattern row in its `docs/agents/project.md` to `{feat,infra}/<prefix>-N-short-title`; rows without braces keep working as before.
+
 ## 2026-11-14 show each change once in the release notes (CW-304) (#309)
 
 Merged 2026-11-14 19:24 UTC.
@@ -48,8 +54,6 @@ Merged 2026-11-14 00:05 UTC.
 
 The compatibility page now says what a ticket helper gets in the agent gantt on each harness: Claude Code attaches it to the ticket it filed, Cursor shows only a placeholder card until #288 lands, and Codex and Antigravity show nothing.
 
-Context size: pass skipped (no agent files changed)
-
 ## 2026-11-13 accept one _suffix in a GitHub login (EMU) (#293)
 
 Merged 2026-11-13 23:50 UTC.
@@ -73,8 +77,6 @@ When this machine has no `user.md`, or no row for the repo, the Chief of Staff n
 Merged 2026-11-13 23:05 UTC.
 
 The dashboard's Ship loop tab now shows a running ticket helper as a card under In progress, and lists open Todo and Backlog tickets in a Not started section. A ticket a helper filed shows the helper's time and cost in its gantt. The Ticket helpers list is gone from the Chief of Staff tab. Update the agent-gantt plugin to get the filed ticket recorded.
-
-Context size: pass skipped (no agent files changed)
 
 ## 2026-11-13 show tokens and spend on Cursor gantt rows (CW-284) (#287)
 
@@ -123,10 +125,6 @@ A Cursor thread on a worktree now shows a gantt row on the local dashboard. Rows
 Merged 2026-11-09 03:51 UTC.
 
 The usage and cost report now counts work done in Cursor, priced like Claude Code work. If a Cursor run used a model with no price in `prices.json`, the ticket's cost shows as unknown, and a No Hands run stops on it and names the ticket.
-
-Context size: 86223 to 86520 characters (+297 from main)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 ## 2026-11-09 let tag-release.sh cut minor release versions (CW-259) (#268)
 
@@ -206,10 +204,6 @@ Merged 2026-11-08 21:04 UTC.
 
 On a ticket's Agents chart, each child thread's row now starts with its stage (`Spec CW-N: ...`, `Build CW-N: ...`, `Merge CW-N: ...`), and the ticket helper, backlog ranking and hygiene children show their role. Run `/plugin update agent-gantt@collective-wisdom` to get it; rows already recorded keep their old names.
 
-Context size: pass skipped (no agent files changed)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
 ## 2026-11-08 expandable Details section on each dashboard ticket (CW-227) (#231)
 
 Merged 2026-11-08 20:47 UTC.
@@ -228,19 +222,11 @@ Merged 2026-11-08 20:23 UTC.
 
 An open dashboard tab now reloads itself within about 5 seconds when the page files change. A tab opened before this ships needs one hard refresh; restarting the server after a server-side change is still manual.
 
-Context size: pass skipped (no agent files changed)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
 ## 2026-11-08 T3 Code harness columns in the compatibility matrix (CW-226) (#229)
 
 Merged 2026-11-08 20:13 UTC.
 
 The compatibility page now lists four harness columns, each running in T3 Code: Claude Code, Codex, Cursor and Antigravity, and gains an Azure DevOps column for trackers. Every cell starts with a colored circle so the page reads at a glance. Nothing to do; Cursor, Antigravity and Azure DevOps cells are `untested`, `partial` or `not supported` until someone runs them; every Azure DevOps cell is `not supported` because there is no adapter.
-
-Context size: pass skipped (no agent files changed)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 ## 2026-11-08 gantt task rows show only their own work, bars get tooltips (CW-225) (#228)
 
@@ -334,10 +320,6 @@ Merged 2026-11-08 07:04 UTC.
 
 The documenter now runs once per PR, after the code and security reviews pass, and a docs-file-only fix after that no longer sends the PR back through the reviews. You don't need to do anything.
 
-Context size: 75003 to 74970 characters (-33 from main)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
 ## 2026-11-08 sort dashboard sections by last updated (CW-198) (#201)
 
 Merged 2026-11-08 06:40 UTC.
@@ -382,15 +364,11 @@ Merged 2026-11-08 05:32 UTC.
 
 The local dashboard's Agents list is replaced by a Merged list: merged tickets, newest first, ten per page, with Newer and Older buttons. Agent charts still appear inside each ticket's card. Agent sessions that belong to no card are no longer listed.
 
-Context size: pass skipped (no agent files changed)
-
 ## 2026-11-08 rename awaiting-spec to awaiting-build and SPEC READY to BUILD READY (CW-177) (#186)
 
 Merged 2026-11-08 05:24 UTC.
 
 The Chief of Staff's waiting stage is now `awaiting-build` and a child's spec report is now `BUILD READY`. State files and children started before this change still work. Nothing to do.
-
-Context size: 178690 to 178835 characters (+145 from main)
 
 ## 2026-11-08 show spec-stage tickets in a Speccing dashboard group (CW-182) (#185)
 
@@ -410,10 +388,6 @@ Merged 2026-11-08 05:08 UTC.
 
 The local dashboard now shows each agent's Gantt chart inside the status card of its ticket, collapsed until you open it. Sessions that don't belong to a card stay in the Agents list.
 
-Context size: pass skipped (no agent files changed)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
 ## 2026-11-08 show dashboard Gantt charts only for worktree sessions (CW-178) (#183)
 
 Merged 2026-11-08 05:06 UTC.
@@ -432,8 +406,6 @@ Merged 2026-11-08 01:09 UTC.
 
 The local dashboard now fits a narrow side pane and shows a title on each ticket row, reading a missing one from GitHub issues. A new `start` state op needs a title, so a rebuilt or adopted ticket never has a blank one.
 
-Context size: 99026 to 99293 characters (+267 from main)
-
 ## 2026-11-08 show the status pane and agent Gantt in a local dashboard (CW-173) (#174)
 
 Merged 2026-11-08 00:32 UTC.
@@ -445,8 +417,6 @@ Merged 2026-11-08 00:32 UTC.
 Merged 2026-11-07 23:28 UTC.
 
 The agent-gantt cost column now reads the price table from `~/.collective-wisdom/scripts/prices.json`, so it shows dollar amounts in any repo once `./install.sh` has run. Update the mod with `claude plugin update agent-gantt`.
-
-Context size: pass skipped (no agent files changed)
 
 ## 2026-11-07 remove the root links and rely on the machine install (CW-169) (#170)
 
@@ -472,15 +442,11 @@ Merged 2026-11-07 20:24 UTC.
 
 An app now commits only `docs/agents/project.md` from the team; skills, scripts and role docs come from the machine install. If an app still carries the old copied team, run `~/.collective-wisdom/scripts/remove_app_copies.py` in it and commit the removal as a PR. `install.sh <app>` no longer works.
 
-Context size: 227377 to 227915 characters (+538 from main)
-
 ## 2026-11-06 install the agent team once per machine (CW-160) (#164)
 
 Merged 2026-11-06 22:17 UTC.
 
 Install the agent team once per machine with `./install.sh` from a clone of collective-wisdom (no target path). Every repo with a `docs/agents/project.md` then runs that clone's skills and scripts; update by checking out a newer release in the clone and running `./install.sh` again. Apps keep their copied files until the follow-on change removes them, but from this release on the copied skills call `~/.collective-wisdom/scripts/`, so an app updated the old way also needs the machine install on each machine.
-
-Context size: 284185 to 288628 characters (+4443 from main, all from the `~/.collective-wisdom/` path prefix on script calls)
 
 ## 2026-11-06 reject an empty Backlog ranking when the Backlog has tickets (CW-150) (#158)
 
