@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 warn when the Branch pattern row does not parse (CW-319) (#322)
+
+Merged 2026-11-14 21:50 UTC.
+
+A `project.md` whose `Branch pattern` row cannot be read now prints a warning instead of quietly using `feat/`, and `set up this repo` reports the row and replaces it with the standard `{feat,infra}/` row in the setup PR. Check that row in the PR and edit the heads if your repo uses others.
+
 ## 2026-11-14 shrink the Chief of Staff thread start (CW-314) (#321)
 
 Merged 2026-11-14 21:49 UTC.
