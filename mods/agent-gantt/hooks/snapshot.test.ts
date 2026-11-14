@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { buildSnapshot, pickFiledTicket, pickHeading, pickRequest, snapshotName } from './snapshot.ts'
+import { buildSnapshot, earlierRows, oldField, pickFiledTicket, pickHeading, pickRequest, snapshotName } from './snapshot.ts'
 import type { Row } from './rows.ts'
 
 test('snapshotName accepts only safe session ids', () => {
@@ -62,4 +62,37 @@ test('buildSnapshot writes the session fields and the row fields', () => {
   const got = JSON.parse(buildSnapshot({ sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, rows: [row], threadId: 'th:1', heading: null, ticket: 'CW-9', request: null }))
   assert.deepEqual(got, { sessionId: 's1', cwd: '/a', updatedAt: 9, total: null, pricing: 2, threadId: 'th:1', heading: null, ticket: 'CW-9', request: null, rows: [row] })
   assert.deepEqual(Object.keys(got.rows[0]).sort(), ['cost', 'depth', 'end', 'harness', 'id', 'kind', 'model', 'name', 'repo', 'segments', 'start', 'tokens'])
+})
+
+const row = (id: string, start: number, end: number | null, segments: Row['segments'] = [[start, end]]): Row =>
+  ({ id, depth: 1, kind: 'task', name: 'n', repo: 'app', start, end, tokens: 1, cost: null, segments, model: null, harness: null })
+const old = (over: object = {}) => ({ sessionId: 's1', updatedAt: 500, heading: 'TEAM MODE', ticket: 7, request: null, rows: [row('main:task:0', 100, 300), row('main:task:1', 300, null, [[300, 350], [400, null]])], ...over })
+
+test('earlierRows keeps and closes the rows that started before the current main record', () => {
+  const closed = row('r500:main:task:0', 100, 300)
+  const cases: [string, unknown, number, Row[]][] = [
+    ['restart', old(), 400, [closed, row('r500:main:task:1', 300, 500, [[300, 350], [400, 500]])]],
+    ['no restart', old(), 100, []],
+    ['second restart', old({ rows: [row('r300:main:task:0', 100, 200)] }), 400, [row('r500:r300:main:task:0', 100, 200)]],
+    ['running row', old({ rows: [row('main', 100, null, [[100, null]])], updatedAt: 90 }), 400, [row('r90:main', 100, 90, [[100, 100]])]],
+    ['wrong session', old({ sessionId: 's2' }), 400, []],
+    ['no rows array', old({ rows: 'x' }), 400, []],
+    ['no updatedAt', old({ updatedAt: '5' }), 400, []],
+    ['bad rows skipped', old({ rows: [null, { id: 3, start: 1 }, { id: 'a', start: 'x' }, closed.id] }), 400, []],
+    ['not an object', null, 400, []],
+  ]
+  for (const [name, snap, mainStart, want] of cases) assert.deepEqual(earlierRows(snap, 's1', mainStart), want, name)
+})
+
+test('oldField reads a string field of this session only', () => {
+  assert.equal(oldField(old(), 's1', 'heading'), 'TEAM MODE')
+  assert.equal(oldField(old(), 's1', 'ticket'), null)
+  assert.equal(oldField(old(), 's2', 'heading'), null)
+  assert.equal(oldField('x', 's1', 'heading'), null)
+})
+
+test('a rewrite after a restart lists the spec rows before the build rows', () => {
+  const build = [row('main:task:0', 400, null)]
+  const got = JSON.parse(buildSnapshot({ sessionId: 's1', cwd: '/a', updatedAt: 600, total: null, rows: [...earlierRows(old(), 's1', 400), ...build], threadId: null, heading: null }))
+  assert.deepEqual(got.rows.map((r: Row) => r.id), ['r500:main:task:0', 'r500:main:task:1', 'main:task:0'])
 })

@@ -1,3 +1,4 @@
+import type { Segment } from '../types/index.d.ts'
 import type { Row } from './rows.ts'
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/
@@ -53,6 +54,33 @@ export function pickRequest(text: string): string | null {
     if (line !== '') return line.slice(0, REQUEST_LENGTH)
   }
   return null
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+/** The parsed old snapshot when it is an object with a numeric `updatedAt` and this session's id, else null. */
+function ownSnapshot(old: unknown, sessionId: string): (Record<string, unknown> & { updatedAt: number }) | null {
+  return isObject(old) && old.sessionId === sessionId && typeof old.updatedAt === 'number' ? { ...old, updatedAt: old.updatedAt } : null
+}
+
+/** The old snapshot's `heading`, `ticket` or `request`, or null when it is not a string or the snapshot is not this session's. */
+export function oldField(old: unknown, sessionId: string, key: 'heading' | 'ticket' | 'request'): string | null {
+  const value = ownSnapshot(old, sessionId)?.[key]
+  return typeof value === 'string' ? value : null
+}
+
+/** The rows of an old snapshot of this session that started before `mainStart`, which a restarted mod no longer has. Ids get an `r<updatedAt>:` prefix, and each row and open segment ends at `updatedAt`, when that process stopped writing. Empty for a bad snapshot. */
+export function earlierRows(old: unknown, sessionId: string, mainStart: number): Row[] {
+  const snap = ownSnapshot(old, sessionId)
+  if (snap === null || !Array.isArray(snap.rows)) return []
+  const { updatedAt } = snap
+  const rows: Row[] = []
+  for (const r of snap.rows as unknown[]) {
+    if (!isObject(r) || typeof r.id !== 'string' || typeof r.start !== 'number' || r.start >= mainStart || !Array.isArray(r.segments)) continue
+    const segments = (r.segments as Segment[]).map((s): Segment => [s[0], s[1] ?? Math.max(s[0], updatedAt)])
+    rows.push({ ...(r as Row), id: `r${updatedAt}:${r.id}`, end: typeof r.end === 'number' ? r.end : updatedAt, segments })
+  }
+  return rows
 }
 
 /** The JSON text the local dashboard reads for one session. `pricing: 2` marks rows priced after the CW-220 rate fix. `threadId`, `heading`, `ticket` and `request` are null when unknown. */
