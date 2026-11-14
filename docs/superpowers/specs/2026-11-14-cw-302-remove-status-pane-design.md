@@ -1,7 +1,7 @@
 # CW-302: Remove the status-pane mod
 
 **Status:** Shipped
-**Shipped:** in PR #PRN, as specified
+**Shipped:** in PR #305, as specified
 **Ticket:** [#302](https://github.com/collective-wisdom-org/collective-wisdom/issues/302)
 
 ## Goal
