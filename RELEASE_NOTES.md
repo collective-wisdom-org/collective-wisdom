@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 add Todo and Backlog list and ticket helper tracker rows to the compatibility doc (CW-300) (#301)
+
+Merged 2026-11-14 18:45 UTC.
+
+The compatibility doc now lists which trackers support the dashboard's Todo and Backlog list and the ticket helper's gantt rows. Linear and Jira are not covered yet; nothing to do.
+
 ## 2026-11-14 show the 3 top Backlog tickets with a link to the full backlog (CW-296) (#297)
 
 Merged 2026-11-14 00:46 UTC.
