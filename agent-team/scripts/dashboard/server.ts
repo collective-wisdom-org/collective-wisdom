@@ -11,6 +11,7 @@ import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles
 import type { TitleConfig } from './titles.ts'
 import { createUpdated } from './updated.ts'
 import { createBacklog } from './backlog.ts'
+import { createTrackerLists } from './lists.ts'
 import { createMerged } from './merged.ts'
 import { createDetails, gitRunner } from './details.ts'
 import type { DetailWant } from './details.ts'
@@ -208,6 +209,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const merged = createMerged({ run: ghRunner(root) })
   const updated = createUpdated({ run: ghRunner(root) })
   const backlog = createBacklog({ run: ghRunner(root) })
+  const trackerLists = createTrackerLists({ read: () => readRegular(join(agentDir, 'tracker-lists.json'), [agentDir]) })
   const details = createDetails({ run: ghRunner(root), git: gitRunner(root) })
 
   // Worktree list for matching sessions to tickets: read once at start, then refreshed in the background, cached 30s, last good list kept.
@@ -355,8 +357,11 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     details.want(wants, mergedCfg)
     updated.want(titleCfg)
     backlog.want(titleCfg)
+    // Linear and Jira are not reachable from here; the Chief of Staff saves their Todo and Backlog lists in a file.
+    const fromFile = repo !== null && !repo.isGithubIssues && prefix !== null
+    trackerLists.want(fromFile ? prefix : null)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history), backlog: backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

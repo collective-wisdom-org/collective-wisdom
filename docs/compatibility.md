@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-14, after CW-300 ([#301](https://github.com/collective-wisdom-org/collective-wisdom/pull/301)) merged; recorded runs are in [Runs](#runs).
+Last checked against the code on 2026-11-14, after CW-300 ([#301](https://github.com/collective-wisdom-org/collective-wisdom/pull/301)) merged and with CW-298 ([#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)) added; recorded runs are in [Runs](#runs).
 
 ## Legend
 
@@ -70,7 +70,7 @@ Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` ca
 | Project manager hygiene and ranking | 🟢 works | 🟢 works | 🔴 not supported: `pm_hygiene.py` has no Jira shape; ranking untested (G13) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Untracked work check | 🟢 works | 🟡 partial: finds open PRs only (G14) | 🟡 partial: finds open PRs only (G14) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Dashboard issue links, titles and update order | 🟢 works | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) |
-| Dashboard Todo and Backlog list | 🟢 works | 🔴 not supported: GitHub only (G22) | 🔴 not supported: GitHub only (G22) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| Dashboard Todo and Backlog list | 🟢 works | 🟡 partial: read from the Chief of Staff's last Todo read and Backlog ranking, so it can lag the tracker (G22) | 🟡 partial: the same lag (G22); untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Ticket helper in the gantt | 🟢 works | 🟡 partial: spend attaches and the session is kept in the ticket's history, but it shows on the ticket's chart only once the ticket is in state (G23) | 🟡 partial: as Linear (G23); untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Setup (`set up this repo`) | 🟢 works | 🟢 works | ⚪ untested: writes the Jira rows, never run against Jira (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | PR flow and merge (needs GitHub for code) | 🟢 works | 🟢 works, code on GitHub | ⚪ untested, code on GitHub (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
@@ -80,7 +80,7 @@ Notes:
 - GitHub Issues: `trackers/github.md` says it was verified on 2026-11-03.
 - Linear: `trackers/linear.md` has no verification line. Its `works` cells rest on the team running on Linear on one maintainer's machine, which is not a recorded verification; this covers every Linear `works` cell, not only the two marked. If you want `works` to mean a recorded verification like the GitHub adapter's, treat the Linear cells as `untested` (G16).
 - Jira: `trackers/jira.md` is marked UNTESTED and its list of assumptions is unticked.
-- Ticket helper in the gantt: a session joins a ticket's gantt only when that ticket has a row on the board. A just-filed ticket gets its row from the Todo and Backlog list, which reads GitHub Issues only (G22), so on Linear or Jira the session reaches the ticket's chart once the ticket is in state. Spend does not depend on the board.
+- Ticket helper in the gantt: a session joins a ticket's gantt only when that ticket has a row on the board. A just-filed ticket gets its row from the Todo and Backlog list, which on Linear or Jira is the Chief of Staff's last read (G22), so the session reaches the ticket's chart once the ticket is in that list or in state. Spend does not depend on the board.
 - Azure DevOps: here it means Azure Boards for tickets. The code stays on GitHub, as on every tracker. The repo has no mention of it outside an unrelated security checklist, so every cell is `not supported`.
 
 ### Full compatibility
@@ -177,5 +177,5 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G19.** There is no Azure DevOps adapter: `trackers/` has GitHub, Linear and Jira only, and the `Tracker` row in `project.md` cannot name it. Ticket: none yet.
 - **G20.** `trackers/github.md` § `ensure-labels` names the team labels but not their colors or descriptions, so the Cursor Chief of Staff in the 2026-11-09 run copied them from the collective-wisdom repo. The same step on the other harnesses is not recorded. No matrix cell points at it: it came from the 2026-11-09 run. Ticket: [#276](https://github.com/collective-wisdom-org/collective-wisdom/issues/276).
 - **G21.** The Cursor gantt hook (`cursor_gantt_hook.ts` via `mods/agent-gantt/hooks/cursor.ts`) writes no `ticket` or `request`, so a Cursor helper's card has no title, stays until its turn ends, and its session never joins the ticket it filed or that ticket's spend. No Cursor hook run is recorded (see G9). Ticket: [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288).
-- **G22.** The dashboard's Todo and Backlog list reads GitHub Issues only (`backlog.ts` calls `gh issue list`, and `server.ts` configures it only for a `github` tracker), so on Linear and Jira it is empty. Ticket: [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298).
-- **G23.** A ticket helper's session joins a ticket's gantt only when the ticket has a board row. A just-filed ticket gets its row from the Todo and Backlog list, which is GitHub only (G22), so on Linear and Jira the session shows on the ticket's chart once the ticket is in state. Spend does not depend on the board. Ticket: [#299](https://github.com/collective-wisdom-org/collective-wisdom/issues/299).
+- **G22.** On Linear and Jira the dashboard's Todo and Backlog lists come from `.agent-team/tracker-lists.json`, which the Chief of Staff writes: the Todo list on each turn that reads Todo (a free spec slot) and the Backlog list after each ranking. Between reads the lists can lag the tracker. A fresher list would need a tracker read on every turn. Issue: [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298).
+- **G23.** A ticket helper's session joins a ticket's gantt only when the ticket has a board row. A just-filed ticket gets its row from the Todo and Backlog list, which on Linear and Jira is the Chief of Staff's last read (G22), so the session shows on the ticket's chart once the ticket is in that list or in state. Spend does not depend on the board. Ticket: [#299](https://github.com/collective-wisdom-org/collective-wisdom/issues/299).

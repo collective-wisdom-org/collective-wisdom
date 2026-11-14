@@ -267,6 +267,27 @@ test('a root checkout helper that filed a ticket is recorded as that ticket\'s s
   }
 })
 
+test('a linear project serves the Todo and Backlog the Chief of Staff saved, and a ticket in state shows once', async () => {
+  const root = tmpRoot()
+  mkdirSync(join(root, '.agent-team'))
+  mkdirSync(join(root, 'docs/agents'), { recursive: true })
+  writeFileSync(join(root, 'docs/agents/project.md'), '| Tracker | `linear` |\n| Repo | <https://example.com/o/r> |\n| Issue identifier prefix | `CW` |\n')
+  writeFileSync(join(root, '.agent-team/state.json'), JSON.stringify(goodState))
+  const list = (...tickets: object[]) => ({ at: '2026-11-14T10:00:00Z', list: tickets })
+  writeFileSync(join(root, '.agent-team/tracker-lists.json'), JSON.stringify({ todo: list({ id: 'CW-1', title: 'in state' }, { id: 'CW-2', title: 'next', priority: 2 }), backlog: list({ id: 'CW-3', title: 'later', priority: 'Low' }) }))
+  const srv = await startServer({ root, port: 0 })
+  try {
+    const api = JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body)
+    const groups = Object.fromEntries(api.status.map((g: any) => [g.name, g.rows.map((r: any) => r.id)]))
+    assert.deepEqual([groups.Todo, groups.Backlog], [['CW-2'], ['CW-3']])
+    assert.equal(api.status.find((g: any) => g.name === 'Backlog').moreUrl, undefined)
+    assert.equal(Object.values(groups).flat().filter((id) => id === 'CW-1').length, 1)
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('keeps last good state when state.json is half-written', async () => {
   const root = tmpRoot()
   mkdirSync(join(root, '.agent-team'))

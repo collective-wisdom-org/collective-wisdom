@@ -3,7 +3,15 @@ import json
 
 import pytest
 
+import cos_lists
 import cos_todo
+
+
+@pytest.fixture(autouse=True)
+def saved_to(tmp_path, monkeypatch):
+    """The first pass saves the list; keep that out of the real .agent-team."""
+    monkeypatch.setattr(cos_lists, "DEFAULT_FILE", tmp_path / "tracker-lists.json")
+    return tmp_path
 
 
 def t(i, priority=None, at="2026-11-01T00:00:00Z", labels=(), **kw):
@@ -72,3 +80,13 @@ def test_second_pass_drops_open_blockers(monkeypatch, capsys, tickets, tickets_g
 def test_unusable_stdin_exits_2(monkeypatch, capsys, stdin, flags):
     code, out = run(monkeypatch, capsys, stdin, *flags)
     assert code == 2 and out[-1].startswith("todo: cannot ")
+
+
+def test_first_pass_saves_the_todo_list_and_a_failed_save_changes_nothing(monkeypatch, capsys, saved_to):
+    tickets = [t(1, "Low"), t(2, "High")]
+    assert run(monkeypatch, capsys, tickets) == (0, ["get ABC-2", "get ABC-1"])
+    assert json.loads((saved_to / "tracker-lists.json").read_text())["todo"]["list"] == tickets
+    run(monkeypatch, capsys, {"list": tickets, "tickets": {}}, "--relations")  # the second pass saves nothing
+    assert json.loads((saved_to / "tracker-lists.json").read_text())["todo"]["list"] == tickets
+    monkeypatch.setattr(cos_lists, "DEFAULT_FILE", saved_to / "missing" / "tracker-lists.json")
+    assert run(monkeypatch, capsys, tickets) == (0, ["get ABC-2", "get ABC-1"])
