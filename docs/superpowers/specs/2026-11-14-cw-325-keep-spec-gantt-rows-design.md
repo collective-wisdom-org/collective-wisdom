@@ -25,12 +25,12 @@ CW-323 (`t3-23688694-09b9e71d49bee506`, session `de775c3f-…`) looks the same: 
 Keep the earlier rows when a restarted mod rewrites its session's snapshot.
 
 1. **Read the old file once.** In `register.tsx`, the first `writeSnapshot` after the module loads reads the existing `<root>/.agent-team/gantt/<sessionId>.json` (after the same link and folder checks the write does). A missing, unreadable or bad file, or one whose `sessionId` is not this session's, gives nothing. What it read is kept in a module variable, like `root`, and not read again.
-2. **Pick the earlier rows.** A new pure function in `snapshot.ts`, `earlierRows(old, mainStart)`, takes the parsed old snapshot and the current main record's `start`, and returns:
-   - only the old rows that started before `mainStart`. If the atoms survived (no restart), `mainStart` is the session's real start and nothing qualifies, so no row is doubled.
+2. **Pick the earlier rows.** A new pure function in `snapshot.ts`, `earlierRows(old, sessionId, mainStart)`, takes the parsed old snapshot, this session's id and the current main record's `start`, and returns:
+   - nothing for a bad snapshot, and only the old rows that are well formed (an id, a start, `[start, end]` segment pairs) and started before `mainStart`. If the atoms survived (no restart), `mainStart` is the session's real start and nothing qualifies, so no row is doubled.
    - each with its id prefixed `r<old updatedAt>:`, so `main:task:0` of the spec does not clash with `main:task:0` of the build. A row from a second restart keeps its prefix and gets another, so ids stay unique.
    - each closed at the old file's `updatedAt`: an `end: null` becomes that time and an open last segment ends there, since that process is gone.
 3. **Write both.** Each `writeSnapshot` writes the earlier rows first, then the rows `buildRows` makes now. The rows keep their depth, so the dashboard draws the spec task with its subagents above the build task.
-4. **Fill the unset fields.** When the current `heading`, `ticket` or `request` is null, the snapshot uses the old file's value, so a team session keeps its `TEAM MODE` or `TICKET HELPER` heading after a restart.
+4. **Fill the unset fields.** `oldField(old, sessionId, key)` returns the old file's string value. When the current `heading`, `ticket` or `request` is null, the snapshot uses the old file's value, so a team session keeps its `TEAM MODE` or `TICKET HELPER` heading after a restart.
 5. **Tests**, table-driven, in `snapshot.test.ts`: one table for `earlierRows` covering a restart (old rows before `mainStart` kept, prefixed and closed), no restart (all old rows at or after `mainStart`, nothing kept), a second restart (already prefixed rows kept with a new prefix), a bad old snapshot (no `rows` array, wrong `sessionId`), and a row still running in the old file. One case runs a full rewrite: old snapshot plus new `buildRows` output gives spec rows then build rows.
 
 ## Leaves out
