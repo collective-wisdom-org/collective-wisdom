@@ -1,7 +1,8 @@
 # CW-323: Show CI wait time on the agent gantt
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#323](https://github.com/collective-wisdom-org/collective-wisdom/issues/323)
+**Shipped:** in PR #326, as specified
 
 ## Goal
 
