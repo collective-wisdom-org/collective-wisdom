@@ -1,7 +1,8 @@
 # CW-299: Show a ticket helper's session on the gantt for a ticket in Linear or Jira
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#299](https://github.com/collective-wisdom-org/collective-wisdom/issues/299)
+**Shipped:** in PR #308, as specified
 
 ## Goal
 
