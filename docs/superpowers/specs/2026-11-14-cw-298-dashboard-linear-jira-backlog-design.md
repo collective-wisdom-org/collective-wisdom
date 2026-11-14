@@ -1,7 +1,8 @@
 # CW-298: Read the dashboard Todo and Backlog from Linear and Jira, not only GitHub Issues
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)
+**Shipped:** in PR #303, as specified
 
 ## Goal
 
