@@ -34,8 +34,9 @@ item's number in the run (1000001, 2000001 ...), so they are not read positions;
 real thread (ordinals 1000001, 1000011, 1000022 are positions 0, 10, 21, and 4000008 is 77). With no
 new item, next is --after (0 without it). The rank counts every stored row, so in a thread with
 rolled_back runs or cancelled queued messages (items T3's read leaves out) next can be higher than a
-read's position and a fallback afterPosition=<next> could skip such items; the Chief of Staff's
-fallback after exit 2 uses the saved lastPosition.
+read's position and a fallback afterPosition=<next> could skip such items (rare for children). After a
+fallback read, lastPosition comes from the read's lower nextPosition, so the next run can report an
+already-seen message as new: a repeat notice, harmless.
 
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro. Exit 0 with output. Exit 2
 and "cos_child_read: schema changed" when the database or a table is not as expected,
