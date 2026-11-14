@@ -375,7 +375,7 @@ test('merged row shows spend only when the entry has it', () => {
   assert.doesNotMatch(none, /cost|\$|–/)
 })
 
-test('groups sort into bands, keep api order inside a band, and show the stage only in Other', () => {
+test('groups sort into bands, keep api order inside a band', () => {
   const g = (name, rows = [row({ id: `${name}-1`, stage: 'build' })]) => ({ name, count: rows.length, rows })
   const bandsOf = (html) => [...html.matchAll(/<h2>([^<]+)<\/h2>|<h3>([^<]+?) <span/g)].map((m) => m[1] ?? m[2])
   const names = [g('Building'), g('Mystery'), g('Awaiting build approval'), g('Queued to build'), g('Awaiting merge approval'), g('Speccing')]
@@ -383,8 +383,17 @@ test('groups sort into bands, keep api order inside a band, and show the stage o
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
   const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
   assert.match(other, /class="row blocked"[\s\S]*>blocked<[\s\S]*>spec queued</)
-  assert.equal((other.match(/badge stage/g) ?? []).length, 2)
+  assert.equal((other.match(/badge stage/g) ?? []).length, 3, 'a stage badge on every row with a stage, in every group')
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
+})
+
+test('a card shows its stage and since HH:MM, never the status text; no usable stageAt means no since', () => {
+  const stageAt = new Date(2026, 10, 14, 9, 5).toISOString()
+  for (const [extra, want] of [[{ stageAt }, 'build since 09:05'], [{}, 'build'], [{ stageAt: 'soon' }, 'build']]) {
+    const html = renderStatus(group([row({ next: 'status words', ...extra })]))
+    assert.equal(html.match(/<span class="badge stage">([^<]*)</)[1], want)
+    assert.doesNotMatch(html.replace(/<details class="info"[\s\S]*?<\/details>/, ''), /status words/)
+  }
 })
 
 test('a running ticket helper is a placeholder card, and Todo and Backlog are flat rows under Not started', () => {

@@ -22,6 +22,7 @@ Operations (each {"op": NAME, ...}):
               awaiting-build, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
               user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
               with headSha unchanged keeps it. awaiting-review holds no lane slot.
+              start and a stage op that changes the stage stamp stageAt; a set or stage op naming it is rejected.
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
@@ -86,7 +87,7 @@ TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
     "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
-    "noApproval", "provider",
+    "noApproval", "provider", "stageAt",
 }
 STAGES = (
     "spec", "awaiting-build", "spec-queued", "build-queued", "build",
@@ -226,7 +227,7 @@ def op_start(s, op):
         "branch": op.get("branch"), "title": title, "specPath": None, "specSha": None, "pr": None,
         "headSha": None, "rateLimitResumes": 0, "lastSeenAt": now(), "lastPosition": 0,
         "resumeStage": None, "pendingRelay": None, "approvalItemId": None, "queuedAt": None,
-        "restarts": {"spec": 0}, "note": "",
+        "restarts": {"spec": 0}, "note": "", "stageAt": now(),
     }
     s["lastRelayAt"] = now()
     run = s.get("noHands")
@@ -248,6 +249,8 @@ def op_stage(s, op):
         raise Reject(f"unknown stage {new}")
     sets = op.get("set", {})
     keys_ok(sets, TICKET - {"stage"}, "ticket")
+    if "stageAt" in sets:
+        raise Reject("stageAt is stamped by the script")
     if new in STAMPED and "lastSeenAt" in sets:
         raise Reject(f"lastSeenAt is stamped by the script in {new}")
     new_child = sets.get("childThreadId") not in (None, t.get("childThreadId"))
@@ -273,6 +276,8 @@ def op_stage(s, op):
     if new in STAMPED and (new != old or not head_same or withdrawn) and not kept:  # a new head voids an approval cut-off
         t["lastSeenAt"] = now()
     t.update(stage=new, status=op["status"])
+    if new != old:
+        t["stageAt"] = now()
     if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
         s["lastRelayAt"] = now()
     if new.endswith("-queued") and (new != old or not t.get("queuedAt")):
@@ -286,6 +291,8 @@ def op_set(s, op):
     if not t:
         raise Reject(f"no ticket {tid}")
     keys_ok(op["set"], TICKET - {"stage"}, "ticket")
+    if "stageAt" in op["set"]:
+        raise Reject("stageAt is stamped by the script")
     if t["stage"] in STAMPED and "lastSeenAt" in op["set"]:
         raise Reject(f"lastSeenAt is stamped by the script in {t['stage']}")
     if t["stage"] in ACTIVE and op["set"].get("childThreadId") not in (None, t.get("childThreadId")):
