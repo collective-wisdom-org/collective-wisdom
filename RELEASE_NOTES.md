@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 show a ticket helper's session on the gantt for Linear and Jira tickets (CW-299) (#308)
+
+Merged 2026-11-14 19:17 UTC.
+
+On Linear, a ticket helper's time and cost already show on the dashboard gantt of the ticket it filed once that ticket is in the Chief of Staff's saved Todo or Backlog list. This change adds a test for it and updates the compatibility doc. Jira runs the same code and is untested. Nothing to do.
+
 ## 2026-11-14 remove the status-pane mod (CW-302) (#305)
 
 Merged 2026-11-14 19:05 UTC.
