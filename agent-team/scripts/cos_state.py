@@ -22,6 +22,7 @@ Operations (each {"op": NAME, ...}):
               awaiting-build, awaiting-review, awaiting-merge and blocked stamp lastSeenAt (the cut-off for the
               user's approve N) on entry, on a new headSha and when a heldApproval is withdrawn. One exception: awaiting-review to awaiting-merge
               with headSha unchanged keeps it. awaiting-review holds no lane slot.
+              start and a stage op that changes the stage stamp stageAt; a set or stage op naming it is rejected.
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
