@@ -1,6 +1,7 @@
 # CW-314: Shrink what the Chief of Staff loads at the start of a thread
 
-**Status:** Proposed
+**Status:** Shipped
+**Shipped:** in PR #321, with differences: [as-built](../as-built/2026-11-14-cw-314-shrink-thread-start.md)
 **Ticket:** [#314](https://github.com/collective-wisdom-org/collective-wisdom/issues/314)
 
 ## Goal
