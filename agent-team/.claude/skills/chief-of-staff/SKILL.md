@@ -61,7 +61,7 @@ Reference files are in this directory. Read one when its trigger happens.
 | `readiness.md` | a `start <ID>` line from `cos_todo.py`, `project-manager` § Backlog pick starting a ticket, or `adopt.md` |
 | `models.md` | starting a child or helper; a `configure` or `chief-provider` plan line; `cos_models.py` exits 1 |
 | `rate-limit.md` | a plan line `schedule-wake` or `clear-rate-limit`, a `wake` trigger, or a child rate limit (§ Child path) |
-| `sweep.md` | the sweep exits 1 or 2, a `merge-wait` line, a `merge-wait:` line from `cos_route.py`, or take-over step 4.2 starting a merge wait |
+| `sweep.md` | the sweep exits 1 or 2, a `merge-wait` line, a `merge-wait:` line from `cos_route.py`, or take-over step 3.2 starting a merge wait |
 
 ## Tools
 
