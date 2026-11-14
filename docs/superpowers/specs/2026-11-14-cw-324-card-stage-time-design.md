@@ -1,6 +1,7 @@
 # CW-324: Show only the stage and the time it began on dashboard ticket cards
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #327, as specified
 **Ticket:** [#324](https://github.com/collective-wisdom-org/collective-wisdom/issues/324)
 
 ## Goal
