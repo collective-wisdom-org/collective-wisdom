@@ -21,7 +21,7 @@ It ignores --since and --until, prints no cost report, and exits 2 if the variab
 is unset or the session has no transcript or no requests.
 --ticket prints one line for that ticket's child threads: "cost $X API-equivalent,
 N.NM tokens, spec $a / build $b / merge $c, K child runs, wall Hh MMm". It reads only
-worktree sessions with a git branch feat/<prefix>-N or feat/<prefix>-N-..., plus their
+worktree sessions with a git branch <head><prefix>-N or <head><prefix>-N-..., where <head> is a head of the Branch pattern row,, plus their
 subagents, ignores --since and --until, and exits 2 when no Claude Code or Cursor session ran the ticket.
 A Cursor session's branch is the "Branch:" line of its first message, else the git branch of its workspace.
 When the user's user.md sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
@@ -62,6 +62,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
+import project_config  # noqa: E402
 import user_config  # noqa: E402
 
 
@@ -300,7 +301,7 @@ def read_cursor(proj, failed=None):
             msgs = cursor_messages(proj / "agent-transcripts" / aid / f"{aid}.jsonl")
             branch = None
             if "worktrees" in proj.name:
-                m = re.search(r"^Branch:\s*(feat/[A-Za-z0-9_/-]+)", msgs[0] if msgs else "", re.M)
+                m = re.search(rf"^Branch:\s*({project_config.branch_heads_re()}[A-Za-z0-9_/-]+)", msgs[0] if msgs else "", re.M)
                 branch = m.group(1) if m else git_branch(ref)
             sessions.append({
                 "id": aid,
@@ -413,8 +414,9 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
     usage is the subscription's API-equivalent dollars; when set, the cost part also shows the share of the Claude Code part.
     cursor is the Cursor projects dir.
     """
-    own = re.compile(r'"gitBranch":"feat/' + re.escape(ticket.lower()) + r'[-"]')
-    mine = re.compile(r"feat/" + re.escape(ticket.lower()) + r"(-.*)?", re.I)
+    heads = project_config.branch_heads_re()
+    own = re.compile(r'"gitBranch":"' + heads + re.escape(ticket.lower()) + r'[-"]')
+    mine = re.compile(heads + re.escape(ticket.lower()) + r"(-.*)?", re.I)
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
     tokens, runs, times, cursor_runs, cursor_spent, unpriced, failed = 0, 0, [], 0, 0.0, set(), []
     unreadable = False

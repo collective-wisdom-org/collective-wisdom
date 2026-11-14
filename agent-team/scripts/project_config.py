@@ -107,6 +107,11 @@ def branch_head(rows=None):
     return branch_heads(rows)[0]
 
 
+def branch_heads_re(rows=None):
+    """The heads as one escaped regex group, e.g. `(?:feat/|infra/)`."""
+    return "(?:" + "|".join(re.escape(h) for h in branch_heads(rows)) + ")"
+
+
 def migrations_dir():
     """Migrations directory without a trailing slash, or None when the repo has none."""
     d = value("Migrations directory")

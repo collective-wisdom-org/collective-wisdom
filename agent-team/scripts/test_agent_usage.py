@@ -288,6 +288,10 @@ ONLY_CLAUDE = "cost $4.00 API-equivalent (0.40% of the subscription), 1.0M token
         (False, [([HERE], [(1, "composer-2.5", PRICED, T1)], "/none")], False,
          "cost $0.73 API-equivalent (0.00% of the subscription), Cursor $0.73, 1.5M tokens, spec $0.73 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
         (True, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
+        # infra/ branches count for the ticket on both sides, and infra/cw-570 is not cw-57
+        ("infra/cw-57-foo", [(["Branch: infra/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
+        (False, [(["Branch: infra/cw-57-foo"], [(2, OPUS, PRICED, T1)], "/none")], False,
+         "cost $5.38 API-equivalent (0.00% of the subscription), Cursor $5.38, 1.5M tokens, spec $5.38 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
         (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, 2),
         # an unreadable store does not give a ticket with no session a cost: no_hands relies on exit 2 for it
         (False, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], True, 2),
@@ -301,7 +305,7 @@ def test_ticket_line_with_cursor(tmp_path, capsys, monkeypatch, user_md, claude,
     wt = tmp_path / f"-Users-x--t3-worktrees-{agent_usage.PROJECT}-t3-aaa"
     wt.mkdir()
     if claude:
-        (wt / "s1.jsonl").write_text(asst(T0, "feat/cw-57-foo", "r1", 1_000_000))
+        (wt / "s1.jsonl").write_text(asst(T0, claude if isinstance(claude, str) else "feat/cw-57-foo", "r1", 1_000_000))
     ws = tmp_path / "ws"
     subprocess.run(["git", "init", "-q", "-b", "feat/cw-57-foo", str(ws)], check=True)
     cur = tmp_path / "cursor" / wt.name
