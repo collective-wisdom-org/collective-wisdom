@@ -86,7 +86,7 @@ Store it as `GITHUB_MCP_TOKEN`, not `GITHUB_TOKEN`.
 With more than one GitHub account, each repo can use its own. The login lives in a per-user file, not the committed `project.md`.
 
 - **Where.** `~/.config/collective-wisdom/user.md`, outside the clone, so it can't be committed or lost when the clone is replaced.
-- **What it holds.** GitHub logins and one dollar figure, never tokens. The shape is in `~/.collective-wisdom/templates/user.md`: a Settings table (the Claude subscription figure) and a GitHub accounts table with one row per repo.
+- **What it holds.** GitHub logins and settings, never tokens. The shape is in `~/.collective-wisdom/templates/user.md`: a Settings table (subscription figure, cap, spec and build lane limits) and a GitHub accounts table with one row per repo.
 - **Who writes it.** `set up this repo` creates the file from `agent-team/templates/user.md` and adds the repo's row (`setup_repo.py user`). The Chief of Staff also creates it, or adds this repo's row, at `start the team`, `take over` and `resume`, after the user says yes (`chief-of-staff/startup.md` § User settings check). To do it by hand, copy the template to that path and add the row yourself. If the file exists, add a line under `## GitHub accounts`, with the backticks:
 
   ```

@@ -160,20 +160,20 @@ Provider id: not recorded yet. Every row of the table shape above is `not routed
 
 ## Lanes
 
-Work moves in three lanes, each with its own limit, under one cap on active children.
+Work moves in three lanes, each with its own limit. A cap on active children covers spec and build, not merge.
 
 | Lane | Active stage | Queue | Limit | Why this number |
 |---|---|---|---|---|
-| Spec | `spec` | `spec-queued`, then Todo tickets | 2 | Short runs. Two keep a spec ready while the user reviews another. |
-| Build | `build` | `build-queued` | 2 | The longest, costliest runs. Two keep approved specs moving without doubling Opus time. |
-| Merge | `merge` | `merge-queued` | 1 | Merges rebase onto the merge target branch; one at a time avoids conflicts. |
-| **Overall** | `spec` + `build` + `merge` | | 5 | The sum of the lane limits, so every lane slot can run at once. The cap no longer holds usage down by itself; the lane limits do. A full set is at most two Opus and three Sonnet child sessions (§ Models), plus the Opus review subagents the build children start. Raising a lane limit means deciding the cap too. |
+| Spec | `spec` | `spec-queued`, then Todo tickets | `user.md` (default 2) | Short runs. Two keep a spec ready while the user reviews another. |
+| Build | `build` | `build-queued` | `user.md` (default 2) | The longest, costliest runs. Two keep approved specs moving without doubling Opus time. |
+| Merge | `merge` | `merge-queued` | 1, fixed | Merges rebase onto the merge target branch; one at a time avoids conflicts. |
+| **Overall** | `spec` + `build` | | `user.md` (default: the two limits added) | The merge lane is outside the cap, so a merge can always take its one slot. |
 
-A lane's count is the tickets in its active stage. The overall count is `spec`, `build` and `merge` together. At most one ticket is in `merge` at a time.
+A lane's count is the tickets in its active stage. The overall count is `spec` and `build` together. At most one ticket is in `merge` at a time.
 
 Waiting on the user or a teammate's review holds no slot: `awaiting-build`, `awaiting-review`, `awaiting-merge` and `blocked` are in no lane. Neither are the three queued stages. A queued ticket's child is idle.
 
-Nothing goes past a lane's limit or the overall cap. Other sections say "the spec lane's limit" and "the overall cap" and don't repeat the numbers. `cos_tick.py` (`LIMITS` and `CAP`) holds them too and plans the slot fill from them (`cos_route.py` imports them). The table and the script say the same thing; a change goes through both.
+Nothing goes past a lane's limit or the overall cap. Other sections say "the spec lane's limit" and "the overall cap" and don't repeat the numbers. `cos_tick.py` reads the values (`limits()`) and plans the slot fill from them; `cos_route.py` uses the same function.
 
 ## State file
 
@@ -247,7 +247,7 @@ Not run through the tick:
 | `run … no_hands.py check` | no-hands.md § What each `check` line means. Read its line before the lines after it: on `drain` or `stop` the `start-todo` lines below are not run. |
 | `start-todo` | One start from Todo (**Todo start**, below), printed once per free spec slot. |
 | `observe` | § Child path "Observe". |
-| `report (filling stopped: …)` | § Report format, only if the turn changed what the user sees. Never write "none stuck" or the like. `lanes full` is `Filling stopped: lanes full.`; `spec slot free` means a spec slot is open and the reason is one of the other two `Filling stopped:` lines. With no parenthetical (rate limited) there is no slot fill and no such line. |
+| `report cap=N spec=S build=B merge=1 (filling stopped: …)` | Print the cap and limits from those values. § Report format, only if the turn changed what the user sees. Never write "none stuck" or the like. `lanes full` is `Filling stopped: lanes full.`; `spec slot free` means a spec slot is open and the reason is one of the other two `Filling stopped:` lines. With no parenthetical (rate limited) there is no slot fill and no such line. |
 | `archive <thread>` | rotation.md § Thread rotation "Archiving", for that `retiredThreads` entry. |
 | `run … cos_rotation_check.py` | Always the last tool call (§ Rotation check). |
 
@@ -540,7 +540,7 @@ Needs you
 - <reminder line for a pending approval, approvals.md § Approval requests>
 - <PREFIX>-202 blocked: <one line>. [<PREFIX>-202](<thread link>)
 
-Moving (<active count> of <overall cap> active)
+Moving (<spec + build count> of <cap> active)
 Spec <count> of <spec limit>
 - <PREFIX>-240 started: Example feature. Took the slot <PREFIX>-235 freed (merged #181).
 - <PREFIX>-212 started: Background job replies. From the Backlog ranking: High priority, unblocks <PREFIX>-213.
@@ -548,7 +548,7 @@ Build <count> of <build limit>
 - <PREFIX>-199 building (PR #180, code review pass 2)
 - <PREFIX>-154 restarted: stalled after code review PASS, 31 min idle
 - <PREFIX>-238 approved, waiting for a build slot
-Merge <count> of <merge limit>
+Merge <count> of 1
 - <PREFIX>-203 merge approved, waiting for a merge slot
 - <PREFIX>-263 merged (#217), found by the merged check
 - <PREFIX>-264 merge ready, found by the sweep

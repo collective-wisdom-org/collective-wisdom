@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+import user_config
+
 SPEC = importlib.util.spec_from_file_location("cos_tick", Path(__file__).with_name("cos_tick.py"))
 cos_tick = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cos_tick)
@@ -108,8 +110,9 @@ USER_MERGE = 'CHIEF OF STAFF: the user approved the merge of PR #5 at head abc12
 AUTO_MERGE = "CHIEF OF STAFF: auto-approved the merge of PR #5 at head abc1234 under `low` (Risk: Low (docs))."
 CHANGES = "CHIEF OF STAFF: changes: rename it."
 CONFIGURE = "configure q1 build"
-TAIL = ["observe", "report (filling stopped: lanes full)", ROTATION]
-TODO = ["observe", "report (filling stopped: spec slot free)", ROTATION]
+REPORT = "report cap=4 spec=2 build=2 merge=1"
+TAIL = ["observe", f"{REPORT} (filling stopped: lanes full)", ROTATION]
+TODO = ["observe", f"{REPORT} (filling stopped: spec slot free)", ROTATION]
 
 
 def chief_of(provider, thread=ME):
@@ -220,10 +223,47 @@ def test_act_plan_slot_fill(tmp_path, capsys, tickets, want):
     assert out == want
 
 
+def set_limits(**rows):
+    """Write the lane rows into user.md, replacing the fixture's."""
+    keys = {"cap": "Active children cap (spec and build together)", "spec": "Spec lane limit", "build": "Build lane limit", "merge": "Merge lane limit"}
+    user_config.path().write_text("| Key | Value |\n|---|---|\n" + "".join(f"| {keys[k]} | `{v}` |\n" for k, v in rows.items()))
+
+
+M1, M2 = queued("merge-queued", CHANGES, "1"), queued("merge-queued", CHANGES, "2")
+SEND_M, SEND_B = f"send ABC-1 merge {json.dumps(CHANGES)}", f"send ABC-2 build {json.dumps(CHANGES)}"
+
+
+def report(cap, spec, build, why):
+    return ["observe", f"report cap={cap} spec={spec} build={build} merge=1 (filling stopped: {why})", ROTATION]
+
+
+@pytest.mark.parametrize(
+    "limits, tickets, want",
+    [
+        # defaults: cap 4, so two build and two spec fill it and nothing starts
+        ({}, {"ABC-1": BUILD, "ABC-2": tk("build", "c2"), "ABC-3": SPEC1}, ["start-todo", *report(4, 2, 2, "spec slot free")]),
+        # a raised cap alone changes nothing, the lane limits bind; raising a lane limit alone raises the cap with it
+        ({"cap": 9}, {"ABC-1": BUILD, "ABC-2": tk("build", "c2"), "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")}, report(9, 2, 2, "lanes full")),
+        ({"build": 3}, {"ABC-1": BUILD, "ABC-2": tk("build", "c2"), "ABC-3": SPEC1, "ABC-4": tk("spec", "c4"), "ABC-5": queued("build-queued", CHANGES, "1")},
+         [f"send ABC-5 build {json.dumps(CHANGES)}", *report(5, 2, 3, "lanes full")]),
+        # a lowered cap stops the fill below the lane limits; a lowered spec limit shrinks Todo
+        ({"cap": 3}, {"ABC-1": BUILD, "ABC-2": SPEC1}, ["start-todo", *report(3, 2, 2, "spec slot free")]),
+        ({"spec": 1}, {"ABC-1": BUILD}, ["start-todo", *report(3, 1, 2, "spec slot free")]),
+        # the cap full of spec and build still sends a queued merge; a second queued merge waits behind the one in `merge`
+        ({}, {"ABC-1": M1, "ABC-3": BUILD, "ABC-4": tk("build", "c4"), "ABC-5": SPEC1, "ABC-6": tk("spec", "c6")}, [SEND_M, *report(4, 2, 2, "lanes full")]),
+        ({}, {"ABC-1": M1, "ABC-3": tk("merge", "c3")}, ["start-todo", "start-todo", *report(4, 2, 2, "spec slot free")]),
+        ({"merge": 5}, {"ABC-1": M1, "ABC-2": M2}, [SEND_M, "start-todo", "start-todo", *report(4, 2, 2, "spec slot free")]),
+    ],
+)
+def test_act_plan_under_configured_limits(tmp_path, capsys, limits, tickets, want):
+    set_limits(**limits)
+    assert run(tmp_path, capsys, {"tickets": tickets}, "notice:zz", "--after-reads") == want
+
+
 FRESH = {"pm": {"lastDailyAt": "2026-11-08T03:00:00Z"}}
 LIMITED = {"rateLimitedAt": NOW}
 OPEN = ["start-todo", "start-todo", *TODO]
-OFF = ["report", ROTATION]
+OFF = [REPORT, ROTATION]
 
 
 @pytest.mark.parametrize(
@@ -250,7 +290,7 @@ OFF = ["report", ROTATION]
         # rotation set: no observe; retired threads without archivedAt are archived before the rotation check
         (
             {"rotation": {"from": "x", "to": ME, "startedAt": NOW}, "retiredThreads": [{"threadId": "r1"}, {"threadId": "r2", "archivedAt": NOW}]},
-            "notice:zz", ["start-todo", "start-todo", "report (filling stopped: spec slot free)", "archive r1", ROTATION],
+            "notice:zz", ["start-todo", "start-todo", f"{REPORT} (filling stopped: spec slot free)", "archive r1", ROTATION],
         ),
     ],
 )
@@ -273,10 +313,10 @@ NH_QUEUED = {"ABC-1": queued("build-queued", CHANGES, "1")}
         # an active run prints the check line before the slot fill
         ({}, NH, [NH_CHECK, *OPEN]),
         # drain recorded: no start-todo, the report says why; queued sends still go
-        ({}, {**NH, "drain": "blocked ABC-1"}, [NH_CHECK, "observe", "report (filling stopped: No Hands blocked ABC-1)", ROTATION]),
+        ({}, {**NH, "drain": "blocked ABC-1"}, [NH_CHECK, "observe", f"{REPORT} (filling stopped: No Hands blocked ABC-1)", ROTATION]),
         (
             NH_QUEUED, {**NH, "drain": "stopped-by-user"},
-            [NH_CHECK, f"send ABC-1 build {json.dumps(CHANGES)}", "observe", "report (filling stopped: No Hands stopped-by-user)", ROTATION],
+            [NH_CHECK, f"send ABC-1 build {json.dumps(CHANGES)}", "observe", f"{REPORT} (filling stopped: No Hands stopped-by-user)", ROTATION],
         ),
     ],
 )
