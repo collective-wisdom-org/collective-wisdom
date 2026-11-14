@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-14, after CW-300 ([#301](https://github.com/collective-wisdom-org/collective-wisdom/pull/301)) merged and with CW-298 ([#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)) added; recorded runs are in [Runs](#runs).
+Last checked against the code on 2026-11-14, after CW-300 ([#301](https://github.com/collective-wisdom-org/collective-wisdom/pull/301)) merged and with CW-298 ([#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)) and CW-299 ([#308](https://github.com/collective-wisdom-org/collective-wisdom/pull/308)) added; recorded runs are in [Runs](#runs).
 
 ## Legend
 
