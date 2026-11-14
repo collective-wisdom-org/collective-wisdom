@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { createTrackerLists } from './lists.ts'
 import { buildApi, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
 import { applyEvent, cursorSnapshot, emptyState } from '../../../mods/agent-gantt/hooks/cursor.ts'
 
@@ -370,6 +371,30 @@ test('where a root checkout TICKET HELPER snapshot lands', () => {
   const ledger = (prefix: string | null) => ledgerSessions({ snapshots: [helper('a', { ticket: 'CW-1' }), helper('b'), teamSnap('c', { heading: 'BACKLOG RANKING', ticket: 'CW-1' })], worktrees: [], state: null, prefix, now: NOW }).map((m) => [m.ticket, m.session.sessionId])
   assert.deepEqual(ledger('CW'), [['CW-1', 'a']])
   assert.deepEqual(ledger(null), [])
+})
+
+test("a helper session joins its filed ticket's Todo or Backlog row on Linear and Jira", () => {
+  const linear = (identifier: string) => ({ identifier, title: 't', priority: 2, createdAt: '2026-11-01T10:00:00.000Z' })
+  const jira = (key: string) => ({ key, fields: { summary: 't', priority: { name: 'High' }, created: '2026-11-01T10:00:00.000+0000' } })
+  const hist = (sessionId: string) => ({ sessionId, cwd: ROOT, updatedAt: NOW - 9000, stale: false, total: null, pricing: null, rows: [] })
+  const cases: [string, string, string, 'todo' | 'backlog', boolean, 'live' | 'history', string | undefined][] = [
+    ['Linear Backlog, live', 'ENG', 'ENG-12', 'backlog', true, 'live', 'Backlog'],
+    ['Jira Backlog, live', 'PROJ', 'PROJ-7', 'backlog', false, 'live', 'Backlog'],
+    ['Jira Todo, live', 'PROJ', 'PROJ-7', 'todo', false, 'live', 'Todo'],
+    ['Linear Backlog, history only', 'ENG', 'ENG-12', 'backlog', true, 'history', 'Backlog'],
+    ['Jira Todo, history only', 'PROJ', 'PROJ-7', 'todo', false, 'history', 'Todo'],
+    ['Linear ticket not in the saved lists: nowhere', 'ENG', 'ENG-13', 'backlog', true, 'live', undefined],
+  ]
+  for (const [name, prefix, ticket, list, isLinear, source, group] of cases) {
+    const saved = isLinear ? linear('ENG-12') : jira('PROJ-7')
+    const lists = createTrackerLists({ read: () => JSON.stringify({ [list]: { list: [saved] } }) })
+    lists.want(prefix)
+    const snapshots = source === 'live' ? [teamSnap('h', { heading: 'TICKET HELPER', ticket })] : []
+    const history = source === 'history' ? { [ticket]: [hist('h')] } : {}
+    const api = build({ repo: { url: 'https://example.test/o/r', isGithubIssues: false }, prefix, backlog: lists.get(), snapshots, history })
+    const rows = api.status.flatMap((g) => g.rows.filter((r) => r.gantt).map((r) => [g.name, r.id, r.gantt?.map((s) => s.sessionId)]))
+    assert.deepEqual(rows, group ? [[group, ticket, ['h']]] : [], name)
+  }
 })
 
 test('Todo and Backlog rows follow the state groups, skip tickets in state or merged and link to the issue', () => {
