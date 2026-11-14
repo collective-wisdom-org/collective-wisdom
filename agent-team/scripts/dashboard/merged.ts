@@ -1,8 +1,9 @@
 import type { Session } from './api.ts'
 import type { Detail } from './details.ts'
+import { headsPattern } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
-export type MergedConfig = TitleConfig & { issueUrls: boolean }
+export type MergedConfig = TitleConfig & { issueUrls: boolean; heads?: string[] }
 /** `number` is the PR number, kept for the server's detail reads and left out of the api. */
 export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; number?: number; specUrl?: string; detail?: Detail; spend?: { cost: number | null; tokens: number }; gantt?: Session[] }
 type Run = (args: string[]) => Promise<string>
@@ -19,8 +20,8 @@ export function parseMerged(json: string, cfg: MergedConfig): MergedEntry[] | nu
     return null
   }
   if (!Array.isArray(data)) return null
-  const { prefix, slug } = cfg
-  const byBranch = new RegExp(`^feat/${prefix.toLowerCase()}-(\\d+)(?:-|$)`)
+  const { prefix, slug, heads = ['feat/'] } = cfg
+  const byBranch = new RegExp(`^${headsPattern(heads)}${prefix.toLowerCase()}-(\\d+)(?:-|$)`)
   const bySuffix = new RegExp(`\\s*\\(${prefix}-(\\d+)\\)$`)
   const out: MergedEntry[] = []
   for (const p of data) {

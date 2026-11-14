@@ -169,7 +169,7 @@ def test_guess_prefix(name, want):
 
 
 @pytest.mark.parametrize("answers, has, lacks", [
-    (GITHUB, ["`Foo/my-app` (<https://github.com/Foo/my-app>)", "| Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is", "TODO(dq)"], ["Linear team name", "Linear project"]),
+    (GITHUB, ["`Foo/my-app` (<https://github.com/Foo/my-app>)", "| Branch pattern | `{feat,infra}/<prefix>-N-short-title` (`<prefix>` is", "TODO(dq)"], ["Linear team name", "Linear project"]),
     ({**GITHUB, "ci": "none", "rules": ["Never delete data/"]}, ["none (no CI yet)", "- Repo rules: Never delete data/."], ["TODO(dq) |\n| Agent"]),
     ({**GITHUB, "approver": "dq."}, ["| Approver | dq. Approves specs and merges only |"], ["dq.."]),
     (LINEAR, ["| Linear team name (Linear only) | `Acme` |", "none (the team is the scope)", "| Tracker scope (`<TEAM>`) | `Acme` |"], []),

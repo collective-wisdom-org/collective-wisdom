@@ -27,7 +27,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: `~/.colle
 
 | Key | Value |
 |---|---|
-| Branch pattern | `feat/cw-N-short-title` (`cw` is the issue prefix in lower case) |
+| Branch pattern | `{feat,infra}/<prefix>-N-short-title` (`<prefix>` is `cw`, the issue prefix in lower case; the first head is the default for a new branch) |
 | Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `collective-wisdom-org/collective-wisdom` (<https://github.com/collective-wisdom-org/collective-wisdom>) |
 | GitHub CLI | `~/.collective-wisdom/scripts/gh.sh` only, never bare `gh`. Setup: `~/.collective-wisdom/docs/agents/github-auth.md` |
@@ -53,7 +53,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: `~/.colle
 Skills and the Chief of Staff restate these in every child task.
 
 - The root checkout stays on the merge target branch (`main`). Branch work happens in a worktree: `.worktrees/<short-name>/`, or the one T3 Code created under `~/.t3/worktrees/`.
-- Never push to the merge target branch (`main`); push only the ticket's own `feat/cw-N-*` branch.
+- Never push to the merge target branch (`main`); push only the ticket's own `feat/cw-N-*` or `infra/cw-N-*` branch.
 - Exception: the publish step in `~/.collective-wisdom/scripts/merge_pr.py` writes `RELEASE_NOTES.md` on the `release-notes` branch through the GitHub API after a merge. No agent, skill or other script writes that branch, by push or by API.
 - Never commit `.env`, API keys or tokens.
 - Run `./install.sh` once on the machine. Edit shared files under `agent-team/`. This repo has no root links, and `docs/agents/project.md` is its only file under `docs/agents/`.

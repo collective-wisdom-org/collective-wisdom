@@ -89,11 +89,27 @@ def repo():
     return r if r and re.fullmatch(r"[\w.-]+/[\w.-]+", r) else None
 
 
-def branch_head(rows=None):
-    """Text before `<prefix>` in the branch pattern (e.g. `feat/`)."""
+def branch_heads(rows=None):
+    """Heads before `<prefix>` in the branch pattern, in row order: `{feat,infra}/<prefix>-N` gives ("feat/", "infra/").
+
+    A plain head (`work/<prefix>-N`) gives that one head. No row, no `<prefix>` or a brace list that does not parse gives ("feat/",).
+    """
     pat = value("Branch pattern", rows) or ""
     head = pat.split("<prefix>")[0] if "<prefix>" in pat else ""
-    return head or FALLBACK_BRANCH_HEAD
+    m = re.fullmatch(r"\{([a-z0-9-]+(?:,[a-z0-9-]+)*)\}/", head)
+    if m:
+        return tuple(f"{name}/" for name in m.group(1).split(","))
+    return (head,) if head and not re.search(r"[{},]", head) else (FALLBACK_BRANCH_HEAD,)
+
+
+def branch_head(rows=None):
+    """The first head of the branch pattern, the one a new branch uses (e.g. `feat/`)."""
+    return branch_heads(rows)[0]
+
+
+def branch_heads_re(rows=None):
+    """The heads as one escaped regex group, e.g. `(?:feat/|infra/)`."""
+    return "(?:" + "|".join(re.escape(h) for h in branch_heads(rows)) + ")"
 
 
 def migrations_dir():
@@ -203,7 +219,7 @@ def _committed_rows(run):
 
     <target> is the `Merge target branch` row of the root checkout's project.md (the first entry of `git worktree list`,
     so a feature worktree's own edit of that row changes nothing), read as refs/remotes/origin/<target>. Never read from a
-    working tree. A target that starts with the branch pattern head (from the root checkout's project.md too; an agent can
+    working tree. A target that starts with a branch pattern head (from the root checkout's project.md too; an agent can
     push such a branch) or a committed project.md that names another target is a failure too.
     """
     try:
@@ -213,7 +229,7 @@ def _committed_rows(run):
         return None, f"could not read project.md in the root checkout: {e}"
     except SystemExit as e:
         return None, str(e)
-    if target.startswith(branch_head(rows)):
+    if target.startswith(branch_heads(rows)):
         return None, f"merge target branch `{target}` is a ticket branch"
     try:
         run(["git", "fetch", "origin", target])

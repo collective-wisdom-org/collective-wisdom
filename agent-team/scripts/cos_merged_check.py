@@ -112,7 +112,7 @@ def same_branch(tid, info, head):
     branch = info.get("branch")
     if branch:
         return head == branch
-    return head.startswith(f"{project_config.branch_head()}{tid.lower()}-")
+    return head.startswith(tuple(f"{h}{tid.lower()}-" for h in project_config.branch_heads()))
 
 
 def run(state_file, prs_file=None, apply=False):

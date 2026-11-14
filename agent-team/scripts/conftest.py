@@ -10,7 +10,7 @@ FIXTURE = """| Key | Value |
 |---|---|
 | Issue identifier prefix (`<PREFIX>`) | `ABC` |
 | Repo (`<owner>/<repo>`) | `example/app` |
-| Branch pattern | `feat/<prefix>-N-short-title` |
+| Branch pattern | `{feat,infra}/<prefix>-N-short-title` |
 | Migrations directory | none |
 """
 

@@ -57,6 +57,7 @@ PR5 = pr(5, "feat/abc-1-a")
         ("github", EMPTY, [issue(1, author="stranger")], [PR5], ["untracked-check: 0 not in state"], 0),
         ("github", EMPTY, [issue(1, ("agent",))], [pr(5, "feat/abc-1-a", "stranger")], ["untracked-check: 0 not in state"], 0),  # outsider's PR flags nothing
         ("github", EMPTY, [issue(1, author="stranger")], [pr(5, "feat/abc-1-a", "bot")], ["untracked-check: 0 not in state"], 0),
+        ("github", EMPTY, [issue(1)], [pr(5, "infra/abc-11-a"), pr(6, "fix/abc-1-b"), pr(7, "infra/abc-1-a")], ["untracked ABC-1 in-review #7", "untracked-check: 1 not in state"], 1),
         ("github", EMPTY, [issue(1)], [pr(5, "feat/abc-11-a"), pr(6, "feat/abc-1-b"), pr(7, "feat/abc-1-a")], ["untracked ABC-1 in-review #6", "untracked-check: 1 not in state"], 1),
         ("linear", EMPTY, [], [pr(5, "feat/abc-1-a", "BOT")], ["untracked ABC-1 #5", "untracked-check: 1 not in state"], 1),
         ("linear", EMPTY, [], [pr(5, "feat/abc-1-a", "stranger")], ["untracked-check: 0 not in state"], 0),

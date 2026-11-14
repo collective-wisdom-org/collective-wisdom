@@ -113,8 +113,8 @@ def trusted(item, logins):
 
 
 def prs_by_ticket(prs):
-    """{ticket: lowest PR number} for open PRs whose branch starts with a ticket's branch prefix."""
-    head = re.escape(f"{project_config.branch_head()}{project_config.prefix().lower()}")
+    """{ticket: lowest PR number} for open PRs whose branch starts with a ticket's branch prefix (any head)."""
+    head = f"{project_config.branch_heads_re()}{re.escape(project_config.prefix().lower())}"
     found = {}
     for pr in prs:
         name = pr.get("headRefName")

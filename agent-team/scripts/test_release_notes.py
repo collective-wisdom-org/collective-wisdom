@@ -85,18 +85,18 @@ def test_prs_merge_with_files(tmp_path, monkeypatch, capsys, files, prs, heading
 
 
 LOG = (
-    "\0" + "2026-11-04T08:00:00+02:00\n\ndocs/superpowers/release-notes/cw-2.md\ndocs/other.md\n"
-    "\0" + "2026-11-03T19:30:00-06:00\n\ndocs/superpowers/release-notes/cw-2.md\n"
-    "\0" + "2026-11-03T10:00:00+00:00\n\ndocs/superpowers/release-notes/cw-1.md\n"
-    "\0" + "2026-11-02T10:00:00+00:00\n\ndocs/superpowers/release-notes/cw-8.md\ndocs/superpowers/release-notes/cw-9.md\n"
+    "\0" + "2026-11-04T08:00:00+02:00 feat: newer (CW-2) (#9)\n\ndocs/superpowers/release-notes/cw-2.md\ndocs/other.md\n"
+    "\0" + "2026-11-03T19:30:00-06:00 feat: older (#8)\n\ndocs/superpowers/release-notes/cw-2.md\n"
+    "\0" + "2026-11-03T10:00:00+00:00 docs: no number\n\ndocs/superpowers/release-notes/cw-1.md\n"
+    "\0" + "2026-11-02T10:00:00+00:00 docs: backfill (#3)\n\ndocs/superpowers/release-notes/cw-8.md\ndocs/superpowers/release-notes/cw-9.md\n"
 )
 
 
 def test_parse_added_newest_add_wins_in_utc_inside_folder_skipping_multi_add():
     got = release_notes.parse_added(LOG)
-    assert {k: v.isoformat() for k, v in got.items()} == {
-        "cw-2.md": "2026-11-04T06:00:00+00:00",
-        "cw-1.md": "2026-11-03T10:00:00+00:00",
+    assert {k: (v.at.isoformat(), v.pr) for k, v in got.items()} == {
+        "cw-2.md": ("2026-11-04T06:00:00+00:00", 9),
+        "cw-1.md": ("2026-11-03T10:00:00+00:00", None),
     }
 
 
@@ -148,7 +148,32 @@ def test_order_and_merged_line(tmp_path, monkeypatch, capsys, files, times, prs,
         (notes / name).write_text(text)
     monkeypatch.setattr(release_notes, "NOTES", notes)
     monkeypatch.setattr(release_notes, "merged_prs", lambda: prs)
-    monkeypatch.setattr(release_notes, "file_merge_times", lambda: {k: release_notes.utc(v) for k, v in times.items()})
+    monkeypatch.setattr(release_notes, "file_merge_times", lambda: {k: release_notes.Added(release_notes.utc(v), None) for k, v in times.items()})
     assert release_notes.main() == 0
     out = capsys.readouterr().out
     assert [l for l in out.splitlines() if l.startswith(("## ", "Merged "))] == expected
+
+
+def added(name_pr):
+    return {n: release_notes.Added(release_notes.utc("2026-11-04T09:00:00Z"), p) for n, p in name_pr.items()}
+
+
+@pytest.mark.parametrize(
+    "files, merged, prs, count",
+    [
+        ({"x-1.md": file(1, "2026-11-04")}, {"x-1.md": 5}, [pr(5, "fix: a", NOTE, "2026-11-04T10:00:00Z")], 1),  # file and PR note: PR one only
+        ({"x-1.md": file(1, "2026-11-04")}, {"x-1.md": 5}, [pr(5, "fix: a", "## Summary\n\nx\n", "2026-11-04T10:00:00Z")], 1),  # file only
+        ({}, {}, [pr(5, "fix: a", NOTE, "2026-11-04T10:00:00Z")], 1),  # PR note only
+        ({"x-1.md": file(1, "2026-11-04")}, {"x-1.md": None}, [pr(5, "fix: a", NOTE, "2026-11-04T10:00:00Z")], 2),  # no (#N): both
+        ({"x-1.md": file(1, "2026-11-04")}, {"x-1.md": 5}, [pr(5, "fix: a", "## Release note\n\nContext size: 3k\n", "2026-11-04T10:00:00Z")], 1),  # empty after cut: file kept
+    ],
+)
+def test_render_shows_a_change_once(files, merged, prs, count):
+    out = release_notes.render(list(files.items()), prs, added(merged))
+    assert len([l for l in out.splitlines() if l.startswith("## ")]) == count
+
+
+def test_render_drops_the_context_size_line_and_what_follows():
+    body = "## Release note\n\nA note.\n\nContext size: 3k\nCloses #5\n\n## Test plan\n\ny\n"
+    out = release_notes.render([], [pr(5, "fix: a", body, "2026-11-04T10:00:00Z")])
+    assert "A note." in out and "Context size" not in out and "Closes" not in out

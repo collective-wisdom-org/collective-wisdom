@@ -43,7 +43,7 @@ What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests
 ## Git
 
 - Commit and push as tasks finish.
-- Never push to the merge target branch. Push only this ticket's `feat/<prefix>-N-*` branch.
+- Never push to the merge target branch. Push only this ticket's own branch (the one the task names).
 - No force-push to the merge target branch.
 
 ## Compaction pass

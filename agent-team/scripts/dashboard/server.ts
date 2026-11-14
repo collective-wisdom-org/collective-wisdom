@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject, teamSessions } from './api.ts'
 import type { Worktree } from './api.ts'
-import { createTitles, ghRunner, prefixFromProject, slugFromUrl } from './titles.ts'
+import { createTitles, ghRunner, headsFromProject, prefixFromProject, slugFromUrl } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 import { createUpdated } from './updated.ts'
 import { createBacklog } from './backlog.ts'
@@ -292,7 +292,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
       const snapshots = readSnapshots()
       const state = readState()
       const now = Date.now()
-      matched = ledgerSessions({ snapshots, worktrees, state, prefix: text === undefined ? null : prefixFromProject(text), now })
+      matched = ledgerSessions({ snapshots, worktrees, state, prefix: text === undefined ? null : prefixFromProject(text), heads: text === undefined ? undefined : headsFromProject(text), now })
       team = teamSessions({ snapshots, state, now })
     } catch {}
     try {
@@ -326,14 +326,16 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     let titleCfg: TitleConfig | null = null
     let mergedCfg: MergedConfig | null = null
     let prefix: string | null = null
+    let heads: string[] | undefined
     try {
       const text = projectText()
       if (text !== undefined) {
         repo = repoUrlFromProject(text)
         prefix = prefixFromProject(text)
+        heads = headsFromProject(text)
         const slug = repo ? slugFromUrl(repo.url) : null
         if (prefix && slug && repo) {
-          mergedCfg = { prefix, slug, issueUrls: repo.isGithubIssues }
+          mergedCfg = { prefix, slug, issueUrls: repo.isGithubIssues, heads }
           if (repo.isGithubIssues) titleCfg = { prefix, slug }
         }
       }
@@ -361,7 +363,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const fromFile = repo !== null && !repo.isGithubIssues && prefix !== null
     trackerLists.want(fromFile ? prefix : null)
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, heads, merged: merged.get(), updated: updated.get(), spend: spendByTicket(ledger), history: historyByTicket(history), details: details.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

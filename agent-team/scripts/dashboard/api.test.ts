@@ -224,13 +224,16 @@ test('merged entries get their ticket spend; a session off the board still match
   assert.ok(!('spend' in (build({ merged: [entry('CW-1')] }).merged[0])))
 
   const WT2 = '/Users/me/.t3/worktrees/repo/t3-2'
-  const worktrees = [{ path: WT, branch: 'feat/cw-9-gone' }, { path: WT2, branch: 'odd' }]
+  const WT3 = '/Users/me/.t3/worktrees/repo/t3-3'
+  const worktrees = [{ path: WT, branch: 'feat/cw-9-gone' }, { path: WT2, branch: 'odd' }, { path: WT3, branch: 'infra/cw-8-x' }]
   const state = { tickets: { 'CW-4': { branch: 'odd', stage: 'build' } } }
-  const matchedTo = (cwd: string, prefix: string | null) =>
-    ledgerSessions({ snapshots: [{ sessionId: 's', cwd, updatedAt: NOW, total: 1, rows: [] }], worktrees, state, prefix, now: NOW }).map((m) => m.ticket)
+  const matchedTo = (cwd: string, prefix: string | null, heads?: string[]) =>
+    ledgerSessions({ snapshots: [{ sessionId: 's', cwd, updatedAt: NOW, total: 1, rows: [] }], worktrees, state, prefix, heads, now: NOW }).map((m) => m.ticket)
   assert.deepEqual(matchedTo(WT, 'CW'), ['CW-9'], 'off the board, by branch pattern')
   assert.deepEqual(matchedTo(WT2, null), ['CW-4'], 'by state branch')
   assert.deepEqual(matchedTo(WT, null), [], 'no prefix, no pattern')
+  assert.deepEqual(matchedTo(WT3, 'CW'), [], 'infra/ is not a head unless the row lists it')
+  assert.deepEqual(matchedTo(WT3, 'CW', ['feat/', 'infra/']), ['CW-8'], 'infra/ when the row lists it')
   assert.deepEqual(matchedTo('/Users/me/repo', 'CW'), [], 'not a worktree session')
 })
 
