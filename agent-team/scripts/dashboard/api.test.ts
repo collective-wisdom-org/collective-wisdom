@@ -23,7 +23,7 @@ test('whitelist: free text and relay never reach the api', () => {
 })
 
 test('links', () => {
-  const full = { pr: 172, childThreadId: 't1' }
+  const full = { pr: 172, childThreadId: 't1', stageAt: '2026-11-14T09:05:00Z' }
   const cases: [string, string, Record<string, unknown>, Partial<Parameters<typeof buildApi>[0]>, Record<string, string | undefined>][] = [
     ['all', 'CW-171', full, {}, { issueUrl: 'https://github.com/o/r/issues/171', prUrl: 'https://github.com/o/r/pull/172', threadLink: '<t3-thread://v2/env/t1>' }],
     ['no number', 'ABC', full, {}, { issueUrl: undefined, prUrl: 'https://github.com/o/r/pull/172', threadLink: '<t3-thread://v2/env/t1>' }],
@@ -35,7 +35,9 @@ test('links', () => {
   for (const [name, id, extra, over, want] of cases) {
     const r = firstRow({ state: stateOf(id, extra), ...over })
     for (const k of ['issueUrl', 'prUrl', 'threadLink']) assert.equal(r[k], want[k], `${name} ${k}`)
+    assert.equal(r.stageAt, '2026-11-14T09:05:00Z', `${name} stageAt`)
   }
+  assert.equal(firstRow({ state: stateOf('CW-171', { stageAt: 5 }) }).stageAt, undefined, 'stageAt must be a string')
 })
 
 test('row title: state wins, else tracker title, else empty', () => {
@@ -444,4 +446,16 @@ test('a ticket whose PR is already in merged is dropped from status; its group g
     const { status } = build({ state: { tickets }, merged })
     assert.deepEqual(status.map((g) => [g.name, g.count, g.rows.map((r) => r.id)]), want, name)
   }
+})
+
+test('ci spans reach the ticket row and the merged entry that own the PR; a PR with none has no ci key', () => {
+  const spans: [number, number | null][] = [[1, 5], [4, null]]
+  const entry = { id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/9', mergedAt: 1, number: 9 }
+  const ci = { 'CW-1#5': spans, 'CW-9#9': spans, 'CW-2#6': [] as [number, number][], 'CW-1#6': spans }
+  const api = build({ state: { tickets: { 'CW-1': { title: 't', stage: 'build', status: 'x. Risk: low', pr: 5 }, 'CW-2': { title: 't', stage: 'build', status: 'x. Risk: low', pr: 6 } } }, merged: [entry, { ...entry, id: 'CW-8', number: 8 }], ci })
+  const rows = Object.fromEntries(api.status.flatMap((g) => g.rows).map((r) => [r.id, r]))
+  assert.deepEqual(rows['CW-1'].ci, spans)
+  assert.ok(!('ci' in rows['CW-2']))
+  assert.deepEqual(api.merged[0].ci, spans)
+  assert.ok(!('ci' in api.merged[1]))
 })

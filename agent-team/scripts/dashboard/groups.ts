@@ -1,4 +1,4 @@
-export type Row = { id: string; title: string; risk: string; next: string }
+export type Row = { id: string; title: string; risk: string; next: string; stageAt?: string }
 export type Group = { name: string; count: number; rows: Row[] }
 
 // The groups of chief-of-staff/status.md § Status layout, in that order.
@@ -24,12 +24,14 @@ function row(id: string, t: Record<string, unknown>): Row {
   const at = status.indexOf('Risk:')
   const risk = at < 0 ? '' : status.slice(at + 5).trim()
   const next = (at < 0 ? status : status.slice(0, at)).trim().replace(/[\s;,.]+$/, '')
-  return {
+  const out: Row = {
     id,
     title: text(t.title),
     risk: risk || NO_RISK,
     next,
   }
+  if (typeof t.stageAt === 'string') out.stageAt = t.stageAt
+  return out
 }
 
 export function groupTickets(state: unknown): Group[] {

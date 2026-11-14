@@ -12,7 +12,7 @@ export type Session = { sessionId: string; cwd: string; updatedAt: number; stale
 export type TeamRole = 'ranking' | 'hygiene'
 type TeamState = 'running' | 'idle' | 'paused'
 type PmRow = { sessionId: string; role: TeamRole; state: 'running' | 'finished'; threadLink?: string; gantt: Session[] }
-type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail }
+type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; stageAt?: string; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][] }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
@@ -207,8 +207,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], updated = {}, spend = {}, history = {}, details = {}, teamHistory = [], backlog = [] } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   // A ticket whose PR is already in `merged` shows there only, even while state still has it in a stage.
   const mergedPrs = new Set(merged.filter((e) => e.number !== undefined).map((e) => `${e.id}#${e.number}`))
@@ -219,6 +219,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     rows: newestFirst(g.rows.map((r) => {
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
       const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }
+      if (r.stageAt) out.stageAt = r.stageAt
       const digits = r.id.match(/-(\d+)$/)
       if (repo && repo.isGithubIssues && digits) out.issueUrl = `${repo.url}/issues/${digits[1]}`
       if (repo && typeof t.pr === 'number' && Number.isInteger(t.pr)) out.prUrl = `${repo.url}/pull/${t.pr}`
@@ -232,6 +233,8 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
         const url = d.kind === 'spec' ? out.specUrl : out.prUrl
         out.detail = url ? { ...plain, url } : plain
       }
+      const waits = Object.hasOwn(ci, `${r.id}#${t.pr}`) ? ci[`${r.id}#${t.pr}`] : undefined
+      if (waits?.length) out.ci = waits
       return out
     }), updated),
   }))
@@ -288,6 +291,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     let out: MergedEntry = Object.hasOwn(spend, e.id) ? { ...e, spend: spend[e.id] } : e
     if (Object.hasOwn(history, e.id) && history[e.id].length) out = { ...out, gantt: history[e.id] }
     const key = `${e.id}#${number}`
+    if (Object.hasOwn(ci, key) && ci[key].length) out = { ...out, ci: ci[key] }
     const found = Object.hasOwn(details, key) ? details[key] : undefined
     if (found) {
       const { spec, ...plain } = found

@@ -188,16 +188,15 @@ export function renderDetails(r, now) {
 /** The copy glyph: two overlapping rounded rectangles, drawn in the button's text color. */
 const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"/></svg>'
 
-/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and no Details. */
+/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). Every row with a stage starts its sub line with the stage and, when `stageAt` parses, `since HH:MM`. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and no Details. */
 function ticket(r, { flat, other, open, info }) {
   const copy = r.threadLink ? `<button type="button" class="copy-icon" data-copy="${esc(r.threadLink)}" aria-label="Copy thread link" title="Copy thread link">${COPY_ICON}</button>` : ''
-  const stage = other && r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}</span>` : ''
-  const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
+  const at = r.stageAt ? Date.parse(r.stageAt) : NaN
+  const stage = r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}${Number.isNaN(at) ? '' : ` since ${clock(at)}`}</span>` : ''
   const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
   return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
   <div class="head"><span class="id">${r.helper ? 'Ticket helper' : link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}${copy}</div>
-  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}</div>
-  ${flat ? '' : next}
+  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}</div>
   ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
   ${r.helper ? '' : `<details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>`}
 </li>`
@@ -371,10 +370,23 @@ const rowTitle = ({ r, s, clockNow }) => {
   return [r.name, meta.join(' · '), s.cwd].join('\n')
 }
 
-export function renderGantt(sessions, now) {
+/** The `CI wait` row: the merged length of the PR's CI spans [start, end|null], an open end running to `now`. Empty when there are no spans. */
+function ciRow(ci, now) {
+  const spans = (Array.isArray(ci) ? ci : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0])).map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
+  if (spans.length === 0) return ''
+  const merged = union(spans)
+  const open = merged.some((p) => p[2])
+  const last = Math.max(...spans.map((p) => p[1]))
+  const range = `${clock(Math.min(...spans.map((p) => p[0])))} to ${open ? 'now, running' : clock(last)}`
+  const title = esc(`CI wait\n${spans.length} ${spans.length === 1 ? 'commit' : 'commits'} ran CI · ${range}`)
+  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
+}
+
+export function renderGantt(sessions, now, ci) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
+  const wait = ciRow(ci, now)
   // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
   const active = union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)
@@ -423,6 +435,7 @@ export function renderGantt(sessions, now) {
   return `<div class="gantt">
 ${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
+${wait}
 ${note}
 ${oldNote}
 </div>`
@@ -437,7 +450,7 @@ export function drawCharts(root, data, now, apply) {
   const merged = new Map(data.merged.map((e) => [e.id, e]))
   const draw = (body, entry) => {
     if (!entry) return
-    const html = renderGantt(entry.gantt, now)
+    const html = renderGantt(entry.gantt, now, entry.ci)
     if (shownCharts.get(body) === html) return
     apply(body, html)
     shownCharts.set(body, html)

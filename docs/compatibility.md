@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-14, after CW-300 ([#301](https://github.com/collective-wisdom-org/collective-wisdom/pull/301)) merged and with CW-298 ([#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)) and CW-299 ([#308](https://github.com/collective-wisdom-org/collective-wisdom/pull/308)) added; recorded runs are in [Runs](#runs).
+Last checked against the code on 2026-11-14, after CW-300 ([#301](https://github.com/collective-wisdom-org/collective-wisdom/pull/301)) merged and with CW-298 ([#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298)) and CW-299 ([#308](https://github.com/collective-wisdom-org/collective-wisdom/pull/308)) added. CW-315 ([#315](https://github.com/collective-wisdom-org/collective-wisdom/issues/315)) added the fresh-context reset run. Recorded runs are in [Runs](#runs).
 
 ## Legend
 
@@ -33,6 +33,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 | Chief of Staff thread | 🟢 works | ⚪ untested (G2) | 🟢 works | ⚪ untested (G18) |
 | Ship loop child threads | 🟢 works | 🔴 not supported yet: no model routing recorded (CW-280, G2) | 🟡 partial: a Cursor Chief of Staff drove Claude Code children to merge, no Cursor child run (G3) | 🔴 not supported yet: no model routing recorded (CW-280, G18) |
 | Stop hook (thread rotation) | 🟢 works | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) | 🟡 partial: skill-change rotation only, no size trigger (G8) | 🔴 not supported: hook installed for Claude Code and Cursor only (G7) |
+| Fresh-context reset (T3 Code after 0.1.9) | 🟡 partial: checks 1 to 5 passed as graded by the user on 2026-11-14, but the context size after the reset is unconfirmed (G30), a notice lost across the reset was recovered by the idle check (G29), the merge-wait wake is untested with a parent other than the chief (G26) and a queued /compact truncates the Chief of Staff skill (G25) | ⚪ untested: not run (G2, G28) | ⚪ untested: not run (G28) | ⚪ untested (G18) |
 | Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code and Cursor runs only (G8) | 🟡 partial: Auto runs (all the Cursor routing) are expected to show cost unknown (unconfirmed, G8); `grok-4.7` and `composer-2.5` runs are priced at the standard rate, so Fast mode and Grok long prompts show too little (G8) | 🔴 not supported: reads Claude Code and Cursor runs only (G8) |
 | Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: the Chief of Staff tab data shows the Cursor thread's state and link; gantt rows with tokens and cost are written from Cursor's run store, but no Cursor thread has run that code (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
 | `agent-gantt` | 🟡 partial: hooks run in T3 sessions, pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
@@ -48,6 +49,7 @@ Notes:
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
 - Ticket helper in the gantt: the mod reads the ticket from the `TICKET HELPER DONE` block of a Claude Code helper's final answer (it needs the `agent-gantt` plugin at 0.1.11 or later), and the dashboard adds that session to the ticket's gantt and spend. On Linear and Jira the session reaches the ticket's chart once the ticket is in the Chief of Staff's saved list; see Matrix 2. A running helper with no ticket yet is a `Writing tickets` card. A finished helper that filed nothing leaves no card. The Cursor card has no title and stays until its turn ends, because the Cursor hook sets no `ticket` or `request` (G21).
 - The Cursor column's Team skills load, Chief of Staff thread, Ship loop and Local dashboard cells rest on the 2026-11-09 run in [Runs](#runs). That run used the skills only: the Cursor rule file and Cursor hooks were not installed on its machine.
+- The Fresh-context reset row rests on the 2026-11-14 run in [Runs](#runs). It was a Claude Code run reported by the user; the build read no scratch thread. The row needs T3 Code after 0.1.9 with the notice fix, that is a nightly from 2026-11-13 or later until a stable release has it.
 
 ### Full compatibility
 
@@ -106,6 +108,40 @@ A ship-loop child cannot start a thread on another harness, so step 2 is done by
 ## Runs
 
 One entry per recorded run, newest first. The steps are in [Recording a run](#recording-a-run).
+
+### 2026-11-14, fresh-context reset (CW-315)
+
+Recorded for [#315](https://github.com/collective-wisdom-org/collective-wisdom/issues/315): whether the Chief of Staff thread can reset its own provider session with `freshContext: true` and keep working.
+
+- **T3 Code:** `0.1.10-nightly.20261114.4695`, a nightly built on 2026-11-14, after the fix for pingdotgg/t3code issue 36087 (PR 36103) merged on 2026-11-13; the version was read with `t3_environment_read` on 2026-11-14, and the fix is inferred from the build date. All checks ran on it.
+- **Scratch repo and thread:** `dbeallor/cw-scratch`, prefix `CS`, tickets CS-2 (PR #3), CS-4 (PR #6) and CS-5 (PR #7). Claude Code Chief of Staff thread `76c448b2-f998-4283-b874-adedd648944e`; its latest session at hand-back was `9cdeae2d`. No repo edits were made in `cw-scratch`.
+- **What this rests on:** the user ran the checks in the scratch thread and reported the results in the CW-315 Chief of Staff thread on 2026-11-14, which the Chief of Staff relayed. The build did not read the scratch thread or its state, and the user's full notes file is outside the repo, so the lines below are the user's report, not quoted tool output. The build did the schema read in check 4 itself. Claude Code only.
+- **1. Self-send with no children: pass for the reset, size unconfirmed.** New session in the same thread, `chiefSessionId` changed. Context 83,815 then 88,851 (+6%) as reported. The report does not say which turn each number is from, so the spec's within-25% comparison to a fresh thread's first take-over turn is not confirmed. If the numbers are before and after the reset, the reset did not shrink the context (G30).
+- **2. Notice across the reset: pass as graded by the user, recovered by the idle check.** `BUILD READY` was handled by the new session through the take-over idle check and sweep. The report does not say the child's notice itself arrived in the new session, so notice delivery is not shown (G29).
+- **3. Reset under load: pass, with a limit.**
+  - (a) Two children across the reset: pass. CS-4 and CS-5 stayed tracked and running. CS-5's `MERGE READY` was lost across the reset and caught later by `cos_idle_check.py`, so this case shows the idle check recovering a lost notice, not delivery (G29).
+  - (b) Reset during a merge wait: the first try was inconclusive because CS-2 merged before the reset. The retry passed: CS-4 merged after the reset and the notice path closed it out.
+  - Limit: take-over step 4.2 starts no merge wait when the ticket's `parentThreadId` is the chief itself, so (b) shows the notice path, not a merge-wait wake. That path is untested (G26).
+  - The direct send was accepted; the scheduled fallback was not needed.
+- **4. Scripts after the reset: pass.** The report gives only "no import errors"; it does not say whether `cos_user_check.py` and `cos_approve_pr.py` found a pre-reset user message or that no script exited 2. The build read the schema on 2026-11-14 with `sqlite3 -readonly ~/.t3/userdata/statev2.sqlite '.schema <table>'`: every table and column the store-reading scripts select exists.
+  - `orchestration_v2_projection_messages`: `message_id`, `thread_id`, `role`, `streaming`, `created_at`, `payload_json`.
+  - `orchestration_v2_projection_threads`: `thread_id`, `project_id`, `title`, `default_provider`, `provider_instance_id`, `updated_at`, `archived_at`, `deleted_at`, `payload_json`.
+  - `orchestration_v2_projection_runs`: `run_id`, `thread_id`, `ordinal`, `status`, `completed_at`.
+  - `orchestration_v2_projection_turn_items`: `turn_item_id`, `thread_id`, `run_id`, `type`, `payload_json`.
+  - `orchestration_v2_turn_item_positions`: `thread_id`, `turn_item_id`, `ordinal`.
+  - `projection_projects`: `project_id`, `title`, `workspace_root`, `deleted_at` (read by `cos_peer.py`).
+  - The JSON paths the scripts extract are present in current rows: `$.createdBy` and `$.text` on messages, `$.lineage.parentThreadId` and `$.lineage.relationshipToParent` on threads, `$.toolName` and `$.output` on `dynamic_tool` items, `$.text` and `$.streaming` on `assistant_message` items. Nothing is gone or renamed. The repo holds no earlier schema, so this is a check against what the scripts need, not a diff.
+- **5. Stop hook and `chiefSessionId`: pass.** `chiefSessionId` matched the new session, and with a stale `skillCommit` set the `rotate:` line appeared once the 10-minute quiet window passed.
+- **6. Queued `/compact`: partial.** After the compaction the `chief-of-staff` skill came back truncated mid-sentence in the Tick plan-line table (the cut text ends "Cleanup line, `Child read script u"), followed by "[... skill content truncated for compaction; use Read on the skill path ...]". The intro, reference table, Tools, Working set, Models, Lanes, State file and the start of Tick survive. The rest of the plan-line table, Child path, Guardrails and everything after are lost, so a chief must re-read `SKILL.md` after a compaction (G25).
+- **7. Codex and Cursor: not run.** The run covered Claude Code only. A Codex Chief of Staff starts no children while there is no routing table (CW-280, G2).
+- **Other findings (not checks):**
+  - A `freshContext` reset drops the test plan, so the plan has to live in state or a file.
+  - A plain `take over` typed in the same session does not reset: context and `chiefSessionId` stay unchanged. Only `t3_thread_send` with `freshContext: true` resets.
+  - A short `skillCommit` (`8ddace1`) is accepted but never matches. The check keeps printing "ok (skill change waits: relay Nm ago)", which reads as a pending rotation (G27).
+  - `cos_state.py apply` rejects `lastRelayAt` as an "unknown top-level key", so testing the `rotate:` line means waiting out the quiet window. The Chief of Staff's read was that this is deliberate, because the relay path writes that key.
+  - A 400 second background `sleep` once appeared to return at once. Probably a harness quirk, seen once, so no ticket.
+- **Tickets:** [#328](https://github.com/collective-wisdom-org/collective-wisdom/issues/328) (reject a short `skillCommit`) and [#329](https://github.com/collective-wisdom-org/collective-wisdom/issues/329) (keep the Chief of Staff rules inside the compaction budget). Filed by the Chief of Staff, not by this build.
+- **Open at hand-back:** CS-5 (PR #7) awaiting the user's `approve 5`; no children or merge waits running; `skillCommit` restored to the full 40-character sha.
 
 ### 2026-11-13, Claude Code in T3 Code (CW-280 control run)
 
@@ -178,3 +214,9 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G21.** The Cursor gantt hook (`cursor_gantt_hook.ts` via `mods/agent-gantt/hooks/cursor.ts`) writes no `ticket` or `request`, so a Cursor helper's card has no title, stays until its turn ends, and its session never joins the ticket it filed or that ticket's spend. No Cursor hook run is recorded (see G9). Ticket: [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288).
 - **G22.** On Linear and Jira the dashboard's Todo and Backlog lists come from `.agent-team/tracker-lists.json`, which the Chief of Staff writes: the Todo list on each turn that reads Todo (a free spec slot) and the Backlog list after each ranking. Between reads the lists can lag the tracker. A fresher list would need a tracker read on every turn. Issue: [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298).
 - **G24.** A Jira Data Center site whose admin allows `_` in project keys cannot use the team: `project_config.py`, `setup_repo.py`, the dashboard and the `agent-gantt` mod read a ticket prefix as letters and digits only. Jira Cloud does not allow `_` in a key. It hangs on the Jira column's Setup row. Ticket: none yet.
+- **G25.** A queued `/compact` truncates the `chief-of-staff` skill (check 6 of the 2026-11-14 run): the skill comes back cut mid-sentence in the Tick plan-line table, so a `/compact` does not replace a reset by itself, since a chief has to re-read `SKILL.md` first. Ticket: [#329](https://github.com/collective-wisdom-org/collective-wisdom/issues/329).
+- **G26.** A merge wait across a reset is untested with a parent other than the chief. Take-over step 4.2 starts no merge wait when the ticket's `parentThreadId` is the chief itself, so the 2026-11-14 run only shows the notice path. A test needs a ticket whose parent is a retired Chief of Staff thread. Ticket: none yet.
+- **G27.** The state file accepts a short `skillCommit` (`8ddace1` in the 2026-11-14 run) that never matches the skill's commit, and the rotation check keeps printing "ok (skill change waits: relay Nm ago)", which reads as a pending rotation. No matrix cell points at it: it came from the 2026-11-14 run. Ticket: [#328](https://github.com/collective-wisdom-org/collective-wisdom/issues/328).
+- **G28.** The fresh-context reset has no recorded run on Codex or Cursor (check 7 of the 2026-11-14 run). Codex starts no children until a routing table exists (G2). Ticket: none yet.
+- **G29.** A child's finish notice can be lost across a fresh-context reset: in the 2026-11-14 run CS-5's `MERGE READY` was lost and `cos_idle_check.py` caught it later, and the report does not show a notice arriving in the new session for `BUILD READY` either. The idle check recovers it, so the team keeps working, but the notice path alone is not shown. Ticket: none yet.
+- **G30.** The 2026-11-14 run does not confirm that a fresh-context reset gives a small context: the user's two numbers (83,815 and 88,851) are not tied to a reset turn and a fresh-thread turn, so the spec's within-25% comparison was not made. A repeat run reads `agent_usage.py --context` on the reset's first turn and on a fresh thread's first take-over turn. Ticket: none yet.

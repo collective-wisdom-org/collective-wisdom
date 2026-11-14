@@ -375,7 +375,7 @@ test('merged row shows spend only when the entry has it', () => {
   assert.doesNotMatch(none, /cost|\$|–/)
 })
 
-test('groups sort into bands, keep api order inside a band, and show the stage only in Other', () => {
+test('groups sort into bands, keep api order inside a band', () => {
   const g = (name, rows = [row({ id: `${name}-1`, stage: 'build' })]) => ({ name, count: rows.length, rows })
   const bandsOf = (html) => [...html.matchAll(/<h2>([^<]+)<\/h2>|<h3>([^<]+?) <span/g)].map((m) => m[1] ?? m[2])
   const names = [g('Building'), g('Mystery'), g('Awaiting build approval'), g('Queued to build'), g('Awaiting merge approval'), g('Speccing')]
@@ -383,8 +383,17 @@ test('groups sort into bands, keep api order inside a band, and show the stage o
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
   const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
   assert.match(other, /class="row blocked"[\s\S]*>blocked<[\s\S]*>spec queued</)
-  assert.equal((other.match(/badge stage/g) ?? []).length, 2)
+  assert.equal((other.match(/badge stage/g) ?? []).length, 3, 'a stage badge on every row with a stage, in every group')
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
+})
+
+test('a card shows its stage and since HH:MM, never the status text; no usable stageAt means no since', () => {
+  const stageAt = new Date(2026, 10, 14, 9, 5).toISOString()
+  for (const [extra, want] of [[{ stageAt }, 'build since 09:05'], [{}, 'build'], [{ stageAt: 'soon' }, 'build']]) {
+    const html = renderStatus(group([row({ next: 'status words', ...extra })]))
+    assert.equal(html.match(/<span class="badge stage">([^<]*)</)[1], want)
+    assert.doesNotMatch(html.replace(/<details class="info"[\s\S]*?<\/details>/, ''), /status words/)
+  }
 })
 
 test('a running ticket helper is a placeholder card, and Todo and Backlog are flat rows under Not started', () => {
@@ -491,4 +500,22 @@ test('a group with an http(s) moreUrl ends with an escaped Full backlog link ins
   const ok = html('https://x.test/o/r/issues?a=1&b="2"')
   assert.match(ok, /<\/ul><p class="more"><a href="https:\/\/x\.test\/o\/r\/issues\?a=1&amp;b=&quot;2&quot;" target="_blank" rel="noopener noreferrer">Full backlog<\/a><\/p><\/details>/)
   for (const bad of ['javascript:alert(1)', '//x.test/issues', undefined]) assert.ok(!html(bad).includes('Full backlog'), String(bad))
+})
+
+test('renderGantt ends with a CI wait row of the merged spans and leaves the Total row alone', () => {
+  const sessions = [sess({ rows: [task({ segments: [[T, T + 2 * MIN]], end: T + 2 * MIN })] })]
+  const now = T + 20 * MIN
+  const spans = [[T + 3 * MIN, T + 8 * MIN], [T + 6 * MIN, T + 10 * MIN]]
+  const last = (html) => view(html).at(-1)
+  const cases = [
+    ['overlap counts once', renderGantt(sessions, now, spans), 'CI wait', '7m 00s'],
+    ['an open span runs to now and looks running', renderGantt(sessions, now, [[T + 3 * MIN, null]]), 'CI wait', '17m 00s'],
+    ['no spans, no row', renderGantt(sessions, now, []), 'Total', '2m 00s'],
+  ]
+  for (const [name, html, rowName, dur] of cases) assert.deepEqual([last(html)?.name, last(html)?.dur], [rowName, dur], name)
+  const withWait = view(renderGantt(sessions, now, spans))
+  assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
+  assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
+  assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
+  assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d:\d\d to \d\d:\d\d"/)
 })
