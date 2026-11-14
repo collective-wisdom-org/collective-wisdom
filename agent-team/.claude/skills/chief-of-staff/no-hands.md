@@ -52,10 +52,10 @@ A ticket is active for the run when it is on the run's `started` list and in `sp
 
 - **Ticket cap.** `started` reaches the cap: `check` says `drain ticket-cap`. Tickets already started finish.
 - **Blocked ticket.** When a ticket of the run goes `blocked` because its child reported `BLOCKED:` (not `rate limited`), or `cos_restart.py` blocked a stuck child after its one restart: `no_hands.py drain blocked <PREFIX>-N`. That ticket waits for the user; the others finish.
-- **Rate limit.** The wake handles it (SKILL.md § Rate limit). A ticket of the run that used its 3 resumes and stays blocked: `no_hands.py drain rate-limit <PREFIX>-N`.
-- **CI red.** A child of the run stops with `BLOCKED:` after 3 fix pushes on a red CI (SKILL.md § Child task template). That is a blocked ticket, above.
+- **Rate limit.** The wake handles it (rate-limit.md § Rate limit). A ticket of the run that used its 3 resumes and stays blocked: `no_hands.py drain rate-limit <PREFIX>-N`.
+- **CI red.** A child of the run stops with `BLOCKED:` after 3 fix pushes on a red CI (readiness.md § Child task template). That is a blocked ticket, above.
 - **Cost cap, unknown cost, setting turned off, start message no longer the user's.** `check` says `stop`. A ticket with no sessions at all costs $0; a cost that cannot be read is `cost unknown`. Running children are cancelled, because money is the limit.
-- **`no hands off`.** Run the user check (SKILL.md § Commands; the strict short-words rule). With no active run, say so. Otherwise `no_hands.py drain stopped-by-user`: tickets in flight finish under No Hands. `stop everything` is the hard stop.
+- **`no hands off`.** Run the user check (commands.md § Commands; the strict short-words rule). With no active run, say so. Otherwise `no_hands.py drain stopped-by-user`: tickets in flight finish under No Hands. `stop everything` is the hard stop.
 - **`stop everything`.** kill-switch.md § Kill switch, which ends the run.
 - **`cancel N`.** Cancels that ticket as today. The run goes on.
 - **Normal end.** Todo has nothing startable (`todo: none`), `project-manager` § Backlog pick finds the Backlog dry, and no ticket of the run is active: `no_hands.py end backlog-empty`. Do not set `paused`; tickets waiting on the user stay waiting.
@@ -81,7 +81,7 @@ Drop a line that is empty. Write the last line only when you set `paused`. A run
 
 ## While a run is active
 
-- Every report and `status` answer starts with the run line (SKILL.md § Report format).
+- Every report and `status` answer starts with the run line (report-format.md § Report format).
 - Every auto-approval still posts the full block as a notice and a ticket comment (approvals.md § Auto-approval).
-- The child task gains the CI line (SKILL.md § Child task template).
+- The child task gains the CI line (readiness.md § Child task template).
 - Cross-repo requests keep their rules (cross-repo.md). A run starts only this repo's own Todo and Backlog tickets.

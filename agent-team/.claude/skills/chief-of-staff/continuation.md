@@ -4,7 +4,7 @@ Read when a relay is about to go to a ticket whose `parentThreadId` is known and
 
 ## Continuation child
 
-When SKILL.md § Send or queue is about to send a relay (at once or from the queue) to a ticket whose `parentThreadId` is known and is not `chiefThreadId`, it may start a new child under this thread instead of sending. There are two cases.
+When send-or-queue.md § Send or queue is about to send a relay (at once or from the queue) to a ticket whose `parentThreadId` is known and is not `chiefThreadId`, it may start a new child under this thread instead of sending. There are two cases.
 
 *Approval or `changes N`.* The relay is the user's approval (`CHIEF OF STAFF: the user approved`), an auto-approval (`CHIEF OF STAFF: auto-approved`) or `changes N` (`CHIEF OF STAFF: the user asked for changes`) for a ticket that was in `awaiting-build`, `awaiting-review` or `awaiting-merge` (the child has pushed everything and is idle; a queued relay of this kind is told apart by its first words), **and** the relay has no `Approval in thread:` line or that line names this thread: start a new child under this thread instead of sending. A queued spec approval written in an older thread (the line names another thread) is sent to the old child as before.
 
@@ -16,13 +16,13 @@ When SKILL.md § Send or queue is about to send a relay (at once or from the que
 The steps below apply to both cases.
 
 - Before writing the template, run `python3 ~/.collective-wisdom/scripts/cos_handoff.py <PREFIX>-N`. It checks `branch`, `specPath`, `specSha`, `stage` and `pr` (all from the child's own report) and prints a `HANDOFF` block built from state and GitHub. Exit 1 (`reject: <field> <value>`): mark the ticket `blocked`, quote the value to the user, and start nothing. Exit 2 with the line `cos_handoff: cannot read PR #N` (the checks above passed, only GitHub failed): start the child with the `Spec: … PR: …` line of the template as it was, and add one Cleanup line, `Handoff block unavailable for <PREFIX>-N`. Exit 2 with any other line (`bad ticket`, `no state file`, `no such ticket`, `unreadable state file`): the values were not checked, so start nothing, mark the ticket `blocked` and quote the line to the user. Otherwise the block replaces that line in the template, as printed.
-- The merge head check and the queued spec approval re-read (SKILL.md § Send or queue) run first, as for any send. Then `delegate_task` as in SKILL.md § Readiness check and start, with `target` from the lane's row of this thread's table (Child, spec stage for the spec lane, Child, build and merge stages for build and merge; SKILL.md § Models), with the template below. The relay goes into the task as its last block. The SKILL.md § Models switch is skipped: the new child starts on the lane's model.
+- The merge head check and the queued spec approval re-read (send-or-queue.md § Send or queue) run first, as for any send. Then `delegate_task` as in readiness.md § Readiness check and start, with `target` from `cos_models.py` for the lane's role (`spec` for the spec lane, `build` for build and merge; SKILL.md § Models), with the template below. The relay goes into the task as its last block. The models.md § Models switch is skipped: the new child starts on the lane's model.
 - Save the new `firstTaskId` and `childThreadId`, set `parentThreadId` to this thread's ID and `lastPosition` to 0, and set the lane's active stage and `status` as for any send, plus the keys of a `set:` line `cos_route.py` printed. The old child stays idle and is never sent to again. Its worktree and branch stay.
 - Report under Moving: `<PREFIX>-N moved to a new child (old one under a retired thread)`.
 
-A merge-lane relay that goes to the old child gets the "I may not hear" line and starts the merge wait (SKILL.md § Merge wait).
+A merge-lane relay that goes to the old child gets the "I may not hear" line and starts the merge wait (sweep.md § Merge wait).
 
-These still go to the old child: a running child (it can't be moved), a child with a pending request (its run is open), and any child whose worktree check fails (unpushed or uncommitted work, or a worktree the check can't read). Its notices still go through the old thread's forwarding, and the sweep's parent check (SKILL.md § Sweep) full-reads it in case a forward is lost.
+These still go to the old child: a running child (it can't be moved), a child with a pending request (its run is open), and any child whose worktree check fails (unpushed or uncommitted work, or a worktree the check can't read). Its notices still go through the old thread's forwarding, and the sweep's parent check (sweep.md § Sweep) full-reads it in case a forward is lost.
 
 ```
 TEAM MODE. CONTINUE. Run /ship-loop for <PREFIX>-<N>: <title>. <ticket URL>.

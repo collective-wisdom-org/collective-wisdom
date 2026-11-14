@@ -20,6 +20,6 @@ Leave worktrees and branches in place. A No Hands stop (no-hands.md) runs steps 
 On `resume`:
 
 1. Clear `paused`.
-2. For each blocked ticket whose note is "stopped by the user" or starts with "stopped by No Hands:", relay `CHIEF OF STAFF: continue the <stage> stage from where the branch is.` through SKILL.md § Send or queue to the lane of its `resumeStage`. Other blocked tickets stay blocked.
+2. For each blocked ticket whose note is "stopped by the user" or starts with "stopped by No Hands:", relay `CHIEF OF STAFF: continue the <stage> stage from where the branch is.` through send-or-queue.md § Send or queue to the lane of its `resumeStage`. Other blocked tickets stay blocked.
 3. `resume` never starts a No Hands run, and an ended run stays ended. The relays in step 2 go under the tolerance. The user says `no hands` for a new run.
 4. Then run startup.md § Start-up clean-up and the lean take-over pass (rotation.md § Thread rotation "Take over" step 4), which makes a wake if a rate limit still needs one.

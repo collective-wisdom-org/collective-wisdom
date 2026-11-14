@@ -116,7 +116,7 @@ Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing
 
 1. Take the next `ready` ticket in `pm.ranked`. `held` and `needs:` entries are skipped.
 2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not started.
-3. Run `chief-of-staff` § Readiness check and start on it, reusing the step 2 read (no second `get-ticket`). The start adds one `comment`: `Picked from the Backlog ranking by the project manager: <reason>.` The ticket goes from Backlog to In Progress with the start's own write plus that comment, never through Todo. A ticket that fails the readiness check doesn't take the slot; take the next `ready` ticket.
+3. Run `chief-of-staff/readiness.md` § Readiness check and start on it, reusing the step 2 read (no second `get-ticket`). The start adds one `comment`: `Picked from the Backlog ranking by the project manager: <reason>.` The ticket goes from Backlog to In Progress with the start's own write plus that comment, never through Todo. A ticket that fails the readiness check doesn't take the slot; take the next `ready` ticket.
 4. **Dry ranking.** This pick finds no `ready` ticket left in `pm.ranked`. Run `python3 ~/.collective-wisdom/scripts/cos_rank.py dry`, with `--out-of-date` when step 2 found a ranked ticket out of date this turn. Its one line says:
 
 - `dry: rank (<reason>)`: run § Ranking child now, then continue the pick from the new `pm.ranked`.
@@ -128,7 +128,7 @@ During a No Hands run, a dry Backlog (this step ends with none) with no ticket o
 
 Report a `needs:` ticket once, when first ranked, and add it to `pm.needsReported`. Never start it.
 
-Report lines: a start is a Moving line, `<PREFIX>-N started: <title>. From the Backlog ranking: <reason>.`, plus the "Took the slot" part (`chief-of-staff` § Report format). Under Backlog: `<PREFIX>-N not moved, needs: <what's unclear>`.
+Report lines: a start is a Moving line, `<PREFIX>-N started: <title>. From the Backlog ranking: <reason>.`, plus the "Took the slot" part (`chief-of-staff/report-format.md` § Report format). Under Backlog: `<PREFIX>-N not moved, needs: <what's unclear>`.
 
 ## State
 

@@ -109,7 +109,7 @@ Tickets move in three lanes (spec, build, merge), each with its own limit. A cap
 
 The five subagent rows above also have Cursor copies in `agent-team/.cursor/agents/` (same name, description and body; `model:` pinned to the matching Cursor model, `auto-smart[optimize_for=intelligence]` for `opus` and `auto-smart[optimize_for=balanced]` for `sonnet`; `readonly: true` on the documenter and the two reviewers).
 
-The child fixes what the documenter and the reviews find; they only report. Each role's model: [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) § Models.
+The child fixes what the documenter and the reviews find; they only report. Each role's model: [`chief-of-staff/models.md`](../../.claude/skills/chief-of-staff/models.md) § Models, with the values in `cos_models.py`.
 
 When a repo sets `Review mode` to `ci` (`project.md` § Review), the code review and security review roles do not run: the child answers the CI review bot's threads (`open-pr` § CI review mode) and the merge gate checks that none are unresolved.
 

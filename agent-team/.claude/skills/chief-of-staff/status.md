@@ -4,11 +4,11 @@ Read on `status` or `where's <PREFIX>-N?`.
 
 ## Answering status
 
-Run the tick with `--trigger status` (SKILL.md § Tick): it reads every active child, runs the idle check and the sweep (SKILL.md § Sweep). Then answer in the layout of `## Status layout` below. Post the full block again for each pending approval (approvals.md § Approval requests).
+Run the tick with `--trigger status` (SKILL.md § Tick): it reads every active child, runs the idle check and the sweep (sweep.md § Sweep). Then answer in the layout of `## Status layout` below. Post the full block again for each pending approval (approvals.md § Approval requests).
 
 ## Status layout
 
-`status` and `where's <PREFIX>-N?` answer in this layout, not in the routine report shape of SKILL.md § Report format. It is one small markdown table per group, under a bold header with the count. The user scans down one column for the ticket and one for the risk, and reads the next action in the third. Separate tables keep the group order and counts visible as headers. Unrendered, they still read line by line. While a No Hands run is active, the answer starts with the No Hands line (SKILL.md § Report format).
+`status` and `where's <PREFIX>-N?` answer in this layout, not in the routine report shape of report-format.md § Report format. It is one small markdown table per group, under a bold header with the count. The user scans down one column for the ticket and one for the risk, and reads the next action in the third. Separate tables keep the group order and counts visible as headers. Unrendered, they still read line by line. While a No Hands run is active, the answer starts with the No Hands line (report-format.md § Report format).
 
 ```
 **Awaiting merge approval (1)**
@@ -59,11 +59,11 @@ Rules:
 
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
 - Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`blocked: <reason>`, `[changes requested, ]waiting for a spec slot`).
-- An `Awaiting teammate review` row's Next reads `PR #N, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>` (names from the status line; the sweep's `waiting` line prints only with `--verbose`), plus `; your approval is held` when `heldApproval` is set.
+- An `Awaiting teammate review` row's Next reads `PR #N, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>` (names from this turn's sweep `waiting` line, else the status line), plus `; your approval is held` when `heldApproval` is set.
 - The Ticket cell is `**<PREFIX>-N** title`, then `<br>` and the link to the ticket's child thread (`childThreadId` in state). A row with no `childThreadId` (or a null one) has no `<br>` and no link. The link is never repeated in Next.
 - The detail cell ends with `$X so far`, the dollar figure from one `python3 ~/.collective-wisdom/scripts/agent_usage.py --ticket <PREFIX>-N` per row, whatever the stage. A line starting `cost unknown` gives `cost unknown` instead. On exit 2 it adds nothing.
 - Titles come from the tracker: one `list-tickets` call with label `agent` and fields `id, title`. If that read fails, show the ID alone.
-- Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`. A ticket left as untracked after SKILL.md § Sweep's drop gets one more: `Not in my state: <PREFIX>-125 (in review, #132), <PREFIX>-126 (in progress).`
+- Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190 (#178)`. A ticket left as untracked after sweep.md § Sweep's drop gets one more: `Not in my state: <PREFIX>-125 (in review, #132), <PREFIX>-126 (in progress).`
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (approvals.md § Approval requests), each with its risk on the first line.
-- No other SKILL.md § Report format section (`Moving`, `Running`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
-- `where's <PREFIX>-N?` uses the same layout, with the thread link (a markdown link, SKILL.md § Report format) under the ticket, and only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
+- No other report-format.md § Report format section (`Moving`, `Running`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
+- `where's <PREFIX>-N?` uses the same layout, with the thread link (a markdown link, report-format.md § Report format) under the ticket, and only that ticket's group and row, plus its full block if it waits on an approval. A ticket not in state (Todo, Backlog, merged, `agent-skip`) gets one line from the tracker: its state and title, or `merged (#PR)` from the `merged` list.
