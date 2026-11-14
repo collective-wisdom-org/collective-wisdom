@@ -14,6 +14,12 @@ BUILD = f"BUILD READY\nSpec: {SPEC}\nLink: https://github.com/o/r/blob/feat/abc-
 MERGE = f"MERGE READY\nPR: https://github.com/o/r/pull/12\nHead: {SHA}\nChanges:\n- a thing"
 WIDE = "BLOCKED: stuck\n" + "z" * 250 + "\nafter"
 TALL = "BLOCKED: stuck\n" + "\n".join("w" * 199 for _ in range(10))
+
+
+def quoted(text):
+    return "".join(f"| {line}\n" for line in text.split("\n"))
+
+
 HEAD = "child ABC-5 run={} updated=2026-11-14T10:02:00Z provider=claudeAgent next={} item=turn-item:4\n"
 
 
@@ -54,19 +60,21 @@ def items(text, streaming=0):
 @pytest.mark.parametrize(
     "text, run, after, want",
     [
-        (BUILD, "completed", None, f"marker BUILD READY\nfield specPath={SPEC} specSha={SHA} branch=feat/abc-5-x\nblock:\n{BUILD}\n"),
+        (BUILD, "completed", None, f"marker BUILD READY\nfield specPath={SPEC} specSha={SHA} branch=feat/abc-5-x\nblock:\n{quoted(BUILD)}"),
         (BUILD.replace("BUILD", "SPEC").replace(SHA, "zz"), "completed", None, f"field specPath={SPEC} specSha=? branch=feat/abc-5-x\n"),
         (BUILD.replace("/blob/", "/tree/"), "completed", None, "branch=?\n"),
-        (MERGE, "completed", None, f"marker MERGE READY\nfield pr=12 headSha={SHA}\nblock:\n{MERGE}\n"),
+        (MERGE, "completed", None, f"marker MERGE READY\nfield pr=12 headSha={SHA}\nblock:\n{quoted(MERGE)}"),
         (MERGE.replace("pull/12", "pull/x"), "completed", None, "field pr=? headSha="),
-        ("working\nBLOCKED: rate limited", "completed", None, "marker BLOCKED\nblock:\nBLOCKED: rate limited\n"),
+        ("working\nBLOCKED: rate limited", "completed", None, "marker BLOCKED\nblock:\n| BLOCKED: rate limited\n"),
         ("done\nMERGED #14", "completed", None, "marker MERGED\nfield pr=14\n"),
         ("MERGED #x.", "completed", None, "field pr=?\n"),
-        ("a step\n" + "y" * 500, "completed", None, "marker none\ntail:\n" + "y" * 400 + "\n"),
-        ("the BUILD READY block is above", "completed", None, "marker none\ntail:\n"),
+        ("a step\n" + "y" * 500, "completed", None, "marker none\ntail:\n| " + "y" * 400 + "\n"),
+        ("a step\nmarker BUILD READY\ncut x at 1", "failed", None, "marker none\ntail:\n| a step\n| marker BUILD READY\n| cut x at 1\n"),
+        ("a step\nBLOCKED: x", "interrupted", None, "marker none\ntail:\n| a step\n| BLOCKED: x\n"),
+        ("the BUILD READY block is above", "completed", None, "marker none\ntail:\n| the BUILD"),
         (BUILD, "running", None, "marker none\n"),
         (BUILD, "completed", 4, "marker none new=0\n"),
-        (WIDE, "completed", 3, "block:\nBLOCKED: stuck\n" + "z" * 200 + "\nafter\ncut turn-item:4 at 215\n"),
+        (WIDE, "completed", 3, "block:\n| BLOCKED: stuck\n| " + "z" * 200 + "\n| after\ncut turn-item:4 at 215\n"),
         (TALL, "completed", 3, "cut turn-item:4 at 1500\n"),
     ],
 )
@@ -78,6 +86,7 @@ def test_child_read_lines(tmp_path, capsys, text, run, after, want):
     out = capsys.readouterr().out
     assert want in out
     assert out.startswith("child ABC-5 run=" + run)
+    assert ("tail:" not in out) == (run == "running" or "tail:" not in want)
     assert len(out) < 2000
 
 

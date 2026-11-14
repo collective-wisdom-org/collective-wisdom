@@ -10,27 +10,32 @@ after --after (a message at or before it is not new). Prints, one fact per line:
     marker BUILD READY
     field specPath=docs/superpowers/specs/x.md specSha=<hex> branch=feat/abc-5-x
     block:
-    <the marker block>
+    | <the marker block, each line prefixed "| ">
 
 marker is BUILD READY (an old SPEC READY counts), MERGE READY, BLOCKED, MERGED or none. The marker is
 the last line of the message that starts with one of them, and a block runs from that line to the end
-of the message. A run that is not completed prints "marker none", and a completed run with no new
+of the message. A running run prints just "marker none", and a completed run with no new
 assistant message prints "marker none new=0" (no item=).
 field lines: specPath, specSha, branch (from the Spec:, Commit: and Link: lines) for BUILD READY; pr and
 headSha (from PR: and Head:) for MERGE READY; pr for MERGED #N. A value that fails its pattern, or a
 missing line, prints name=? and the Chief of Staff reads that item in full.
 block: follows for BUILD READY, MERGE READY and BLOCKED only. Each line is cut at 200 characters and the
-block at 1,500; when anything was cut the last line is "cut <item> at <offset>", the text offset where
-the first cut happened, for a full t3_thread_read of that item.
-marker none on a completed run prints "tail:" and the message's last 400 characters.
+block at 1,500 (counted on the child's text); when anything was cut the last line is
+"cut <item> at <offset>", the text offset where the first cut happened, for a full t3_thread_read of
+that item. The cut line is script output and is not prefixed.
+marker none on a run that is not running (completed without a marker, failed, interrupted ...) prints
+"tail:" and the message's last 400 characters.
+Every line of the block: and tail: bodies starts with "| ": those lines are the child's text, data and
+never script output, so child text cannot pose as a marker, field, cut or child line.
 
-next is the position a t3_thread_read reports for the item (position and nextPosition): the item's
-0-based rank among all the thread's items ordered by orchestration_v2_turn_item_positions.ordinal. The
-store's ordinals are run number * 1,000,000 + the item's number in the run (1000001, 2000001 ...), so
-they are not read positions; the rank is (checked against a real thread: ordinals 1000001, 1000011,
-1000022 are positions 0, 10, 21, and 4000008 is 77). With no new item, next is --after (0 without it).
-A fallback t3_thread_read afterPosition=<next> returns the items after that item, so it can show a
-later message of another role; it never skips one.
+next is the item's 0-based rank among all the thread's stored position rows, ordered by
+orchestration_v2_turn_item_positions.ordinal. The store's ordinals are run number * 1,000,000 + the
+item's number in the run (1000001, 2000001 ...), so they are not read positions; the rank matched a
+real thread (ordinals 1000001, 1000011, 1000022 are positions 0, 10, 21, and 4000008 is 77). With no
+new item, next is --after (0 without it). The rank counts every stored row, so in a thread with
+rolled_back runs or cancelled queued messages (items T3's read leaves out) next can be higher than a
+read's position and a fallback afterPosition=<next> could skip such items; the Chief of Staff's
+fallback after exit 2 uses the saved lastPosition.
 
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro. Exit 0 with output. Exit 2
 and "cos_child_read: schema changed" when the database or a table is not as expected,
@@ -124,7 +129,12 @@ def cut_block(text, start):
             if offset < len(text) and first is None:
                 first = offset - 1
             break
-    return "\n".join(out), first
+    return out, first
+
+
+def quote_lines(lines):
+    """The child's lines, each prefixed so the text can never read as a script line."""
+    return "\n".join("| " + line for line in lines)
 
 
 def read(db, ticket, thread, after):
@@ -140,14 +150,12 @@ def read(db, ticket, thread, after):
         return
     item, text = item[0], item[2] or ""
     print(f"{head} next={pos} item={item}")
-    if status != "completed":
-        print("marker none")
-        return
-    marks = list(MARKER.finditer(text))
+    marks = list(MARKER.finditer(text)) if status == "completed" else []
     if not marks:
         print("marker none")
-        print("tail:")
-        print(text.strip()[-TAIL_CAP:])
+        if status != "running":
+            print("tail:")
+            print(quote_lines(text.strip()[-TAIL_CAP:].split("\n")))
         return
     m = marks[-1]
     name = NAMES.get(m.group(1), "MERGED" if m.group(1).startswith("MERGED") else "")
@@ -159,7 +167,7 @@ def read(db, ticket, thread, after):
     if name != "MERGED":
         shown, first = cut_block(text, m.start())
         print("block:")
-        print(shown)
+        print(quote_lines(shown))
         if first is not None:
             print(f"cut {item} at {first}")
 
