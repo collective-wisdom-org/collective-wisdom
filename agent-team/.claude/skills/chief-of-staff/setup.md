@@ -103,7 +103,7 @@ Show each git and gh step as the command it will run, and run it only after a ye
    ```
    ~/.collective-wisdom/scripts/gh.sh pr create --base <target> --head agent-team-setup --title "docs: set up the agent team" --body-file "<file>"
    ```
-   The body, written to `<file>` first, lists the answers, the removed copies (if any) and: "Merge this, pull the root checkout, then say `start the team`." Put the PR link in the reply.
+   The body, written to `<file>` first, lists the answers, the removed copies (if any), a line naming the old `Branch pattern` row when `status` listed it (it did not parse, the template's row replaced it, edit the heads here) and: "Merge this, pull the root checkout, then say `start the team`." Put the PR link in the reply.
 7. **Clean up.** `git worktree remove "<wt>"`, then `git branch -D agent-team-setup` (only after the worktree is gone), then `rmdir "<tmp>"`.
 
 The user merges the PR. No merge gate applies: there is no ticket or state yet. Do not merge it or pull the root checkout for them.
