@@ -13,3 +13,6 @@
 - Marker turns still add the marker block (about 1.9k characters typical with the 1,500-character block cap; before: up to 10k), which the spec's `## Calls I made` chose for the approval request; the ticket's "few hundred characters" holds for turns without a block.
 - `cos_sweep.py` also keeps the merged check's `mismatch` and `unreadable` lines and the review check's `unreadable`, since `SKILL.md` has the Chief of Staff act on them. `--verbose` prints the rest.
 - The `--wait --store` check takes the last 10 `dynamic_tool` items of the last run, not the last 10 items of any kind, so it is slightly more lenient than the activity read.
+- Every line of the `block:` and `tail:` bodies is printed with a `| ` prefix, so child text can't pose as a `marker`, `field`, `cut` or `child` line. Control characters and U+2028/U+2029 in child text are replaced by a space first (length unchanged, so `cut` offsets hold), and stored text that is not a string exits 2 as `schema changed`.
+- A `branch` field must match the ticket's branch pattern (`cos_handoff.branch_re`), not only `[A-Za-z0-9._/-]+`; another ticket's branch prints `branch=?`.
+- `tail:` also prints for a `failed` or `interrupted` run, so the stuck check has text for `--step`.
