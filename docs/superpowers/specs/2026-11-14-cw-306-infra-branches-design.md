@@ -1,6 +1,7 @@
 # CW-306: Allow infra/ branches for ticket work
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #312, as specified
 **Ticket:** [#306](https://github.com/collective-wisdom-org/collective-wisdom/issues/306)
 
 ## Goal
