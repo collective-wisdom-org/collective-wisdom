@@ -1,4 +1,5 @@
-import type { StatusPaneGroup as Group, StatusPaneRow as Row } from '../types'
+export type Row = { id: string; title: string; risk: string; next: string }
+export type Group = { name: string; count: number; rows: Row[] }
 
 // The groups of chief-of-staff/status.md § Status layout, in that order.
 // A queued stage lists its tickets by queuedAt: the order they will start.

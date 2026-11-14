@@ -93,7 +93,7 @@ let root: string | null = null
 // Whether that root uses the team, checked once. A repo that does not gets no `.agent-team/` folder.
 let usesTeam = false
 
-/** The root checkout the way status-pane finds it: only the plain `<root>/.git` layout; else the session's own folder. */
+/** The root checkout, found only in the plain `<root>/.git` layout; else the session's own folder. */
 async function resolveRoot($: EngineInterface): Promise<string> {
   if (root !== null) return root
   const cwd = await $.session.cwd()

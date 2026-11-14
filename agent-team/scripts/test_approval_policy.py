@@ -236,7 +236,7 @@ HANDS = [
     (".codex/config.toml", True),
     ("mods/agent-gantt/hooks/x.ts", True),
     (".claude-plugin/marketplace.json", True),
-    ("agent-team/.claude/mods/status-pane/hooks/x.ts", True),
+    ("agent-team/.claude/mods/m/hooks/x.ts", True),
     (".claude/hooks/stop.sh", True),
     # a file that shadows what the gate scripts import, or changes how their tests run
     ("agent-team/scripts/pathlib.py", True),
