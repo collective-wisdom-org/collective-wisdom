@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 show CI wait time on the agent gantt (CW-323) (#326)
+
+Merged 2026-11-14 23:20 UTC.
+
+A ticket's Agents chart now ends with a `CI wait` row: how long its pull request waited on CI, shown for open and merged PRs. The total above it is still active time only, and cost is unchanged. Nothing to do.
+
 ## 2026-11-14 warn when the Branch pattern row does not parse (CW-319) (#322)
 
 Merged 2026-11-14 21:50 UTC.
