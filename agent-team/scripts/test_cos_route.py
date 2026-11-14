@@ -4,6 +4,7 @@ import pytest
 
 import cos_route
 import project_config
+import user_config
 
 ME = "me"
 
@@ -51,7 +52,7 @@ OVER_CAP = {"ABC-5": tk("spec"), "ABC-6": tk("spec"), "ABC-7": tk("build"), "ABC
         ("approve-spec", "awaiting-build", FULL_BUILD, "off", "queue build"),
         ("approve-spec", "awaiting-build", QUEUED_BUILD, "off", "queue build"),
         ("approve-merge", "awaiting-merge", QUEUED_BUILD, "off", "send merge"),
-        ("approve-merge", "awaiting-merge", OVER_CAP, "off", "queue merge"),
+        ("approve-merge", "awaiting-merge", OVER_CAP, "off", "send merge"),  # the merge lane is outside the cap
         ("conflict-stand", "awaiting-review", {"ABC-9": tk("merge")}, "off", "queue merge"),
         ("changes", "awaiting-build", ONE_EACH, "off", "send spec"),
         # a ticket that holds the merge slot does not block its own send; a ticket queued before this one still does
@@ -75,6 +76,21 @@ def test_lane_and_send_or_queue(tmp_path, capsys, monkeypatch, caller, stage, ot
         lane = want.split()[1]
         op = {"op": "stage", "ticket": "ABC-1", "stage": lane if want.startswith("send") else f"{lane}-queued", "status": "<status line>"}
         assert ops == [{**op, "set": {"noApproval": True}} if caller == "conflict-stand" else op]
+
+
+@pytest.mark.parametrize(
+    "rows, caller, stage, others, want",
+    [
+        ({"Active children cap": 5}, "approve-spec", "awaiting-build", OVER_CAP, "queue build"),  # 5 children are not under a cap of 5
+        ({"Active children cap": 6, "Build lane limit": 4}, "approve-spec", "awaiting-build", OVER_CAP, "send build"),
+        ({"Spec lane limit": 1, "Active children cap": 9}, "changes", "awaiting-build", {"ABC-9": tk("spec")}, "queue spec"),
+        ({"Merge lane limit": 3}, "approve-merge", "awaiting-merge", {"ABC-9": tk("merge")}, "queue merge"),  # merge is fixed at 1
+    ],
+)
+def test_configured_limits_decide_send_or_queue(tmp_path, capsys, monkeypatch, rows, caller, stage, others, want):
+    user_config.path().write_text("".join(f"| {k} | `{v}` |\n" for k, v in rows.items()))
+    _, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": tk(stage), **others}, caller)
+    assert out[-1] == f"route: {want}"
 
 
 @pytest.mark.parametrize("ticket, want", [("ABC-1", "send merge"), ("ABC-2", "queue merge")])

@@ -49,4 +49,4 @@ Rebuild when the file is missing or unreadable (`show` exits 2).
 - Other queued relays (`changes N`, answers, resumes) aren't on the tracker. Those tickets rebuild to the stage the child's last message shows (`awaiting-build`, `awaiting-review`, `awaiting-merge` or `blocked`), and the report says the user's last words to that ticket may need resending.
 - A rebuilt ticket in `merge` or `merge-queued` gets `set` `{"noApproval": true}` on its stage op: a missing key reads as an approval (`cos_head_check.py`), and the cost of the guess is one more `MERGE READY`.
 - After a rebuild, the sweep's untracked check (SKILL.md § Sweep) covers tickets in flight that the rebuild could not place.
-- After a rebuild the overall count can be over the cap. Nothing is cancelled; the tick (SKILL.md § Tick) sends and starts nothing until the count drops under the cap.
+- After a rebuild the overall count (spec and build) can be over the cap. Nothing is cancelled; the tick (SKILL.md § Tick) sends and starts nothing until the count drops under the cap.

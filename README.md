@@ -92,7 +92,7 @@ The run ends with `installed collective-wisdom <sha> [<tag>] from <clone>` and, 
 
 A `~/.claude/settings.json`, `~/.cursor/hooks.json`, `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` or `~/.cursor/rules/collective-wisdom.mdc` that is itself a link (dotfiles) is written at its target, so the link stays.
 
-Per-machine settings (the GitHub login for each repo, your Claude subscription figure) live in `~/.config/collective-wisdom/user.md`, not in a repo's `project.md`. See `agent-team/docs/agents/github-auth.md` § Account per repo.
+Per-machine settings (the GitHub login for each repo, your Claude subscription figure, the active children cap and the spec and build lane limits) live in `~/.config/collective-wisdom/user.md`, not in a repo's `project.md`. See `agent-team/docs/agents/github-auth.md` § Account per repo.
 
 The installer refuses a clone that is not its own git repo root, and a linked worktree. It does not take a path: any argument but `--dry-run` (a path, or an old flag such as `--update`) exits 2, points at the removal command below and writes nothing.
 

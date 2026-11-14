@@ -2,7 +2,8 @@
 
 user.md holds markdown tables like project.md; a value is the first backticked token in its cell.
 A `## GitHub accounts` row maps a repo (`<host>/<owner>/<repo>` of its origin remote) to the gh login that acts there.
-The `Claude subscription API-equivalent usage` row holds one dollar figure. It never holds tokens.
+The `Claude subscription API-equivalent usage` row holds one dollar figure. The `Active children cap`, `Spec lane limit` and
+`Build lane limit` rows hold whole numbers (lane_limits). It never holds tokens.
 
     user_config.py account   print `<host> <login>` for the current repo, nothing when it has no login
     user_config.py path      print the file's path
@@ -18,6 +19,8 @@ sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
 
 LOGIN = re.compile(r"(?!.{40})[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:_[A-Za-z0-9]+)?")
+COUNT = re.compile(r"[1-9][0-9]{0,2}")
+LANE_KEYS = {"cap": "Active children cap", "spec": "Spec lane limit", "build": "Build lane limit"}
 NAME = r"[\w.-]+"
 URL = re.compile(rf"(?:https|ssh)://(?:[^@/\s]+@)?(?P<host>[A-Za-z0-9][\w.-]*)(?::\d+)?/(?P<repo>{NAME}/{NAME}?)(?:\.git)?/?")
 SCP = re.compile(rf"(?:[^@/\s]+@)?(?P<host>[A-Za-z0-9][\w.-]*):(?P<repo>{NAME}/{NAME}?)(?:\.git)?/?")
@@ -88,6 +91,27 @@ def subscription_usage(provider):
                 return None
             return n if n is not None and math.isfinite(n) and n > 0 else None
     return None
+
+
+def lane_limits():
+    """{"cap", "spec", "build"} from the `Active children cap`, `Spec lane limit` and `Build lane limit` rows.
+
+    A value counts only as the first backticked token written as 1 to 999 in plain digits; anything else (no file, no row, `none`,
+    `0`, `2.5`, text, an unreadable file) reads as the default: spec 2, build 2, cap spec + build. Never raises.
+    """
+    try:
+        rows = _rows(path())
+    except UserConfigError:
+        rows = []
+
+    def find(name):
+        for _, _, key, cell in rows:
+            if key.startswith(LANE_KEYS[name]):
+                m = re.search(r"`([^`]+)`", cell)
+                return int(m[1]) if m and COUNT.fullmatch(m[1]) else None
+
+    spec, build = find("spec") or 2, find("build") or 2
+    return {"cap": find("cap") or spec + build, "spec": spec, "build": build}
 
 
 def main(argv):
