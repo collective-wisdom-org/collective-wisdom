@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 read the dashboard Todo and Backlog from Linear and Jira (CW-298) (#303)
+
+Merged 2026-11-14 19:04 UTC.
+
+On a Linear or Jira repo the dashboard's Todo and Backlog sections now list your tickets, from the Chief of Staff's last Todo read and Backlog ranking, so they can lag the tracker a little. Nothing to do; GitHub repos are unchanged.
+
 ## 2026-11-14 add Todo and Backlog list and ticket helper tracker rows to the compatibility doc (CW-300) (#301)
 
 Merged 2026-11-14 18:45 UTC.
