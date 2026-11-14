@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 remove the status-pane mod (CW-302) (#305)
+
+Merged 2026-11-14 19:05 UTC.
+
+The `status-pane` mod is removed. If you installed it, run `claude plugin uninstall status-pane`. The Chief of Staff status is in the dashboard and the `status` answer.
+
 ## 2026-11-14 read the dashboard Todo and Backlog from Linear and Jira (CW-298) (#303)
 
 Merged 2026-11-14 19:04 UTC.
