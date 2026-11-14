@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 shrink the Chief of Staff thread start (CW-314) (#321)
+
+Merged 2026-11-14 21:49 UTC.
+
+The Chief of Staff thread starts with about half the skill text loaded, so a take-over leaves more room under the rotation cap. Model values for each role now come from `cos_models.py`. Nothing to do on your side.
+
 ## 2026-11-14 read child threads through a script that prints a short result (CW-313) (#320)
 
 Merged 2026-11-14 21:41 UTC.
