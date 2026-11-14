@@ -60,6 +60,10 @@ button:hover:not(:disabled) { background:var(--b-neutral); border-color:var(--mu
 button:focus-visible, summary:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 button:disabled { opacity:.5; cursor:default; }
 button.copy { margin-left:auto; }
+button.copy-icon { display:inline-flex; align-items:center; justify-content:center; flex:none; width:1.5rem; height:1.5rem; padding:0; margin-left:var(--s1); border:0; color:var(--muted); vertical-align:middle; }
+button.copy-icon:hover:not(:disabled) { color:var(--fg); }
+button.copy-icon[data-state="copied"] { color:var(--bar); }
+button.copy-icon[data-state="failed"] { color:var(--err); }
 .tabs { display:flex; gap:var(--s1); margin:0 0 var(--s4); border-bottom:1px solid var(--line); }
 .tabs button { height:auto; padding:var(--s2) var(--s3); border:0; border-bottom:2px solid transparent; border-radius:0; color:var(--muted); font-size:var(--t-body); }
 .tabs button:hover:not(:disabled) { background:transparent; color:var(--fg); border-color:transparent; }

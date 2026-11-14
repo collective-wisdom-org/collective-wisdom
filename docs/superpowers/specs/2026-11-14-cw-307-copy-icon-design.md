@@ -1,6 +1,6 @@
 # CW-307: Copy icon for the thread link next to each ticket title
 
-**Status:** Draft
+**Status:** Approved
 **Ticket:** [#307](https://github.com/collective-wisdom-org/collective-wisdom/issues/307)
 
 ## Goal

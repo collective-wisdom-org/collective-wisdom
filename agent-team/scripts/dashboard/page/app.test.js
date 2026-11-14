@@ -26,7 +26,8 @@ test('only http(s) urls become links; a missing prUrl has no PR anchor', () => {
 test('threadLink becomes a copy button carrying the exact link', () => {
   const link = '<t3-thread://v2/env/th"1>'
   const html = renderStatus(group([row({ threadLink: link })]))
-  assert.match(html, /<button[^>]*data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;"/)
+  assert.match(html, /<div class="head">.*<button type="button" class="copy-icon" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link"/)
+  assert.ok(!html.includes('>Copy thread link<'))
   assert.ok(!renderStatus(group([row()])).includes('<button'))
 })
 
