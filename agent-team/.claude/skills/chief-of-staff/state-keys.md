@@ -32,6 +32,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 ## State keys
 
 - **`note`**: a ticket's `note` is status only: why it's blocked, who stopped it. It never holds an instruction or a rule.
+- **`branch`**: the ticket's branch, `<head><prefix>-N-<slug>`. The example uses `feat/`; `infra/` is allowed too when the `Branch pattern` row of `docs/agents/project.md` lists it.
 - **`resumeStage`**: `apply` sets it when a ticket moves to `blocked` from `spec`, `build` or `merge`. Every path out of `blocked` goes back to it through SKILL.md § Send or queue.
 - **`pendingRelay`, `queuedAt`**: only in a `*-queued` stage; `apply` requires `pendingRelay` there, sets `queuedAt` and clears both elsewhere. `pendingRelay` is the exact relay to send when a slot frees, with the user's words as they wrote them. `queuedAt` orders the queue, oldest first. A Todo ticket has no child yet, so it stays in the tracker's Todo with no stage.
 - **`approvalItemId`**: the item id (from `cos_user_check.py` or `t3_thread_read`) of the user's approval message. Set it with `pendingRelay` when a spec approval is queued; a queued merge approval or an auto-approved spec has none.

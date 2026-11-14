@@ -454,8 +454,9 @@ TEAM MODE. Run /ship-loop for <PREFIX>-<N>: <title>. <ticket URL>.
 You may use subagents (implementer, review agents) as the ship loop says.
 Chief of Staff thread: <your own thread ID>
 
-Branch: feat/<prefix>-<N>-<slug>. Create it yourself in this worktree from origin/<target>
-(git fetch origin && git switch -c feat/<prefix>-<N>-<slug> origin/<target>), where <target> is the Merge target branch row of docs/agents/project.md (main when unset); write the name in, the child has none of your history.
+Branch: <head><prefix>-<N>-<slug>. Create it yourself in this worktree from origin/<target>
+(git fetch origin && git switch -c <head><prefix>-<N>-<slug> origin/<target>), where <target> is the Merge target branch row of docs/agents/project.md (main when unset); write the name in, the child has none of your history.
+<head> is the first head in the Branch pattern row of docs/agents/project.md (feat/ when the row has none), unless the user or the ticket asked for another head listed there; write the whole branch name in, not <head>.
 
 Follow ship-loop. Stop at BUILD READY after you commit and push the
 spec. Do nothing past that until a message in this thread starts with
@@ -465,7 +466,7 @@ Never:
 - <one bullet per item in docs/agents/project.md § Repo invariants, restated here; the child has none of your history>
 - switch the root checkout off <target>
 - merge a PR without a relayed merge approval
-- push to <target> (push only your feat/<prefix>-<N>-* branch)
+- push to <target> (push only your <head><prefix>-<N>-* branch, the head on the Branch: line)
 - call t3_thread_send, t3_thread_transfer, t3_thread_launch, create_threads, delegate_task, task_cancel or schedule_task (native subagents through the Agent tool are fine)
 - write to the root checkout or its .agent-team/state.json
 - use AskUserQuestion (stop with BLOCKED: <question> instead)
