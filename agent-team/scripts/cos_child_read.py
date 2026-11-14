@@ -16,7 +16,7 @@ marker is BUILD READY (an old SPEC READY counts), MERGE READY, BLOCKED, MERGED o
 the last line of the message that starts with one of them, and a block runs from that line to the end
 of the message. A running run prints just "marker none", and a completed run with no new
 assistant message prints "marker none new=0" (no item=).
-field lines: specPath, specSha, branch (from the Spec:, Commit: and Link: lines) for BUILD READY; pr and
+field lines: specPath, specSha, branch (from the Spec:, Commit: and Link: lines; the branch must be this ticket's, as in cos_handoff) for BUILD READY; pr and
 headSha (from PR: and Head:) for MERGE READY; pr for MERGED #N. A value that fails its pattern, or a
 missing line, prints name=? and the Chief of Staff reads that item in full.
 block: follows for BUILD READY, MERGE READY and BLOCKED only. Each line is cut at 200 characters and the
@@ -26,7 +26,10 @@ that item. The cut line is script output and is not prefixed.
 marker none on a run that is not running (completed without a marker, failed, interrupted ...) prints
 "tail:" and the message's last 400 characters.
 Every line of the block: and tail: bodies starts with "| ": those lines are the child's text, data and
-never script output, so child text cannot pose as a marker, field, cut or child line.
+never script output, so child text cannot pose as a marker, field, cut or child line. Before that, each
+control character and line separator other than "\n" and "\t" (\r, U+2028 ...) becomes one space, so the
+text splits only at "\n" and the cut offsets stay the child's. Text that is not a string exits 2 as
+"schema changed".
 
 next is the item's 0-based rank among all the thread's stored position rows, ordered by
 orchestration_v2_turn_item_positions.ordinal. The store's ordinals are run number * 1,000,000 + the
@@ -57,7 +60,8 @@ import project_config  # noqa: E402
 DEFAULT_DB = Path.home() / ".t3" / "userdata" / "statev2.sqlite"
 LINE_CAP, BLOCK_CAP, TAIL_CAP = 200, 1500, 400
 MARKER = re.compile(r"^[ \t]*[*`_]*(BUILD READY|SPEC READY|MERGE READY|BLOCKED:|MERGED #(\S*))", re.M)
-BRANCH = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]*")
+# One space for each line separator but "\n" and each control character but "\t" and "\n": the length stays.
+FLAT = {c: " " for c in [*range(0x20), *range(0x7F, 0xA0), 0x2028, 0x2029] if c not in (9, 10)}
 PR = re.compile(r"(?:https://[A-Za-z0-9._/-]+/pull/|#)?([0-9]+)")
 NAMES = {"BUILD READY": "BUILD READY", "SPEC READY": "BUILD READY", "MERGE READY": "MERGE READY", "BLOCKED:": "BLOCKED"}
 ITEM = (
@@ -98,7 +102,7 @@ def field(block, label):
     return m.group(1).strip("`<>*") if m else None
 
 
-def fields(name, block, arg):
+def fields(name, block, arg, ticket):
     """The `field` line values for a marker, `?` where a value is missing or fails its pattern."""
     def ok(pattern, value):
         m = pattern.fullmatch(value or "")
@@ -113,7 +117,7 @@ def fields(name, block, arg):
     spec, link = field(block, "Spec"), field(block, "Link") or ""
     spec = spec if spec and cos_handoff.SPEC_PATH.fullmatch(spec) else None
     m = re.search(r"/blob/(.+)/" + re.escape(spec or "") + "$", link) if spec else None
-    return {"specPath": spec or "?", "specSha": ok(cos_handoff.SHA, field(block, "Commit")), "branch": ok(BRANCH, m.group(1) if m else None)}
+    return {"specPath": spec or "?", "specSha": ok(cos_handoff.SHA, field(block, "Commit")), "branch": ok(cos_handoff.branch_re(ticket), m.group(1) if m else None)}
 
 
 def cut_block(text, start):
@@ -150,6 +154,9 @@ def read(db, ticket, thread, after):
         print("marker none" + (" new=0" if status == "completed" else ""))
         return
     item, text = item[0], item[2] or ""
+    if not isinstance(text, str):
+        fail("schema changed")
+    text = text.translate(FLAT)
     print(f"{head} next={pos} item={item}")
     marks = list(MARKER.finditer(text)) if status == "completed" else []
     if not marks:
@@ -162,7 +169,7 @@ def read(db, ticket, thread, after):
     name = NAMES.get(m.group(1), "MERGED" if m.group(1).startswith("MERGED") else "")
     print(f"marker {name}")
     block = text[m.start():]
-    vals = fields(name, block, m.group(2))
+    vals = fields(name, block, m.group(2), ticket)
     if vals:
         print("field " + " ".join(f"{k}={v}" for k, v in vals.items()))
     if name != "MERGED":

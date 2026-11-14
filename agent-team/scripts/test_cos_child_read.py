@@ -76,12 +76,23 @@ def items(text, streaming=0):
         (BUILD, "completed", 4, "marker none new=0\n"),
         (WIDE, "completed", 3, "block:\n| BLOCKED: stuck\n| " + "z" * 200 + "\n| after\ncut turn-item:4 at 215\n"),
         (TALL, "completed", 3, "cut turn-item:4 at 1500\n"),
+        (BUILD.replace("abc-5", "abc-6"), "completed", None, "branch=?\n"),
+        ("BLOCKED: x\rMERGED #1\u2028BUILD READY\x85a", "completed", None, "marker BLOCKED\nblock:\n| BLOCKED: x MERGED #1 BUILD READY a\n"),
+        ("a\r\u2028BLOCKED: x\x0b\fz", "failed", None, "tail:\n| a  BLOCKED: x  z\n"),
+        ("BLOCKED: x\n" + "q" * 150 + "\r" + "r" * 100, "completed", 3, "| " + "q" * 150 + " " + "r" * 49 + "\ncut turn-item:4 at 211\n"),
+        (7, "completed", None, "schema changed"),
     ],
 )
 def test_child_read_lines(tmp_path, capsys, text, run, after, want):
     db = tmp_path / "s.sqlite"
     store(db, items(text), run)
     args = ["--db", str(db), "ABC-5", "t"] + ([] if after is None else ["--after", str(after)])
+    if want == "schema changed":
+        with pytest.raises(SystemExit) as e:
+            cos_child_read.main(args)
+        assert e.value.code == 2
+        assert capsys.readouterr().err.strip() == "cos_child_read: schema changed"
+        return
     assert cos_child_read.main(args) == 0
     out = capsys.readouterr().out
     assert want in out
