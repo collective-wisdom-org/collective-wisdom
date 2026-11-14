@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 configurable active-agent cap and lane limits, merge lane outside the cap (CW-310) (#318)
+
+Merged 2026-11-14 21:09 UTC.
+
+You can now set the active-agent cap and the spec and build lane limits in `~/.config/collective-wisdom/user.md` (rows `Active children cap`, `Spec lane limit`, `Build lane limit`; defaults 4, 2 and 2). The merge lane no longer counts toward the cap, so a merge can always start. Nothing to do unless you want different limits.
+
 ## 2026-11-14 add a copy icon for the thread link next to each ticket title (CW-307) (#311)
 
 Merged 2026-11-14 20:29 UTC.
