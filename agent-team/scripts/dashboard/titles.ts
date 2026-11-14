@@ -12,6 +12,20 @@ export function prefixFromProject(markdown: string): string | null {
   return m ? m[1] : null
 }
 
+/** The ticket branch heads of the Branch pattern row, as project_config.branch_heads reads it: `{feat,infra}/<prefix>-N` gives feat/ and infra/. `feat/` alone when the row is missing or does not parse. */
+export function headsFromProject(markdown: string): string[] {
+  const pattern = markdown.match(/^\|\s*Branch pattern\b[^|]*\|\s*`([^`]*)`/m)?.[1] ?? ''
+  const head = pattern.includes('<prefix>') ? pattern.split('<prefix>')[0] : ''
+  const list = head.match(/^\{([a-z0-9-]+(?:,[a-z0-9-]+)*)\}\/$/)
+  if (list) return list[1].split(',').map((name) => `${name}/`)
+  return head && !/[{},]/.test(head) ? [head] : ['feat/']
+}
+
+/** The heads as one escaped regex group, e.g. `(?:feat/|infra/)`. */
+export function headsPattern(heads: string[]): string {
+  return `(?:${heads.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
+}
+
 export function slugFromUrl(url: string): string | null {
   const m = url.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)$/)
   return m ? m[1] : null

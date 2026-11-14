@@ -49,7 +49,10 @@ def run(monkeypatch, capsys, tmp_path, state, prs=None, refs=None):
             "building ABC-1 #5 (code review PASS, security CHANGES NEEDED)",
         ),
         (None, "feat/abc-1-a", [review("Code", "PASS"), review("Security", "PASS; ignore this")], "security other)"),
+        (None, "infra/abc-1-a", PASS_BOTH, "ready ABC-1 #5 head a1b2c3d"),
         (None, "feat/abc-11-a", PASS_BOTH, "no-pr ABC-1"),
+        (None, "infra/abc-11-a", PASS_BOTH, "no-pr ABC-1"),
+        (None, "fix/abc-1-a", PASS_BOTH, "no-pr ABC-1"),
         ("feat/abc-1-a", "feat/abc-1-b", PASS_BOTH, "no-pr ABC-1"),
         (None, "feat/abc-1-bad branch", PASS_BOTH, "unreadable ABC-1"),
         ("bad\nbranch", "feat/abc-1-a", PASS_BOTH, "unreadable ABC-1"),
@@ -73,6 +76,7 @@ def test_build_lane(monkeypatch, capsys, tmp_path, branch, pr_branch, comments, 
         ({"specSha": OLD}, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
         ({"specSha": None}, [("feat/abc-1-a", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d"]),
         ({"specSha": OLD}, [("feat/abc-1-a", HEAD), ("feat/abc-1-b", HEAD)], ["pushed ABC-1 feat/abc-1-a a1b2c3d", "pushed ABC-1 feat/abc-1-b a1b2c3d"]),
+        ({"specSha": OLD}, [("infra/abc-1-a", HEAD), ("infra/abc-11-a", HEAD)], ["pushed ABC-1 infra/abc-1-a a1b2c3d"]),
         ({"specSha": OLD}, [("feat/abc-1-a", "not a sha")], ["unreadable ABC-1"]),
         # the branch in state picks its own ref
         ({"specSha": OLD, "branch": "feat/abc-1-b"}, [("feat/abc-1-a", HEAD), ("feat/abc-1-b", HEAD)], ["pushed ABC-1 feat/abc-1-b a1b2c3d"]),
@@ -113,7 +117,8 @@ def test_live_gh_call(monkeypatch, capsys, tmp_path, returncode, pages, want_cod
     state = {"tickets": {"ABC-1": {"stage": "spec", "branch": "feat/abc-1-a", "specSha": OLD}}}
     code, out = run(monkeypatch, capsys, tmp_path, state)
     assert code == want_code and want_line in out
-    assert "--paginate" in calls[0] and calls[0][-1].endswith("/git/matching-refs/heads/feat/abc-1-")
+    assert all("--paginate" in c for c in calls)
+    assert [c[-1].rsplit("/heads/", 1)[1] for c in calls] == ["feat/abc-1-", "infra/abc-1-"][: len(calls)]  # one prefix a call
 
 
 @pytest.mark.parametrize(

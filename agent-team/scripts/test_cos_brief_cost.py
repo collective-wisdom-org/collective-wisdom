@@ -14,6 +14,7 @@ def fake_pr(branch):
     "branch, usage, want",
     [
         ("feat/cw-57-cost", (0, "cost $1.00 API-equivalent\n"), "cost: cost $1.00 API-equivalent"),
+        ("infra/cw-57-cost", (0, "cost $1.00 API-equivalent\n"), "cost: cost $1.00 API-equivalent"),
         ("feat/cw-57-cost", (2, ""), "cost: unknown"),
         ("feat/cw-57-cost", "timeout", "cost: unknown"),
         ("fix/whatever", None, "cost: unknown"),  # not a ticket branch: the script is not run
@@ -34,7 +35,7 @@ def test_pr_prints_cost_line_and_never_fails_on_it(monkeypatch, capsys, branch, 
     monkeypatch.setattr(cos_brief, "own_login", lambda: "me")
     cos_brief.cmd_pr(type("A", (), {"number": 5, "head": None})())
     assert want in capsys.readouterr().out.splitlines()
-    assert calls == ([["--ticket", "CW-57"]] if branch.startswith("feat/") else [])
+    assert calls == ([["--ticket", "CW-57"]] if branch.startswith(("feat/", "infra/")) else [])
 
 
 SUCCESS = {"__typename": "CheckRun", "name": "t", "status": "COMPLETED", "conclusion": "SUCCESS"}

@@ -13,7 +13,7 @@ latest code review and security review verdicts, `conflict: yes` when GitHub say
 `flag: conflict resolution not reviewed` when the head carries a conflict-resolution note, a `head moved by merging <target>` or
 `head moved by docs-file changes only` line when a `Head moved to` note of that kind names the head, a `cost:` line, file areas, flag lines and the migration number check.
 The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
-the ticket in the branch name (feat/<prefix>-N-...), or `cost: unknown` when the branch
+the ticket in the branch name (<head><prefix>-N-...), or `cost: unknown` when the branch
 doesn't match, the script exits 2 or it takes over 30 seconds. Cost never makes pr exit 2.
 
 Read only: calls ~/.collective-wisdom/scripts/gh.sh with GET requests against the repo in docs/agents/project.md.
@@ -35,7 +35,7 @@ import project_config  # noqa: E402
 REPO = project_config.repo()  # <owner>/<repo> from docs/agents/project.md, None without a Repo row
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 USAGE = str(Path(__file__).absolute().parent / "agent_usage.py")
-BRANCH_RE = re.compile(r"^feat/([A-Za-z]+-[0-9]+)(?:-|$)")
+BRANCH_RE = re.compile(f"^{project_config.branch_heads_re()}([A-Za-z]+-[0-9]+)(?:-|$)")
 SECTIONS = ("Goals", "Non-goals", "Calls I made")
 SECTION_CAP = 40
 FLAG_CAP = 10

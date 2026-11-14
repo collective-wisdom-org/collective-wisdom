@@ -3,6 +3,7 @@ import type { MergedEntry } from './merged.ts'
 import { specUrlOf } from './details.ts'
 import type { Detail, Found } from './details.ts'
 import type { BacklogItem, Priority } from './backlog.ts'
+import { headsPattern } from './titles.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
@@ -165,8 +166,8 @@ export function teamSessions(input: { snapshots: unknown[]; state: unknown; now:
   return teamItems(input.snapshots, input.state, input.now).flatMap((i) => (i.role === 'chief' || i.role === 'helper' ? [] : [{ role: i.role, session: i.session }]))
 }
 
-/** The ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `feat/<prefix>-N-`. With `onBoard` only those tickets count; with null any ticket id from the branch does. */
-function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, unknown>, onBoard: Set<string> | null, prefix: string | null): string | null {
+/** The ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `<head><prefix>-N-` for a head in `heads`. With `onBoard` only those tickets count; with null any ticket id from the branch does. */
+function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, unknown>, onBoard: Set<string> | null, prefix: string | null, heads: string[] = ['feat/']): string | null {
   let best: Worktree | null = null
   for (const w of worktrees) {
     if ((cwd === w.path || cwd.startsWith(w.path.replace(/\/+$/, '') + '/')) && (!best || w.path.length > best.path.length)) best = w
@@ -176,19 +177,19 @@ function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, un
     const t = tickets[id]
     if (isObj(t) && t.branch === best.branch) return id
   }
-  const n = prefix ? best.branch.match(new RegExp(`^feat/${prefix.toLowerCase()}-(\\d+)(?:-|$)`))?.[1] : undefined
+  const n = prefix ? best.branch.match(new RegExp(`^${headsPattern(heads)}${prefix.toLowerCase()}-(\\d+)(?:-|$)`))?.[1] : undefined
   const id = n ? `${prefix}-${n}` : null
   return id && (!onBoard || onBoard.has(id)) ? id : null
 }
 
 /** The sessions that belong to a ticket for the spend ledger: worktree sessions by branch, and root checkout ticket helper sessions by the ticket they filed. Unlike the charts, the ticket need not be on the board. */
-export function ledgerSessions(input: { snapshots: unknown[]; worktrees: Worktree[]; state: unknown; prefix: string | null; now: number }): { ticket: string; session: Session }[] {
-  const { snapshots, worktrees, state, prefix, now } = input
+export function ledgerSessions(input: { snapshots: unknown[]; worktrees: Worktree[]; state: unknown; prefix: string | null; heads?: string[]; now: number }): { ticket: string; session: Session }[] {
+  const { snapshots, worktrees, state, prefix, heads, now } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const out: { ticket: string; session: Session }[] = []
   for (const raw of snapshots) {
     const session = cleanSnapshot(raw, now)
-    const ticket = session && ticketOf(session.cwd, worktrees, tickets, null, prefix)
+    const ticket = session && ticketOf(session.cwd, worktrees, tickets, null, prefix, heads)
     if (session && ticket) out.push({ ticket, session })
     else if (!session) {
       const helper = cleanTeamSnapshot(raw, now, prefix)?.session
@@ -206,8 +207,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, merged = [], updated = {}, spend = {}, history = {}, details = {}, teamHistory = [], backlog = [] } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], updated = {}, spend = {}, history = {}, details = {}, teamHistory = [], backlog = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   // A ticket whose PR is already in `merged` shows there only, even while state still has it in a stage.
   const mergedPrs = new Set(merged.filter((e) => e.number !== undefined).map((e) => `${e.id}#${e.number}`))
@@ -269,7 +270,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
   const rowById = new Map(status.flatMap((g) => g.rows).map((r) => [r.id, r]))
   const onBoard = new Set(rowById.keys())
   for (const s of cleaned) {
-    const row = rowById.get(ticketOf(s.cwd, worktrees, tickets, onBoard, prefix) ?? '')
+    const row = rowById.get(ticketOf(s.cwd, worktrees, tickets, onBoard, prefix, heads) ?? '')
     if (row) (row.gantt ??= []).push(s)
   }
   // A helper's session joins every ticket row it filed: live copies from the snapshots, finished ones from the history, the live copy winning.

@@ -267,3 +267,31 @@ def test_no_hands_setting(tmp_path, text, want):
         return text if cmd[1] == "show" else ""
 
     assert project_config.no_hands_setting(run)[:3] == want
+
+
+@pytest.mark.parametrize(
+    "cell, heads",
+    [
+        ("`work/<prefix>-N-x`", ("work/",)),
+        ("`{infra,feat}/<prefix>-N-x` (first is the default)", ("infra/", "feat/")),
+        ("`feat/cw-N-x`", ("feat/",)),
+        ("`{feat,Infra}/<prefix>-N-x`", ("feat/",)),
+        ("none", ("feat/",)),
+    ],
+)
+def test_branch_heads(cell, heads):
+    rows = project_config._parse(f"| Branch pattern | {cell} |\n")
+    assert (project_config.branch_heads(rows), project_config.branch_head(rows)) == (heads, heads[0])
+
+
+def test_missing_row_reads_feat():
+    assert project_config.branch_heads([]) == ("feat/",)
+
+
+def test_merge_target_on_any_listed_head_is_refused(tmp_path):
+    (tmp_path / "docs" / "agents").mkdir(parents=True)
+    (tmp_path / "docs" / "agents" / "project.md").write_text(
+        "| Branch pattern | `{feat,infra}/<prefix>-N-x` |\n| Merge target branch | `infra/cw-1-x` |\n"
+    )
+    run = lambda cmd: f"worktree {tmp_path}\nHEAD x\n"
+    assert project_config.approval_setting(run) == ("strict", "merge target branch `infra/cw-1-x` is a ticket branch")

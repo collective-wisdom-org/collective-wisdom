@@ -52,8 +52,8 @@ def fail(msg):
 
 
 def branch_re(tid):
-    """The branch names a ticket may have: <branch head><prefix lower>-<N>-<words>."""
-    return re.compile(re.escape(f"{project_config.branch_head()}{tid.lower()}-") + r"[a-z0-9-]+")
+    """The branch names a ticket may have: <any branch head><prefix lower>-<N>-<words>."""
+    return re.compile(f"{project_config.branch_heads_re()}{re.escape(tid.lower())}-[a-z0-9-]+")
 
 
 def rejected(tid, info):

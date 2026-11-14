@@ -32,7 +32,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 
 | Key | Value |
 |---|---|
-| Branch pattern | `feat/<prefix>-N-short-title` (`<prefix>` is the issue prefix in lower case) |
+| Branch pattern | `{feat,infra}/<prefix>-N-short-title` (`<prefix>` is the issue prefix in lower case; the heads are in braces, the first is the default for a new branch, and a plain head such as `work/<prefix>-N-short-title` means that one head) |
 | Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `<owner>/<repo>` (<https://github.com/<owner>/<repo>>) |
 | Require teammate approval (`on` or `off`) | `off`. When on, merge_pr.py also needs an approving GitHub review on the current head from an owner, member or collaborator other than the PR author. A missing row means off |
@@ -67,7 +67,7 @@ Set the `Tracker` row to `linear`, `github` or `jira`. A missing row or a `TODO(
 Skills and the Chief of Staff restate these in every child task.
 
 - The root checkout stays on the merge target branch. Branch work happens in a worktree: `.worktrees/<short-name>/`, or the one T3 Code created under `~/.t3/worktrees/`.
-- Never push to the merge target branch; push only the ticket's own `feat/<prefix>-N-*` branch.
+- Never push to the merge target branch; push only the ticket's own branch (a head from the Branch pattern row).
 - Never commit `.env`, API keys or tokens.
 - <Name the local data directories that must never be deleted, and the docker rules (for example, no `docker compose up` from a worktree, no `down -v`). Add any other repo-specific rules.>
 

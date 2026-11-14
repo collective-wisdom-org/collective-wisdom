@@ -26,6 +26,16 @@ test('parseMerged: newest first, id from branch or title, junk left out, urls ch
   assert.equal(parseMerged('{}', CFG), null)
 })
 
+test('parseMerged: infra/ branches count only when the heads list them, and cw-7 is not cw-70', () => {
+  const heads = { ...CFG, heads: ['feat/', 'infra/'] }
+  const ids = (cfg: typeof CFG, branch: string) => parseMerged(JSON.stringify([pr({ headRefName: branch, title: 'no id' })]), cfg)!.map((e) => e.id)
+  assert.deepEqual(ids(heads, 'infra/cw-7-z'), ['CW-7'])
+  assert.deepEqual(ids(heads, 'feat/cw-7-z'), ['CW-7'])
+  assert.deepEqual(ids(CFG, 'infra/cw-7-z'), [])
+  assert.deepEqual(ids(heads, 'fix/cw-7-z'), [])
+  assert.deepEqual(ids(heads, 'infra/cw-70-z'), ['CW-70'])
+})
+
 test('merged reader: a failed read keeps the list; reads are 60 seconds apart', async () => {
   let clock = 1_000_000
   const calls: string[][] = []

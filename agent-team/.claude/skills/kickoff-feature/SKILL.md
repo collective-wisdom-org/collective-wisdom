@@ -16,18 +16,18 @@ Required reading: list in repo root **`AGENTS.md`** (skim before spec).
 ## Steps
 
 1. Ticket: if the task names a ticket, it exists; don't create one. Otherwise write the issue with **write-ticket** first, and link the spec in its description once the spec is pushed.
-2. Worktree: follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants (branch pattern, tracker scope and issue prefix are there too). In a worktree T3 made, create the branch from `origin/<target>` (`<target>` is the merge target branch, the `Merge target branch` row of `project.md`, default `main`):
+2. Worktree: follow **using-git-worktrees**, with this repo's overrides in **ship-loop** § Repo invariants (branch pattern, tracker scope and issue prefix are there too). `<head>` below is the first head in the `Branch pattern` row of `project.md` (`feat/` if none) unless the task names another. In a worktree T3 made, create the branch from `origin/<target>` (`<target>` is the merge target branch, the `Merge target branch` row of `project.md`, default `main`):
 
    ```bash
    git fetch origin
-   git switch -c feat/<prefix>-N-short-title origin/<target>
+   git switch -c <head><prefix>-N-short-title origin/<target>
    ```
 
    From the root checkout on the merge target branch, add a worktree instead:
 
    ```bash
    git fetch origin
-   git worktree add .worktrees/<short-name> -b feat/<prefix>-N-short-title origin/<target>
+   git worktree add .worktrees/<short-name> -b <head><prefix>-N-short-title origin/<target>
    ```
 
 3. **brainstorming**: design gate; settle goal, scope, non-goals. Write the spec without asking the user anything. List every choice the user didn't specify under a `## Calls I made` heading in the spec.

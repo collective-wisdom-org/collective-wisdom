@@ -121,11 +121,10 @@ def refs_for(refs, tid):
         repo = project_config.repo()
         if repo is None:
             fail("project.md has no repo")
-        raw = gh(
-            None, "refs", "api", "--paginate",
-            f"repos/{repo}/git/matching-refs/heads/{branch_prefix(tid)}",
-        )
-        found = [r for v in json_values(raw, "ref list") for r in (v if isinstance(v, list) else [v])]
+        found = []
+        for prefix in branch_prefixes(tid):  # the API takes one prefix per call
+            raw = gh(None, "refs", "api", "--paginate", f"repos/{repo}/git/matching-refs/heads/{prefix}")
+            found += [r for v in json_values(raw, "ref list") for r in (v if isinstance(v, list) else [v])]
     else:
         found = refs.get(tid, [])
         if not isinstance(found, list):
@@ -133,9 +132,9 @@ def refs_for(refs, tid):
     return [r for r in found if isinstance(r, dict)]
 
 
-def branch_prefix(tid):
-    """Start of every branch name that belongs to tid; the trailing `-` keeps ABC-1 off abc-11."""
-    return f"{project_config.branch_head()}{tid.lower()}-"
+def branch_prefixes(tid):
+    """Starts of the branch names that belong to tid, one per head; the trailing `-` keeps ABC-1 off abc-11."""
+    return tuple(f"{h}{tid.lower()}-" for h in project_config.branch_heads())
 
 
 def tickets_in(state, stage):
@@ -158,7 +157,7 @@ def build_line(tid, info, prs, mode="agents"):
     matched = [
         p for p in prs
         if isinstance(p.get("headRefName"), str)
-        and (p["headRefName"] == branch if branch else p["headRefName"].startswith(branch_prefix(tid)))
+        and (p["headRefName"] == branch if branch else p["headRefName"].startswith(branch_prefixes(tid)))
     ]
     if not matched:
         return f"no-pr {tid}", False
@@ -181,14 +180,14 @@ def build_line(tid, info, prs, mode="agents"):
 
 def spec_lines(tid, info, refs):
     """(lines, pushed) for a spec-lane ticket."""
-    prefix = f"refs/heads/{branch_prefix(tid)}"
+    prefixes = tuple(f"refs/heads/{p}" for p in branch_prefixes(tid))
     branch = info.get("branch")
     if branch and not (isinstance(branch, str) and BRANCH.fullmatch(branch)):
         return [f"unreadable {tid}"], False
     found = []
     for r in refs:
         ref, sha = r.get("ref"), (r.get("object") or {}).get("sha")
-        if not (isinstance(ref, str) and ref.startswith(prefix)):
+        if not (isinstance(ref, str) and ref.startswith(prefixes)):
             continue
         name = ref[len("refs/heads/"):]
         if not (BRANCH.fullmatch(name) and isinstance(sha, str) and SHA.fullmatch(sha)):
