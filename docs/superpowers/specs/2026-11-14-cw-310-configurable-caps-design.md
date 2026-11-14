@@ -1,6 +1,7 @@
 # CW-310: Configurable active-agent cap and lane limits, merge lane outside the cap
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #318, as specified
 **Ticket:** [#310](https://github.com/collective-wisdom-org/collective-wisdom/issues/310)
 
 ## Goal
