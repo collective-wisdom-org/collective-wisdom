@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code on 2026-11-13, after CW-286 ([#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)) merged; recorded runs are in [Runs](#runs).
+Last checked against the code on 2026-11-14, after the CW-300 change; recorded runs are in [Runs](#runs).
 
 ## Legend
 
@@ -47,7 +47,7 @@ Notes:
 - `install.sh` also adds the Cursor gantt hook to `~/.cursor/hooks.json`, for six events. A Cursor thread on a worktree then gets gantt rows with timing, models, tokens and cost (G9). Like the rotation hook, it has not been seen running in a Cursor thread.
 - The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Cursor child is priced from its run store in `~/.cursor/projects`; a run on a model `prices.json` has no price for, or a store it cannot read, makes the ticket's cost unknown, and a No Hands run stops. A Codex or Antigravity child leaves nothing the script reads, so its cost is unknown and a No Hands run stops. Auto, which is all the Cursor routing since CW-275, is expected to count as unpriced here too (unconfirmed, G8).
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
-- Ticket helper in the gantt: the mod reads the ticket from the `TICKET HELPER DONE` block of a Claude Code helper's final answer (it needs the `agent-gantt` plugin at 0.1.11 or later), and the dashboard adds that session to the ticket's gantt and spend. A session joins a ticket's gantt only when that ticket has a row on the board; a just-filed ticket gets its row from the Not started band, which reads GitHub Issues only, so on Linear or Jira the session reaches the ticket's chart once the ticket is in state. Spend does not depend on the board. A running helper with no ticket yet is a `Writing tickets` card. A finished helper that filed nothing leaves no card. The Cursor card has no title and stays until its turn ends, because the Cursor hook sets no `ticket` or `request` (G21).
+- Ticket helper in the gantt: the mod reads the ticket from the `TICKET HELPER DONE` block of a Claude Code helper's final answer (it needs the `agent-gantt` plugin at 0.1.11 or later), and the dashboard adds that session to the ticket's gantt and spend. On Linear and Jira the session reaches the ticket's chart late; see Matrix 2 (G23). A running helper with no ticket yet is a `Writing tickets` card. A finished helper that filed nothing leaves no card. The Cursor card has no title and stays until its turn ends, because the Cursor hook sets no `ticket` or `request` (G21).
 - The Cursor column's Team skills load, Chief of Staff thread, Ship loop and Local dashboard cells rest on the 2026-11-09 run in [Runs](#runs). That run used the skills only: the Cursor rule file and Cursor hooks were not installed on its machine.
 
 ### Full compatibility
@@ -70,6 +70,8 @@ Columns are the ticket trackers the `Tracker` row in `docs/agents/project.md` ca
 | Project manager hygiene and ranking | 🟢 works | 🟢 works | 🔴 not supported: `pm_hygiene.py` has no Jira shape; ranking untested (G13) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Untracked work check | 🟢 works | 🟡 partial: finds open PRs only (G14) | 🟡 partial: finds open PRs only (G14) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Dashboard issue links, titles and update order | 🟢 works | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) | 🔴 not supported: GitHub only (G15) |
+| Dashboard Todo and Backlog list | 🟢 works | 🔴 not supported: GitHub only (G22) | 🔴 not supported: GitHub only (G22) | 🔴 not supported: no adapter in `trackers/` (G19) |
+| Ticket helper in the gantt | 🟢 works | 🟡 partial: spend and history attach, the session shows on the ticket's chart only once the ticket is in state (G23) | 🟡 partial: as Linear (G23); untested (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | Setup (`set up this repo`) | 🟢 works | 🟢 works | ⚪ untested: writes the Jira rows, never run against Jira (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 | PR flow and merge (needs GitHub for code) | 🟢 works | 🟢 works, code on GitHub | ⚪ untested, code on GitHub (G12) | 🔴 not supported: no adapter in `trackers/` (G19) |
 
@@ -78,13 +80,14 @@ Notes:
 - GitHub Issues: `trackers/github.md` says it was verified on 2026-11-03.
 - Linear: `trackers/linear.md` has no verification line. Its `works` cells rest on the team running on Linear on one maintainer's machine, which is not a recorded verification; this covers every Linear `works` cell, not only the two marked. If you want `works` to mean a recorded verification like the GitHub adapter's, treat the Linear cells as `untested` (G16).
 - Jira: `trackers/jira.md` is marked UNTESTED and its list of assumptions is unticked.
+- Ticket helper in the gantt: a session joins a ticket's gantt only when that ticket has a row on the board. A just-filed ticket gets its row from the Todo and Backlog list, which reads GitHub Issues only (G22), so on Linear or Jira the session reaches the ticket's chart once the ticket is in state. Spend does not depend on the board.
 - Azure DevOps: here it means Azure Boards for tickets. The code stays on GitHub, as on every tracker. The repo has no mention of it outside an unrelated security checklist, so every cell is `not supported`.
 
 ### Full compatibility
 
-- **GitHub Issues:** done. Every row works. The dashboard and the untracked check read issues, which only GitHub supports.
-- **Linear:** done when the dashboard and the untracked check read Linear tickets as they read GitHub issues, and `trackers/linear.md` carries a verification line.
-- **Jira:** done when the `jira.md` checklist is ticked against a live site, and `pm_hygiene.py` reads Jira's list shape.
+- **GitHub Issues:** done. Every row works. The dashboard (its issue links, titles, update order and Todo and Backlog list) and the untracked check read issues, which only GitHub supports.
+- **Linear:** done when the dashboard and the untracked check read Linear tickets as they read GitHub issues, including the Todo and Backlog list and the helper's chart, and `trackers/linear.md` carries a verification line.
+- **Jira:** done when the `jira.md` checklist is ticked against a live site, `pm_hygiene.py` reads Jira's list shape, and the dashboard reads Jira tickets as it reads GitHub issues, including the Todo and Backlog list and the helper's chart.
 - **Azure DevOps (ADO):** done when `trackers/` has an Azure DevOps adapter that the scripts read, verified against a live organization, and the dashboard and the untracked check read its work items.
 
 ## Recording a run
@@ -174,3 +177,5 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G19.** There is no Azure DevOps adapter: `trackers/` has GitHub, Linear and Jira only, and the `Tracker` row in `project.md` cannot name it. Ticket: none yet.
 - **G20.** `trackers/github.md` § `ensure-labels` names the team labels but not their colors or descriptions, so the Cursor Chief of Staff in the 2026-11-09 run copied them from the collective-wisdom repo. The same step on the other harnesses is not recorded. No matrix cell points at it: it came from the 2026-11-09 run. Ticket: [#276](https://github.com/collective-wisdom-org/collective-wisdom/issues/276).
 - **G21.** The Cursor gantt hook (`cursor_gantt_hook.ts` via `mods/agent-gantt/hooks/cursor.ts`) writes no `ticket` or `request`, so a Cursor helper's card has no title, stays until its turn ends, and its session never joins the ticket it filed or that ticket's spend. No Cursor hook run is recorded (see G9). Ticket: [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288).
+- **G22.** The dashboard's Todo and Backlog list reads GitHub Issues only (`backlog.ts` calls `gh issue list`, and `server.ts` configures it only for a `github` tracker), so on Linear and Jira it is empty. Ticket: [#298](https://github.com/collective-wisdom-org/collective-wisdom/issues/298).
+- **G23.** A ticket helper's session joins a ticket's gantt only when the ticket has a board row. A just-filed ticket gets its row from the Todo and Backlog list, which is GitHub only (G22), so on Linear and Jira the session shows on the ticket's chart once the ticket is in state. Spend does not depend on the board. Ticket: [#299](https://github.com/collective-wisdom-org/collective-wisdom/issues/299).
