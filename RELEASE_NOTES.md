@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 show each change once in the release notes (CW-304) (#309)
+
+Merged 2026-11-14 19:24 UTC.
+
+If a PR both adds a release note file and has a `## Release note` section, `RELEASE_NOTES.md` now lists the change once, from the PR body. The `Context size:` line no longer shows under a note.
+
 ## 2026-11-14 show a ticket helper's session on the gantt for Linear and Jira tickets (CW-299) (#308)
 
 Merged 2026-11-14 19:17 UTC.
