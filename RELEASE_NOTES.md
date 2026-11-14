@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-14 show the 3 top Backlog tickets with a link to the full backlog (CW-296) (#297)
+
+Merged 2026-11-14 00:46 UTC.
+
+The Not started band on the dashboard's Ship loop tab now shows only the 3 highest priority Backlog tickets, with the full count on the heading and a `Full backlog` link to the repo's issues page. Nothing to do.
+
 ## 2026-11-14 attach a Cursor ticket helper's session to the ticket it filed (CW-288) (#295)
 
 Merged 2026-11-14 00:06 UTC.
