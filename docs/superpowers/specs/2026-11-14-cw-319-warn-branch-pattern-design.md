@@ -1,6 +1,7 @@
 # CW-319: Warn when the Branch pattern row does not parse
 
-**Status:** Proposed
+**Status:** Shipped
+**Shipped:** in PR #322, as specified
 **Ticket:** [#319](https://github.com/collective-wisdom-org/collective-wisdom/issues/319)
 
 ## Goal
