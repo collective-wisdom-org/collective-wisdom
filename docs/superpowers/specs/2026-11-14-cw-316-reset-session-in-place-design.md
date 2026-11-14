@@ -1,6 +1,7 @@
 # CW-316: Reset the Chief of Staff session in place instead of rotating to a new thread
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #333, with differences: [as-built](../as-built/2026-11-14-cw-316-reset-session-in-place-as-built.md)
 **Ticket:** [#316](https://github.com/collective-wisdom-org/collective-wisdom/issues/316)
 **Blocked by:** [CW-315](https://github.com/collective-wisdom-org/collective-wisdom/issues/315), the live test of T3 Code's fresh-context reset
 
