@@ -32,7 +32,7 @@ def run(tmp_path, capsys, state, trigger, *extra, thread=ME):
 
 
 BUILD, SPEC1 = tk("build", "c1"), tk("spec", "c2")
-READ = lambda t, c, p=0: f"read {t} {c} afterPosition={p} limit=5 runLimit=1 maxCharsPerItem=2000"  # noqa: E731
+READ = lambda t, c, p=0: f"child-read {t} {c} afterPosition={p}"  # noqa: E731
 
 
 @pytest.mark.parametrize(
@@ -66,23 +66,23 @@ def test_stops_print_only_their_line(tmp_path, capsys, state, trigger, thread, w
             {}, "user",
             [READ("ABC-1", "c1", 7), "pending c1", READ("ABC-3", "c2"), "pending c2", *SWEEP],
         ),
-        # notice for an active child: its own read, idle reads for the rest, idle check skipping it
+        # notice for an active child: its own read, the idle check skipping it
         (
             {"ABC-1": BUILD, "ABC-3": SPEC1},
             {}, "notice:c1",
-            [READ("ABC-1", "c1"), "pending c1", "idle-read ABC-3 c2", f"{IDLE} --skip ABC-1 <<'EOF'", *SWEEP],
+            [READ("ABC-1", "c1"), "pending c1", f"{IDLE} --store --skip ABC-1", *SWEEP],
         ),
         # notice for the only active child: no idle check
         ({"ABC-1": BUILD}, {}, "notice:c1", [READ("ABC-1", "c1"), "pending c1", *SWEEP]),
         # notice for a ticket in another stage: no own read, idle check without --skip
         (
             {"ABC-1": BUILD, "ABC-2": tk("awaiting-review", "c3")},
-            {}, "notice:c3", ["idle-read ABC-1 c1", f"{IDLE} <<'EOF'", *SWEEP],
+            {}, "notice:c3", [f"{IDLE} --store", *SWEEP],
         ),
         # notice for a thread in no ticket
-        ({"ABC-1": BUILD}, {}, "notice:thread:delegated-task:command%3Amcp%3Aabc", ["helper-test thread:delegated-task:command%3Amcp%3Aabc", "idle-read ABC-1 c1", f"{IDLE} <<'EOF'", *SWEEP]),
-        # status: idle reads for every active child, no pending
-        ({"ABC-1": BUILD, "ABC-3": SPEC1}, {}, "status", ["idle-read ABC-1 c1", "idle-read ABC-3 c2", f"{IDLE} <<'EOF'", *SWEEP]),
+        ({"ABC-1": BUILD}, {}, "notice:thread:delegated-task:command%3Amcp%3Aabc", ["helper-test thread:delegated-task:command%3Amcp%3Aabc", f"{IDLE} --store", *SWEEP]),
+        # status: the idle check for every active child, no pending
+        ({"ABC-1": BUILD, "ABC-3": SPEC1}, {}, "status", [f"{IDLE} --store", *SWEEP]),
         # start-up: setup with empty state, resume mode with tickets
         (
             {}, {}, "start",
@@ -140,7 +140,7 @@ def test_look_plan_flags_a_child_on_another_provider(tmp_path, capsys, chief, ti
     assert flagged == want
     assert out[: len(want)] == want  # before the other look lines
     assert out[-1] == "tick --after-reads"
-    assert [x for x in out if x.startswith("read ")] == [READ(i, t["childThreadId"]) for i, t in tickets.items() if t["stage"] in ("spec", "build", "merge")]
+    assert [x for x in out if x.startswith("child-read ")] == [READ(i, t["childThreadId"]) for i, t in tickets.items() if t["stage"] in ("spec", "build", "merge")]
 
 
 def test_start_plan_has_no_provider_line(tmp_path, capsys):

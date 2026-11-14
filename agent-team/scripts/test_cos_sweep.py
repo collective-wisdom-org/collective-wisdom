@@ -47,7 +47,7 @@ def test_sweep_lists_each_child_once_and_runs_every_part(tmp_path, capsys, ticke
     (tmp_path / "merged.json").write_text(json.dumps(MERGED_7))
     (tmp_path / "open.json").write_text(open_prs if isinstance(open_prs, str) else json.dumps(open_prs))
     argv = ["--thread", "ME", "--file", str(tmp_path / "state.json"),
-            "--merged-prs", str(tmp_path / "merged.json"), "--open-prs", str(tmp_path / "open.json"), "--login", "bot"]
+            "--merged-prs", str(tmp_path / "merged.json"), "--open-prs", str(tmp_path / "open.json"), "--login", "bot", "--verbose"]
     assert cos_sweep.main(argv) == code
     out = capsys.readouterr().out
     assert out.splitlines()[-1] == "sweep: " + want_last
@@ -55,6 +55,29 @@ def test_sweep_lists_each_child_once_and_runs_every_part(tmp_path, capsys, ticke
         assert text in out
     if "merged ABC-2" in out:
         assert "ABC-2" not in json.loads((tmp_path / "state.json").read_text())["tickets"]
+
+
+@pytest.mark.parametrize(
+    "tickets, open_prs, want",
+    [
+        # action lines only: no summaries, `no-pr`, `idle` or `keep` lines
+        ({"ABC-1": {**BUILD, "parentThreadId": "ME"}}, OPEN_READY + [UNTRACKED_PR],
+         ["ready ABC-1 #5 head " + "a" * 7, "untracked ABC-3 #9", "sweep: read in full: ABC-1 (ready); merged: none; untracked: ABC-3 #9"]),
+        ({"ABC-1": {**BUILD, "parentThreadId": "ME"}}, [], ["sweep: read in full: none; merged: none"]),
+        ({"ABC-2": {**MERGE, "parentThreadId": "OLD"}}, [], ["merged ABC-2 #7 at 2026-11-03T02:40:00Z", "sweep: read in full: none; merged: ABC-2 #7"]),
+        # a part that can't run still prints its own line
+        ({"ABC-1": {**BUILD, "parentThreadId": "ME"}}, "not json", ["cos_ready_check: bad PR list", "cos_untracked_check: bad PR list", "sweep: read in full: none; merged: none; didn't run: ready, untracked"]),
+    ],
+)
+def test_sweep_prints_only_action_lines_without_verbose(tmp_path, capsys, tickets, open_prs, want):
+    (tmp_path / "state.json").write_text(json.dumps({"tickets": tickets, "merged": {}}))
+    (tmp_path / "merged.json").write_text(json.dumps(MERGED_7))
+    (tmp_path / "open.json").write_text(open_prs if isinstance(open_prs, str) else json.dumps(open_prs))
+    cos_sweep.main(["--thread", "ME", "--file", str(tmp_path / "state.json"), "--merged-prs", str(tmp_path / "merged.json"),
+                    "--open-prs", str(tmp_path / "open.json"), "--login", "bot"])
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[-len(want):] == want  # the merged check's state write prints its own `saved` lines first
+    assert not [x for x in lines if x.startswith(("merged-check:", "ready-check:", "parent-check:", "no-pr", "writing"))]
 
 
 def test_project_md_without_a_repo_row_only_stops_the_github_parts(tmp_path):
@@ -66,7 +89,7 @@ def test_project_md_without_a_repo_row_only_stops_the_github_parts(tmp_path):
     r = subprocess.run(
         [sys.executable, "-I", str(Path(__file__).with_name("cos_sweep.py")), "--thread", "ME",
          "--file", str(tmp_path / "state.json"), "--merged-prs", str(tmp_path / "merged.json"),
-         "--open-prs", str(tmp_path / "open.json"), "--login", "bot"],
+         "--open-prs", str(tmp_path / "open.json"), "--login", "bot", "--verbose"],
         capture_output=True, text=True, env={**os.environ, "PROJECT_MD": str(md)},
     )
     lines = r.stdout.splitlines()
@@ -102,7 +125,7 @@ def test_unreadable_issue_list_only_stops_the_untracked_part(tmp_path, capsys, m
     for name, text in (("state.json", '{"tickets": {}, "merged": {}}'), ("merged.json", "[]"), ("open.json", "[]"), ("issues.json", "not json")):
         (tmp_path / name).write_text(text)
     argv = ["--thread", "ME", "--file", str(tmp_path / "state.json"), "--merged-prs", str(tmp_path / "merged.json"),
-            "--open-prs", str(tmp_path / "open.json"), "--issues", str(tmp_path / "issues.json"), "--login", "bot"]
+            "--open-prs", str(tmp_path / "open.json"), "--issues", str(tmp_path / "issues.json"), "--login", "bot", "--verbose"]
     assert cos_sweep.main(argv) == 2
     lines = capsys.readouterr().out.splitlines()
     assert "cos_untracked_check: bad issue list" in lines
