@@ -23,7 +23,7 @@ test('whitelist: free text and relay never reach the api', () => {
 })
 
 test('links', () => {
-  const full = { pr: 172, childThreadId: 't1' }
+  const full = { pr: 172, childThreadId: 't1', stageAt: '2026-11-14T09:05:00Z' }
   const cases: [string, string, Record<string, unknown>, Partial<Parameters<typeof buildApi>[0]>, Record<string, string | undefined>][] = [
     ['all', 'CW-171', full, {}, { issueUrl: 'https://github.com/o/r/issues/171', prUrl: 'https://github.com/o/r/pull/172', threadLink: '<t3-thread://v2/env/t1>' }],
     ['no number', 'ABC', full, {}, { issueUrl: undefined, prUrl: 'https://github.com/o/r/pull/172', threadLink: '<t3-thread://v2/env/t1>' }],
@@ -35,7 +35,9 @@ test('links', () => {
   for (const [name, id, extra, over, want] of cases) {
     const r = firstRow({ state: stateOf(id, extra), ...over })
     for (const k of ['issueUrl', 'prUrl', 'threadLink']) assert.equal(r[k], want[k], `${name} ${k}`)
+    assert.equal(r.stageAt, '2026-11-14T09:05:00Z', `${name} stageAt`)
   }
+  assert.equal(firstRow({ state: stateOf('CW-171', { stageAt: 5 }) }).stageAt, undefined, 'stageAt must be a string')
 })
 
 test('row title: state wins, else tracker title, else empty', () => {

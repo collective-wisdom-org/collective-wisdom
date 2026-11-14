@@ -188,16 +188,15 @@ export function renderDetails(r, now) {
 /** The copy glyph: two overlapping rounded rectangles, drawn in the button's text color. */
 const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"/></svg>'
 
-/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). The stage shows only in `Other`, where the heading does not say it. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and no Details. */
+/** One ticket as a card (`li.ticket`) or a flat row (`li.row`). Every row with a stage starts its sub line with the stage and, when `stageAt` parses, `since HH:MM`. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and no Details. */
 function ticket(r, { flat, other, open, info }) {
   const copy = r.threadLink ? `<button type="button" class="copy-icon" data-copy="${esc(r.threadLink)}" aria-label="Copy thread link" title="Copy thread link">${COPY_ICON}</button>` : ''
-  const stage = other && r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}</span>` : ''
-  const next = r.next ? `<${flat ? 'span' : 'div'} class="next">${esc(r.next)}</${flat ? 'span' : 'div'}>` : ''
+  const at = r.stageAt ? Date.parse(r.stageAt) : NaN
+  const stage = r.stage ? `<span class="badge stage">${esc(stageWords(r.stage))}${Number.isNaN(at) ? '' : ` since ${clock(at)}`}</span>` : ''
   const blocked = other && r.stage === 'blocked' ? ' blocked' : ''
   return `<li class="${flat ? 'row' : 'ticket'}${blocked}">
   <div class="head"><span class="id">${r.helper ? 'Ticket helper' : link(r.issueUrl, r.id)}</span>${r.title ? ` <span class="title">${esc(r.title)}</span>` : ''}${copy}</div>
-  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}${flat ? next : ''}</div>
-  ${flat ? '' : next}
+  <div class="sub">${stage}${r.risk ? `<span class="badge risk${riskClass(r.risk)}">${esc(r.risk)}</span>` : ''}${specSpan(r.specUrl)}${r.prUrl ? `<span class="pr">${link(r.prUrl, 'PR')}</span>` : ''}</div>
   ${r.gantt && taskCount(r.gantt) ? `<details class="chart" data-ticket="${esc(r.id)}"${open.has(r.id) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(r.gantt))}</span></summary><div class="chart-body" data-ticket="${esc(r.id)}"></div></details>` : ''}
   ${r.helper ? '' : `<details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>`}
 </li>`

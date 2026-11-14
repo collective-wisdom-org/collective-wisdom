@@ -117,6 +117,20 @@ RUN = {"startedAt": OLD, "itemId": "turn-item:message:m1", "started": [], "drain
 START = {"op": "start", "ticket": "ABC-2", "firstTaskId": "t", "childThreadId": "c", "parentThreadId": "p", "status": "s", "title": "x"}
 
 
+# stageAt is stamped by start and by a stage change, kept by a same-stage op, never set by hand
+@pytest.mark.parametrize(
+    "op, key, want",
+    [(START, "ABC-2", True), (stage("build"), "ABC-1", True), (stage("awaiting-merge"), "ABC-1", False), (set_(stageAt=OLD), "ABC-1", None), (stage("build", stageAt=OLD), "ABC-1", None)],
+)
+def test_stage_at_is_stamped_on_a_stage_change_only(op, key, want):
+    state = {"tickets": {"ABC-1": {"stage": "awaiting-merge", "status": "s", "stageAt": OLD}}}
+    if want is None:
+        with pytest.raises(cos_state.Reject, match="stageAt is stamped"):
+            cos_state.apply_ops(state, [op])
+        return
+    assert (cos_state.apply_ops(state, [op])[0]["tickets"][key]["stageAt"] != OLD) == want
+
+
 # The noHands run record: only the no-hands op writes it, and only the moves no_hands.py makes; the start op appends to it while the run has not ended.
 ENDED = {**RUN, "endedAt": OLD, "endReason": "x"}
 
