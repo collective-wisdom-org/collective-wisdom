@@ -1,7 +1,8 @@
 # CW-307: Copy icon for the thread link next to each ticket title
 
-**Status:** Approved
+**Status:** Shipped
 **Ticket:** [#307](https://github.com/collective-wisdom-org/collective-wisdom/issues/307)
+**Shipped:** in PR #311, as specified
 
 ## Goal
 
