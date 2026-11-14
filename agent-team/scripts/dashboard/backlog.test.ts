@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createBacklog } from './backlog.ts'
 
 const CFG = { prefix: 'CW', slug: 'o/r' }
-const issue = (number: number, login: string | null, labels: string[] = [], title = `t${number}`) => ({ number, title, labels: labels.map((name) => ({ name })), author: login === null ? null : { login } })
+const issue = (number: number, login: string | null, labels: string[] = [], title = `t${number}`, createdAt?: unknown) => ({ number, title, labels: labels.map((name) => ({ name })), author: login === null ? null : { login }, createdAt })
 
 test('backlog: Todo and Backlog from the issue list, team authors only, last good list kept on a failed read', async () => {
   let clock = 0
@@ -35,9 +35,9 @@ test('backlog: Todo and Backlog from the issue list, team authors only, last goo
 
   b.want(CFG)
   await b.idle()
-  assert.deepEqual(calls[0], ['issue', 'list', '--repo', 'o/r', '--state', 'open', '--limit', '200', '--json', 'number,title,labels,author'])
+  assert.deepEqual(calls[0], ['issue', 'list', '--repo', 'o/r', '--state', 'open', '--limit', '200', '--json', 'number,title,labels,author,createdAt'])
   assert.deepEqual(calls.filter((c) => c[0] === 'api'), [['api', 'repos/o/r/collaborators/ann/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/eve/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/bob/permission', '--jq', '.role_name']])
-  assert.deepEqual(b.get(), [{ id: 'CW-1', title: 't1', state: 'Todo' }, { id: 'CW-2', title: 'Fix ]8;;x  it', state: 'Backlog' }, { id: 'CW-9', title: 'last', state: 'Backlog' }])
+  assert.deepEqual(b.get(), [{ id: 'CW-1', title: 't1', state: 'Todo', priority: null, createdAt: null }, { id: 'CW-2', title: 'Fix ]8;;x  it', state: 'Backlog', priority: null, createdAt: null }, { id: 'CW-9', title: 'last', state: 'Backlog', priority: null, createdAt: null }])
 
   // At most once a minute; a failed read keeps the list; a team login's answer is cached for good, a refusal for 5 minutes.
   const n = calls.length
@@ -64,4 +64,23 @@ test('backlog: Todo and Backlog from the issue list, team authors only, last goo
   assert.equal(calls.filter((c) => c[1]?.includes('/eve/')).length, 2)
   b.want(null)
   assert.deepEqual(b.get(), [])
+})
+
+test('backlog: priority comes from the highest known priority: label, createdAt is ms or null', async () => {
+  const day = '2026-11-13T10:00:00Z'
+  const cases: [string, string[], unknown, string | null, number | null][] = [
+    ['urgent', ['priority:urgent'], day, 'urgent', Date.parse(day)],
+    ['high', ['priority:high'], day, 'high', Date.parse(day)],
+    ['medium', ['priority:medium'], day, 'medium', Date.parse(day)],
+    ['low', ['priority:low'], day, 'low', Date.parse(day)],
+    ['no priority label', ['type:bug'], day, null, Date.parse(day)],
+    ['unknown value ignored', ['priority:whenever'], day, null, Date.parse(day)],
+    ['two labels: the highest wins', ['priority:low', 'priority:high', 'priority:whatever'], day, 'high', Date.parse(day)],
+    ['unparseable date', [], 'yesterday', null, null],
+    ['missing date', [], undefined, null, null],
+  ]
+  const b = createBacklog({ run: async (args) => (args[0] === 'issue' ? JSON.stringify(cases.map(([, labels, createdAt], i) => issue(i + 1, 'ann', labels, undefined, createdAt))) : 'write') })
+  b.want(CFG)
+  await b.idle()
+  assert.deepEqual(b.get().map((i) => [i.priority, i.createdAt]), cases.map(([, , , priority, at]) => [priority, at]))
 })

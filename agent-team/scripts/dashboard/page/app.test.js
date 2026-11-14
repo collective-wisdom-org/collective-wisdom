@@ -483,3 +483,11 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
   assert.deepEqual(drawn, [['s2', true], ['chief', true]])
 })
+
+test('a group with an http(s) moreUrl ends with an escaped Full backlog link inside its section; any other moreUrl draws none', () => {
+  const rows = [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '' })]
+  const html = (moreUrl) => renderStatus([{ name: 'Backlog', count: 9, rows, moreUrl }])
+  const ok = html('https://x.test/o/r/issues?a=1&b="2"')
+  assert.match(ok, /<\/ul><p class="more"><a href="https:\/\/x\.test\/o\/r\/issues\?a=1&amp;b=&quot;2&quot;" target="_blank" rel="noopener noreferrer">Full backlog<\/a><\/p><\/details>/)
+  for (const bad of ['javascript:alert(1)', '//x.test/issues', undefined]) assert.ok(!html(bad).includes('Full backlog'), String(bad))
+})
