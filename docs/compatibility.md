@@ -2,7 +2,7 @@
 
 What the agent team does on each harness and each ticket tracker, and where it does not. Read this before you adopt the team on a setup other than Claude Code in T3 Code with GitHub Issues. It is this repo's own page and is not shipped to apps.
 
-Last checked against the code and the 2026-11-09 Cursor run on 2026-11-09.
+Last checked against the code on 2026-11-13, after CW-286 ([#289](https://github.com/collective-wisdom-org/collective-wisdom/pull/289)) merged; recorded runs are in [Runs](#runs).
 
 ## Legend
 
@@ -36,6 +36,7 @@ Columns are the places a person runs an agent session. Each column is a T3 Code 
 | Usage and cost report | 🟢 works | 🔴 not supported: reads Claude Code and Cursor runs only (G8) | 🟡 partial: Auto runs (all the Cursor routing) are expected to show cost unknown (unconfirmed, G8); `grok-4.7` and `composer-2.5` runs are priced at the standard rate, so Fast mode and Grok long prompts show too little (G8) | 🔴 not supported: reads Claude Code and Cursor runs only (G8) |
 | Local dashboard | 🟢 works | 🟡 partial: no gantt rows or spend (G9) | 🟡 partial: the Chief of Staff tab data shows the Cursor thread's state and link; gantt rows with tokens and cost are written from Cursor's run store, but no Cursor thread has run that code (G9) | 🟡 partial: no gantt rows or spend (G9); rest untested (G18) |
 | `agent-gantt` | 🟡 partial: hooks run in T3 sessions, pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
+| Ticket helper in the gantt | 🟢 works | 🔴 not supported: no gantt snapshot (G9) | 🟡 partial: placeholder card while it runs, not attached to the ticket it files, so its time and cost miss that ticket's gantt and spend (G21) | 🔴 not supported: no gantt snapshot (G9) |
 | `status-pane` | ⚪ untested: pane in T3 not seen (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) | 🔴 not supported: Claude Code plugin (G10) |
 | Security review subagent | 🟢 works | ⚪ untested (G4) | ⚪ untested: role file as prompt (G4) | ⚪ untested: no Antigravity branch in the skill (G4) |
 
@@ -46,6 +47,7 @@ Notes:
 - `install.sh` also adds the Cursor gantt hook to `~/.cursor/hooks.json`, for six events. A Cursor thread on a worktree then gets gantt rows with timing, models, tokens and cost (G9). Like the rotation hook, it has not been seen running in a Cursor thread.
 - The No Hands cost cap sums `agent_usage.py` over the run's tickets. A Cursor child is priced from its run store in `~/.cursor/projects`; a run on a model `prices.json` has no price for, or a store it cannot read, makes the ticket's cost unknown, and a No Hands run stops. A Codex or Antigravity child leaves nothing the script reads, so its cost is unknown and a No Hands run stops. Auto, which is all the Cursor routing since CW-275, is expected to count as unpriced here too (unconfirmed, G8).
 - Antigravity appears as a provider in T3 Code, and the repo has nothing for it yet.
+- Ticket helper in the gantt: the mod reads the ticket from the `TICKET HELPER DONE` block of a Claude Code helper's final answer (it needs the `agent-gantt` plugin at 0.1.11 or later), and the dashboard adds that session to the ticket's gantt and spend. A session joins a ticket's gantt only when that ticket has a row on the board; a just-filed ticket gets its row from the Not started band, which reads GitHub Issues only, so on Linear or Jira the session reaches the ticket's chart once the ticket is in state. Spend does not depend on the board. A running helper with no ticket yet is a `Writing tickets` card. A finished helper that filed nothing leaves no card. The Cursor card has no title and stays until its turn ends, because the Cursor hook sets no `ticket` or `request` (G21).
 - The Cursor column's Team skills load, Chief of Staff thread, Ship loop and Local dashboard cells rest on the 2026-11-09 run in [Runs](#runs). That run used the skills only: the Cursor rule file and Cursor hooks were not installed on its machine.
 
 ### Full compatibility
@@ -171,3 +173,4 @@ One line per gap the matrices point at. A ticket is opened only where the mainta
 - **G18.** No recorded Antigravity run in T3 Code: skills load, the Chief of Staff thread and the child threads, and the dashboard's Chief of Staff state are unchecked. Since CW-280 a Chief of Staff on Antigravity starts no children until a routing table exists. Ticket: none yet.
 - **G19.** There is no Azure DevOps adapter: `trackers/` has GitHub, Linear and Jira only, and the `Tracker` row in `project.md` cannot name it. Ticket: none yet.
 - **G20.** `trackers/github.md` § `ensure-labels` names the team labels but not their colors or descriptions, so the Cursor Chief of Staff in the 2026-11-09 run copied them from the collective-wisdom repo. The same step on the other harnesses is not recorded. No matrix cell points at it: it came from the 2026-11-09 run. Ticket: [#276](https://github.com/collective-wisdom-org/collective-wisdom/issues/276).
+- **G21.** The Cursor gantt hook (`cursor_gantt_hook.ts` via `mods/agent-gantt/hooks/cursor.ts`) writes no `ticket` or `request`, so a Cursor helper's card has no title, stays until its turn ends, and its session never joins the ticket it filed or that ticket's spend. No Cursor hook run is recorded (see G9). Ticket: [#288](https://github.com/collective-wisdom-org/collective-wisdom/issues/288).
