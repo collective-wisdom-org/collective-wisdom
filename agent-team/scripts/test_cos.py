@@ -135,6 +135,8 @@ def test_new_head_in_a_stamped_stage_restamps_lastSeenAt(stage, op, restamped):
     {"op": "top", "set": {"reset": {"id": "0a1b2c3d", "startedAt": "2026-11-14T10:00:00Z"}}},
     {"op": "top", "set": {"reset": {**RESET, "startedAt": "2026-11-14T10:00:00"}}},
     {"op": "top", "set": {"lastResetAt": "soon"}},
+    {"op": "top", "set": {"lastResetAt": "2999-01-01T00:00:00Z"}},
+    {"op": "top", "set": {"reset": {**RESET, "startedAt": "2999-01-01T00:00:00Z"}}},
     {"op": "observe", "kind": "nope"},
     {"op": "observe", "kind": "other:Bad Slug"},
 ])

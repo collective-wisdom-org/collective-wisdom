@@ -332,17 +332,18 @@ def op_top(s, op):
     need(op, "set")
     keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed", "noHands"}, "top-level")
     zoned = lambda x: isinstance(x, str) and getattr(parse(x), "tzinfo", None) is not None  # noqa: E731
+    sane = lambda x: zoned(x) and parse(x) <= datetime.now(timezone.utc) + timedelta(minutes=5)  # noqa: E731  # a future time would hold resets for good
     marker = op["set"].get("reset")
     if marker is not None:
         if not (
             isinstance(marker, dict) and set(marker) <= {"id", "startedAt", "reason", "mode"}
             and isinstance(marker.get("id"), str) and re.fullmatch(r"[0-9a-f]{8}", marker["id"])
-            and zoned(marker.get("startedAt")) and isinstance(marker.get("reason"), str) and marker["reason"]
+            and sane(marker.get("startedAt")) and isinstance(marker.get("reason"), str) and marker["reason"]
             and marker.get("mode", "reset") in ("reset", "reset-scheduled", "compact")
         ):
-            raise Reject("reset needs null, or an id (8 hex chars), a startedAt with a zone and a reason, and optionally a mode")
-    if op["set"].get("lastResetAt") is not None and not zoned(op["set"]["lastResetAt"]):
-        raise Reject("lastResetAt needs a time with a zone, or null")
+            raise Reject("reset needs null, or an id (8 hex chars), a startedAt with a zone (not in the future) and a reason, and optionally a mode")
+    if op["set"].get("lastResetAt") is not None and not sane(op["set"]["lastResetAt"]):
+        raise Reject("lastResetAt needs a time with a zone, not in the future, or null")
     s.update(op["set"])
     for old in ("rotation", "rotationHeldUntil"):  # keys of the thread rotation this replaced
         s.pop(old, None)
