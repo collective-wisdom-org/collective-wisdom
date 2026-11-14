@@ -5,7 +5,7 @@ Usage:
     ~/.collective-wisdom/scripts/cos_route.py <PREFIX>-N <caller> [--file STATE] [--thread ID]
 
 Read only: sends nothing and writes no state. Reads the ticket from .agent-team/state.json (under the repo root unless
---file is given) through cos_state.load, the lane limits from cos_tick.LIMITS and CAP, and, for the conflict callers,
+--file is given) through cos_state.load, the lane limits and cap from cos_tick.limits(), and, for the conflict callers,
 `Review after conflict resolution` through project_config.review_after_conflict() (an unreadable setting counts as `on`).
 --thread is this thread's ID, used as the Chief of Staff thread when state has no chiefThreadId (as cos_tick does).
 
@@ -26,9 +26,10 @@ The caller and the ticket's stage give the lane:
     answer, resume,    blocked                                     the lane of the ticket's resumeStage
     rate-limit
 
-The ticket's own slot does not count against it. The relay is sent when the lane is under its limit, the overall count
-is under the cap and no ticket waits ahead of it in the lane's queue (any queued ticket, or, for a ticket already in that
-queue, one with an older queuedAt; a missing queuedAt sorts last, as in cos_tick); otherwise it is queued. A send to a ticket
+The ticket's own slot does not count against it. The relay is sent when the lane is under its limit (merge: 1) and no ticket
+waits ahead of it in the lane's queue (any queued ticket, or, for a ticket already in that queue, one with an older queuedAt;
+a missing queuedAt sorts last, as in cos_tick), and, for the spec and build lanes, the spec and build count together is under
+the cap (the merge lane is outside it); otherwise it is queued. A send to a ticket
 whose parentThreadId is known and is not the Chief of Staff thread is a continuation instead (continuation.md).
 Prints lines the caller acts on, then a last line, exit 0 unless noted:
     stage: <JSON stage op>                  to apply (a send: the lane's active stage; a queue: <lane>-queued, to which
@@ -118,7 +119,8 @@ def route(state, tid, caller, thread, setting):
     waiting = count(f"{lane}-queued")
     if ticket.get("stage") == f"{lane}-queued":  # in the queue itself, only a ticket queued before it waits ahead
         waiting = sum(queue_key(t) < queue_key(ticket) for _, t in others if t.get("stage") == f"{lane}-queued")
-    room = count(lane) < cos_tick.LIMITS[lane] and count(*cos_state.ACTIVE) < cos_tick.CAP and not waiting
+    lane_limit, cap = cos_tick.limits()
+    room = count(lane) < lane_limit[lane] and (lane == "merge" or count("spec", "build") < cap) and not waiting
     op = {"op": "stage", "ticket": tid, "stage": lane if room else f"{lane}-queued", "status": "<status line>"}
     extra = []
     if caller == "conflict-stand":  # a merge run with no approval to carry: later head checks must not invent one

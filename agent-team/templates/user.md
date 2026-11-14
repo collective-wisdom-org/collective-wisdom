@@ -1,6 +1,6 @@
 # collective-wisdom user settings
 
-Settings for the agent team on this machine. It holds GitHub logins, never tokens.
+Settings for the agent team on this machine. It holds GitHub logins and team settings, never tokens.
 `set up this repo` or the Chief of Staff's start writes it. You can also edit it by hand.
 
 ## Settings
@@ -8,6 +8,9 @@ Settings for the agent team on this machine. It holds GitHub logins, never token
 | Key | Value |
 |---|---|
 | Claude subscription API-equivalent usage (dollars) | `none` |
+| Active children cap (spec and build together) | `none` |
+| Spec lane limit | `none` |
+| Build lane limit | `none` |
 
 ## GitHub accounts
 

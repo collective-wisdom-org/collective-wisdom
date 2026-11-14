@@ -15,7 +15,7 @@ Needs you
 - <reminder line for a pending approval, approvals.md § Approval requests>
 - <PREFIX>-202 blocked: <one line>. [<PREFIX>-202](<thread link>)
 
-Moving (<active count> of <overall cap> active)
+Moving (<spec + build count> of <cap> active)
 Spec <count> of <spec limit>
 - <PREFIX>-240 started: Example feature. Took the slot <PREFIX>-235 freed (merged #181).
 - <PREFIX>-212 started: Background job replies. From the Backlog ranking: High priority, unblocks <PREFIX>-213.
@@ -23,7 +23,7 @@ Build <count> of <build limit>
 - <PREFIX>-199 building (PR #180, code review pass 2)
 - <PREFIX>-154 restarted: stalled after code review PASS, 31 min idle
 - <PREFIX>-238 approved, waiting for a build slot
-Merge <count> of <merge limit>
+Merge <count> of 1
 - <PREFIX>-203 merge approved, waiting for a merge slot
 - <PREFIX>-263 merged (#217), found by the merged check
 - <PREFIX>-264 merge ready, found by the sweep

@@ -85,3 +85,38 @@ def test_subscription_usage(user_md, cell, want):
     user_md("me", cell)
     assert uc.subscription_usage("Claude") == want
     assert uc.subscription_usage("Codex") is None
+
+
+def lane_row(key, value):
+    return f"| {key} | {value} |\n"
+
+
+CAP, SPEC, BUILD = "Active children cap (spec and build together)", "Spec lane limit", "Build lane limit"
+DEFAULTS = {"cap": 4, "spec": 2, "build": 2}
+LANE_ROWS = [
+    (None, DEFAULTS),  # no file
+    ("", DEFAULTS),
+    (lane_row(CAP, "`none`") + lane_row(SPEC, "`none`") + lane_row(BUILD, "`none`"), DEFAULTS),
+    (lane_row(CAP, "`3`") + lane_row(SPEC, "`1`") + lane_row(BUILD, "`3`"), {"cap": 3, "spec": 1, "build": 3}),
+    (lane_row(CAP, "`9`"), {"cap": 9, "spec": 2, "build": 2}),  # a cap above spec + build changes nothing downstream
+    (lane_row(BUILD, "`3`"), {"cap": 5, "spec": 2, "build": 3}),  # lane rows only: the cap follows the sum
+    (lane_row(CAP, "`999`"), {"cap": 999, "spec": 2, "build": 2}),
+    *[(lane_row(CAP, v) + lane_row(SPEC, v) + lane_row(BUILD, v), DEFAULTS) for v in ("`0`", "`-1`", "`+3`", "`2.5`", "`03`", "`1000`", "`many`", "3")],
+    (lane_row("Merge lane limit", "`3`"), DEFAULTS),  # merge is never read
+]
+
+
+@pytest.mark.parametrize("text, want", LANE_ROWS)
+def test_lane_limits(tmp_path, monkeypatch, text, want):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    uc.path().parent.mkdir(parents=True)
+    if text is not None:
+        uc.path().write_text(text)
+    assert uc.lane_limits() == want
+
+
+def test_lane_limits_with_an_unreadable_file_are_the_defaults(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    uc.path().parent.mkdir(parents=True)
+    uc.path().write_bytes(b"\xff\xfe| Spec lane limit | `1` |\n")  # not UTF-8
+    assert uc.lane_limits() == DEFAULTS

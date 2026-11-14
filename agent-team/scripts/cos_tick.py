@@ -17,6 +17,9 @@ another thread (read this thread's provider and save it; no mismatch lines then)
 `harness-mismatch <ticket> child=<provider> chief=<provider>` line per active or queued ticket whose `provider` is set and
 differs. A ticket with no `provider` gets no line. Output is numbered lines "N. <text>"; a `stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
 --file is given) through cos_state.load; a missing file counts as empty state. Writes nothing.
+The lane limits come from limits(): spec and build from user.md (default 2 each), merge fixed at 1, and a cap on spec + build
+children (default their sum). The merge lane fills first and sits outside the cap. The `report` line ends the plan, carrying the
+numbers in effect: `report cap=N spec=S build=B merge=1`, plus ` (filling stopped: <why>)` on a turn that did not rate limit.
 --now is an ISO 8601 time (default: the current UTC time).
 Exit 0 with a plan, 2 with "cos_tick: <what>" when the state file or the arguments can't be used.
 """
@@ -32,9 +35,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_state  # noqa: E402
+import user_config  # noqa: E402
 
-LIMITS = {"spec": 2, "build": 2, "merge": 1}
-CAP = sum(LIMITS.values())
+MERGE_LIMIT = 1  # fixed, and outside the cap
 LANES = tuple(reversed(cos_state.ACTIVE))  # slot fill order: merge, build, spec
 FULL_PASS = ("start", "user", "wake")
 SCRIPTS = "~/.collective-wisdom/scripts"
@@ -50,6 +53,12 @@ SPEC_AUTO = "CHIEF OF STAFF: auto-approved the spec"
 MERGE_USER = "CHIEF OF STAFF: the user approved the merge"
 MERGE_AUTO = "CHIEF OF STAFF: auto-approved the merge"
 MERGE_CONFLICT = "The user approved the merge at head"
+
+
+def limits():
+    """({"spec", "build", "merge"} lane limits, cap on spec + build children) from user.md; merge is never read from it."""
+    cfg = user_config.lane_limits()
+    return {"spec": cfg["spec"], "build": cfg["build"], "merge": MERGE_LIMIT}, cfg["cap"]
 
 
 def fail(msg):
@@ -241,7 +250,7 @@ def drain_reason(state):
     return " ".join(reason.split())
 
 
-def slot_fill(state, thread, fill=True):
+def slot_fill(state, thread, lim, fill=True):
     """(lines, whether a spec slot is left for Todo). Paused and rate limited turns never get here. fill=False sends the queue but starts no Todo."""
     counts = {lane: len(tickets_in(state, lane)) for lane in LANES}
     queues = {
@@ -251,15 +260,16 @@ def slot_fill(state, thread, fill=True):
         )
         for lane in LANES
     }
-    out = []
-    while sum(counts.values()) < CAP:
-        lane = next((x for x in LANES if counts[x] < LIMITS[x] and queues[x]), None)
+    out, (lane_limit, cap) = [], lim
+    used = lambda: counts["spec"] + counts["build"]  # noqa: E731  the merge lane is outside the cap
+    while True:
+        lane = next((x for x in LANES if counts[x] < lane_limit[x] and queues[x] and (x == "merge" or used() < cap)), None)
         if lane is None:
             break
         tid, t = queues[lane].pop(0)
         out += relay_lines(state, thread, tid, t, lane)
         counts[lane] += 1
-    todo = max(0, min(LIMITS["spec"] - counts["spec"], CAP - sum(counts.values()))) if fill else 0
+    todo = max(0, min(lane_limit["spec"] - counts["spec"], cap - used())) if fill else 0
     return out + ["start-todo"] * todo, todo > 0
 
 
@@ -298,12 +308,14 @@ def act(state, thread, trigger, now):
         out.append("hygiene")
     if full:
         out.append("prune")
-    report = "report"
+    lim = limits()
+    lane_limit, cap = lim
+    report = f"report cap={cap} spec={lane_limit['spec']} build={lane_limit['build']} merge={lane_limit['merge']}"
     if no_hands_run(state):
         out.append(NO_HANDS_CHECK)
     if not limited:
         draining = drain_reason(state)
-        lines, free = slot_fill(state, thread, fill=draining is None)
+        lines, free = slot_fill(state, thread, lim, fill=draining is None)
         out += lines
         if not state.get("rotation"):
             out.append("observe")

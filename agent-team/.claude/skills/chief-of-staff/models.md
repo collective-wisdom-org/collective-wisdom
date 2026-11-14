@@ -50,7 +50,7 @@ Not yet observed: whether a Cursor subagent honors `model: auto-smart[optimize_f
 
 ### Codex
 
-Provider id: not recorded yet. `cos_models.py` has no routing for it (every role is `not routed yet`). A Chief of Staff on this harness can report status and tickets but starts no child or helper (the rule above).
+Provider id: not recorded yet. `cos_models.py` has no routing for it (no role is routed). A Chief of Staff on this harness can report status and tickets but starts no child or helper (the rule above).
 
 ### Antigravity
 

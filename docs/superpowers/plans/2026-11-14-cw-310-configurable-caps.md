@@ -1,0 +1,11 @@
+# CW-310: Configurable active-agent cap and lane limits: plan
+
+Spec: `docs/superpowers/specs/2026-11-14-cw-310-configurable-caps-design.md`
+
+1. `agent-team/scripts/user_config.py`: add `lane_limits()` per the spec § Reader (key prefixes `Active children cap`, `Spec lane limit`, `Build lane limit`; value is the first backticked token, accepted only as `[1-9][0-9]{0,2}`; defaults spec 2, build 2, cap = spec + build; never raises, a `UserConfigError` gives all defaults). Update the module docstring.
+2. `agent-team/scripts/cos_tick.py`: replace `LIMITS` and `CAP` with `MERGE_LIMIT = 1` and `limits()` returning `({"spec", "build", "merge": 1}, cap)`. `slot_fill` reads it once: merge fills first while its count is under 1 whatever the overall count; build then spec fill while under their limit and `spec + build < cap`; Todo count is `max(0, min(spec limit - spec, cap - (spec + build)))`. The report line becomes `report cap=N spec=S build=B merge=1 (filling stopped: ...)`; a rate-limited turn prints the same without the parenthetical. Update the docstring.
+3. `agent-team/scripts/cos_route.py`: call `cos_tick.limits()` once. Merge room: `count("merge") < 1 and not waiting`. Spec and build room: lane under its limit, `count("spec", "build") < cap`, not waiting. Update the docstring.
+4. Tests, table-driven, `HOME` set to a temp dir with a written `user.md`: `test_user_config.py` (one table for `lane_limits()`), `test_cos_tick.py` (new report line in `TAIL`, `TODO` and the other expectations; one table for configured limits incl. queued merge with the cap full and a second queued merge never sent), `test_cos_route.py` (`OVER_CAP` approve-merge flips to `send merge`; rows for a configured cap and spec limit).
+5. `agent-team/templates/user.md`: three Settings rows with `none`, lead line says logins and team settings.
+6. Docs, per the spec § Skill and docs: `chief-of-staff/SKILL.md` § Lanes, the `report (...)` Tick row, § Report format (Moving header, Filling stopped line), `status.md` if it repeats numbers; `github-auth.md:89`; `org-chart.md:22,103`; `README.md:95`.
+7. Verify: `python3 -I -m pytest -q agent-team/scripts`; `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh`; `/usr/bin/grep -rnE "cos_tick\.(LIMITS|CAP)|up to 5 active" agent-team README.md` finds nothing.
