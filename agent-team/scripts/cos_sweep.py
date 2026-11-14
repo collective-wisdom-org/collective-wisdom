@@ -3,7 +3,7 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_sweep.py --thread ID [--file STATE] [--merged-prs FILE] [--open-prs FILE] [--refs FILE] [--review-prs FILE]
-                            [--issues FILE] [--login LOGIN]
+                            [--issues FILE] [--login LOGIN] [--verbose]
 
 --thread is this thread's own ID, as for cos_parent_check.py. Runs, in one process:
     1. the merged check with --apply (writes a merged op for each merged PR),
@@ -11,7 +11,13 @@ Usage:
     3. the parent check without its archive lines (archiving still runs cos_parent_check.py itself),
     4. the untracked check, on the state as step 1 left it: tickets in flight that state doesn't know,
     5. the review check, last, on the state as step 1 left it (tickets in awaiting-review; it needs no thread read).
-Prints each part's own lines and summary, then one last line:
+Prints the lines that need action, then one last line. A line needs action when its first word is one
+the Chief of Staff acts on: merged, mismatch and unreadable (merged check); ready and pushed (ready
+check); full (parent check); untracked; approved, changes, moved, closed and unreadable (review check).
+A part's summary and its other lines (`ok`, `idle`, `keep`, `building`, `no-pr`, `writing`, `waiting`,
+the ready check's `unreadable`) are left out, and so is a part that printed nothing needing action.
+A part that cannot run prints its own failure line whatever the flags. --verbose prints each part's own
+lines and summary, as before. The last line:
     sweep: read in full: ABC-3 (ready), ABC-7 (old-parent); merged: ABC-2 #14
     sweep: read in full: none; merged: none
     sweep: read in full: none; merged: none; untracked: ABC-5 #12, ABC-6; review: ABC-7 approved
@@ -37,6 +43,19 @@ import cos_review_check  # noqa: E402
 import cos_untracked_check  # noqa: E402
 
 ROOT = root()
+ACTION = {  # the first words the Chief of Staff acts on, per part
+    "merged": {"merged", "mismatch", "unreadable"},
+    "ready": {"ready", "pushed"},
+    "parent": {"full"},
+    "untracked": {"untracked"},
+    "review": {"approved", "changes", "moved", "closed", "unreadable"},
+}
+
+
+def show(name, lines, verbose):
+    keep = lines if verbose else [x for x in lines if x.split()[:1] and x.split()[0] in ACTION[name]]
+    if keep or verbose:
+        print("\n".join(keep))
 
 
 def part(name, fn):
@@ -50,7 +69,7 @@ def part(name, fn):
         return None
 
 
-def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, review_prs=None, issues=None, login=None):
+def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, review_prs=None, issues=None, login=None, verbose=False):
     """Print every part's lines and the last line; return the exit code."""
     listed, merged, untracked, to_act, failed = {}, [], [], [], []
 
@@ -63,7 +82,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("merged")
     else:
-        print("\n".join(got[0]))
+        show("merged", got[0], verbose)
         merged = got[1]
 
     def ready():
@@ -76,7 +95,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("ready")
     else:
-        print("\n".join(got[0]))
+        show("ready", got[0], verbose)
         for tid, reason in got[1]:
             list_ticket(tid, reason)
 
@@ -84,7 +103,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("parent")
     else:
-        print("\n".join(got[0]))
+        show("parent", got[0], verbose)
         for line in got[0]:
             words = line.split()
             if words[0] == "full":
@@ -94,7 +113,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("untracked")
     else:
-        print("\n".join(got[0]))
+        show("untracked", got[0], verbose)
         untracked = got[1]
 
     def review():
@@ -105,7 +124,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("review")
     else:
-        print("\n".join(got[0]))
+        show("review", got[0], verbose)
         to_act = got[1]
 
     read = ", ".join(f"{t} ({', '.join(r)})" for t, r in listed.items()) or "none"
@@ -131,8 +150,9 @@ def main(argv=None):
     ap.add_argument("--review-prs", type=Path)
     ap.add_argument("--issues", type=Path)
     ap.add_argument("--login")
+    ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args(argv)
-    return sweep(args.thread, args.file, args.merged_prs, args.open_prs, args.refs, args.review_prs, args.issues, args.login)
+    return sweep(args.thread, args.file, args.merged_prs, args.open_prs, args.refs, args.review_prs, args.issues, args.login, args.verbose)
 
 
 if __name__ == "__main__":
