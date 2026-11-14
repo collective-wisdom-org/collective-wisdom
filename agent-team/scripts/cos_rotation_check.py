@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does the Chief of Staff thread need to rotate? One line: "ok ..." or "rotate: <reason>".
+"""Does the Chief of Staff session need a reset? One line: "ok ..." or "rotate: <reason>; mode <mode>".
 
 Usage:
     ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover]   # the model's call, every working turn
@@ -10,10 +10,16 @@ Reads the thread's context size (agent_usage.py --context), the skill commit (gi
 of the clone this script sits in), the app's branch (git), and the state file. Exit 0 for "ok" and "rotate"; exit 2 with
 "rotation-check: cannot read <what>" when the context, git or state is unreadable, or the `Merge target branch` row of project.md is invalid.
 Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) and,
-with --record-takeover, takeoverContext, through cos_state.py. It never rotates anything.
+with --record-takeover, takeoverContext, through cos_state.py. It never resets anything.
+The reset mode comes from RESET_MODES, keyed by state's chiefProvider.provider (reset, reset-scheduled, compact or none; a
+provider missing from it, or a missing chiefProvider, is none). On none the check never prints "rotate:": it prints
+"ok (no reset on <provider>; context=<N>k)" or "ok (no reset on <provider>; size unknown)". Holds: paused, and a
+`reset` marker in state younger than 10 minutes ("ok (held: reset)"); an older marker does not hold and a trigger
+then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset" or
+"rotate: skill changed aaaaaaa..bbbbbbb; mode reset".
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size
-trigger is off (no context size on Cursor), so only a skill change rotates.
+trigger is off (no context size on Cursor).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on "rotate:" or exit 2. It reads Cursor's stop payload (conversation_id equals
@@ -62,7 +68,11 @@ import project_config  # noqa: E402  (after _root(): it must find the same repo)
 SIZE_CAP = 220_000
 CURSOR_FRESH_SECONDS = 120
 QUIET_RELAY_MIN = 10
-QUIET_ROTATED_MIN = 60
+QUIET_RESET_MIN = 60
+RESET_HOLD_MIN = 10
+# Reset mode per provider (T3's providerInstanceId, as chiefProvider.provider in state holds it): reset, reset-scheduled,
+# compact or none. A provider missing here is none. Change together with docs/compatibility.md's "Context reset (rotation check)" row.
+RESET_MODES = {"claudeAgent": "reset"}
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",
     ".claude/skills/project-manager",
@@ -110,28 +120,42 @@ def quiet_wait(state, now):
     relay = minutes_since(state.get("lastRelayAt"), now)
     if relay is not None and relay < QUIET_RELAY_MIN:
         return f"relay {relay}m ago"
-    rotated = [m for r in state.get("retiredThreads") or [] if isinstance(r, dict)
-               for m in [minutes_since(r.get("retiredAt"), now)] if m is not None]
-    if rotated and min(rotated) < QUIET_ROTATED_MIN:
-        return f"rotated {min(rotated)}m ago"
+    reset = minutes_since(state.get("lastResetAt"), now)
+    if reset is not None and reset < QUIET_RESET_MIN:
+        return f"reset {reset}m ago"
     return None
+
+
+def mode_for(state):
+    """(reset mode, provider) from state's chiefProvider.provider; a missing or malformed one is ("none", "unknown")."""
+    cp = state.get("chiefProvider")
+    p = cp.get("provider") if isinstance(cp, dict) else None
+    if not (isinstance(p, str) and re.fullmatch(r"[A-Za-z0-9._:-]+", p)):
+        return "none", "unknown"
+    return RESET_MODES.get(p, "none"), p
 
 
 def decide(state, context, now, commit, branch, cap=SIZE_CAP):
     """The one line. now is a datetime; context is a token count, or None when the size is unknown (Cursor)."""
+    mode, provider = mode_for(state)
     if state.get("paused"):
         return "ok (held: paused)"
-    if state.get("rotation") is not None:
-        return "ok (held: rotation)"
-    until = parse_ts(state.get("rotationHeldUntil"))
-    if until and until > now:
-        return "ok (held: rotationHeldUntil)"
+    marker, stale = state.get("reset"), ""
+    if isinstance(marker, dict):  # a reset started and never confirmed by a take over
+        age = minutes_since(marker.get("startedAt"), now)
+        if age is not None and age < RESET_HOLD_MIN:
+            return "ok (held: reset)"
+        stale = "; reset never confirmed"
     old = state.get("skillCommit")
+    if mode == "none":
+        if not old:
+            return f"ok; set skillCommit {commit}"
+        return f"ok (no reset on {provider}; " + ("size unknown)" if context is None else f"context={k(context)})")
     waits = None
     if branch == project_config.target_branch() and old and commit != old:
         why = quiet_wait(state, now)
         if not why:
-            return f"rotate: skill changed {old[:7]}..{commit[:7]}"
+            return f"rotate: skill changed {old[:7]}..{commit[:7]}; mode {mode}{stale}"
         waits = f"ok (skill change waits: {why})"
     note = None
     if context is not None and context >= cap:
@@ -145,7 +169,7 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
             and tk["tokens"] >= cap
         )
         if not off:
-            return f"rotate: size {k(context)} >= {k(cap)}"
+            return f"rotate: size {k(context)} >= {k(cap)}; mode {mode}{stale}"
         note = f"ok (size trigger off: take-over ended at {k(tk['tokens'])})"
     if note or waits:
         return note or waits
@@ -293,7 +317,7 @@ def run_hook(path):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Does the Chief of Staff thread need to rotate?")
+    ap = argparse.ArgumentParser(description="Does the Chief of Staff session need a reset?")
     ap.add_argument("--hook", action="store_true")
     ap.add_argument("--record-takeover", action="store_true")
     ap.add_argument("--skill-commit", action="store_true")

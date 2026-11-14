@@ -6,7 +6,7 @@ Usage:
 
 --thread is this thread's own ID. The turn calls the script twice: without --after-reads for the
 look plan (state checks, child reads, idle check, sweep; its last line is `tick --after-reads`),
-and with it for the act plan (rate limit, hygiene, slot fill, observe, report, archive, rotation
+and with it for the act plan (rate limit, hygiene, slot fill, observe, report, rotation
 check), which depends on state alone and can be rerun. While a No Hands run is active (the state's `noHands`
 has startedAt and no endedAt) the act plan carries a `run ... no_hands.py check` line before the slot fill. The tick
 cannot know its result, so on `drain` or `stop` the model prints no `start-todo` lines and sends nothing beyond what
@@ -30,7 +30,7 @@ import json
 import re
 import sys
 from contextlib import redirect_stderr
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
@@ -44,7 +44,6 @@ SCRIPTS = "~/.collective-wisdom/scripts"
 AGAIN = "tick --after-reads"
 NO_HANDS_CHECK = f"run python3 {SCRIPTS}/no_hands.py check"
 ROTATION_CHECK = f"run python3 {SCRIPTS}/cos_rotation_check.py"
-STALE_HANDOFF = timedelta(minutes=10)
 MAX_WAKE_MS = 6 * 3600 * 1000
 SAFE = re.compile(r"[A-Za-z0-9._:%@][A-Za-z0-9._:%@-]*")  # what may be printed into a plan line
 DAILY = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
@@ -122,16 +121,10 @@ def children(state):
     return [(i, t) for i, t in tickets_in(state, *cos_state.ACTIVE) if t.get("childThreadId")]
 
 
-def stops(state, thread, trigger, now):
+def stops(state, thread, trigger):
     """The one `stop` line for this thread, or None."""
-    rotation = state.get("rotation") if isinstance(state.get("rotation"), dict) else None
     chief = state.get("chiefThreadId")
-    to = (rotation or {}).get("to")
-    taking_over = trigger == "start" and (to == thread or (not to and (not chief or chief == thread)))
-    if not taking_over:
-        started = when((rotation or {}).get("startedAt"))
-        if rotation and rotation.get("from") == thread and started and now - started > STALE_HANDOFF:
-            return "stop failed-handoff"
+    if not (trigger == "start" and (not chief or chief == thread)):
         retired = {r.get("threadId") for r in cos_state.dicts(state.get("retiredThreads")) if isinstance(r.get("threadId"), str)}
         if (chief and chief != thread) or thread in retired:
             return "stop retired"
@@ -279,18 +272,10 @@ def hygiene_due(state, now):
     return at is None or now - at > cos_state.DAY
 
 
-def archives(state):
-    return [
-        f"archive {r['threadId']}"
-        for r in cos_state.dicts(state.get("retiredThreads"))
-        if isinstance(r.get("threadId"), str) and r["threadId"] and not r.get("archivedAt")
-    ]
-
-
 def act(state, thread, trigger, now):
     kind = trigger.partition(":")[0]
     if kind == "status":
-        return archives(state) + [ROTATION_CHECK]
+        return [ROTATION_CHECK]
     full, limited = kind in FULL_PASS, bool(state.get("rateLimitedAt"))
     out = []
     if limited:
@@ -316,11 +301,10 @@ def act(state, thread, trigger, now):
         draining = drain_reason(state)
         lines, free = slot_fill(state, thread, lim, fill=draining is None)
         out += lines
-        if not state.get("rotation"):
-            out.append("observe")
+        out.append("observe")
         report += f" (filling stopped: {f'No Hands {draining}' if draining else 'spec slot free' if free else 'lanes full'})"
     out.append(report)
-    return out + archives(state) + [ROTATION_CHECK]
+    return out + [ROTATION_CHECK]
 
 
 def trigger_arg(s):
@@ -352,7 +336,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     state = load(args.file)
     check_args(args.thread, args.trigger)
-    plan = [stops(state, args.thread, args.trigger.partition(":")[0], args.now)]
+    plan = [stops(state, args.thread, args.trigger.partition(":")[0])]
     if not plan[0]:
         check_state(state)
         plan = act(state, args.thread, args.trigger, args.now) if args.after_reads else look(state, args.thread, args.trigger)

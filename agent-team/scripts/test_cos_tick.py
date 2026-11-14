@@ -40,15 +40,10 @@ READ = lambda t, c, p=0: f"child-read {t} {c} afterPosition={p}"  # noqa: E731
 @pytest.mark.parametrize(
     "state, trigger, thread, want",
     [
-        ({"rotation": {"from": ME, "startedAt": "2026-11-08T11:49:00Z"}}, "user", ME, "stop failed-handoff"),
-        ({"rotation": {"from": ME, "startedAt": "2026-11-08T11:55:00Z"}}, "user", ME, None),
         ({"chiefThreadId": "new"}, "user", ME, "stop retired"),
         ({"retiredThreads": [{"threadId": ME}]}, "notice:c1", ME, "stop retired"),
         ({"chiefThreadId": "new"}, "start", ME, "stop retired"),
         ({"chiefThreadId": None}, "start", ME, None),
-        ({"chiefThreadId": "old", "rotation": {"from": "old", "to": ME, "startedAt": "2026-11-08T11:00:00Z"}}, "start", ME, None),
-        # a dead handoff with a named successor stops even on `start`; resume mode would hide it
-        ({"chiefThreadId": ME, "rotation": {"from": ME, "to": "new", "startedAt": "2026-11-08T11:00:00Z"}}, "start", ME, "stop failed-handoff"),
         ({"paused": True}, "user", ME, "stop paused"),
         ({"paused": True}, "status", ME, None),
     ],
@@ -287,11 +282,6 @@ OFF = [REPORT, ROTATION]
         ({**LIMITED, "wakeAt": None}, "notice:zz", OFF),
         ({**LIMITED, "wakeAt": "2026-11-08T11:00:00Z"}, "notice:zz", OFF),
         ({**LIMITED, "wakeAt": "2026-11-08T12:00:20Z"}, "notice:zz", ["schedule-wake everyMs=140000", *OFF]),
-        # rotation set: no observe; retired threads without archivedAt are archived before the rotation check
-        (
-            {"rotation": {"from": "x", "to": ME, "startedAt": NOW}, "retiredThreads": [{"threadId": "r1"}, {"threadId": "r2", "archivedAt": NOW}]},
-            "notice:zz", ["start-todo", "start-todo", f"{REPORT} (filling stopped: spec slot free)", "archive r1", ROTATION],
-        ),
     ],
 )
 def test_act_plan_pre_steps_and_gates(tmp_path, capsys, state, trigger, want):
@@ -333,9 +323,9 @@ def test_no_hands_drain_reason_with_a_quote_stops_the_plan(tmp_path, capsys):
     assert "unsafe No Hands drain reason" in capsys.readouterr().out
 
 
-def test_status_act_plan_is_archive_and_rotation_check(tmp_path, capsys):
-    state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "retiredThreads": [{"threadId": "r1"}, {"threadId": ["bad"]}], "paused": True}
-    assert run(tmp_path, capsys, state, "status", "--after-reads") == ["archive r1", ROTATION]
+def test_status_act_plan_is_the_rotation_check(tmp_path, capsys):
+    state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "retiredThreads": [{"threadId": "r1"}], "paused": True}
+    assert run(tmp_path, capsys, state, "status", "--after-reads") == [ROTATION]
 
 
 @pytest.mark.parametrize(

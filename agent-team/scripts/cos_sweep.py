@@ -8,13 +8,13 @@ Usage:
 --thread is this thread's own ID, as for cos_parent_check.py. Runs, in one process:
     1. the merged check with --apply (writes a merged op for each merged PR),
     2. the ready check, on the state as step 1 left it, so a ticket that just merged is not ready,
-    3. the parent check without its archive lines (archiving still runs cos_parent_check.py itself),
+    3. the parent check,
     4. the untracked check, on the state as step 1 left it: tickets in flight that state doesn't know,
     5. the review check, last, on the state as step 1 left it (tickets in awaiting-review; it needs no thread read).
 Prints the lines that need action, then one last line. A line needs action when its first word is one
 the Chief of Staff acts on: merged, mismatch and unreadable (merged check); ready and pushed (ready
 check); full (parent check); untracked; approved, changes, moved, closed and unreadable (review check).
-A part's summary and its other lines (`ok`, `idle`, `keep`, `building`, `no-pr`, `writing`, `waiting`,
+A part's summary and its other lines (`ok`, `idle`, `building`, `no-pr`, `writing`, `waiting`,
 the ready check's `unreadable`) are left out, and so is a part that printed nothing needing action.
 A part that cannot run prints its own failure line whatever the flags. --verbose prints each part's own
 lines and summary, as before. The last line:
@@ -99,7 +99,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
         for tid, reason in got[1]:
             list_ticket(tid, reason)
 
-    got = part("parent", lambda: cos_parent_check.run(thread, state_file, archive=False))
+    got = part("parent", lambda: cos_parent_check.run(thread, state_file))
     if got is None:
         failed.append("parent")
     else:
