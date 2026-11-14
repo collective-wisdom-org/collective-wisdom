@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createTitles } from './titles.ts'
+import { createTitles, headsFromProject } from './titles.ts'
 
 const CFG = { prefix: 'CW', slug: 'o/r' }
 
@@ -29,4 +29,19 @@ test('tracker titles: cached, prefix-guarded, cleaned, failures retried after 5 
   t.want(['CW-5'], CFG)
   await t.idle()
   assert.equal(calls.length, 3)
+})
+
+test('headsFromProject: a plain head, a brace list in row order, and feat/ when the row is missing or does not parse', () => {
+  const row = (cell: string) => `| Key | Value |\n|---|---|\n| Branch pattern | ${cell} |\n`
+  const cases: [string, string[]][] = [
+    [row('`work/<prefix>-N-x`'), ['work/']],
+    [row('`{feat,infra}/<prefix>-N-x` (first is the default)'), ['feat/', 'infra/']],
+    [row('`{infra,feat}/<prefix>-N-x`'), ['infra/', 'feat/']],
+    [row('`feat/cw-N-x`'), ['feat/']],
+    [row('`{feat,Infra}/<prefix>-N-x`'), ['feat/']],
+    [row('`{feat,}/<prefix>-N-x`'), ['feat/']],
+    [row('none'), ['feat/']],
+    ['', ['feat/']],
+  ]
+  for (const [text, want] of cases) assert.deepEqual(headsFromProject(text), want, text)
 })
