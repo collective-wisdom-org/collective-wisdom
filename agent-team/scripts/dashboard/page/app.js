@@ -549,6 +549,37 @@ function ganttTasks(sessions, now) {
 /** How many agents the chart draws (tasks and their subagents), for the `Agents` pill. */
 export const taskCount = (sessions) => ganttTasks(sessions, 0).reduce((n, i) => n + 1 + i.kids.length, 0)
 
+/** The bar categories in legend order. */
+export const CATEGORIES = [
+  ['planning', 'Planning'],
+  ['building', 'Building'],
+  ['review', 'Review'],
+  ['docs', 'Docs and cleanup'],
+  ['ci', 'CI wait'],
+  ['merge', 'Merge and ship'],
+  ['other', 'Other'],
+]
+const CATEGORY_LABEL = new Map(CATEGORIES)
+
+// First match wins, so a name that mentions a PR can still be review or docs work, and a plan can still be built.
+const CATEGORY_RULES = [
+  ['review', /\b(?:review|security|changes)\b|^fix\b/i],
+  ['docs', /\b(?:docs?|documenter|compact|compacter|slop|cleanup)\b/i],
+  ['building', /\b(?:build|implement|implementer|code)\b/i],
+  ['merge', /\b(?:merge|open-pr|pr|ship|autopilot)\b/i],
+  ['planning', /\b(?:spec|kickoff|tickets?|plan|chief of staff|approve|start|take over|status|backlog|ranking|hygiene|explore|research|general-purpose)\b/i],
+]
+
+/**
+ * The category key for a row name, from the start of the name: a stage row's name is cut before its ticket id's colon (`Spec CW-385: title` reads `Spec CW-385`), so title words never pick it.
+ * A non-string or an unmatched name is `other`. CI bars are `ci` without asking.
+ */
+export function barCategory(name) {
+  if (typeof name !== 'string') return 'other'
+  const lead = /^(.*?\b[A-Z][A-Z0-9]*-\d+)\s*:/.exec(name.trim())?.[1] ?? name.trim()
+  return CATEGORY_RULES.find(([, re]) => re.test(lead))?.[0] ?? 'other'
+}
+
 const rowTitle = ({ r, s, clockNow }) => {
   const running = (r.end === null || r.end === undefined) && !s.stale
   const range = running ? `${clock(r.start)}, running` : `${clock(r.start)} to ${clock(r.end ?? clockNow)}`
@@ -613,26 +644,31 @@ export function renderGantt(sessions, now, ci) {
     return { left, width: Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100)) }
   }
   const owners = ciOwner(items, ciSpans)
-  // A task's CI wait: its CI spans merged, one blue bar each, drawn before its working bars so work done during the wait stays on top.
+  const drawn = new Set()
+  // A task's CI wait: its CI spans merged, one bar each, drawn before its working bars so work done during the wait stays on top.
   const ciBars = (n) =>
     union(ciSpans.filter((_, k) => owners[k] === n))
       .map(([a, b, open]) => {
         const { left, width } = place(a, b)
         const tip = esc(`CI wait\n${open ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
-        return `<span class="bar ci" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+        drawn.add('ci')
+        return `<span class="bar cat-ci" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
       })
       .join('')
-  const bars = (row, spans) =>
-    union(spans)
+  const bars = (row, spans) => {
+    const cat = barCategory(row.r.name)
+    return union(spans)
       .map(([a, b, open]) => {
         const { left, width } = place(a, b)
         const running = open && !row.s.stale
         const range = running ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`
         const meta = [range, running ? '' : duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
-        const title = esc(`${row.r.name}\n${meta.join(' · ')}`)
-        return `<span class="bar${running ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${title}"></span>`
+        const title = esc(`${row.r.name}\n${[CATEGORY_LABEL.get(cat), ...meta].join(' · ')}`)
+        drawn.add(cat)
+        return `<span class="bar cat-${cat}${running ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${title}"></span>`
       })
       .join('')
+  }
   const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
   const line = (row, spans, cost, depth, ci = '') => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
   <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
@@ -643,6 +679,8 @@ export function renderGantt(sessions, now, ci) {
   const rows = items.map((i, n) => {
     return [line(i, i.spans, itemCost(i), 0, ciBars(n)), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
   })
+  const legend = CATEGORIES.filter(([key]) => drawn.has(key))
+  const legendHtml = legend.length ? `<ul class="legend" aria-label="Bar colors">${legend.map(([key, label]) => `<li><span class="swatch cat-${key}"></span>${label}</li>`).join('')}</ul>\n` : ''
   const sum = ganttCost(items)
   const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null
   const note =
@@ -652,7 +690,7 @@ export function renderGantt(sessions, now, ci) {
   const isOld = sessions.some((s) => s.pricing !== 2)
   const oldNote = isOld ? '<p class="gnote">Some rows were priced before the CW-220 rate fix and keep their old costs.</p>' : ''
   return `<div class="gantt">
-${rows.join('\n')}
+${legendHtml}${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
 ${note}
 ${oldNote}
