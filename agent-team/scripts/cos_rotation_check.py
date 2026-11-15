@@ -16,8 +16,12 @@ provider missing from it, or a missing chiefProvider, is none). On none the chec
 "ok (no reset on <provider>; context=<N>k)" or "ok (no reset on <provider>; size unknown)". A stored skillCommit that is not a full sha acts like null and prints
 "ok; skillCommit is not a full sha; set skillCommit <sha>" where the null line would. Holds: paused, and a
 `reset` marker in state younger than 10 minutes ("ok (held: reset)"); an older marker does not hold and a trigger
-then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset" or
-"rotate: skill changed aaaaaaa..bbbbbbb; mode reset".
+then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset",
+"rotate: skill changed aaaaaaa..bbbbbbb; mode reset" or "rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode reset".
+The plugin trigger reads only mods/agent-gantt/.claude-plugin/plugin.json of the clone (never runs claude) and fires when its version
+is newer than ganttPluginVersion in state (gantt_plugin.py's compare; an equal or older clone does not fire). It works like the skill change (merge target branch, quiet turn; otherwise
+"ok (plugin change waits: <why>)"); a skill change on the same turn wins the line. It is off when ganttPluginVersion is null or
+not dot-separated integers, when the clone's version does not read, and on mode none.
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size
 trigger is off (no context size on Cursor).
@@ -46,6 +50,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from gantt_plugin import older, parse  # noqa: E402
 
 HERE = Path(__file__).absolute().parent
 # The clone's agent-team/ folder, through any ~/.collective-wisdom link. SKILL_PATHS and their history live here, not in the app.
@@ -75,6 +80,7 @@ RESET_HOLD_MIN = 10
 # Reset mode per provider (T3's providerInstanceId, as chiefProvider.provider in state holds it): reset, reset-scheduled,
 # compact or none. A provider missing here is none. Change together with docs/compatibility.md's "Context reset (rotation check)" row.
 RESET_MODES = {"claudeAgent": "reset"}
+PLUGIN_JSON = "mods/agent-gantt/.claude-plugin/plugin.json"
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",
     ".claude/skills/project-manager",
@@ -128,6 +134,15 @@ def quiet_wait(state, now):
     return None
 
 
+def plugin_version():
+    """The agent-gantt version in the clone's mod, or None when the file or its version does not read. A file read only."""
+    try:
+        v = json.loads((TEAM.parent / PLUGIN_JSON).read_text()).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if parse(v) is not None else None
+
+
 def mode_for(state):
     """(reset mode, provider) from state's chiefProvider.provider; a missing or malformed one is ("none", "unknown")."""
     cp = state.get("chiefProvider")
@@ -137,8 +152,9 @@ def mode_for(state):
     return RESET_MODES.get(p, "none"), p
 
 
-def decide(state, context, now, commit, branch, cap=SIZE_CAP):
-    """The one line. now is a datetime; context is a token count, or None when the size is unknown (Cursor)."""
+def decide(state, context, now, commit, branch, cap=SIZE_CAP, plugin=None):
+    """The one line. now is a datetime; context is a token count, or None when the size is unknown (Cursor).
+    plugin is the clone's agent-gantt version, or None when it does not read."""
     mode, provider = mode_for(state)
     if state.get("paused"):
         return "ok (held: paused)"
@@ -158,11 +174,20 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
             return set_line
         return f"ok (no reset on {provider}; " + ("size unknown)" if context is None else f"context={k(context)})")
     waits = None
-    if branch == project_config.target_branch() and old and commit != old:
-        why = quiet_wait(state, now)
-        if not why:
-            return f"rotate: skill changed {old[:7]}..{commit[:7]}; mode {mode}{stale}"
-        waits = f"ok (skill change waits: {why})"
+    if branch == project_config.target_branch():
+        stored = state.get("ganttPluginVersion")
+        have, want = parse(stored), parse(plugin)
+        plugin_new = have is not None and want is not None and older(have, want)
+        if (old and commit != old) or plugin_new:
+            why = quiet_wait(state, now)
+            if old and commit != old:
+                if not why:
+                    return f"rotate: skill changed {old[:7]}..{commit[:7]}; mode {mode}{stale}"
+                waits = f"ok (skill change waits: {why})"
+            elif not why:
+                return f"rotate: agent-gantt plugin {stored} -> {plugin}; mode {mode}{stale}"
+            else:
+                waits = f"ok (plugin change waits: {why})"
     note = None
     if context is not None and context >= cap:
         tk = state.get("takeoverContext")
@@ -286,7 +311,7 @@ def check(state, record=False, sid=None, sized=True):
         project_config.target_branch()
     except SystemExit:
         raise Unreadable("the Merge target branch row of project.md")
-    line = decide(state, context, now, skill_commit(), branch())
+    line = decide(state, context, now, skill_commit(), branch(), plugin=plugin_version())
     return (f"{line}; take-over context={k(context)}" if record and context is not None else line), tk
 
 
