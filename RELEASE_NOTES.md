@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 redesign the dashboard as a friendlier product (CW-266) (#340)
+
+Merged 2026-11-15 01:59 UTC.
+
+The dashboard has a new look. Each ticket shows its title, a plain sentence about where it stands, and one button when it needs you. Nothing to do: the page reloads itself.
+
 ## 2026-11-15 keep chief-of-staff mid-turn rules inside the compaction budget (CW-329) (#338)
 
 Merged 2026-11-15 01:34 UTC.
