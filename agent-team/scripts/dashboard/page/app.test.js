@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -888,8 +888,8 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r), approve, JSON.stringify(r))
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
-    const prompt = (t, tip) => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in. ${tip}`)}">`
-    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, 'Press Send to approve.')}Approve</a>`, `${prompt(changes, 'Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
+    const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve.slice(8)}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
 })
@@ -926,4 +926,23 @@ test('each Backlog card has a Mark todo control after the switch and before the 
     const groups = ['Todo', 'Building', 'Awaiting merge approval'].map((name) => ({ name, count: 1, rows: [row({ id })] }))
     assert.doesNotMatch(renderStatus(groups, new Set(), new Set(), new Set(), link), /class="todo"/, id)
   }
+})
+
+test('pressMessage: one line per reason, none when sent or a repeat click was busy', () => {
+  const generic = 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
+  const cases = [
+    [{ sent: true }, ''],
+    [{ sent: false, reason: 'busy' }, /^Approve not sent: another Approve was still being sent/],
+    [{ sent: false, reason: 'not-frontmost' }, 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.'],
+    [{ sent: false, reason: 'permission' }, /^Approve not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \(or the app that started the dashboard\)/],
+    [{ sent: false, reason: 'error' }, generic],
+    [{ sent: false, reason: 'toString' }, generic],
+    [{ sent: false }, generic],
+    [null, generic],
+  ]
+  for (const [answer, want] of cases) {
+    if (want instanceof RegExp) assert.match(pressMessage(answer), want)
+    else assert.equal(pressMessage(answer), want, JSON.stringify(answer))
+  }
+  assert.equal(pressMessage({ sent: false, reason: 'busy' }, true), '')
 })

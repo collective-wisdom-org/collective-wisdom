@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { codeFiles, codeVersion, mergedPageOf, pageVersion, restartWatch, startServer, systemScheme } from './server.ts'
+import { codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -416,4 +416,70 @@ test('the page and /api carry the system scheme when it is known', async () => {
       await srv.close()
     }
   }
+})
+
+const TOKEN = /<meta name="dashboard-token" content="([0-9a-f]{64})">/
+
+function send(port: number, method: string, headers: Record<string, string>): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, method, path: '/press-return', headers }, (res) => {
+      let body = ''
+      res.on('data', (c) => (body += c))
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+test('press-return guard presses only for the page with the token, once per 3 seconds', async () => {
+  const root = tmpRoot()
+  let presses = 0
+  const srv = await startServer({ root, port: 0, pressReturn: async () => (presses++, 'sent') })
+  try {
+    const p = srv.port
+    const host = `127.0.0.1:${p}`
+    const page = await call(p, 'GET', '/', host)
+    const token = TOKEN.exec(page.body)?.[1] ?? ''
+    assert.ok(token, 'the served page carries the token')
+    assert.match(String(page.headers['content-security-policy']), /frame-ancestors 'none'/)
+    assert.equal(page.headers['x-frame-options'], 'DENY')
+    for (const route of ['/api', '/health']) assert.ok(!(await call(p, 'GET', route, host)).body.includes(token), route)
+    const ok = { Host: host, Origin: `http://127.0.0.1:${p}`, 'X-Dashboard-Token': token }
+    const cases: [string, string, Record<string, string>, number][] = [
+      ['no origin', 'POST', { ...ok, Origin: '' }, 403],
+      ['other origin', 'POST', { ...ok, Origin: 'http://evil.example' }, 403],
+      ['cross-site', 'POST', { ...ok, 'Sec-Fetch-Site': 'cross-site' }, 403],
+      ['no token', 'POST', { ...ok, 'X-Dashboard-Token': '' }, 403],
+      ['wrong token', 'POST', { ...ok, 'X-Dashboard-Token': 'a'.repeat(64) }, 403],
+      ['wrong host', 'POST', { ...ok, Host: 'evil.example' }, 403],
+      ['GET', 'GET', ok, 405],
+      ['OPTIONS', 'OPTIONS', ok, 405],
+    ]
+    for (const [name, method, headers, status] of cases) assert.equal((await send(p, method, headers)).status, status, name)
+    assert.equal(presses, 0, 'none of those pressed')
+    const first = await send(p, 'POST', { ...ok, 'Sec-Fetch-Site': 'same-origin' })
+    assert.deepEqual([first.status, JSON.parse(first.body), presses], [200, { sent: true }, 1])
+    assert.deepEqual([JSON.parse((await send(p, 'POST', ok)).body), presses], [{ sent: false, reason: 'busy' }, 1])
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('pressResult maps the osascript output and errors', () => {
+  const fail = (text: string) => Object.assign(new Error('Command failed'), { stderr: text })
+  const cases: [unknown, unknown][] = [
+    ['sent\n', { sent: true }],
+    ['not-frontmost\n', { sent: false, reason: 'not-frontmost' }],
+    ['unsupported', { sent: false, reason: 'unsupported' }],
+    ['', { sent: false, reason: 'error' }],
+    [fail('execution error: Not authorized to send Apple events to System Events. (-1743)'), { sent: false, reason: 'permission' }],
+    [fail('osascript is not allowed to send keystrokes. (1002)'), { sent: false, reason: 'permission' }],
+    [fail('assistive access (-1719)'), { sent: false, reason: 'permission' }],
+    [fail('(-25211)'), { sent: false, reason: 'permission' }],
+    [fail('syntax error (-2741)'), { sent: false, reason: 'error' }],
+    [Object.assign(new Error('timed out'), { killed: true }), { sent: false, reason: 'error' }],
+  ]
+  for (const [input, want] of cases) assert.deepEqual(pressResult(input), want, String(input))
 })
