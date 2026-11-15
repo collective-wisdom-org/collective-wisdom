@@ -29,7 +29,7 @@ test('lists: Linear and Jira entries become items; entries without an id of the 
   assert.deepEqual(parsed([{ id: 'CW-1', title: 'first' }, { id: 'CW-1', title: 'again' }]).map((i) => i.title), ['first'])
 })
 
-test('lists: Todo before Backlog, an id in both stays in Todo, bad reads keep the last list, re-read every 10 seconds, nothing without a prefix', () => {
+test('lists: Todo before Backlog, an id in both stays in Todo, bad reads keep the last list, re-read every second, nothing without a prefix', () => {
   let clock = 0
   let reads = 0
   let text: string | undefined = JSON.stringify({ todo: { list: [{ id: 'CW-1', title: 'one' }] }, backlog: { list: [{ id: 'CW-1', title: 'dup' }, { id: 'CW-2', title: 'two' }] } })
@@ -41,21 +41,55 @@ test('lists: Todo before Backlog, an id in both stays in Todo, bad reads keep th
   assert.deepEqual(l.get().map((i) => [i.id, i.state]), [['CW-1', 'Todo'], ['CW-2', 'Backlog']])
 
   text = JSON.stringify({ todo: { list: [] } })
-  clock = 9_000
+  clock = 900
   l.want('CW')
   assert.equal(reads, 1)
-  clock = 10_000
+  clock = 1_000
   l.want('CW')
   const kept = [['CW-1', 'Backlog'], ['CW-2', 'Backlog']]
   assert.deepEqual(l.get().map((i) => [i.id, i.state]), kept, 'todo replaced; the missing backlog key keeps its last list')
 
   for (const bad of [undefined, 'not json', '[]', JSON.stringify({ todo: 5, backlog: { list: 'x' } })]) {
     text = bad
-    clock += 10_000
+    clock += 1_000
     l.want('CW')
     assert.deepEqual(l.get().map((i) => [i.id, i.state]), kept, String(bad))
   }
 
   l.want(null)
   assert.deepEqual(l.get(), [])
+})
+
+test('lists: the change stamp is read on every tracker; a bad file sets error() and keeps the lists, a missing file does not', () => {
+  let clock = 0
+  let text: string | undefined = JSON.stringify({ changed: 'a', todo: { list: [{ id: 'CW-1', title: 'one' }] } })
+  const github = createTrackerLists({ now: () => clock, read: () => text })
+  const linear = createTrackerLists({ now: () => clock, read: () => text })
+  const step = (t: string | undefined) => {
+    text = t
+    clock += 1_000
+    github.want('CW', false)
+    linear.want('CW')
+  }
+  step(text)
+  assert.deepEqual([github.changed(), linear.changed()], ['a', 'a'])
+  assert.deepEqual([github.get().length, linear.get().length, github.error(), linear.error()], [0, 1, null, null])
+
+  const table: [string | undefined, string | null, string | null][] = [
+    [JSON.stringify({ changed: 'b', todo: { list: [] } }), 'b', null],
+    ['not json', 'b', 'the file is not valid JSON'],
+    [JSON.stringify({ changed: 'c', todo: 5 }), 'c', 'todo is not a list'],
+    [JSON.stringify({ changed: 'd', backlog: { list: 'x' } }), 'd', 'backlog is not a list'],
+    ['[]', 'd', 'the file is not a JSON object'],
+    [undefined, 'd', null],
+    [JSON.stringify({ changed: 'e', todo: { list: [{ id: 'CW-2', title: 'two' }] } }), 'e', null],
+  ]
+  for (const [t, stamp, why] of table) {
+    step(t)
+    assert.equal(github.changed(), stamp, String(t))
+    assert.equal(github.error(), null, 'GitHub keeps no lists, so a bad file is not its error')
+    assert.equal(linear.changed(), stamp, String(t))
+    assert.equal(linear.error(), why === null ? null : `Could not read the saved Todo and Backlog lists: ${why}. Showing the last list read.`, String(t))
+  }
+  assert.deepEqual(linear.get().map((i) => i.id), ['CW-2'])
 })

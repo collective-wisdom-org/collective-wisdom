@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -76,21 +76,28 @@ test('group labels are plain words; an unknown name shows as it is; data-group k
   assert.match(html, /data-group="Queued to merge"[^>]*><summary><h3>Waiting to merge </)
 })
 
-test('the status sentence names the stage in plain words and ends with since HH:MM only when stageAt parses', () => {
-  const at = new Date(2026, 10, 14, 9, 5).toISOString()
+test('the status sentence names the stage in plain words with no time; a section stage draws no status line', () => {
   const cases = [
-    ['awaiting-merge', undefined, 'Waiting for your merge approval'],
-    ['awaiting-build', at, 'Spec is waiting for your approval'],
-    ['blocked', undefined, 'Blocked. Needs an answer from you'],
-    ['build', at, 'Building since 09:05'],
-    ['build', 'soon', 'Building'],
-    ['spec-queued', undefined, 'Waiting for a spec slot'],
-    ['some-new-stage', undefined, 'some new stage'],
+    ['awaiting-merge', 'Waiting for your merge approval'],
+    ['blocked', 'Blocked. Needs an answer from you'],
+    ['build', 'Building'],
+    ['spec-queued', 'Waiting for a spec slot'],
+    ['some-new-stage', 'some new stage'],
   ]
-  for (const [stage, stageAt, want] of cases) assert.equal(stageSentence(stage, stageAt), want, stage)
+  for (const [stage, want] of cases) assert.equal(stageSentence(stage), want, stage)
   const sentence = (r) => renderStatus(group([row(r)])).match(/<p class="status">([^<]*)</)?.[1]
-  assert.equal(sentence({ stageAt: at }), 'Building since 09:05')
+  assert.equal(sentence({ stage: 'build' }), undefined, 'the section already says it')
+  assert.equal(sentence({ stage: 'awaiting-merge' }), 'Waiting for your merge approval')
   assert.equal(sentence({ stage: '' }), undefined, 'no stage, no sentence')
+})
+
+test('no card or row shows since a time, in any group', () => {
+  const at = new Date(2026, 10, 14, 9, 5).toISOString()
+  const names = ['Awaiting merge approval', 'Awaiting build approval', 'Awaiting teammate review', 'Queued to merge', 'Speccing', 'Queued to build', 'Other', 'Todo', 'Building', 'Merging', 'Mystery']
+  for (const name of names) for (const stage of ['build', 'build-queued', 'awaiting-merge', 'blocked', 'mystery']) {
+    const html = renderStatus([{ name, count: 1, rows: [row({ stage, stageAt: at })] }])
+    assert.doesNotMatch(html, /since \d{1,2}:\d\d [ap]m/, `${name} ${stage}`)
+  }
 })
 
 test('risk shows the level word only, in its colour class; unreadable text shows as it is; empty shows nothing', () => {
@@ -158,8 +165,8 @@ test('gantt escapes text, formats tokens and cost in the row title, and marks ru
   const html = renderGantt([sess({ rows: [grow({ name: '<img onerror=x>', kind: 'task' }), grow({ id: 'b', kind: 'task', end: null, tokens: 950, cost: 0.42, model: 'opus-5-5', harness: 'T3 Code' })] })], T + 60000)
   assert.ok(!html.includes('<img'))
   assert.match(html, /&lt;img onerror=x&gt;/)
-  assert.match(html, /title="&lt;img onerror=x&gt;\nr · \d\d:\d\d to \d\d:\d\d · 12\.3k tokens\n\/x"/)
-  assert.match(html, /r · \d\d:\d\d, running · 950 tokens · opus-5-5 · T3 Code/)
+  assert.match(html, /title="&lt;img onerror=x&gt;\nr · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 12\.3k tokens\n\/x"/)
+  assert.match(html, /r · \d\d?:\d\d [ap]m, running · 950 tokens · opus-5-5 · T3 Code/)
   assert.match(html, /\$0\.42/)
   assert.match(html, /bar running/)
 })
@@ -252,8 +259,8 @@ test('each bar has an escaped tooltip with its own range, length and the row mod
   const html = renderGantt([sess({ rows: [task({ name: '<b>t</b>', model: 'opus-5-5', end: null, segments: [[T, T + MIN], [T + 5 * MIN, null]] })] })], T + 8 * MIN)
   const titles = [...html.matchAll(/class="bar[^"]*"[^>]*title="([^"]*)"/g)].map((m) => m[1])
   assert.equal(titles.length, 2)
-  assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d to \d\d:\d\d · 1m 00s · opus-5-5$/)
-  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d:\d\d, running · opus-5-5$/)
+  assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 1m 00s · opus-5-5$/)
+  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d?:\d\d [ap]m, running · opus-5-5$/)
 })
 
 test('the engine total shows as a note only when it differs from the row sum by a cent or more', () => {
@@ -313,9 +320,9 @@ test('each ticket has a closed Details section that lists what is known, escaped
     ['Cost', '$1.75'],
   ])
   assert.equal(got.length, 7)
-  assert.match(got[6][1], /^\d{4}-\d\d-\d\d \d\d:\d\d \(stale\)$/)
+  assert.match(got[6][1], /^\d{4}-\d\d-\d\d \d\d?:\d\d [ap]m \(stale\)$/)
   const links = section(html, 'CW-1').match(/<p class="info-links">([\s\S]*?)<\/p>/)[1]
-  assert.equal(links.replace(/<a href="([^"]*)"[^>]*>/g, '[$1]').replace(/<\/a>/g, ''), '[https://x.test/issues/1]Issue #1 \u00b7 [https://x.test/pull/2]PR #2 \u00b7 <code>t3-thread://v2/env/&lt;th&gt;</code>')
+  assert.equal(links, '<code>t3-thread://v2/env/&lt;th&gt;</code>')
   assert.ok(!section(html, 'CW-1').includes('<i>') && !section(html, 'CW-1').includes('<th>'))
 
   const none = section(html, 'CW-2')
@@ -395,23 +402,24 @@ test('hostile markdown comes out inert: no tag, no event attribute, no link that
   assert.match(renderMarkdown('[x](https://a.test/"onmouseover="alert(1))'), /href="https:\/\/a\.test\/&quot;onmouseover=&quot;alert\(1"/)
 })
 
-test('the meta line links the id and PR; the Spec link sits in Details and is left out without an http(s) url', () => {
-  const e = { id: 'CW-1', title: 't', issueUrl: 'https://x.test/issues/1', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
-  const queued = (specUrl) => renderStatus([{ name: 'Queued to build', count: 1, rows: [row({ ...e, specUrl })] }])
-  const renders = {
-    card: (specUrl) => renderStatus(group([row({ ...e, specUrl })])),
-    row: queued,
-    merged: (specUrl) => renderMerged([{ ...e, specUrl }], 0, 10, new Set(), new Set(['CW-1'])).html,
+test('every row starts with its ticket number; Spec and PR sit in the meta line only for http(s) urls; Details repeats none of them', () => {
+  const base = { id: 'CW-1', title: 't', issueUrl: 'https://x.test/issues/1', mergedAt: 0 }
+  const live = (name, r) => renderStatus([{ name, count: 1, rows: [row({ ...base, ...r })] }])
+  const renders = [(r) => live('Building', r), (r) => live('Queued to build', r), (r) => live('Other', { stage: 'blocked', ...r }), (r) => renderMerged([{ ...base, ...r }], 0, 10, new Set(), new Set(['CW-1'])).html]
+  const [spec, pr, bad] = ['https://x.test/blob/a.md', 'https://x.test/pull/1', 'javascript:alert(1)']
+  for (const [specUrl, prUrl, want] of [[spec, pr, ['Spec', 'PR']], [spec, undefined, ['Spec']], [undefined, pr, ['PR']], [bad, bad, []]]) {
+    for (const [i, render] of renders.entries()) {
+      const html = render({ specUrl, prUrl })
+      assert.match(html, /<div class="head"><span class="id"><a href="https:\/\/x\.test\/issues\/1"[^>]*>CW-1<\/a><\/span><span class="title">t<\/span>/, i)
+      assert.deepEqual([...html.match(/class="meta">([^]*?)<\/div>/)[1].matchAll(/<a [^>]*>([^<]*)<\/a>/g)].map((m) => m[1]), want, `${i} ${specUrl} ${prUrl}`)
+      for (const [, href] of html.matchAll(/href="([^"]*)"/g)) assert.match(href, /^https?:\/\//, i)
+      assert.doesNotMatch(html.match(/<p class="info-links">[^]*?<\/p>/)?.[0] ?? '', /<a /, i)
+    }
   }
-  const anchors = (html) => [...html.match(/class="meta">([\s\S]*?)(?:<details|<\/div>)/)[1].matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[2]}=${m[1]}`)
-  for (const [name, render] of Object.entries(renders)) {
-    assert.deepEqual(anchors(render('https://x.test/blob/a.md')), ['CW-1=https://x.test/issues/1', 'PR=https://x.test/pull/1'], name)
-    assert.match(render('https://x.test/blob/a.md'), /<p class="info-links">[^]*>Spec<\/a>/, name)
-    for (const bad of [undefined, 'javascript:alert(1)']) assert.doesNotMatch(render(bad), />Spec</, name)
-  }
+  assert.doesNotMatch(renders[0]({ title: '' }), /class="title"/)
 })
 
-test('a merged row has a closed Details section filled only when open; it shows the links line and the PR text', () => {
+test('a merged row has a closed Details section filled only when open; it shows the PR text and no links', () => {
   const e = { id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/9', issueUrl: 'https://x.test/issues/9', specUrl: 'https://x.test/blob/s.md', mergedAt: 0, detail: { kind: 'changes', sections: [{ name: 'Summary', text: 'Did **it**' }] } }
   const closed = renderMerged([e], 0).html
   assert.match(closed, /data-view="details" id="seg-merged-CW-9-details" aria-expanded="false"/)
@@ -419,7 +427,7 @@ test('a merged row has a closed Details section filled only when open; it shows 
   const open = renderMerged([e], 0, 10, new Set(), new Set(['CW-9'])).html
   assert.match(open, /data-view="details" id="seg-merged-CW-9-details" aria-expanded="true"/)
   assert.doesNotMatch(open, /id="pan-merged-CW-9-details"[^>]* hidden>/)
-  assert.match(open, /<p class="info-links">[^]*Issue #9[^]*Spec[^]*PR #9[^]*<\/p>/)
+  assert.doesNotMatch(open, /info-links/)
   assert.match(open, /<p>Did <strong>it<\/strong><\/p>/)
 })
 
@@ -457,7 +465,7 @@ test('merged list pages by ten, clamps the page, disables the pager ends and esc
   }
   const one = renderMerged(list.slice(0, 3), 0)
   assert.ok(!one.html.includes('pager'))
-  assert.match(one.html, /merged 2026-01-02 03:04/)
+  assert.match(one.html, /merged 2026-01-02 3:04 am/)
   assert.match(renderMerged([], 5).html, /Nothing merged yet/)
   const bad = renderMerged([{ id: '<b>', title: '<script>x</script>', prUrl: 'javascript:1', issueUrl: 'javascript:2', mergedAt: 0 }], 0).html
   assert.ok(!bad.includes('<script') && !bad.includes('<b>') && !bad.includes('href='))
@@ -484,7 +492,7 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
   assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
-  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="badge risk risk-low">Low<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
+  assert.match(queued, /<span class="meta"><span class="badge risk risk-low">Low<\/span><\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
@@ -498,7 +506,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
   const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
   const card = part('progress')
-  assert.match(card, /<span class="title">&lt;img src=x onerror=1&gt;<\/span>[\s\S]*<span class="id">Ticket helper<\/span>/)
+  assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
@@ -612,7 +620,7 @@ test('renderGantt ends with a CI wait row of the merged spans and leaves the Tot
   assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
   assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
   assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
-  assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d:\d\d to \d\d:\d\d"/)
+  assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m"/)
 })
 
 test('waitText counts up from stageAt, rounded down, two units at most', () => {
@@ -659,8 +667,8 @@ test('an awaiting card counts the wait instead of showing the status line; a bui
   const card = (r) => renderStatus(group([row({ next: long, ...r })]))
   for (const stage of ['awaiting-merge', 'awaiting-build', 'awaiting-review']) {
     const html = card({ stage, stageAt: at })
-    assert.match(html, /<p class="wait" data-ticket="CW-1"><time datetime="[^"]+" title="Since \d{4}-\d\d-\d\d \d\d:\d\d">waiting 3h 16m<\/time><\/p>/, stage)
-    assert.doesNotMatch(html, /<p class="next">|since \d\d:\d\d/, stage)
+    assert.match(html, /<p class="wait" data-ticket="CW-1"><time datetime="[^"]+" title="Since \d{4}-\d\d-\d\d \d\d?:\d\d [ap]m">waiting 3h 16m<\/time><\/p>/, stage)
+    assert.doesNotMatch(html, /<p class="next">|since \d\d?:\d\d [ap]m/, stage)
     assert.match(html, /<dt>Next<\/dt><dd>fathom-only/, stage)
   }
   const missing = card({ stage: 'awaiting-merge' })
@@ -669,4 +677,15 @@ test('an awaiting card counts the wait instead of showing the status line; a bui
   const build = card({ stageAt: at })
   assert.match(build, /<p class="next">fathom-only[^<]*<\/p>/)
   assert.doesNotMatch(build, /class="wait"/)
+})
+
+test('clock: local 12-hour time with am/pm', () => {
+  const cases = [
+    [0, 0, '12:00 am'],
+    [0, 30, '12:30 am'],
+    [9, 5, '9:05 am'],
+    [12, 0, '12:00 pm'],
+    [23, 59, '11:59 pm'],
+  ]
+  for (const [h, m, want] of cases) assert.equal(clock(new Date(2026, 0, 2, h, m).getTime()), want)
 })

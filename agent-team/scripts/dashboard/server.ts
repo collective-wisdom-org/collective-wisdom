@@ -319,6 +319,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   }, 24 * 3600 * 1000)
   backupTimer.unref()
   let restartError: string | null = null
+  let trackerError: string | null = null
 
   const api = (mergedPage: number) => {
     readState()
@@ -375,10 +376,12 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     details.want(wants, mergedCfg)
     ci.want(ciWants, mergedCfg && required ? { slug: mergedCfg.slug, required } : null)
     updated.want(titleCfg)
-    backlog.want(titleCfg)
     // Linear and Jira are not reachable from here; the Chief of Staff saves their Todo and Backlog lists in a file.
+    // The file's change stamp is read on every tracker: on GitHub a new one reads the issues again now.
     const fromFile = repo !== null && !repo.isGithubIssues && prefix !== null
-    trackerLists.want(fromFile ? prefix : null)
+    trackerLists.want(prefix, fromFile)
+    backlog.want(titleCfg, trackerLists.changed())
+    trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
     return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, heads, merged: mergedAll, updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
@@ -397,7 +400,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     if (req.method !== 'GET') return send(405, 'method not allowed')
     try {
       if (path === '/health') return send(200, JSON.stringify({ ok: true, root, code: running, pid: process.pid }), 'application/json')
-      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')), restartError, theme }), 'application/json')
+      if (path === '/api') return send(200, JSON.stringify({ ...api(mergedPageOf(req.url ?? '/')), version: pageVersion(join(import.meta.dirname, 'page')), restartError, trackerError, theme }), 'application/json')
       const page = Object.hasOwn(PAGES, path) ? PAGES[path] : undefined
       if (page) {
         try {

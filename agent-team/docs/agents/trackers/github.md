@@ -181,7 +181,24 @@ List first, create only what is missing. Safe to re-run. Delete a label with `~/
 ~/.collective-wisdom/scripts/gh.sh label create <name> --color <hex> --description '<fixed text>'
 ```
 
-Names: `status:todo`, `status:in-progress`, `status:in-review`, `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`, `type:feature`, `type:improvement`, `type:bug`, `agent`, `agent-skip`, plus the area labels in `project.md`.
+| Name | Color | Description |
+|---|---|---|
+| `status:todo` | `ededed` | Team ticket state: Todo |
+| `status:in-progress` | `fbca04` | Team ticket state: In Progress |
+| `status:in-review` | `0e8a16` | Team ticket state: In Review |
+| `priority:urgent` | `b60205` | Priority: Urgent |
+| `priority:high` | `d93f0b` | Priority: High |
+| `priority:medium` | `fbca04` | Priority: Medium |
+| `priority:low` | `c2e0c6` | Priority: Low |
+| `type:feature` | `1d76db` | Type: Feature |
+| `type:improvement` | `5319e7` | Type: Improvement |
+| `type:bug` | `d73a4a` | Type: Bug |
+| `agent` | `0052cc` | Worked by the agent team |
+| `agent-skip` | `cccccc` | Agent team skips this ticket |
+
+A ticket with no `status:` label is in Backlog; there is no `status:backlog`.
+
+Create each missing label with the line above and the row's values. Area labels from `project.md` take `--description 'Area: <name>'` and no `--color`. An existing label is left as it is, whatever its color or description.
 
 ## Setup
 

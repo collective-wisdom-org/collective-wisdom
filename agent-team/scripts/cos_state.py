@@ -54,6 +54,8 @@ chiefProvider ({"threadId", "provider"}, both plain strings) is the provider (T3
 thread that recorded it; the top op sets it. The ticket field provider (a string, or null) is the provider of the ticket's
 child thread, set from a thread read. cos_tick.py compares them to flag a child on another harness.
 
+ganttPluginVersion is the agent-gantt version this Chief of Staff session runs: a string of dot-separated integers (0.1.12), or null.
+
 reset is null, or the marker of a session reset in flight: {"id" (8 hex chars), "startedAt" (a time with a zone), "reason" (a
 non-empty string), optional "mode" (reset, reset-scheduled or compact)}. lastResetAt is a time with a zone, or null. The top op
 rejects any other shape.
@@ -79,12 +81,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from clock12 import clock12  # noqa: E402
 import project_config  # noqa: E402
 
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
-    "reset", "takeover", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
+    "ganttPluginVersion", "reset", "takeover", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
     "merged", "tickets", "pm", "observed", "noHands", "chiefProvider",
 }
 TICKET = {
@@ -350,6 +353,9 @@ def op_top(s, op):
     sha = op["set"].get("skillCommit")
     if "skillCommit" in op["set"] and sha is not None and not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}", sha)):
         raise Reject("skillCommit needs the full 40-character sha from cos_rotation_check.py --skill-commit, or null")
+    ver = op["set"].get("ganttPluginVersion")
+    if ver is not None and not (isinstance(ver, str) and re.fullmatch(r"\d+(\.\d+)*", ver)):
+        raise Reject("ganttPluginVersion needs dot-separated integers like 0.1.12, or null")
     s.update(op["set"])
     for old in ("rotation", "rotationHeldUntil"):  # keys of the thread rotation this replaced
         s.pop(old, None)
@@ -563,11 +569,11 @@ def apply_file(path, ops):
 
 
 def t(s):
-    """HH:MM for a time on today's UTC date, the full string otherwise, - for none."""
+    """H:MMam/pm for a time on today's UTC date (no space: show prints key=value pairs), the full string otherwise, - for none."""
     if not s:
         return "-"
     d = parse(s)
-    return d.astimezone(timezone.utc).strftime("%H:%M") if d and d.date() == datetime.now(timezone.utc).date() else s
+    return clock12(d.astimezone(timezone.utc)).replace(" ", "") if d and d.date() == datetime.now(timezone.utc).date() else s
 
 
 def v(x):

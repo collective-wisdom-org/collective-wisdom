@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from clock12 import clock12  # noqa: E402
 import project_config  # noqa: E402
 
 NOTES = root() / "docs" / "superpowers" / "release-notes"
@@ -99,7 +100,7 @@ def stamp(text, at, headed):
     if not at:
         return text
     head, _, rest = text.partition("\n") if headed else ("", "", text)
-    return "\n\n".join(filter(None, [head, f"Merged {at:%Y-%m-%d %H:%M} UTC.", rest.strip()]))
+    return "\n\n".join(filter(None, [head, f"Merged {at:%Y-%m-%d} {clock12(at)} UTC.", rest.strip()]))
 
 
 def render(files, prs, merged=None):

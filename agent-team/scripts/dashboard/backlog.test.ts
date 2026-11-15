@@ -84,3 +84,57 @@ test('backlog: priority comes from the highest known priority: label, createdAt 
   await b.idle()
   assert.deepEqual(b.get().map((i) => [i.priority, i.createdAt]), cases.map(([, , , priority, at]) => [priority, at]))
 })
+
+test('backlog: a new change stamp reads at once, one more read after a running one, a failed read sets error() until a good one', async () => {
+  let clock = 0
+  let reads = 0
+  let fail: unknown = null
+  let gate: Promise<void> | null = null
+  const b = createBacklog({ now: () => clock, run: async (args) => {
+    if (args[0] !== 'issue') return 'write'
+    reads++
+    await gate
+    if (fail) throw fail
+    return JSON.stringify([issue(reads, 'ann')])
+  } })
+
+  b.want(CFG, null)
+  await b.idle()
+  assert.equal(reads, 1)
+  b.want(CFG, 'a')
+  await b.idle()
+  assert.equal(reads, 2, 'the first stamp, after none, reads at once')
+  for (const same of ['a', 'a', null]) { b.want(CFG, same); await b.idle() }
+  assert.equal(reads, 2, 'the same stamp, or none, reads nothing inside the minute')
+  b.want(CFG, 'b')
+  await b.idle()
+  assert.equal(reads, 3, 'a new stamp reads at once')
+
+  let open!: () => void
+  gate = new Promise((r) => (open = r))
+  b.want(CFG, 'c')
+  b.want(CFG, 'd')
+  b.want(CFG, 'e')
+  gate = null
+  open()
+  await b.idle()
+  assert.equal(reads, 5, 'stamps during a read cost exactly one more read')
+  assert.deepEqual(b.get().map((i) => i.id), ['CW-5'])
+
+  fail = new Error('Command failed: /Users/x/gh.sh issue list --repo a/b\nHTTP 502\nsecond line')
+  b.want(CFG, 'f')
+  await b.idle()
+  assert.equal(b.error(), 'Could not read Todo and Backlog from GitHub: HTTP 502. Showing the last list read.')
+  assert.deepEqual(b.get().map((i) => i.id), ['CW-5'])
+  fail = new Error(`\x1b[31m${'x'.repeat(200)}`)
+  b.want(CFG, 'g')
+  await b.idle()
+  assert.equal(b.error(), `Could not read Todo and Backlog from GitHub: [31m${'x'.repeat(116)}. Showing the last list read.`)
+  fail = null
+  clock = 61_000
+  b.want(CFG)
+  await b.idle()
+  assert.equal(b.error(), null)
+  b.want(null)
+  assert.equal(b.error(), null)
+})

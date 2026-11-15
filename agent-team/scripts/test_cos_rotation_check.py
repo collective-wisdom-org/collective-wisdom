@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from test_agent_usage import context_store
 
 SPEC = importlib.util.spec_from_file_location(
     "cos_rotation_check", Path(__file__).with_name("cos_rotation_check.py")
@@ -28,6 +29,8 @@ CLAUDE = {"threadId": "T1", "provider": "claudeAgent"}
 QUEUED = {"tickets": {"CW-10": {"stage": "spec-queued"}, "CW-9": {"stage": "build-queued"}, "CW-8": {"stage": "build"}}}
 WAITS = "ok (skill change waits: "
 INVALID = "ok; skillCommit is not a full sha; set skillCommit"
+GANTT = {"ganttPluginVersion": "0.1.12", "plugin": "0.1.13"}  # state's version, and the clone's (plugin) passed to decide
+PLUGIN_WAITS = "ok (plugin change waits: "
 
 
 @pytest.mark.parametrize("cap", [220_000, 250_000])
@@ -70,14 +73,35 @@ INVALID = "ok; skillCommit is not a full sha; set skillCommit"
         # size ignores quiet; the size-off note comes ahead of the waits line
         ({"lastRelayAt": ago(1), **QUEUED}, 0, NEW, "main", "rotate: size"),
         ({"lastRelayAt": ago(1), "tk": ("T1", 10_000)}, 10_000, NEW, "main", "ok (size trigger off"),
+        # the clone's agent-gantt version differs from state's: the skill-change rules, on the merge target branch only
+        (GANTT, -50_000, OLD, "main", "rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode reset"),
+        (GANTT, -50_000, OLD, "feat/x", "ok context="),
+        ({**GANTT, **QUEUED}, 0, OLD, "main", "rotate: size"),  # a waiting plugin change does not hold back the size trigger
+        ({**GANTT, **QUEUED}, -50_000, OLD, "main", PLUGIN_WAITS + "queued CW-9)"),
+        ({**GANTT, "lastRelayAt": ago(5)}, -50_000, OLD, "main", PLUGIN_WAITS + "relay 5m ago)"),
+        ({**GANTT, "lastResetAt": ago(61)}, -50_000, OLD, "main", "rotate: agent-gantt plugin"),
+        # a skill change on the same turn wins the line, quiet or not
+        (GANTT, -50_000, NEW, "main", "rotate: skill changed"),
+        ({**GANTT, **QUEUED}, -50_000, NEW, "main", WAITS + "queued CW-9)"),
+        # off: same version, null or unreadable stored version, clone version unreadable
+        ({**GANTT, "plugin": "0.1.12"}, -50_000, OLD, "main", "ok context="),
+        ({**GANTT, "ganttPluginVersion": None}, -50_000, OLD, "main", "ok context="),
+        ({**GANTT, "ganttPluginVersion": "v1"}, -50_000, OLD, "main", "ok context="),
+        ({**GANTT, "plugin": None}, -50_000, OLD, "main", "ok context="),
+        ({"plugin": "0.1.13"}, -50_000, OLD, "main", "ok context="),
+        # the stored version is newer than the clone's (a pull behind, a rollback): no rotation; an older stored one rotates
+        ({**GANTT, "ganttPluginVersion": "0.1.14"}, -50_000, OLD, "main", "ok context="),
+        ({**GANTT, "ganttPluginVersion": "0.1.9"}, -50_000, OLD, "main", "rotate: agent-gantt plugin 0.1.9 -> 0.1.13; mode reset"),
+        ({**GANTT, "ganttPluginVersion": "0.2"}, -50_000, OLD, "main", "ok context="),  # compared as numbers, not text
     ],
 )
 def test_decide(cap, state, context_over_cap_by, commit, branch, want):
     state = {"skillCommit": OLD, "chiefThreadId": "T1", "chiefProvider": CLAUDE, **state}
+    plugin = state.pop("plugin", None)
     if "tk" in state:  # takeoverContext as (thread, tokens over the cap)
         thread, over = state.pop("tk")
         state["takeoverContext"] = {"threadId": thread, "tokens": cap + over}
-    line = crc.decide(state, cap + context_over_cap_by, NOW, commit, branch, cap)
+    line = crc.decide(state, cap + context_over_cap_by, NOW, commit, branch, cap, plugin)
     assert line.startswith(want)
 
 
@@ -97,6 +121,9 @@ def test_decide(cap, state, context_over_cap_by, commit, branch, want):
         (None, {}, 231_000, OLD, "ok (no reset on unknown; context=231k)"),
         ("bad\nname", {}, 231_000, OLD, "ok (no reset on unknown; context=231k)"),
         ("claudeAgent", {}, None, OLD, "ok (size unknown on Cursor)"),
+        # the plugin change rotates in every reset mode but none
+        ("p-compact", GANTT, 40_000, OLD, "rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode compact"),
+        ("codex", GANTT, 40_000, OLD, "ok (no reset on codex; context=40k)"),
     ],
 )
 def test_line_by_reset_mode(monkeypatch, provider, state, context, commit, want):
@@ -104,10 +131,31 @@ def test_line_by_reset_mode(monkeypatch, provider, state, context, commit, want)
     monkeypatch.setitem(crc.RESET_MODES, "p-compact", "compact")
     cp = {"chiefProvider": {"threadId": "T1", "provider": provider}} if provider else {}
     state = {"skillCommit": OLD, **cp, **state}
-    assert crc.decide(state, context, NOW, commit, "main") == want
+    plugin = state.pop("plugin", None)
+    assert crc.decide(state, context, NOW, commit, "main", plugin=plugin) == want
 
 
-def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, readable=True, commit=OLD):
+@pytest.mark.parametrize("text, want", [
+    ('{"version": "0.1.13"}', "0.1.13"),
+    ('{"version": "1.0"}', "1.0"),
+    ('{"version": "0.2.0-beta"}', None),
+    ('{"version": 3}', None),
+    ('{"name": "agent-gantt"}', None),
+    ("[]", None),
+    ("not json", None),
+    (None, None),  # no file
+])
+def test_plugin_version_is_a_file_read_of_the_clones_mod(monkeypatch, tmp_path, text, want):
+    monkeypatch.setattr(crc, "TEAM", tmp_path / "agent-team")
+    if text is not None:
+        manifest = tmp_path / crc.PLUGIN_JSON
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(text)
+    monkeypatch.setattr(crc.subprocess, "run", lambda *a, **k: pytest.fail("the rotation check never runs claude or git here"))
+    assert crc.plugin_version() == want
+
+
+def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, readable=True, commit=OLD, real_store=False):
     path = tmp_path / "state.json"
     if state is not None:
         path.write_text(json.dumps(state))
@@ -115,12 +163,13 @@ def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, rea
     monkeypatch.setenv("HOME", str(tmp_path / "home"))  # no machine copy unless a test adds one
     monkeypatch.setattr(sys, "stdin", io.StringIO(hook_in if isinstance(hook_in, str) else json.dumps(hook_in)))
 
-    def read_context(sid=None):
+    def read_context(sid=None, cursor=False):
         if not readable:
             raise crc.Unreadable("context")
         return context, datetime.now(timezone.utc) - timedelta(hours=1)
 
-    monkeypatch.setattr(crc, "read_context", read_context)
+    if not real_store:
+        monkeypatch.setattr(crc, "read_context", read_context)
     monkeypatch.setattr(crc, "skill_commit", lambda: commit)
     monkeypatch.setattr(crc, "branch", lambda: "main")
     assert crc.main(["--hook"]) == 0
@@ -162,7 +211,7 @@ CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "complet
     [
         (CURSOR, {"commit": NEW}, True, CLAUDE),  # a provider with a reset mode
         (CURSOR, {"commit": NEW}, False, {"provider": "cursor"}),  # no reset on this provider: silent
-        (CURSOR, {}, False, CLAUDE),  # context is 230k, over the cap, but Cursor has no size trigger
+        (CURSOR, {"readable": False}, False, {"provider": "cursor"}),  # ... even over a store it cannot read
         ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, False, CLAUDE),
         ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, True, CLAUDE),  # T3 Code names the folder agent-<id>
         ({**CURSOR, "loop_count": 1}, {"commit": NEW}, False, CLAUDE),
@@ -175,26 +224,44 @@ def test_hook_on_cursor_answers_with_a_followup_only_for_the_chief_once(monkeypa
     assert (list(json.loads(out)) == ["followup_message"] and "rotate: skill changed" in out) if followup else out == ""
 
 
-@pytest.mark.parametrize("ages, want_id, want_line", [
-    ({"C1": 1, "C2": 0.5, "C3": 10}, "C2", "ok (size unknown on Cursor)"),  # the newest fresh one is the Chief's
-    ({"C1": 10}, None, "rotation-check: cannot read context"),  # only stale ones: not Cursor
+def test_hook_on_cursor_reads_the_size_from_the_run_store(monkeypatch, capsys, tmp_path):
+    context_store(tmp_path / "cur" / "proj", "agent-C1", [(1, {"inputTokens": 230_000}, [])])
+    monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(tmp_path / "cur"))
+    monkeypatch.setitem(crc.RESET_MODES, "cursor", "reset")
+    out = run_hook(monkeypatch, capsys, tmp_path, CURSOR, {**STATE, "chiefSessionId": "C1", "chiefProvider": {"provider": "cursor"}}, real_store=True)
+    assert "rotate: size 230k >= 220k; mode reset" in json.loads(out)["followup_message"]
+
+
+USAGE = [(1, {"inputTokens": 230_000}, [])]
+SIZE_RESET = "rotate: size 230k >= 220k; mode reset"
+
+
+@pytest.mark.parametrize("ages, turns, provider, want_id, want_line", [
+    ({"C1": 1, "C2": 0.5, "C3": 10}, USAGE, "cursor", "C2", "ok (no reset on cursor; context=230k)"),  # the newest fresh one is the Chief's
+    ({"C2": 1}, USAGE, "p-reset", "C2", SIZE_RESET),
+    ({"C2": 1}, [(1, None, [])], "p-reset", "C2", "ok (size unknown on Cursor)"),  # no usage yet
+    ({"C2": 1}, None, "p-reset", "C2", "rotation-check: cannot read context"),  # no store has the conversation
+    ({"C1": 10}, USAGE, "p-reset", None, "rotation-check: cannot read context"),  # only stale ones: not Cursor
 ])
-def test_plain_on_cursor_saves_the_conversation_id_with_the_size_trigger_off(monkeypatch, capsys, tmp_path, ages, want_id, want_line):
+def test_plain_on_cursor_saves_the_conversation_id_and_reads_the_size(monkeypatch, capsys, tmp_path, ages, turns, provider, want_id, want_line):
     app, cursor, path = tmp_path / "my_app.x", tmp_path / "cursor", tmp_path / "state.json"
+    slug = str(app).replace("/", "-").replace("_", "-").replace(".", "-").strip("-")
+    if turns:
+        context_store(cursor / slug, "agent-C2", turns)
+    monkeypatch.setitem(crc.RESET_MODES, "p-reset", "reset")
     for cid, minutes in ages.items():
-        f = cursor / (str(app).replace("/", "-").replace("_", "-").replace(".", "-").strip("-")) / "agent-transcripts" / cid / f"{cid}.jsonl"
+        f = cursor / slug / "agent-transcripts" / cid / f"{cid}.jsonl"
         f.parent.mkdir(parents=True)
         f.write_text("{}\n")
         os.utime(f, (time.time() - minutes * 60,) * 2)
-    path.write_text(json.dumps({"chiefThreadId": "T1", "skillCommit": OLD, "chiefProvider": CLAUDE}))
+    path.write_text(json.dumps({"chiefThreadId": "T1", "skillCommit": OLD, "chiefProvider": {"provider": provider}}))
     monkeypatch.setattr(crc, "ROOT", app)
     monkeypatch.setenv("COS_STATE_FILE", str(path))
     monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(cursor))
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
-    monkeypatch.setattr(crc, "read_context", lambda sid=None: (_ for _ in ()).throw(crc.Unreadable("context")))
     monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
     monkeypatch.setattr(crc, "branch", lambda: "main")
-    assert crc.main([]) == (0 if want_id else 2)
+    assert crc.main([]) == (2 if "cannot read" in want_line else 0)
     assert capsys.readouterr().out.strip() == want_line
     assert json.loads(path.read_text()).get("chiefSessionId") == want_id
 
@@ -208,14 +275,14 @@ def test_plain_saves_session_and_takeover(monkeypatch, capsys, tmp_path, context
     path.write_text(json.dumps({"chiefThreadId": "T1", "chiefSessionId": "old", "skillCommit": OLD, "tickets": {}, "chiefProvider": CLAUDE}))
     monkeypatch.setenv("COS_STATE_FILE", str(path))
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "S9")
-    monkeypatch.setattr(crc, "read_context", lambda sid=None: (context, datetime.now(timezone.utc) - timedelta(hours=1)))
+    monkeypatch.setattr(crc, "read_context", lambda sid=None, cursor=False: (context, datetime.now(timezone.utc) - timedelta(hours=1)))
     monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
     monkeypatch.setattr(crc, "branch", lambda: "main")
     assert crc.main(["--record-takeover"] if record else []) == 0
     assert capsys.readouterr().out.strip() == want_line
     saved = json.loads(path.read_text())
     assert saved["chiefSessionId"] == "S9" and saved.get("takeoverContext") == want_tk
-    monkeypatch.setattr(crc, "read_context", lambda sid=None: (_ for _ in ()).throw(crc.Unreadable("context")))
+    monkeypatch.setattr(crc, "read_context", lambda sid=None, cursor=False: (_ for _ in ()).throw(crc.Unreadable("context")))
     assert crc.main([]) == 2
     assert capsys.readouterr().out.strip() == "rotation-check: cannot read context"
 
@@ -293,7 +360,7 @@ def test_skill_commit_follows_the_clone_not_the_app(tmp_path):
     run = _repo(clone)
     scripts = clone / "agent-team" / "scripts"
     scripts.mkdir()
-    for f in ("cos_rotation_check.py", "app_root.py", "project_config.py"):
+    for f in ("cos_rotation_check.py", "app_root.py", "project_config.py", "gantt_plugin.py"):
         (scripts / f).write_text((Path(__file__).with_name(f)).read_text())
     run("add", "-A")
     run("commit", "-qm", "one")
