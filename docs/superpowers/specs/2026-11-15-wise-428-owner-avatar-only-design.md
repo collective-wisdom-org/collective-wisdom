@@ -1,7 +1,8 @@
 # WISE-428: Show only the owner avatar on dashboard cards, pinned to the right edge
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#428](https://github.com/collective-wisdom-org/collective-wisdom/issues/428)
+**Shipped:** in PR #432, as specified
 
 ## Goal
 
