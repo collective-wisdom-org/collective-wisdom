@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 paginate the dashboard Backlog (CW-349) (#374)
+
+Merged 2026-11-15 4:15 am UTC.
+
+The Backlog section of the dashboard now pages through every Backlog ticket, 10 at a time, instead of showing only the top 3. Nothing to do.
+
 ## 2026-11-15 put the ticket number first and spec and PR links on every dashboard row (CW-354) (#372)
 
 Merged 2026-11-15 3:54 am UTC.
