@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 copy thread link next to ticket number, avatar column, View PR and View spec (WISE-436) (#446)
+
+Merged 2026-11-15 6:53 pm UTC.
+
+On the dashboard, a ticket card's copy thread link button now sits right after the ticket number, long titles wrap before the owner avatar, and the `Open PR` and `Open spec` links are now `View PR` and `View spec`.
+
 ## 2026-11-15 Writing tickets on the Backlog tab, titled by the ticket (WISE-430) (#437)
 
 Merged 2026-11-15 6:44 pm UTC.
