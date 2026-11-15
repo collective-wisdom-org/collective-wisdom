@@ -29,6 +29,24 @@ test('tracker titles: cached, prefix-guarded, cleaned, failures retried after 5 
   t.want(['CW-5'], CFG)
   await t.idle()
   assert.equal(calls.length, 3)
+
+  // Refresh: a good read is read again after 60s and replaces the title; a failed re-read keeps it and waits 5 minutes.
+  const steps: [number, string | Error, number, string][] = [
+    [301_000, 'old', 4, 'old'],
+    [360_000, 'new', 4, 'old'],
+    [361_000, 'new', 5, 'new'],
+    [421_000, new Error('boom'), 6, 'new'],
+    [720_000, 'newer', 6, 'new'],
+    [722_000, 'newer', 7, 'newer'],
+  ]
+  for (const [at, next, calledWith, title] of steps) {
+    clock = at
+    reply = next
+    t.want(['CW-6'], CFG)
+    await t.idle()
+    assert.equal(calls.length, calledWith, `calls at ${at}`)
+    assert.equal(t.get()['CW-6'], title, `title at ${at}`)
+  }
 })
 
 test('headsFromProject: a plain head, a brace list in row order, and feat/ when the row is missing or does not parse', () => {
