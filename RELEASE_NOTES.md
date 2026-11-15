@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 send the Chief of Staff back to read a child that finished mid-turn (WISE-435) (#449)
+
+Merged 2026-11-15 6:53 pm UTC.
+
+The Chief of Staff now reads a child that finished or asked a question while it was busy, before its turn ends, so you no longer need to point out a ready ticket. Nothing to do.
+
 ## 2026-11-15 copy thread link next to ticket number, avatar column, View PR and View spec (WISE-436) (#446)
 
 Merged 2026-11-15 6:53 pm UTC.
