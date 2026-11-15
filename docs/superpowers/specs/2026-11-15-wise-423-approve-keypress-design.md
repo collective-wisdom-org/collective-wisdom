@@ -1,6 +1,7 @@
 # WISE-423: Send the Approve command from the dashboard with a Return keypress to T3 Code
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #425, as specified
 **Ticket:** [#423](https://github.com/collective-wisdom-org/collective-wisdom/issues/423)
 
 ## Goal
