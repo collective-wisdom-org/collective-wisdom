@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show the PR link on the card as soon as the PR opens (CW-394) (#409)
+
+Merged 2026-11-15 7:32 am UTC.
+
+A dashboard card now shows its PR link as soon as the build opens the PR, instead of waiting for MERGE READY. Nothing to do.
+
 ## 2026-11-15 move the dashboard Backlog to its own tab and add a spec queue (CW-387) (#407)
 
 Merged 2026-11-15 7:27 am UTC.
