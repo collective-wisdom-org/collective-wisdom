@@ -1,10 +1,10 @@
-import { idForNumber } from './titles.ts'
+import { idForNumber, loginOf } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
 type Run = (args: string[]) => Promise<string>
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const
 export type Priority = (typeof PRIORITIES)[number]
-export type BacklogItem = { id: string; title: string; state: 'Todo' | 'Backlog'; priority: Priority | null; createdAt: number | null; readAt?: number }
+export type BacklogItem = { id: string; title: string; state: 'Todo' | 'Backlog'; priority: Priority | null; createdAt: number | null; owner?: string; readAt?: number }
 
 const REFRESH_MS = 60_000
 const RETRY_MS = 5 * 60 * 1000
@@ -61,7 +61,8 @@ export function createBacklog(opts: { run: Run; now?: () => number }) {
         const created = typeof createdAt === 'string' ? Date.parse(createdAt) : NaN
         const login = author?.login
         if (!state || typeof login !== 'string' || !LOGIN.test(login) || !(await isTeam(login, c.slug))) continue
-        next.push({ id: idForNumber(number, c.prefix, c.retired), title: (typeof title === 'string' ? title : '').replace(BAD, ' ').trim().slice(0, 200), state, priority, createdAt: Number.isNaN(created) ? null : created })
+        const owner = loginOf(login)
+        next.push({ id: idForNumber(number, c.prefix, c.retired), title: (typeof title === 'string' ? title : '').replace(BAD, ' ').trim().slice(0, 200), state, priority, createdAt: Number.isNaN(created) ? null : created, ...(owner ? { owner } : {}) })
       }
       items = next
       error = null

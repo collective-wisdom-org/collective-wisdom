@@ -15,6 +15,7 @@ import { createBacklog } from './backlog.ts'
 import { createTrackerLists } from './lists.ts'
 import { createMerged } from './merged.ts'
 import { createOpenPrs } from './open.ts'
+import { createViewer } from './viewer.ts'
 import { createDetails, gitRunner } from './details.ts'
 import { createCi, requiredFromProject } from './ci.ts'
 import type { CiWant } from './ci.ts'
@@ -203,7 +204,7 @@ export function mergedPageOf(url: string): number {
   }
 }
 
-export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null> }): Promise<{ port: number; close(): Promise<void> }> {
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; gh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -212,6 +213,8 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
   const openPrs = createOpenPrs({ run: ghRunner(root) })
+  const viewer = createViewer({ run: opts.gh ?? ghRunner(root) })
+  viewer.want()
   const updated = createUpdated({ run: ghRunner(root) })
   const backlog = createBacklog({ run: ghRunner(root) })
   const trackerLists = createTrackerLists({ read: () => readRegular(join(agentDir, 'tracker-lists.json'), [agentDir]) })
@@ -358,6 +361,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const wants: DetailWant[] = []
     merged.want(mergedCfg)
     openPrs.want(mergedCfg)
+    viewer.want()
     const mergedAll = merged.get()
     const mergedPrs = new Set(mergedAll.map((e) => `${e.id}#${e.number}`))
     const ganttIds = historyByTicket(history)
@@ -385,13 +389,13 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     backlog.want(titleCfg, trackerLists.changed())
     trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), openOwners: openPrs.owners(), issueOwners: trackerTitles.owners(), viewer: viewer.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
     const send = (status: number, body: string, type = 'text/plain; charset=utf-8') => {
       const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
-      if (path === '/') headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'"
+      if (path === '/') headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://avatars.githubusercontent.com"
       res.writeHead(status, headers)
       res.end(body)
     }

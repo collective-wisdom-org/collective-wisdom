@@ -10,6 +10,13 @@ const RETRY_MS = 5 * 60 * 1000
 const REFRESH_MS = 60_000
 const BAD = /[\x00-\x1f\x7f-\x9f\u2028\u2029]+/g
 
+const LOGIN_RULE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/
+
+/** A GitHub login, or undefined for anything else (a missing author, a bot shown as `app/name`). */
+export function loginOf(x: unknown): string | undefined {
+  return typeof x === 'string' && LOGIN_RULE.test(x) ? x : undefined
+}
+
 export function prefixFromProject(markdown: string): string | null {
   const m = markdown.match(/^\|\s*Issue identifier prefix\b[^|]*\|\s*`([A-Za-z][A-Za-z0-9]*)`/m)
   return m ? m[1] : null
@@ -68,10 +75,11 @@ export function ghRunner(root: string): Run {
     })
 }
 
-/** Titles read from the tracker for open tickets, read again once a minute. A failed read keeps the last good title. Reads run one at a time in the background. */
+/** Titles and issue authors read from the tracker for open tickets, read again once a minute. A failed read keeps the last good title and author. Reads run one at a time in the background. */
 export function createTitles(opts: { run: Run; now?: () => number }) {
   const now = opts.now ?? Date.now
   const titles = new Map<string, string>()
+  const owners = new Map<string, string>()
   const readAt = new Map<string, number>()
   const failedAt = new Map<string, number>()
   const queue: { id: string; cfg: TitleConfig }[] = []
@@ -82,10 +90,13 @@ export function createTitles(opts: { run: Run; now?: () => number }) {
     for (let job = queue.shift(); job; job = queue.shift()) {
       try {
         const n = job.id.slice(job.id.indexOf('-') + 1)
-        const out = await opts.run(['issue', 'view', n, '--repo', job.cfg.slug, '--json', 'title', '--jq', '.title'])
-        const title = out.replace(BAD, ' ').trim().slice(0, 200)
+        const issue = JSON.parse(await opts.run(['issue', 'view', n, '--repo', job.cfg.slug, '--json', 'title,author'])) as { title?: unknown; author?: { login?: unknown } | null }
+        const title = (typeof issue.title === 'string' ? issue.title : '').replace(BAD, ' ').trim().slice(0, 200)
         if (title) {
           titles.set(job.id, title)
+          const owner = loginOf(issue.author?.login)
+          if (owner) owners.set(job.id, owner)
+          else owners.delete(job.id)
           readAt.set(job.id, now())
           failedAt.delete(job.id)
         } else failedAt.set(job.id, now())
@@ -111,6 +122,7 @@ export function createTitles(opts: { run: Run; now?: () => number }) {
       if (queue.length && !draining) draining = drain()
     },
     get: (): Record<string, string> => Object.fromEntries(titles),
+    owners: (): Record<string, string> => Object.fromEntries(owners),
     idle: async () => {
       while (draining) await draining
     },
