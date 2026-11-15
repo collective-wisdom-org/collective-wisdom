@@ -13,7 +13,7 @@ Written after the fact: the sweep was a hand run asked for by the user, and this
 
 ## Today
 
-Facts from `main` at `3157d1e`.
+Facts from `main` at `3157d1e`, read again at `5e0d044` after four more merges.
 
 - The doc was last edited by CW-341 (#361) on 2026-11-14. 36 PRs merged after it without touching it.
 - Cells that no longer match the code: the Cursor cells of Ticket helper in the gantt (CW-288 made the hook write `ticket` and `request`, and G21 still said it did not), Ship loop child threads (since CW-280 a Cursor Chief of Staff starts Cursor children, so the 2026-11-09 run with Claude Code children no longer backs the cell) and Context reset (CW-341 reads the size, CW-353 makes the hook send back an unfinished take over). In Matrix 2, the dashboard links row and G15 (CW-334 built Linear and Jira links) and the Todo and Backlog list row and G22 (CW-347, CW-355 and WISE-431 added save points).
@@ -37,7 +37,7 @@ Docs only: `docs/compatibility.md`.
 - **The Cursor Ship loop child threads cell goes from `partial` to `untested`.** It was `partial` because a Cursor Chief of Staff drove Claude Code children to merge. The skills no longer allow that (CW-280), so nothing shows a Cursor child either way.
 - **The untrusted author check is `not supported` on Linear and Jira.** Neither adapter has an author rule. The gate there is membership of the workspace or project, and the cell and G37 say so.
 - **Two `works` cells rest on code alone, and a note says so:** the Claude Code No Hands cell (no run is recorded, and No Hands is off in this repo) and the Linear Mark todo cell.
-- **The Approve press is a note and a gap (G34), not a row.** It depends on macOS and T3 Code, and the matrices have no operating system column.
+- **The one-click send of Approve and Mark todo is a note and a gap (G34), not a row.** It depends on macOS and T3 Code, and the matrices have no operating system column.
 - **Mark todo is a row in Matrix 2 only.** The button itself is the same on every harness; what differs is the tracker write behind `mark N todo`.
 - **G25, G29 and G30 keep `none yet` for a Claude Code repeat run.** #342 covers the Cursor side only.
 

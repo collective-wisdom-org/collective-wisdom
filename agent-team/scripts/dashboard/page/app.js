@@ -46,11 +46,12 @@ export function riskText(risk) {
 // Bands are a page-side order over the /api groups. A group name the page does not know goes to In progress.
 const NEEDS_YOU = ['Awaiting merge approval', 'Awaiting build approval']
 const QUEUED = ['Queued to merge', 'Queued to build', 'Waiting to spec', 'Other']
-// The Backlog group is drawn on its own tab by renderBacklog, in no band of the Ship loop tab.
+// The Backlog and Writing tickets groups are drawn on the Backlog tab by renderBacklog, in no band of the Ship loop tab.
 const BACKLOG = 'Backlog'
+const WRITING = 'Writing tickets'
 const BANDS = [
   { name: 'Your turn', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
-  { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) && n !== BACKLOG },
+  { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) && n !== BACKLOG && n !== WRITING },
   { name: 'Up next', slug: 'queued', flat: true, has: (n) => QUEUED.includes(n) },
 ]
 /** The saved-collapsed key of a top-level section. The colon keeps it apart from every API group name. */
@@ -114,8 +115,8 @@ export function dayWords(ms, now) {
 }
 
 const ACTIONS = new Map([
-  ['awaiting-merge', ['Open PR', 'prUrl']],
-  ['awaiting-build', ['Open spec', 'specUrl']],
+  ['awaiting-merge', ['View PR', 'prUrl']],
+  ['awaiting-build', ['View spec', 'specUrl']],
 ])
 /** The one action a ticket that needs the user offers, or null when the stage has none or its url is not http(s). */
 export function actionFor(r) {
@@ -299,8 +300,8 @@ export const ownerBadge = (login) =>
     : ''
 /** True when the ticket's owner and the viewer are both logins and differ (GitHub logins are case-insensitive). */
 export const foreign = (owner, viewer) => typeof owner === 'string' && typeof viewer === 'string' && owner !== '' && viewer !== '' && owner.toLowerCase() !== viewer.toLowerCase()
-/** The first line of every row: the ticket number, then the title (left out when empty, so the id is not shown twice), then `extra`, then the owner badge (`ownerHtml`) at the right end. */
-const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}${ownerHtml}</div>`
+/** The first line of every row: the ticket number, then `extra` (the thread copy button), then the title (left out when empty, so the id is not shown twice), then the owner badge (`ownerHtml`), which the page puts in its own column at the right end of the number row. */
+const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${extra}${title ? `<span class="title">${esc(title)}</span>` : ''}${ownerHtml}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
 /** `41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
@@ -334,21 +335,27 @@ function approveControls(r, chiefLink) {
       const href = promptLink(chiefLink, text)
       const press = kind === 'approve' && href
       const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
-      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text.slice('approve '.length))}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
+      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text)}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
 }
 
 const PRESS_MESSAGES = {
-  'not-frontmost': 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.',
-  permission: 'Approve not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.',
+  'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.`,
+  permission: (action) => `${action} not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.`,
+  busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
 
-/** The line for the error area after Approve asked the server to press Return: empty when it was sent, or when a second click on the same ticket came inside the wait (`repeat`), else the reason in words. `answer` is the server's JSON, or null when the request failed. */
-export function pressMessage(answer, repeat = false) {
+/** The name of the control that sent `command` (the `data-return` value): `Mark todo` for `mark N todo`, else `Approve`. */
+export function pressAction(command) {
+  return String(command).startsWith('mark ') ? 'Mark todo' : 'Approve'
+}
+
+/** The line for the error area after Approve or Mark todo asked the server to press Return: empty when it was sent, or when a second click on the same command came inside the wait (`repeat`), else the reason in words, starting with `action`. `answer` is the server's JSON, or null when the request failed. */
+export function pressMessage(answer, repeat = false, action = 'Approve') {
   if (answer?.sent === true || (answer?.reason === 'busy' && repeat)) return ''
-  if (answer?.reason === 'busy') return 'Approve not sent: another Approve was still being sent. Press Send in the Chief of Staff thread.'
-  return (typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : '') || 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
+  const line = typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : null
+  return line ? line(action) : `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.`
 }
 
 /** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */
@@ -362,14 +369,15 @@ function todoControl(r, chiefLink) {
   const text = todoCommand(r)
   if (text === null) return ''
   const href = promptLink(chiefLink, text)
-  return href ? `<a class="todo" href="${esc(href)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
+  const title = `Opens the Chief of Staff thread with "${text}" typed in and presses Send for you. If it can't, press Send.`
+  return href ? `<a class="todo" href="${esc(href)}" title="${esc(title)}" data-return="${esc(text)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
 }
 
 /**
  * One ticket as a card (`li.ticket`), the same three rows for every card. Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
- * Top row: the ticket number, the title and the thread copy button. Middle row (only when it has something): the `Open PR` or `Open spec` link and the Approve and Changes controls.
+ * Top row: the ticket number, the thread copy button right after it, and the title below. Middle row (only when it has something): the `View PR` or `View spec` link and the Approve and Changes controls.
  * Bottom row: the Agents and Details control, the Mark todo control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
- * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
+ * A running ticket helper (`helper: true`, in the Writing tickets group on the Backlog tab) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false, viewer = null }) {
   const blocked = r.stage === 'blocked'
@@ -400,7 +408,7 @@ export function pageOf(length, page, size) {
 
 const BACKLOG_PAGE = 10
 
-/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `chiefLink` is the Chief of Staff thread link the Approve controls open; `viewer` is the dashboard user's GitHub login (cards of another owner drop an empty Agents control). The Backlog group is not drawn here; `renderBacklog` draws it on its own tab. */
+/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `chiefLink` is the Chief of Staff thread link the Approve controls open; `viewer` is the dashboard user's GitHub login (cards of another owner drop an empty Agents control). The Backlog and Writing tickets groups are not drawn here; `renderBacklog` draws them on the Backlog tab. */
 export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), chiefLink = '', viewer = null) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   const html = BANDS.map((band) => {
@@ -418,14 +426,18 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const key = bandKey(band.slug)
     return `<details class="band band-${band.slug}" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>${band.name}</h2></summary>${sections}</details>`
   }).filter(Boolean).join('\n')
-  // Only the Backlog group, which has its own tab: nothing to draw here.
+  // Only the Backlog and Writing tickets groups, which are on the Backlog tab: nothing to draw here.
   return html || '<p class="quiet">No state yet</p>'
 }
 
-/** The Backlog tab: the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each card gets a Mark todo control. */
+/** The Backlog tab: the `Writing tickets` group first (running ticket helpers, a collapsible section with its own count, not paged, no Mark todo), then the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; with no Backlog group, `Nothing in the Backlog` follows the helpers. `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each Backlog card gets a Mark todo control. */
 export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '', viewer = null) {
+  const w = list(groups).find((x) => x.name === WRITING)
+  const writing = w
+    ? `<details class="group" data-group="${esc(w.name)}"${collapsed.has(w.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(w.name))} <span class="pill">${esc(w.count)}</span></h3></summary><ul class="cards">${list(w.rows).map((r) => ticket(r, { flat: false, attn: false, group: w.name, open, info, chiefLink, viewer })).join('\n')}</ul></details>`
+    : ''
   const g = list(groups).find((x) => x.name === BACKLOG)
-  if (!g) return '<p class="quiet">Nothing in the Backlog</p>'
+  if (!g) return writing + '<p class="quiet">Nothing in the Backlog</p>'
   const { at, pages } = pageOf(g.rows.length, backlogPage, BACKLOG_PAGE)
   const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info, chiefLink, markTodo: true, viewer })).join('\n')
   const pager =
@@ -435,7 +447,7 @@ export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, op
   // A saved Backlog list read from the tracker over an hour ago says how old it is and greys its rows.
   const stale = g.stale === true && Number.isFinite(g.readAt)
   const age = stale ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
-  return `<details class="group${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+  return `${writing}<details class="group${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
 }
 
 /** The sum of the group `count`s that fall in `band`; a count that is not a number is 0. */
@@ -939,22 +951,22 @@ if (typeof document !== 'undefined') {
     }
   }
   const seen = versionWatch()
-  // The Approve press message stays in the error line until the next Approve click or a reload.
+  // The press message for Approve or Mark todo stays in the error line until the next press or a reload.
   let pressNote = ''
   const showError = () => {
     document.getElementById('error').textContent = [last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' ')
   }
-  let pressedTicket = null
-  const pressReturn = async (ticket) => {
-    const repeat = ticket === pressedTicket
-    pressedTicket = ticket
+  let pressedCommand = null
+  const pressReturn = async (command) => {
+    const repeat = command === pressedCommand
+    pressedCommand = command
     pressNote = ''
     let answer = null
     try {
       const res = await fetch('/press-return', { method: 'POST', headers: { 'X-Dashboard-Token': document.querySelector('meta[name="dashboard-token"]')?.content ?? '' } })
       answer = await res.json()
     } catch {}
-    pressNote = pressMessage(answer, repeat)
+    pressNote = pressMessage(answer, repeat, pressAction(command))
     showError()
   }
   const poll = async () => {
