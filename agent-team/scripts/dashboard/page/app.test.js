@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -177,7 +177,7 @@ test('gantt escapes text, formats tokens and cost in the row title, and marks ru
   assert.match(html, /title="&lt;img onerror=x&gt;\nr · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 12\.3k tokens\n\/x"/)
   assert.match(html, /r · \d\d?:\d\d [ap]m, running · 950 tokens · opus-5-5 · T3 Code/)
   assert.match(html, /\$0\.42/)
-  assert.match(html, /bar running/)
+  assert.match(html, /bar cat-other running/)
 })
 
 const MIN = 60000
@@ -261,15 +261,15 @@ test('renderGantt draws one waterfall of active time', () => {
   assert.match(one([task({ end: null, segments: [[T, null]] })]), /10m 00s/)
   const stale = renderGantt([sess({ stale: true, updatedAt: T + MIN, rows: [task({ end: null, segments: [[T, null]] })] })], T + 90 * MIN)
   assert.match(stale, /<span class="pill">stale<\/span>/)
-  assert.ok(!/bar running/.test(stale))
+  assert.ok(!/ running/.test(stale))
 })
 
 test('each bar has an escaped tooltip with its own range, length and the row model; a running bar says running', () => {
   const html = renderGantt([sess({ rows: [task({ name: '<b>t</b>', model: 'opus-5-5', end: null, segments: [[T, T + MIN], [T + 5 * MIN, null]] })] })], T + 8 * MIN)
   const titles = [...html.matchAll(/class="bar[^"]*"[^>]*title="([^"]*)"/g)].map((m) => m[1])
   assert.equal(titles.length, 2)
-  assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 1m 00s · opus-5-5$/)
-  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\n\d\d?:\d\d [ap]m, running · opus-5-5$/)
+  assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\nOther · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 1m 00s · opus-5-5$/)
+  assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\nOther · \d\d?:\d\d [ap]m, running · opus-5-5$/)
 })
 
 test('the engine total shows as a note only when it differs from the row sum by a cent or more', () => {
@@ -685,11 +685,39 @@ test('renderGantt draws each CI wait bar on its task row and leaves durations, c
   // Axis: 2m of first + 27m of merged CI (3m to 30m, second's work lies inside it) = 29m. The CI bar sits on first's track only, before its work bar so work stays on top.
   assert.deepEqual(rows[0].bars, [[6.9, 93.1], [0, 6.9]])
   assert.deepEqual(rows[1].bars, [[31.03, 6.9]])
-  assert.equal([...withCi.matchAll(/class="bar ci"/g)].length, 1)
-  assert.ok(!withCi.includes('class="bar running"'))
+  assert.equal([...withCi.matchAll(/class="bar cat-ci"/g)].length, 1)
+  assert.ok(!withCi.includes(' running"'))
   assert.ok(!withCi.includes('CI wait</span>'))
   assert.match(withCi, /title="CI wait\n\d\d?:\d\d [ap]m, running · 27m 00s"/)
   assert.equal(renderGantt(sessions, now, []), renderGantt(sessions, now), 'no CI spans, same chart as before')
+})
+
+test('barCategory reads the start of a row name and falls back to other', () => {
+  const cases = {
+    planning: ['Spec CW-385: Stamp approval-comment times', 'Ticket helper CW-345', 'Backlog ranking', 'approve 370', 'take over', 'CHIEF OF STAFF NOTICE: queue moved', 'Spec CW-1: Review the code'],
+    building: ['Build CW-310: Merge the docs', 'CW-385 build', 'build', 'Implement CW-306 plan', 'Build CW-339 task 1'],
+    review: ['Code review PR 397', 'Small-diff code and security review', 'Re-review fix commit', 'Fix CW-339 review findings', 'CW-339 changes on PR #352'],
+    docs: ['Docs check PR 397', 'Compact added agent text'],
+    merge: ['Merge CW-310: Build it', 'merge PR #389', 'CW-389 merge PR #389'],
+    other: ['how many tokens', 'Delegated task node:delegated-task:command%3Amcp%3A602cbc46-', 'outside a task', 'main', 'task', undefined, null, 7],
+  }
+  for (const [want, names] of Object.entries(cases)) for (const name of names) assert.equal(barCategory(name), want, String(name))
+})
+
+test('renderGantt colors each bar by its row name, keeps the category on a running bar and lists the drawn categories in order', () => {
+  const rows = [
+    task({ name: 'Build CW-1: x', segments: [[T, T + MIN]], end: T + MIN }),
+    sub({ name: 'Code review PR 1', segments: [[T + MIN, T + 2 * MIN]], end: T + 2 * MIN }),
+    task({ name: 'Spec CW-2: y', start: T + 3 * MIN, end: null, segments: [[T + 3 * MIN, null]] }),
+  ]
+  const html = renderGantt([sess({ rows })], T + 5 * MIN, [[T + 2 * MIN, T + 3 * MIN]])
+  const bars = [...html.matchAll(/class="bar ([^"]*)"/g)].map((m) => m[1])
+  assert.deepEqual(bars, ['cat-ci', 'cat-building', 'cat-review', 'cat-planning running'])
+  const legend = [...html.matchAll(/<li><span class="swatch cat-(\w+)"><\/span>([^<]*)<\/li>/g)].map((m) => m[1])
+  assert.deepEqual(legend, ['planning', 'building', 'review', 'ci'])
+  assert.match(html, /^<div class="gantt">\n<ul class="legend" aria-label="Bar colors">/)
+  assert.equal([...renderGantt([sess({ rows: [rows[0]] })], T + 5 * MIN).matchAll(/class="swatch/g)].length, 1)
+  assert.doesNotMatch(renderGantt([], T), /legend/)
 })
 
 test('every row type draws the same switch first in its foot; one panel is open at most and a row with no tasks has a disabled Agents', () => {
