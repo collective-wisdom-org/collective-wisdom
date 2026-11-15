@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 flip the dashboard collapse chevrons (CW-390) (#396)
+
+Merged 2026-11-15 6:06 am UTC.
+
+On the dashboard, a collapsed section now shows an up chevron and an open section a down chevron. Nothing to do.
+
 ## 2026-11-15 show dashboard status-text times in local am/pm (CW-373) (#392)
 
 Merged 2026-11-15 6:00 am UTC.
