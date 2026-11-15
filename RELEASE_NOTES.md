@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 refresh dashboard Backlog when a ticket helper files a ticket (WISE-431) (#433)
+
+Merged 2026-11-15 6:29 pm UTC.
+
+When a ticket helper files a ticket, the Chief of Staff now refreshes the dashboard Backlog right away, so the ticket shows up within seconds instead of on the next poll. Nothing to do on your side.
+
 ## 2026-11-15 show only the owner avatar, pinned to the card's right edge (WISE-428) (#432)
 
 Merged 2026-11-15 6:13 pm UTC.
