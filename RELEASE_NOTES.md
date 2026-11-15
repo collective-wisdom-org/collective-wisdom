@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 Writing tickets on the Backlog tab, titled by the ticket (WISE-430) (#437)
+
+Merged 2026-11-15 6:44 pm UTC.
+
+A ticket helper now shows in a Writing tickets section at the top of the Backlog tab, not on the Ship loop tab, and its card is titled with the ticket it is writing instead of your message. Update the `agent-gantt` mod to 0.1.14 (`./install.sh`) to get the new titles.
+
 ## 2026-11-15 Mark todo presses Send from the dashboard (WISE-429) (#444)
 
 Merged 2026-11-15 6:40 pm UTC.
