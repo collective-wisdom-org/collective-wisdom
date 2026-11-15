@@ -339,6 +339,9 @@ def op_top(s, op):
             raise Reject("reset needs null, or an id (8 hex chars), a startedAt with a zone (not in the future) and a reason, and optionally a mode")
     if op["set"].get("lastResetAt") is not None and not sane(op["set"]["lastResetAt"]):
         raise Reject("lastResetAt needs a time with a zone, not in the future, or null")
+    sha = op["set"].get("skillCommit")
+    if "skillCommit" in op["set"] and sha is not None and not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}", sha)):
+        raise Reject("skillCommit needs the full 40-character sha from cos_rotation_check.py --skill-commit, or null")
     s.update(op["set"])
     for old in ("rotation", "rotationHeldUntil"):  # keys of the thread rotation this replaced
         s.pop(old, None)

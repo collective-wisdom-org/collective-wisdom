@@ -1,3 +1,4 @@
+import contextlib
 import importlib.util
 from pathlib import Path
 
@@ -169,3 +170,11 @@ def test_no_hands_record(state, ops, err, started):
         return
     new = cos_state.apply_ops(state, ops)[0]
     assert new.get("noHands", {}).get("started") == started
+
+
+# skillCommit is the full lowercase sha from cos_rotation_check.py --skill-commit, or null
+@pytest.mark.parametrize("value, ok", [("8ddace1", 0), (A.upper(), 0), ("a" * 41, 0), (123, 0), (A, 1), (None, 1)])
+def test_top_skill_commit_must_be_a_full_sha(value, ok):
+    ops = [{"op": "top", "set": {"skillCommit": value}}]
+    with pytest.raises(cos_state.Reject, match="full 40-character sha") if not ok else contextlib.nullcontext():
+        assert cos_state.apply_ops({}, ops)[0]["skillCommit"] == value

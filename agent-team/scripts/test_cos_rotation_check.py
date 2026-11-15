@@ -27,6 +27,7 @@ def ago(minutes):
 CLAUDE = {"threadId": "T1", "provider": "claudeAgent"}
 QUEUED = {"tickets": {"CW-10": {"stage": "spec-queued"}, "CW-9": {"stage": "build-queued"}, "CW-8": {"stage": "build"}}}
 WAITS = "ok (skill change waits: "
+INVALID = "ok; skillCommit is not a full sha; set skillCommit"
 
 
 @pytest.mark.parametrize("cap", [220_000, 250_000])
@@ -39,6 +40,10 @@ WAITS = "ok (skill change waits: "
         ({}, -50_000, NEW, "main", "rotate: skill changed aaaaaaa..bbbbbbb"),
         ({}, -50_000, NEW, "feat/x", "ok context="),
         ({"skillCommit": None}, -50_000, NEW, "main", f"ok; set skillCommit {NEW}"),
+        # a stored skillCommit that is not a full sha reads like null, never as a skill change; size still wins
+        ({"skillCommit": "8ddace1"}, -50_000, NEW, "main", INVALID),
+        ({"skillCommit": "8ddace1", **QUEUED}, -50_000, NEW, "main", INVALID),
+        ({"skillCommit": "8ddace1"}, 0, NEW, "main", "rotate: size"),
         ({"paused": True}, 40_000, NEW, "main", "ok (held: paused)"),
         # a reset marker holds for 10 minutes; an older one does not and the trigger fires again
         ({"reset": {"id": "0a1b2c3d", "startedAt": ago(9)}}, 40_000, NEW, "main", "ok (held: reset)"),
@@ -82,6 +87,7 @@ def test_decide(cap, state, context_over_cap_by, commit, branch, want):
         ("codex", {}, 231_000, NEW, "ok (no reset on codex; context=231k)"),
         ("codex", {}, None, NEW, "ok (no reset on codex; size unknown)"),
         ("codex", {"skillCommit": None}, 231_000, NEW, f"ok; set skillCommit {NEW}"),
+        ("codex", {"skillCommit": "8ddace1"}, 231_000, NEW, f"ok; skillCommit is not a full sha; set skillCommit {NEW}"),
         (None, {}, 231_000, OLD, "ok (no reset on unknown; context=231k)"),
         ("bad\nname", {}, 231_000, OLD, "ok (no reset on unknown; context=231k)"),
         ("claudeAgent", {}, None, OLD, "ok (size unknown on Cursor)"),
