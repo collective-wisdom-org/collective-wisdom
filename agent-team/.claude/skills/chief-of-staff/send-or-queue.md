@@ -1,6 +1,6 @@
 # Send or queue
 
-Read this for any relay to a child, for `cos_route.py`, and for a plan line `send`, `configure`, `head-check`, `user-check`, `continuation` or `merge-wait`.
+Read this for any relay to a child, for `cos_route.py`, and for a plan line `send`, `configure`, `head-check`, `user-check`, `continuation`, `merge-wait` or `run-wait`.
 
 ## Send or queue
 
@@ -13,7 +13,7 @@ Every relay that puts a child back to work goes through here. Run `python3 ~/.co
 
 The script prints the `stage` op to apply (fill in `status`), then:
 
-- `route: send <lane>`: `t3_thread_send` the relay to the ticket's child, then apply the `stage` op, which clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. Copy a `moving:` line under Moving.
+- `route: send <lane>`: `t3_thread_send` the relay to the ticket's child, then apply the `stage` op, which clears `pendingRelay`, `approvalItemId` and `queuedAt`, saved before the next line. Copy a `moving:` line under Moving, and start the wait a `merge-wait:` or `run-wait:` line names (sweep.md § Merge wait, § Run wait).
 - `route: queue <lane>`: don't send. Apply the `stage` op (to `<lane>-queued`) with `pendingRelay` and, for a user spec approval, `approvalItemId` in `set`.
 - `route: continuation <lane>`: continuation.md § Continuation child, in place of the send. If it falls back to sending to the old child, copy the `fallback:` line under Moving, and apply the lane's stage op with the `set:` line's keys.
 - `route: no <why>` (exit 1): the caller doesn't apply from that stage; don't send. Exit 2 (`route: cannot <what>`): don't send, and tell the user under Needs you.

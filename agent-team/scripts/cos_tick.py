@@ -11,7 +11,7 @@ check), which depends on state alone and can be rerun. While a No Hands run is a
 has startedAt and no endedAt) the act plan carries a `run ... no_hands.py check` line before the slot fill. The tick
 cannot know its result, so on `drain` or `stop` the model prints no `start-todo` lines and sends nothing beyond what
 no-hands.md says. What the state alone shows, the tick does itself: with `noHands.drain` set it drops `start-todo`
-(queued sends still go) and reports `filling stopped: No Hands <reason>`. A `send <T> merge` is followed by `merge-wait <T>` (a finish
+(queued sends still go) and reports `filling stopped: No Hands <reason>`. A `send <T> merge` is followed by `merge-wait <T>` and a `send <T> spec|build` by `run-wait <T>` (a finish
 notice can be lost even when this thread is the parent). The look plan's child reads are `child-read <T> <child> afterPosition=<p>` lines (cos_child_read.py) and its idle check is the one `run … cos_idle_check.py --store [--skip T]` line, with no `idle-read` lines. Every look plan except `start` is the one line `follow rotation.md § Thread rotation: Finish take over` when the state's `takeover` is set (the act plan ignores it); else it begins with the provider check: `chief-provider` when the state's `chiefProvider` is missing or names
 another thread (read this thread's provider and save it; no mismatch lines then), else one
 `harness-mismatch <ticket> child=<provider> chief=<provider>` line per active or queued ticket whose `provider` is set and
@@ -219,7 +219,7 @@ def relay_lines(state, thread, tid, t, lane):
     if spec:
         out.append(f"configure {t.get('childThreadId')} build")
     out.append(f"send {tid} {lane} {json.dumps(relay, ensure_ascii=True)}")
-    return out + ([f"merge-wait {tid}"] if lane == "merge" else [])  # a finish notice can be lost even when this thread is the parent
+    return out + [f"{'merge' if lane == 'merge' else 'run'}-wait {tid}"]  # a finish notice can be lost even when this thread is the parent
 
 
 def no_hands_run(state):

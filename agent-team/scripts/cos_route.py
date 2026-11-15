@@ -37,8 +37,9 @@ Prints lines the caller acts on, then a last line, exit 0 unless noted:
     set: <JSON>                             a continuation has no stage op: add these keys to the lane's stage op
     moving: <line>                          copy under Moving (a send to a ticket with no known parent thread)
     merge-wait: <T>                         a merge-lane send: start the merge wait (cos_merge_wait.py)
+    run-wait: <T>                           a spec or build send: start the run wait (cos_run_wait.py)
     fallback: <line>                        a continuation that falls back to sending to the old child adds this
-                                            (in the merge lane, also: start the merge wait)
+                                            (also: start the merge wait in the merge lane, the run wait in spec or build)
     route: send <lane>                      send with t3_thread_send, then apply the stage op
     route: queue <lane>                     do not send; apply the stage op
     route: continuation <lane>              continuation.md § Continuation child, in place of the send
@@ -131,9 +132,9 @@ def route(state, tid, caller, thread, setting):
     parent, chief = ticket.get("parentThreadId"), state.get("chiefThreadId") or thread
     moving = MAY_NOT_HEAR.format(ticket=tid)
     if parent and parent != chief:
-        start = " and start the merge wait" if lane == "merge" else ""
+        start = f" and start the {'merge' if lane == 'merge' else 'run'} wait"
         return [f"fallback: if the continuation sends to the old child, add under Moving: {moving}{start}"] + extra, f"route: continuation {lane}", 0
-    wait = [f"merge-wait: {tid}"] if lane == "merge" else []
+    wait = [f"{'merge' if lane == 'merge' else 'run'}-wait: {tid}"]
     return [f"stage: {json.dumps(op)}"] + ([f"moving: {moving}"] if not parent else []) + wait, f"route: send {lane}", 0
 
 

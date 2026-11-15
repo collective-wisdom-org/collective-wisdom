@@ -130,18 +130,27 @@ def test_parent_thread_decides_continuation_and_the_moving_line(tmp_path, capsys
 @pytest.mark.parametrize(
     "caller, stage, parent, last, wait, fallback",
     [
-        ("approve-merge", "awaiting-merge", None, "route: send merge", True, False),  # no finish notice will come
-        ("approve-merge", "awaiting-merge", ME, "route: send merge", True, False),  # a finish notice can be lost here too
-        ("approve-merge", "awaiting-merge", "old", "route: continuation merge", False, True),
-        ("reviewer-changes", "awaiting-review", None, "route: send build", False, False),  # the build lane has its own coverage
-        ("reviewer-changes", "awaiting-review", "old", "route: continuation build", False, False),
+        ("approve-merge", "awaiting-merge", None, "route: send merge", "merge", False),  # no finish notice will come
+        ("approve-merge", "awaiting-merge", ME, "route: send merge", "merge", False),  # a finish notice can be lost here too
+        ("approve-merge", "awaiting-merge", "old", "route: continuation merge", None, "merge"),
+        ("reviewer-changes", "awaiting-review", None, "route: send build", "run", False),
+        ("reviewer-changes", "awaiting-review", ME, "route: send build", "run", False),
+        ("changes", "awaiting-build", ME, "route: send spec", "run", False),
+        ("reviewer-changes", "awaiting-review", "old", "route: continuation build", None, "run"),
+        ("changes", "awaiting-build", "old", "route: continuation spec", None, "run"),
     ],
 )
-def test_the_merge_lane_starts_the_merge_wait(tmp_path, capsys, monkeypatch, caller, stage, parent, last, wait, fallback):
+def test_every_send_starts_its_wait(tmp_path, capsys, monkeypatch, caller, stage, parent, last, wait, fallback):
     _, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": {"stage": stage, "parentThreadId": parent}}, caller)
     assert out[-1] == last
-    assert ("merge-wait: ABC-1" in out) == wait
-    assert any(x.startswith("fallback: ") and x.endswith("and start the merge wait") for x in out) == fallback
+    assert [x for x in out if x.endswith("wait: ABC-1")] == ([f"{wait}-wait: ABC-1"] if wait else [])
+    assert [x.endswith(f"and start the {fallback} wait") for x in out if x.startswith("fallback: ")] == ([True] if fallback else [])
+
+
+def test_a_queued_relay_starts_no_wait(tmp_path, capsys, monkeypatch):
+    _, out = run(tmp_path, capsys, monkeypatch, {"ABC-1": tk("awaiting-build"), **FULL_BUILD}, "approve-spec")
+    assert out[-1] == "route: queue build"
+    assert not any("wait" in x for x in out)
 
 
 @pytest.mark.parametrize("ticket, caller", [("ABC-1", "nope"), ("bad", "resume"), ("ABC-5", "resume")])

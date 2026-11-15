@@ -5,7 +5,11 @@ Usage:
     ~/.collective-wisdom/scripts/cos_child_read.py [--db PATH] <PREFIX>-N <childThreadId> [--after POSITION]
 
 Looks at the thread's newest run and, in it, the newest finished assistant message at a position
-after --after (a message at or before it is not new). Prints, one fact per line:
+after --after (a message at or before it is not new). When that run is completed and the message holds
+no marker, it looks back through every finished assistant message after --after, newest first and across
+runs, for the newest one that does (a short reply after MERGE READY, say, or a reply in a later run to a
+restart notice): the item=, marker, field, block: and cut lines come from that message, and next= stays
+the position of the newest message. Prints, one fact per line:
     child ABC-5 run=completed updated=2026-11-14T10:02:00Z provider=claudeAgent next=84 item=turn-item:...
     marker BUILD READY
     field specPath=docs/superpowers/specs/x.md specSha=<hex> branch=feat/abc-5-x
@@ -64,6 +68,14 @@ MARKER = re.compile(r"^[ \t]*[*`_]*(BUILD READY|SPEC READY|MERGE READY|BLOCKED:|
 FLAT = {c: " " for c in [*range(0x20), *range(0x7F, 0xA0), 0x2028, 0x2029] if c not in (9, 10)}
 PR = re.compile(r"(?:https://[A-Za-z0-9._/-]+/pull/|#)?([0-9]+)")
 NAMES = {"BUILD READY": "BUILD READY", "SPEC READY": "BUILD READY", "MERGE READY": "MERGE READY", "BLOCKED:": "BLOCKED"}
+MSGS = (
+    "SELECT r.id, r.rank, json_extract(i.payload_json, '$.text') FROM ("
+    "SELECT turn_item_id AS id, ROW_NUMBER() OVER (ORDER BY ordinal) - 1 AS rank "
+    "FROM orchestration_v2_turn_item_positions WHERE thread_id = ?) r "
+    "JOIN orchestration_v2_projection_turn_items i ON i.turn_item_id = r.id "
+    "WHERE i.type = 'assistant_message' AND json_extract(i.payload_json, '$.streaming') = 0 AND r.rank > ? "
+    "ORDER BY r.rank DESC"
+)
 ITEM = (
     "SELECT p.turn_item_id, p.ordinal, json_extract(i.payload_json, '$.text') "
     "FROM orchestration_v2_turn_item_positions p JOIN orchestration_v2_projection_turn_items i "
@@ -78,8 +90,9 @@ def fail(msg):
     sys.exit(2)
 
 
-def fetch(db, thread):
-    """(thread row, newest run row, newest assistant item row, its rank) from the store, each None when missing."""
+def fetch(db, thread, floor=-1):
+    """(thread row, newest run row, newest assistant item row, its rank, msgs) from the store, each None when missing.
+    msgs: when the newest run is completed, every finished assistant message with a rank above floor as (item id, rank, text), newest first."""
     try:
         con = sqlite3.connect(f"file:{quote(str(db))}?mode=ro", uri=True)
         try:
@@ -90,7 +103,8 @@ def fetch(db, thread):
             run = one("SELECT run_id, status FROM orchestration_v2_projection_runs WHERE thread_id = ? ORDER BY ordinal DESC LIMIT 1", thread)
             item = one(ITEM, thread, run[0]) if run else None
             rank = one("SELECT COUNT(*) FROM orchestration_v2_turn_item_positions WHERE thread_id = ? AND ordinal < ?", thread, item[1]) if item else None
-            return row, run, item, rank[0] if rank else None
+            msgs = con.execute(MSGS, (thread, floor)).fetchall() if run and run[1] == "completed" else []
+            return row, run, item, rank[0] if rank else None, msgs
         finally:
             con.close()
     except sqlite3.Error:
@@ -142,31 +156,51 @@ def quote_lines(lines):
     return "\n".join("| " + line for line in lines)
 
 
+def flat(text):
+    if not isinstance(text, str):
+        fail("schema changed")
+    return text.translate(FLAT)
+
+
+def find_marker(msgs):
+    """(item id, flattened text, last marker match) of the newest message in msgs (newest first) that holds a marker, else None."""
+    for item, _, text in msgs:
+        text = flat(text or "")
+        marks = list(MARKER.finditer(text))
+        if marks:
+            return item, text, marks[-1]
+
+
+def marker_name(m):
+    return NAMES.get(m.group(1), "MERGED" if m.group(1).startswith("MERGED") else "")
+
+
 def read(db, ticket, thread, after):
-    row, run, item, pos = fetch(db, thread)
+    floor = -1 if after is None else after
+    row, run, item, pos, msgs = fetch(db, thread, floor)
     if not row:
         fail("thread not found")
     status = run[1] if run else "none"
     head = f"child {ticket} run={status} updated={row[0]} provider={row[1] or '?'}"
-    floor = -1 if after is None else after
+    found = find_marker(msgs)
+    if found:
+        print(f"{head} next={msgs[0][1]} item={found[0]}")
+        return report(ticket, *found)
     if not item or pos <= floor:
         print(f"{head} next={max(floor, 0)}")
         print("marker none" + (" new=0" if status == "completed" else ""))
         return
-    item, text = item[0], item[2] or ""
-    if not isinstance(text, str):
-        fail("schema changed")
-    text = text.translate(FLAT)
+    item, text = item[0], flat(item[2] or "")
     print(f"{head} next={pos} item={item}")
-    marks = list(MARKER.finditer(text)) if status == "completed" else []
-    if not marks:
-        print("marker none")
-        if status != "running":
-            print("tail:")
-            print(quote_lines(text.strip()[-TAIL_CAP:].split("\n")))
-        return
-    m = marks[-1]
-    name = NAMES.get(m.group(1), "MERGED" if m.group(1).startswith("MERGED") else "")
+    print("marker none")
+    if status != "running":
+        print("tail:")
+        print(quote_lines(text.strip()[-TAIL_CAP:].split("\n")))
+
+
+def report(ticket, item, text, m):
+    """The marker, field, block and cut lines for the marker match m in text."""
+    name = marker_name(m)
     print(f"marker {name}")
     block = text[m.start():]
     vals = fields(name, block, m.group(2), ticket)

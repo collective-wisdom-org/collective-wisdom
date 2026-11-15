@@ -178,8 +178,8 @@ def test_start_plan_has_no_provider_line(tmp_path, capsys):
                 "ABC-6": SPEC1,
             },
             [
-                f"send ABC-5 merge {json.dumps(CHANGES)}", "merge-wait ABC-5", f"send ABC-3 build {json.dumps(CHANGES)}",
-                f"send ABC-2 build {json.dumps(CHANGES)}", f"send ABC-1 spec {json.dumps(CHANGES)}",
+                f"send ABC-5 merge {json.dumps(CHANGES)}", "merge-wait ABC-5", f"send ABC-3 build {json.dumps(CHANGES)}", "run-wait ABC-3",
+                f"send ABC-2 build {json.dumps(CHANGES)}", "run-wait ABC-2", f"send ABC-1 spec {json.dumps(CHANGES)}", "run-wait ABC-1",
                 *TAIL,
             ],
         ),
@@ -195,14 +195,14 @@ def test_start_plan_has_no_provider_line(tmp_path, capsys):
         (
             {"ABC-1": queued("build-queued", USER_SPEC, "1", approvalItemId="it1")},
             [
-                'user-check ABC-1 th9 it1 words="ship it\\nnow"', CONFIGURE, f"send ABC-1 build {json.dumps(USER_SPEC)}",
+                'user-check ABC-1 th9 it1 words="ship it\\nnow"', CONFIGURE, f"send ABC-1 build {json.dumps(USER_SPEC)}", "run-wait ABC-1",
                 "start-todo", "start-todo", *TODO,
             ],
         ),
         # an auto spec approval: policy check, model switch, send
         (
             {"ABC-1": queued("build-queued", AUTO_SPEC, "1"), "ABC-2": BUILD, "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")},
-            [f"run python3 {S}/approval_policy.py auto ABC-1 spec", CONFIGURE, f"send ABC-1 build {json.dumps(AUTO_SPEC)}", *TAIL],
+            [f"run python3 {S}/approval_policy.py auto ABC-1 spec", CONFIGURE, f"send ABC-1 build {json.dumps(AUTO_SPEC)}", "run-wait ABC-1", *TAIL],
         ),
         # merge approvals: head check, and the auto one also checks the rule
         (
@@ -213,10 +213,10 @@ def test_start_plan_has_no_provider_line(tmp_path, capsys):
             {"ABC-1": queued("merge-queued", AUTO_MERGE, "1", pr=5, headSha="b" * 40), "ABC-2": BUILD, "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")},
             ["head-check ABC-1 pr=5 head=" + "b" * 40, f"run python3 {S}/cos_approve_pr.py ABC-1 --auto", f"send ABC-1 merge {json.dumps(AUTO_MERGE)}", "merge-wait ABC-1", *TAIL],
         ),
-        # every merge send starts the merge wait, whatever the parent thread (this thread or none); a build send does not
+        # every send starts its wait, whatever the parent thread (this thread or none): merge-wait for merge, run-wait for spec and build
         (
             {"ABC-1": queued("merge-queued", CHANGES, "1", parentThreadId=None), "ABC-2": queued("build-queued", CHANGES, "2", parentThreadId=None)},
-            [f"send ABC-1 merge {json.dumps(CHANGES)}", "merge-wait ABC-1", f"send ABC-2 build {json.dumps(CHANGES)}", "start-todo", "start-todo", *TODO],
+            [f"send ABC-1 merge {json.dumps(CHANGES)}", "merge-wait ABC-1", f"send ABC-2 build {json.dumps(CHANGES)}", "run-wait ABC-2", "start-todo", "start-todo", *TODO],
         ),
         (
             {"ABC-1": queued("merge-queued", CHANGES, "1", parentThreadId=ME)},
@@ -260,7 +260,7 @@ def report(cap, spec, build, why):
         # a raised cap alone changes nothing, the lane limits bind; raising a lane limit alone raises the cap with it
         ({"cap": 9}, {"ABC-1": BUILD, "ABC-2": tk("build", "c2"), "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")}, report(9, 2, 2, "lanes full")),
         ({"build": 3}, {"ABC-1": BUILD, "ABC-2": tk("build", "c2"), "ABC-3": SPEC1, "ABC-4": tk("spec", "c4"), "ABC-5": queued("build-queued", CHANGES, "1")},
-         [f"send ABC-5 build {json.dumps(CHANGES)}", *report(5, 2, 3, "lanes full")]),
+         [f"send ABC-5 build {json.dumps(CHANGES)}", "run-wait ABC-5", *report(5, 2, 3, "lanes full")]),
         # a lowered cap stops the fill below the lane limits; a lowered spec limit shrinks Todo
         ({"cap": 3}, {"ABC-1": BUILD, "ABC-2": SPEC1}, ["start-todo", *report(3, 2, 2, "spec slot free")]),
         ({"spec": 1}, {"ABC-1": BUILD}, ["start-todo", *report(3, 1, 2, "spec slot free")]),
@@ -326,7 +326,7 @@ NH_QUEUED = {"ABC-1": queued("build-queued", CHANGES, "1")}
         ({}, {**NH, "drain": "blocked ABC-1"}, [NH_CHECK, "observe", f"{REPORT} (filling stopped: No Hands blocked ABC-1)", ROTATION]),
         (
             NH_QUEUED, {**NH, "drain": "stopped-by-user"},
-            [NH_CHECK, f"send ABC-1 build {json.dumps(CHANGES)}", "observe", f"{REPORT} (filling stopped: No Hands stopped-by-user)", ROTATION],
+            [NH_CHECK, f"send ABC-1 build {json.dumps(CHANGES)}", "run-wait ABC-1", "observe", f"{REPORT} (filling stopped: No Hands stopped-by-user)", ROTATION],
         ),
     ],
 )
