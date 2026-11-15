@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 keep a quiet ticket helper in Writing tickets for 30 minutes (WISE-456) (#458)
+
+Merged 2026-11-15 9:06 pm UTC.
+
+A ticket helper that is still working now stays in the Backlog tab's Writing tickets group for up to 30 minutes after its last activity, instead of dropping out after one minute. Nothing to do.
+
 ## 2026-11-15 confirm dashboard Approve and Mark todo reached T3 as the user (WISE-455) (#457)
 
 Merged 2026-11-15 8:58 pm UTC.
