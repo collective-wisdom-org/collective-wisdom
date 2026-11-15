@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 link dashboard tickets and the backlog for Linear and Jira (CW-334) (#335)
+
+Merged 2026-11-15 00:16 UTC.
+
+On a Linear or Jira repo, the dashboard's ticket ids and "Full backlog" link now open the ticket and the backlog in that tracker. A Jira repo needs its real `Jira site` and `Jira project key`; a Linear repo needs the `https://linear.app/<workspace>/team/<KEY>/overview` link in its `Linear team name` row.
+
 ## 2026-11-14 reset the Chief of Staff session in place (CW-316) (#333)
 
 Merged 2026-11-14 23:59 UTC.
