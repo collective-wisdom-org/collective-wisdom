@@ -4,7 +4,7 @@ Spec: `docs/superpowers/specs/2026-11-14-cw-369-collapsible-top-headers-design.m
 
 ## Task 1: markup and state in `agent-team/scripts/dashboard/page/app.js`
 
-1. Export `bandKey = (slug) => \`band:${slug}\``.
+1. Export `bandKey = (slug) => `band:${slug}``.
 2. `renderStatus`: replace the `<section class="band band-<slug>"><h2>` wrapper with `<details class="band band-<slug>" data-band="band:<slug>"[ open]><summary class="band-head"><h2>name</h2></summary>…</details>`; `open` unless `collapsed.has(bandKey(slug))`. Signature unchanged.
 3. `renderChief(api, page, open, size, collapsed = new Set())`: wrap `<h2>Project manager</h2>` and `pm.html` in the same `<details class="band band-pm" data-band="band:pm">`. The card stays outside. `drawCos` passes `readCollapsed()` to both `renderChief` calls.
 4. Start-up: if `band:done` is in `readCollapsed()`, remove `open` from `details[data-band="band:done"]`.
