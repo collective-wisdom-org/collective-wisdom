@@ -272,7 +272,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     count: g.rows.length,
     rows: newestFirst(g.rows.map((r) => {
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
-      const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }
+      const out: StatusRow = { id: r.id, title: titles[r.id] || r.title || '', risk: r.risk, next: r.next, stage: str(t.stage) }
       if (r.stageAt) out.stageAt = r.stageAt
       const issueUrl = links?.issue(r.id)
       if (issueUrl) out.issueUrl = issueUrl
