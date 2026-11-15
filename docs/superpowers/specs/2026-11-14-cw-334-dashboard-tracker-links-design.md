@@ -1,6 +1,7 @@
 # CW-334: Link dashboard tickets and the full backlog for Linear and Jira
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #335, as specified
 **Ticket:** [#334](https://github.com/collective-wisdom-org/collective-wisdom/issues/334)
 
 ## Goal
