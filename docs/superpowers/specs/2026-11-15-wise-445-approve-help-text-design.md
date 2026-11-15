@@ -1,6 +1,7 @@
 # WISE-445: Say on the dashboard Approve and Changes links when the Approve press works
 
-**Status:** Approved
+**Status:** Shipped
+**Shipped:** in PR #448, as specified
 **Ticket:** [#445](https://github.com/collective-wisdom-org/collective-wisdom/issues/445)
 
 ## Goal
