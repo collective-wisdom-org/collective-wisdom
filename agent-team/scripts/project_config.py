@@ -78,6 +78,11 @@ def prefix():
     return p
 
 
+def chief_thread_title():
+    """The Chief of Staff thread title, e.g. `CW - Chief of Staff`. Raises SystemExit like prefix()."""
+    return f"{prefix()} - Chief of Staff"
+
+
 def ticket_re(anchored=False):
     body = re.escape(prefix()) + r"-\d+"
     return re.compile(f"^{body}$" if anchored else body)
@@ -362,8 +367,10 @@ if __name__ == "__main__":
     try:
         if sys.argv[1:] == ["no-ci"]:
             print("yes" if no_ci() else "no")
+        elif sys.argv[1:] == ["chief-title"]:
+            print(chief_thread_title())
         else:
-            raise SystemExit("usage: project_config.py no-ci")
+            raise SystemExit("usage: project_config.py no-ci|chief-title")
     except SystemExit as e:
         print(e, file=sys.stderr)
         sys.exit(2)
