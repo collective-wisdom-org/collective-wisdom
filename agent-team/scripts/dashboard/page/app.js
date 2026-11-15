@@ -12,6 +12,24 @@ export const clock = (ms) => {
   const d = new Date(ms)
   return `${d.getHours() % 12 || 12}:${two(d.getMinutes())} ${d.getHours() < 12 ? 'am' : 'pm'}`
 }
+
+const CLOCK_TIME = /(?<![\d:])(\d{1,2}):(\d{2})(?!\d|:)(?:\s?(am|pm)\b)?(?:\s?UTC\b|Z\b)?/gi
+/**
+ * Each clock time in status text (`3:55am UTC`, `3:53am`, `14:05`), written in UTC by the Chief of Staff, as the viewer's local `h:mm am/pm` with no zone.
+ * A time has no date, so it takes the latest moment at or before `now` (plus a minute of clock skew) with that UTC hour and minute.
+ * An hour or minute out of range, or digits right before or after (`10:30:00`, an ISO timestamp), leaves the match as it is.
+ */
+export const localTimes = (text, now = Date.now()) =>
+  String(text ?? '').replace(CLOCK_TIME, (match, hh, mm, ap) => {
+    let h = Number(hh)
+    if (Number(mm) > 59 || (ap ? h > 12 : h > 23)) return match
+    if (ap) h = (h % 12) + (ap.toLowerCase() === 'pm' ? 12 : 0)
+    const limit = now + 60_000
+    const d = new Date(limit)
+    let at = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, Number(mm))
+    if (at > limit) at -= 86_400_000
+    return clock(at)
+  })
 const tokens = (n) => (n >= 999_950 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(1)}k` : String(n))
 const dollars = (c) => (c === null || c === undefined ? '–' : `$${c.toFixed(2)}`)
 
@@ -22,7 +40,7 @@ export function riskText(risk) {
   const raw = String(risk ?? '').trim()
   if (!raw) return null
   const w = /^[a-z]+/.exec(raw.toLowerCase())
-  return w && ['low', 'medium', 'high'].includes(w[0]) ? { text: `${w[0][0].toUpperCase()}${w[0].slice(1)}`, level: w[0] } : { text: raw, level: '' }
+  return w && ['low', 'medium', 'high'].includes(w[0]) ? { text: `${w[0][0].toUpperCase()}${w[0].slice(1)}`, level: w[0] } : { text: localTimes(raw), level: '' }
 }
 
 // Bands are a page-side order over the /api groups. A group name the page does not know goes to In progress.
@@ -229,8 +247,8 @@ function renderDetail(d) {
 export function renderDetails(r, now) {
   const ticketFacts = []
   if (r.stage) ticketFacts.push(['Stage', esc(stageWords(r.stage))])
-  if (r.risk) ticketFacts.push(['Risk', esc(r.risk)])
-  if (r.next) ticketFacts.push(['Next', esc(r.next), 'wide'])
+  if (r.risk) ticketFacts.push(['Risk', esc(localTimes(r.risk))])
+  if (r.next) ticketFacts.push(['Next', esc(localTimes(r.next)), 'wide'])
   const usage = []
   if (r.gantt && r.gantt.length > 0) {
     const items = ganttTasks(r.gantt, now)
@@ -311,7 +329,7 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   const status = r.stage && !SECTION_STAGES.has(r.stage) ? stageSentence(r.stage) : ''
   const waiting = String(r.stage).startsWith('awaiting-')
   const wait = waiting ? waitText(r.stageAt, Date.now()) : ''
-  const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(r.next)}</p>` : ''
+  const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(localTimes(r.next))}</p>` : ''
   return `<li class="${cls}">
   ${head}
   <div class="meta">${meta}</div>

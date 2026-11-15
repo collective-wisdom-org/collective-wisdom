@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -688,4 +688,35 @@ test('clock: local 12-hour time with am/pm', () => {
     [23, 59, '11:59 pm'],
   ]
   for (const [h, m, want] of cases) assert.equal(clock(new Date(2026, 0, 2, h, m).getTime()), want)
+})
+
+test('localTimes: UTC times in status text become local am/pm with no zone; anything else stays', () => {
+  const was = process.env.TZ
+  process.env.TZ = 'America/Toronto'
+  try {
+    const now = Date.UTC(2026, 10, 14, 12, 0)
+    const cases = [
+      ['build since 3:55am UTC: child building', 'build since 10:55 pm: child building'],
+      ['since 2:05pm UTC', 'since 9:05 am'],
+      ['12:00am UTC', '7:00 pm'],
+      ['12:00pm UTC', '7:00 am'],
+      ['at 14:05', 'at 9:05 am'],
+      ['2026-11-02T09:30:00Z', '2026-11-02T09:30:00Z'],
+      ['took 10:30:00', 'took 10:30:00'],
+      ['at 25:00', 'at 25:00'],
+      ['no time here', 'no time here'],
+    ]
+    for (const [text, want] of cases) assert.equal(localTimes(text, now), want, text)
+  } finally {
+    if (was === undefined) delete process.env.TZ
+    else process.env.TZ = was
+  }
+})
+
+test('a card and its Details show status times in local time with no UTC', () => {
+  const html = renderStatus(group([row({ next: 'build since 3:55am UTC: x', risk: 'low, ran at 3:53am' })]))
+  assert.match(html, /<p class="next">build since \d\d?:\d\d [ap]m: x<\/p>/)
+  assert.match(html, /<dt>Next<\/dt><dd>build since \d\d?:\d\d [ap]m: x<\/dd>/)
+  assert.match(html, /<dt>Risk<\/dt><dd>low, ran at \d\d?:\d\d [ap]m<\/dd>/)
+  assert.doesNotMatch(html, /UTC/)
 })
