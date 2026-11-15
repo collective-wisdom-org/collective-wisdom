@@ -1,7 +1,8 @@
 # CW-406: Find a BUILD READY or MERGE READY soon after a child finishes, even when the finish notice is lost
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#406](https://github.com/collective-wisdom-org/collective-wisdom/issues/406)
+**Shipped:** in PR #416, as specified
 
 ## Goal
 
