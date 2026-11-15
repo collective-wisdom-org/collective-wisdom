@@ -1,6 +1,6 @@
 # As-built: WISE-424 ticket owner avatar
 
-**Shipped:** in PR #PRN
+**Shipped:** in PR #427
 **Ticket:** WISE-424
 **Spec:** [2026-11-15-wise-424-ticket-owner-avatar-design.md](../specs/2026-11-15-wise-424-ticket-owner-avatar-design.md)
 
