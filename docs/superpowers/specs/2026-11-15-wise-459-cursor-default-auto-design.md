@@ -1,7 +1,8 @@
 # WISE-459: Route Cursor through default Auto for every role
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#459](https://github.com/collective-wisdom-org/collective-wisdom/issues/459)
+**Shipped:** in PR #460, with differences: [as-built](../as-built/2026-11-15-wise-459-cursor-default-auto-as-built.md)
 
 ## Goal
 
