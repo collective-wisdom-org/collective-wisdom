@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 one Agents and Details control and a waiting counter on the dashboard (CW-345) (#351)
+
+Merged 2026-11-15 02:27 UTC.
+
+On the dashboard, Agents and Details are now one switch on the left of each row, and only one panel opens at a time. Tickets waiting for your approval or a review show how long they have waited, such as `waiting 3h 16m`; the full status line is still in Details.
+
 ## 2026-11-15 show the risk level as a coloured pill on dashboard cards (CW-332) (#344)
 
 Merged 2026-11-15 02:07 UTC.
