@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, riskText, dayWords, actionFor, ganttSummary, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, groupLabel, stageSentence, riskText, dayWords, actionFor, ganttSummary, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -136,10 +136,14 @@ test('a card footer summarises the agents, time and cost from the gantt; nothing
   const sessions = [sess({ rows: [task({ cost: 1, segments: [[T, T + 2 * MIN]] }), sub({ cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] })] })]
   assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { agents: 2, ms: 3 * MIN, cost: 1.5 })
   assert.equal(ganttSummary([], T), null)
-  const foot = (gantt) => renderStatus(group([row({ gantt })])).match(/<span class="summary">([^<]*)</)?.[1]
+  const foot = (gantt) => renderStatus(group([row({ gantt })])).match(/<span class="summary"[^>]*>([^<]*)</)?.[1]
   assert.equal(foot(sessions), '2 agents \u00b7 3m 00s \u00b7 $1.50')
   assert.equal(foot(undefined), undefined)
   assert.equal(ganttSummary([sess({ rows: [task({ cost: null })] })], T + 10 * MIN).cost, null)
+  // A running session's summary moves with the clock; the span carries the ticket id so the page can refresh it between rebuilds.
+  const running = [sess({ rows: [task({ end: null, segments: [[T, null]] })] })]
+  assert.notEqual(summaryLine(running, T + 5 * MIN), summaryLine(running, T + 6 * MIN))
+  assert.match(renderStatus(group([row({ gantt: running })])), /<span class="summary" data-ticket="CW-1">/)
 })
 
 const T = Date.UTC(2026, 10, 7, 12, 0, 0)
@@ -466,9 +470,10 @@ test('groups sort into bands, keep api order inside a band', () => {
   const names = [g('Building'), g('Mystery'), g('Awaiting build approval'), g('Queued to build'), g('Awaiting merge approval'), g('Speccing')]
   assert.deepEqual(bandsOf(renderStatus(names)), ['Your turn', 'Spec ready to build', 'Ready to merge', 'In progress', 'Building', 'Mystery', 'Writing the spec', 'Up next', 'Waiting to build'])
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
-  const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
+  const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
   assert.match(other, /class="row blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
   assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
+  assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
   assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="risk-low">Low risk<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
@@ -492,7 +497,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
   assert.ok(!html.includes('<img'))
   const idle = part('not-started')
-  assert.ok(idle.indexOf('>Todo ') < idle.indexOf('>Backlog '), 'api order kept: Todo then Backlog')
+  assert.ok(idle.indexOf('data-group="Todo"') >= 0 && idle.indexOf('data-group="Todo"') < idle.indexOf('data-group="Backlog"'), 'api order kept: Todo then Backlog')
   assert.equal([...idle.matchAll(/<li class="row">/g)].length, 2)
   assert.ok(!idle.includes('<li class="ticket"') && !/risk|since/.test(idle))
   assert.match(idle, /href="https:\/\/x\.test\/issues\/7"/)

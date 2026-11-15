@@ -253,7 +253,7 @@ const prSpan = (url) => (isHttp(url) ? `<span class="pr">${link(url, 'PR')}</spa
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
 /** `3 agents · 41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
-const summaryLine = (gantt, now) => {
+export const summaryLine = (gantt, now) => {
   const g = ganttSummary(gantt, now)
   if (!g) return ''
   return metaLine([plural(g.agents, 'agent'), duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
@@ -287,9 +287,9 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   ${head}
   <div class="meta">${meta}</div>
   ${status ? `<p class="status">${esc(status)}</p>` : ''}
-  ${r.next && !flat ? `<p class="next">${esc(r.next)}</p>` : ''}
+  ${r.next ? `<p class="next">${esc(r.next)}</p>` : ''}
   ${action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : ''}
-  <div class="foot">${summary ? `<span class="summary">${esc(summary)}</span>` : ''}${toggles}</div>
+  <div class="foot">${summary ? `<span class="summary" data-ticket="${esc(r.id)}">${esc(summary)}</span>` : ''}${toggles}</div>
 </li>`
 }
 
@@ -647,6 +647,11 @@ if (typeof document !== 'undefined') {
       }
     }
     fill('.info-body[data-ticket]', rows, shownInfo)
+    // The footer summary counts time and cost up to now, and the card is not rebuilt when only those numbers move, so refresh its text here.
+    for (const span of document.querySelectorAll('.summary[data-ticket]')) {
+      const text = summaryLine(rows.get(span.dataset.ticket)?.gantt, now)
+      if (text && span.textContent !== text) span.textContent = text
+    }
     fill('.info-body[data-merged]', new Map(last.merged.map((e) => [e.id, e])), shownMergedInfo)
   }
   // The merged list is redrawn only when its html changed (compared with every chart and Details closed, so opening one is not a change), so a poll keeps the page and any selection.

@@ -11,3 +11,4 @@
 - An open Agents or Details section on a row moves to its own full-width line below it.
 - The Chief of Staff state dot is drawn in CSS, not with a `●` character, and sits on the meta line.
 - The Gantt container uses a soft background, with the track in the card colour.
+- The header's "in progress" count includes the Writing tickets helper group.
