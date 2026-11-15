@@ -442,6 +442,8 @@ test('press-return guard presses only for the page with the token, once per 3 se
     const page = await call(p, 'GET', '/', host)
     const token = TOKEN.exec(page.body)?.[1] ?? ''
     assert.ok(token, 'the served page carries the token')
+    assert.match(String(page.headers['content-security-policy']), /frame-ancestors 'none'/)
+    assert.equal(page.headers['x-frame-options'], 'DENY')
     for (const route of ['/api', '/health']) assert.ok(!(await call(p, 'GET', route, host)).body.includes(token), route)
     const ok = { Host: host, Origin: `http://127.0.0.1:${p}`, 'X-Dashboard-Token': token }
     const cases: [string, string, Record<string, string>, number][] = [

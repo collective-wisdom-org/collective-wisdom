@@ -204,8 +204,8 @@ export function mergedPageOf(url: string): number {
 }
 
 const PRESS_SCRIPT = `tell application "System Events"
-  set front to bundle identifier of first application process whose frontmost is true
-  if front is not "com.t3tools.t3code" then return "not-frontmost"
+  set frontId to bundle identifier of first application process whose frontmost is true
+  if frontId is not "com.t3tools.t3code" then return "not-frontmost"
   key code 36
 end tell
 return "sent"`
@@ -441,7 +441,11 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
     const send = (status: number, body: string, type = 'text/plain; charset=utf-8') => {
       const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
-      if (path === '/') headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'"
+      if (path === '/') {
+        // No other page may frame the dashboard: a framed Approve would carry the token and press Return.
+        headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+        headers['X-Frame-Options'] = 'DENY'
+      }
       res.writeHead(status, headers)
       res.end(body)
     }

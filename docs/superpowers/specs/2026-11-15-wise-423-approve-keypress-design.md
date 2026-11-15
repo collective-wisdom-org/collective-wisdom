@@ -105,4 +105,6 @@ Real run: on the user's machine, with the dashboard in the T3 browser pane, clic
 - **Approve on build cards too,** not only merge cards: both use the same `approve N` control. The ticket says "an awaiting card".
 - **The real run never approves anything by accident.** The build proves the press against a throwaway T3 thread through a test dashboard pointed at it, never against the live Chief of Staff thread, and the PR says so. A real approval through the button happens only when the user clicks it.
 
+- **Accepted trade-off, found in review:** macOS gives the Accessibility permission to the app at the top of the process tree, so with it granted, any process under T3 Code, an agent's shell included, could press keys too, and the route's token does not stop local code. The route defends against web pages only (and the page is not frameable). The user decides whether to grant Accessibility; the README says so.
+
 Touches: none of data, money, auth, user email or migrations. It adds a local route that presses a key on the user's Mac, which the security review checks.

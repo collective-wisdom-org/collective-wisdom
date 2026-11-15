@@ -928,11 +928,11 @@ test('each Backlog card has a Mark todo control after the switch and before the 
   }
 })
 
-test('pressMessage: one line per reason, none when sent or busy', () => {
+test('pressMessage: one line per reason, none when sent or a repeat click was busy', () => {
   const generic = 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
   const cases = [
     [{ sent: true }, ''],
-    [{ sent: false, reason: 'busy' }, ''],
+    [{ sent: false, reason: 'busy' }, /^Approve not sent: another Approve was still being sent/],
     [{ sent: false, reason: 'not-frontmost' }, 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.'],
     [{ sent: false, reason: 'permission' }, /^Approve not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \(or the app that started the dashboard\)/],
     [{ sent: false, reason: 'error' }, generic],
@@ -944,4 +944,5 @@ test('pressMessage: one line per reason, none when sent or busy', () => {
     if (want instanceof RegExp) assert.match(pressMessage(answer), want)
     else assert.equal(pressMessage(answer), want, JSON.stringify(answer))
   }
+  assert.equal(pressMessage({ sent: false, reason: 'busy' }, true), '')
 })
