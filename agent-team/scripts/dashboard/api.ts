@@ -34,6 +34,7 @@ const LABEL_MAX = 40
 const SEGMENTS_MAX = 500
 const KINDS = ['session', 'task', 'agent']
 const RUNNING_MS = 60_000
+const HELPER_RUNNING_MS = 30 * 60_000
 const THREAD_MAX = 200
 const HEADING_MAX = 40
 const REQUEST_MAX = 80
@@ -336,10 +337,11 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
   }
   const link = (id: string | null) => (environmentId && id ? `<t3-thread://v2/${environmentId}/${id}>` : undefined)
   const isRunning = (i: TeamItem) => i.open && (i.cursor === true || now - i.session.updatedAt <= RUNNING_MS)
+  const helperRunning = (i: TeamItem) => i.open && (i.cursor === true || now - i.session.updatedAt <= HELPER_RUNNING_MS)
   const team = teamItems(snapshots, state, now, prefix, retired)
   // A running helper that has filed no ticket yet is a placeholder row; a finished one shows nowhere.
   const writing = team
-    .filter((i) => i.role === 'helper' && !i.session.ticket && i.session.sessionId && isRunning(i))
+    .filter((i) => i.role === 'helper' && !i.session.ticket && i.session.sessionId && helperRunning(i))
     .sort((a, b) => b.session.updatedAt - a.session.updatedAt)
     .map((i): StatusRow => {
       const row: StatusRow = { id: `helper:${i.session.sessionId}`, title: i.session.request ?? '', helper: true, risk: '', next: '', stage: '', gantt: [i.session] }
