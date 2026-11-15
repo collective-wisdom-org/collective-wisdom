@@ -114,8 +114,8 @@ export function dayWords(ms, now) {
 }
 
 const ACTIONS = new Map([
-  ['awaiting-merge', ['Open PR', 'prUrl']],
-  ['awaiting-build', ['Open spec', 'specUrl']],
+  ['awaiting-merge', ['View PR', 'prUrl']],
+  ['awaiting-build', ['View spec', 'specUrl']],
 ])
 /** The one action a ticket that needs the user offers, or null when the stage has none or its url is not http(s). */
 export function actionFor(r) {
@@ -299,8 +299,8 @@ export const ownerBadge = (login) =>
     : ''
 /** True when the ticket's owner and the viewer are both logins and differ (GitHub logins are case-insensitive). */
 export const foreign = (owner, viewer) => typeof owner === 'string' && typeof viewer === 'string' && owner !== '' && viewer !== '' && owner.toLowerCase() !== viewer.toLowerCase()
-/** The first line of every row: the ticket number, then the title (left out when empty, so the id is not shown twice), then `extra`, then the owner badge (`ownerHtml`) at the right end. */
-const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}${ownerHtml}</div>`
+/** The first line of every row: the ticket number, then `extra` (the thread copy button), then the title (left out when empty, so the id is not shown twice), then the owner badge (`ownerHtml`), which the page puts in its own column at the right end of the number row. */
+const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${extra}${title ? `<span class="title">${esc(title)}</span>` : ''}${ownerHtml}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
 /** `41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
@@ -367,7 +367,7 @@ function todoControl(r, chiefLink) {
 
 /**
  * One ticket as a card (`li.ticket`), the same three rows for every card. Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
- * Top row: the ticket number, the title and the thread copy button. Middle row (only when it has something): the `Open PR` or `Open spec` link and the Approve and Changes controls.
+ * Top row: the ticket number, the thread copy button right after it, and the title below. Middle row (only when it has something): the `View PR` or `View spec` link and the Approve and Changes controls.
  * Bottom row: the Agents and Details control, the Mark todo control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
  * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
