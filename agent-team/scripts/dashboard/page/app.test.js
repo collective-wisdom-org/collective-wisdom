@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -26,7 +26,7 @@ test('only http(s) urls become links; a missing prUrl has no PR anchor', () => {
 test('threadLink becomes a copy button carrying the exact link', () => {
   const link = '<t3-thread://v2/env/th"1>'
   const html = renderStatus(group([row({ threadLink: link })]))
-  assert.match(html, /<div class="head">.*<button type="button" class="copy-icon" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link"/)
+  assert.match(html, /<div class="head">.*<button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" title="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect/)
   assert.ok(!html.includes('>Copy thread link<'))
   assert.ok(!renderStatus(group([row()])).includes('copy-icon'))
 })
@@ -76,7 +76,7 @@ test('group labels are plain words; an unknown name shows as it is; data-group k
   assert.match(html, /data-group="Queued to merge"[^>]*><summary><h3>Waiting to merge </)
 })
 
-test('the status sentence names the stage in plain words with no time; a section stage draws no status line', () => {
+test('the stage sentence names the stage in plain words with no time; only the Other group draws it on a card', () => {
   const cases = [
     ['awaiting-merge', 'Waiting for your merge approval'],
     ['blocked', 'Blocked. Needs an answer from you'],
@@ -85,10 +85,9 @@ test('the status sentence names the stage in plain words with no time; a section
     ['some-new-stage', 'some new stage'],
   ]
   for (const [stage, want] of cases) assert.equal(stageSentence(stage), want, stage)
-  const sentence = (r) => renderStatus(group([row(r)])).match(/<p class="status">([^<]*)</)?.[1]
-  assert.equal(sentence({ stage: 'build' }), undefined, 'the section already says it')
-  assert.equal(sentence({ stage: 'awaiting-merge' }), 'Waiting for your merge approval')
-  assert.equal(sentence({ stage: '' }), undefined, 'no stage, no sentence')
+  const has = (name, r) => renderStatus([{ name, count: 1, rows: [row(r)] }]).includes('Waiting for a spec slot')
+  assert.equal(has('Other', { stage: 'spec-queued' }), true)
+  assert.equal(has('Queued to build', { stage: 'spec-queued' }), false, 'the section already says it')
 })
 
 test('no card or row shows since a time, in any group', () => {
@@ -110,7 +109,7 @@ test('risk shows the level word only, in its colour class; unreadable text shows
     [undefined, null],
   ]
   for (const [input, want] of cases) assert.deepEqual(riskText(input), want, String(input))
-  const meta = (risk) => renderStatus(group([row({ risk })])).match(/<div class="meta">([\s\S]*?)<\/div>/)[1]
+  const meta = (risk) => renderStatus(group([row({ risk })])).match(/<span class="meta">([\s\S]*?)<\/span><\/div>/)[1]
   for (const [input, level, word] of [['low', 'low', 'Low'], ['medium: <i>x</i>', 'medium', 'Medium'], ['HIGH - migrations', 'high', 'High']]) {
     const m = meta(input)
     assert.ok(m.includes(`<span class="badge risk risk-${level}">${word}</span>`), input)
@@ -120,19 +119,19 @@ test('risk shows the level word only, in its colour class; unreadable text shows
   assert.doesNotMatch(meta(''), /risk/)
 })
 
-test('an action sits under the status sentence only for a stage that needs the user and an http(s) url', () => {
+test('an action sits in the middle row only for a stage that needs the user and an http(s) url', () => {
   const urls = { prUrl: 'https://x.test/pull/2', specUrl: 'https://x.test/blob/s.md', issueUrl: 'https://x.test/issues/1' }
   const cases = [
     [{ stage: 'awaiting-merge' }, { label: 'Open PR', url: urls.prUrl }],
     [{ stage: 'awaiting-build' }, { label: 'Open spec', url: urls.specUrl }],
-    [{ stage: 'blocked' }, { label: 'Open issue', url: urls.issueUrl }],
+    [{ stage: 'blocked' }, null],
     [{ stage: 'build' }, null],
     [{ stage: 'awaiting-merge', prUrl: 'javascript:alert(1)' }, null],
     [{ stage: 'awaiting-build', specUrl: undefined }, null],
   ]
   for (const [r, want] of cases) assert.deepEqual(actionFor({ ...urls, ...r }), want, JSON.stringify(r))
   const html = renderStatus([{ name: 'Awaiting merge approval', count: 1, rows: [row({ ...urls, stage: 'awaiting-merge' })] }])
-  assert.match(html, /<p class="status">Waiting for your merge approval<\/p>[\s\S]*<a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>Open PR<\/a>/)
+  assert.match(html, /<div class="actions"><a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>Open PR<\/a>/)
   assert.doesNotMatch(renderStatus(group([row(urls)])), /class="action"/)
 })
 
@@ -490,7 +489,6 @@ test('groups sort into bands, keep api order inside a band', () => {
   const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
   assert.match(other, /class="ticket blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
   assert.equal((other.match(/class="ticket blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
-  assert.match(other, /class="ticket blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
   assert.match(queued, /<span class="meta"><span class="badge risk risk-low">Low<\/span><\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
@@ -682,14 +680,6 @@ test('renderGantt draws each CI wait bar on its task row and leaves durations, c
   assert.equal(renderGantt(sessions, now, []), renderGantt(sessions, now), 'no CI spans, same chart as before')
 })
 
-test('waitText counts up from stageAt, rounded down, two units at most', () => {
-  const now = Date.UTC(2026, 10, 14, 12, 0)
-  const [M, H, D] = [60_000, 3_600_000, 86_400_000]
-  const ago = (ms) => new Date(now - ms).toISOString()
-  const cases = [[undefined, ''], ['soon', ''], [ago(-5 * M), 'waiting <1m'], [ago(30_000), 'waiting <1m'], [ago(42 * M), 'waiting 42m'], [ago(3 * H), 'waiting 3h'], [ago(3 * H + 16 * M), 'waiting 3h 16m'], [ago(3 * D), 'waiting 3d'], [ago(3 * D + 4 * H), 'waiting 3d 4h'], [ago(40 * D), 'waiting 40d']]
-  for (const [stageAt, want] of cases) assert.equal(waitText(stageAt, now), want, String(stageAt))
-})
-
 test('every row type draws the same switch first in its foot; one panel is open at most and a row with no tasks has a disabled Agents', () => {
   const g = [sess()]
   const status = (name, r) => (open, info) => renderStatus([{ name, count: 1, rows: [r] }], open, new Set(), info)
@@ -718,24 +708,6 @@ test('every row type draws the same switch first in its foot; one panel is open 
       assert.equal(html.match(/<div class="panel"[^>]*>/g)?.filter((t) => !t.includes(' hidden')).length ?? 0, can.includes(v) ? 1 : 0, `${name} ${v} panels`)
     }
   }
-})
-
-test('an awaiting card counts the wait instead of showing the status line; a build card keeps it; Details keeps it in full for both', () => {
-  const at = new Date(Date.now() - 196 * 60_000).toISOString()
-  const long = 'fathom-only spec at 368b05e, keeps GUY prefix'
-  const card = (r) => renderStatus(group([row({ next: long, ...r })]))
-  for (const stage of ['awaiting-merge', 'awaiting-build', 'awaiting-review']) {
-    const html = card({ stage, stageAt: at })
-    assert.match(html, /<p class="wait" data-ticket="CW-1"><time datetime="[^"]+" title="Since \d{4}-\d\d-\d\d \d\d?:\d\d [ap]m">waiting 3h 16m<\/time><\/p>/, stage)
-    assert.doesNotMatch(html, /<p class="next">|since \d\d?:\d\d [ap]m/, stage)
-    assert.match(html, /<dt>Next<\/dt><dd>fathom-only/, stage)
-  }
-  const missing = card({ stage: 'awaiting-merge' })
-  assert.doesNotMatch(missing, /class="wait"|class="next"/)
-  assert.match(missing, /<dt>Next<\/dt><dd>fathom-only/)
-  const build = card({ stageAt: at })
-  assert.match(build, /<p class="next">fathom-only[^<]*<\/p>/)
-  assert.doesNotMatch(build, /class="wait"/)
 })
 
 test('a stale group says how old its list is and greys its rows; a fresh one or one with no readAt draws nothing', () => {
@@ -825,10 +797,59 @@ test('localTimes: UTC times in status text become local am/pm with no zone; anyt
   }
 })
 
-test('a card and its Details show status times in local time with no UTC', () => {
+test('Details show status times in local time with no UTC', () => {
   const html = renderStatus(group([row({ next: 'build since 3:55am UTC: x', risk: 'low, ran at 3:53am' })]))
-  assert.match(html, /<p class="next">build since \d\d?:\d\d [ap]m: x<\/p>/)
   assert.match(html, /<dt>Next<\/dt><dd>build since \d\d?:\d\d [ap]m: x<\/dd>/)
   assert.match(html, /<dt>Risk<\/dt><dd>low, ran at \d\d?:\d\d [ap]m<\/dd>/)
   assert.doesNotMatch(html, /UTC/)
+})
+
+test('every card is a top row, an optional middle row and a bottom row; the meta holds risk, Spec, PR, time and cost in that order; no status, wait or next line', () => {
+  const urls = { specUrl: 'https://x.test/blob/s.md', prUrl: 'https://x.test/pull/2', next: 'why', stageAt: new Date().toISOString(), gantt: [sess({ rows: [task({ cost: 1, segments: [[T, T + 2 * MIN]], end: T + 2 * MIN })] })] }
+  const full = 'Low \u00b7 Spec \u00b7 PR \u00b7 2m 00s \u00b7 $1.00'
+  const cases = [
+    ['Awaiting merge approval', { stage: 'awaiting-merge' }, true, full],
+    ['Building', { stage: 'build' }, false, full],
+    ['Queued to build', { stage: 'build-queued' }, false, full],
+    ['Todo', { stage: '' }, false, 'Spec \u00b7 PR \u00b7 2m 00s \u00b7 $1.00'],
+    ['Other', { stage: 'blocked' }, false, `${full} \u00b7 Blocked. Needs an answer from you`],
+    ['Writing tickets', { stage: '', helper: true }, false, 'Low \u00b7 2m 00s \u00b7 $1.00'],
+  ]
+  for (const [name, r, middle, meta] of cases) {
+    const html = renderStatus([{ name, count: 1, rows: [row({ ...urls, ...r })] }]).split('</li>')[0]
+    const [head, actions, foot] = ['class="head"', 'class="actions"', 'class="foot"'].map((k) => html.indexOf(k))
+    assert.ok(head > 0 && foot > head && (actions === -1 ? !middle : middle && actions > head && actions < foot), name)
+    assert.equal(html.match(/<span class="meta">([\s\S]*?)<\/span><\/div>/)[1].replace(/<[^>]+>/g, ''), meta, name)
+    assert.doesNotMatch(html, /class="(status|wait|next)"/, name)
+  }
+})
+
+test('Approve and Changes show only on a card waiting for approval; they open the Chief of Staff thread with the command typed in, or copy it with no thread', () => {
+  const cases = [
+    [{ id: 'CW-402', stage: 'awaiting-merge' }, 'approve 402', 'changes 402: '],
+    [{ id: 'GUY-7', stage: 'awaiting-build' }, 'approve 7', 'changes 7: '],
+    [{ id: 'CW-402', stage: 'awaiting-review' }, null, null],
+    [{ id: 'CW-402', stage: 'blocked' }, null, null],
+    [{ id: 'helper:x', stage: 'awaiting-merge' }, null, null],
+  ]
+  for (const [r, approve, changes] of cases) {
+    assert.equal(approveCommand(r), approve, JSON.stringify(r))
+    assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
+    const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), 0, link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
+    const prompt = (t) => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}">`
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve)}Approve</a>`, `${prompt(changes)}Changes</a>`], JSON.stringify(r))
+    assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
+  }
+})
+
+test('promptLink turns a dashboard thread link into a T3 prompt link and refuses anything else', () => {
+  const cases = [
+    ['<t3-thread://v2/env-1/th:2>', 't3code://threads/env-1/th:2?prompt=a%20b%26c'],
+    [undefined, null],
+    ['t3-thread://v2/env/th', null],
+    ['<t3-thread://v1/env/th>', null],
+    ['<t3-thread://v2/env/th/extra>', null],
+    ['<t3-thread://v2/en"v/th>', null],
+  ]
+  for (const [link, want] of cases) assert.equal(promptLink(link, 'a b&c'), want, String(link))
 })
