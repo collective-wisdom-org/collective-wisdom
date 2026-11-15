@@ -911,8 +911,6 @@ if (typeof document !== 'undefined') {
     },
     true,
   )
-  // The Done band sits in index.html and is never redrawn, so apply its saved state once.
-  if (readCollapsed().has(bandKey('done'))) document.querySelector('details[data-band="band:done"]')?.removeAttribute('open')
   poll()
   setInterval(poll, 5000)
   setInterval(draw, 1000)

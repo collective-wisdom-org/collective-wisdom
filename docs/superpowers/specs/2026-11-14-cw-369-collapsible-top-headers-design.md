@@ -1,6 +1,6 @@
 # CW-369: Make the dashboard top-level section headers collapsible
 
-**Status:** Draft
+**Status:** Building
 **Ticket:** [#369](https://github.com/collective-wisdom-org/collective-wisdom/issues/369)
 **Related:** #349 (edits `renderStatus`), #350 (moves Done to its own tab), #370 (row cards). None has a PR open today; whichever builds second rebases on the other.
 
@@ -84,3 +84,7 @@ Proof: screenshots of the Ship loop tab with a band collapsed and all open, Done
 - **Done's state is applied once at start-up** instead of being redrawn, since that element sits in `index.html` and nothing rewrites it.
 - **`renderChief` gets a fifth `collapsed` parameter** rather than reading storage itself, so it stays a pure function the tests can call.
 - **No change to `renderBadges`** or any count.
+
+## Changed after approval
+
+- #350 merged before this build: Done is now its own tab and has no `h2` on the Ship loop tab. The ticket says to keep the Done header collapsible only if it still exists, so the build drops the Done band, its `<details>` wrapper, its `band:done` key and the start-up step. The other five sections are as specified.

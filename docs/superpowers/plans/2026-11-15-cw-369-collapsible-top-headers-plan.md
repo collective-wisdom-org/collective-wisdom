@@ -20,3 +20,5 @@ Spec: `docs/superpowers/specs/2026-11-14-cw-369-collapsible-top-headers-design.m
 Table-driven, as in the spec § Tests: renderStatus open/collapsed band (sub-sections unaffected), renderChief with and without `bandKey('pm')`, and every band key starts with `band:` and matches no group name.
 
 Verify: `node --test agent-team/scripts/dashboard/*.test.ts agent-team/scripts/dashboard/page/app.test.js mods/agent-gantt/hooks/*.test.ts`.
+
+Note: #350 moved Done to its own tab before the build, so step 4 of Task 1, step 1 of Task 2 and the `done` key are dropped.
