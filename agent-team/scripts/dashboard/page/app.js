@@ -278,11 +278,11 @@ const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')
 const rowHead = (idHtml, title, extra = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
-/** `3 agents · 41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
+/** `41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
 export const summaryLine = (gantt, now) => {
   const g = ganttSummary(gantt, now)
   if (!g) return ''
-  return metaLine([plural(g.agents, 'agent'), duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
+  return metaLine([duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
 }
 
 /**
@@ -499,8 +499,8 @@ function ganttTasks(sessions, now) {
   return items.sort((a, b) => a.r.start - b.r.start)
 }
 
-/** How many tasks the chart draws, for the `Agents` pill. */
-export const taskCount = (sessions) => ganttTasks(sessions, 0).length
+/** How many agents the chart draws (tasks and their subagents), for the `Agents` pill. */
+export const taskCount = (sessions) => ganttTasks(sessions, 0).reduce((n, i) => n + 1 + i.kids.length, 0)
 
 const rowTitle = ({ r, s, clockNow }) => {
   const running = (r.end === null || r.end === undefined) && !s.stale
@@ -523,11 +523,11 @@ function ciRow(ci, now) {
 
 const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
 
-/** What a card's footer says about its sessions: the rows drawn (tasks and subagents), the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
+/** What a card's footer says about its sessions: the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
 export function ganttSummary(sessions, now) {
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return null
-  return { agents: items.reduce((n, i) => n + 1 + i.kids.length, 0), ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
+  return { ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
 }
 
 export function renderGantt(sessions, now, ci) {
