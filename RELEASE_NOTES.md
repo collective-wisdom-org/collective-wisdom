@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 make dashboard section dividers more prominent (CW-360) (#366)
+
+Merged 2026-11-15 3:34 am UTC.
+
+The dividers between dashboard sections are now thicker and easier to see in both light and dark themes.
+
 ## 2026-11-15 read a Cursor Chief of Staff's context size in the rotation check (CW-341) (#361)
 
 Merged 2026-11-15 3:31 am UTC.
