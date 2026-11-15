@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 rename the ticket prefix from CW to WISE (CW-404) (#414)
+
+Merged 2026-11-15 8:14 am UTC.
+
+New tickets are numbered `WISE-N` and branches read `feat/wise-N-*`. Tickets up to `CW-413` keep their `CW-N` ids, and nothing in flight needs changing. The Chief of Staff thread is renamed to `WISE - Chief of Staff` the next time it starts, takes over or resumes.
+
 ## 2026-11-15 one dashboard card layout and an approve button that prefills the command (CW-402) (#412)
 
 Merged 2026-11-15 8:01 am UTC.
