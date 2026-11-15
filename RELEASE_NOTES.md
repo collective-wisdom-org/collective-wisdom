@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 move the dashboard Done list to its own Done tab (CW-350) (#376)
+
+Merged 2026-11-15 4:38 am UTC.
+
+The dashboard has a Done tab after Chief of Staff. The merged tickets moved there from the bottom of the Ship loop tab. Nothing to do.
+
 ## 2026-11-15 finish the Chief of Staff take-over pass when a message interrupts it (CW-353) (#368)
 
 Merged 2026-11-15 4:16 am UTC.
