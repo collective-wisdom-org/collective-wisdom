@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 draw each CI wait bar on its task row (CW-382) (#397)
+
+Merged 2026-11-15 6:22 am UTC.
+
+The dashboard chart now draws each blue CI wait bar on the row of the task that was waiting for it, and the separate `CI wait` row is gone. Nothing to do.
+
 ## 2026-11-15 count every subagent in the dashboard Agents button (CW-371) (#393)
 
 Merged 2026-11-15 6:19 am UTC.
