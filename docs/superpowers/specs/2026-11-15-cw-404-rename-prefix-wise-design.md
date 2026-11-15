@@ -1,6 +1,7 @@
 # CW-404: Rename the ticket prefix from CW to WISE
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #414, as specified
 **Ticket:** [#404](https://github.com/collective-wisdom-org/collective-wisdom/issues/404)
 
 ## Goal
