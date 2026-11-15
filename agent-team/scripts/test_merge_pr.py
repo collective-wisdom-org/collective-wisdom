@@ -301,6 +301,7 @@ def test_cleanup_fast_forwards_only_a_root_on_the_merge_target_branch(tmp_path, 
 
 
 OLD = "c" * 40
+LIVING = "Head moved to {h} by the docs check fix commit; PR diff changed only in living docs since {o}: ['README.md']. Reviews from {o} stand."
 
 
 def moved(f, note="Head moved to {h} by merging main; PR diff unchanged since {o}. Reviews from {o} stand.", who="me", head=HEAD):
@@ -318,6 +319,8 @@ def moved(f, note="Head moved to {h} by merging main; PR diff unchanged since {o
         (lambda f: (moved(f), f["commits"].append({"oid": "e" * 40, "committedDate": "2026-11-02T09:30:00Z"})), ("same", []), "not the head the review was posted on"),
         (lambda f: moved(f), ("changed", ["a.py"]), "diff changed since ccccccc: 'a.py'"),
         (lambda f: moved(f), "boom", "cannot compare diff: boom"),
+        (lambda f: moved(f, note=LIVING), ("living", ["README.md"]), None),
+        (lambda f: moved(f, note=LIVING), ("changed", ["a.py"]), "diff changed since ccccccc: 'a.py'"),  # the note alone proves nothing
     ],
 )
 def test_review_older_than_head(change, delta, cause):
