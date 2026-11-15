@@ -5,7 +5,7 @@ import { lstatSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkS
 import { execFile, spawn } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject, teamSessions, trackerLinksFromProject } from './api.ts'
+import { buildApi, cleanThreadId, ledgerSessions, parseWorktrees, repoUrlFromProject, teamSessions, trackerLinksFromProject } from './api.ts'
 import type { TrackerLinks, Worktree } from './api.ts'
 import { createTitles, ghRunner, headsFromProject, prefixFromProject, retiredFromProject, slugFromUrl } from './titles.ts'
 import type { Retired } from './titles.ts'
@@ -298,7 +298,57 @@ export function pressResult(result: unknown): { sent: boolean; reason?: string }
   return { sent: false, reason: /\((?:-1743|1002|-1719|-25211)\)/.test(`${e?.message ?? ''} ${e?.stderr ?? ''}`) ? 'permission' : 'error' }
 }
 
-export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: () => Promise<string>; viewerGh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
+/** One run of `cos_user_check.py latest <thread> --after <after>` with `command` on stdin, the same check the Chief of Staff makes before it acts. `true` when it exits 0 (the user's message is there), `false` on exit 1 (not there yet), `'unchecked'` on any other exit, a timeout or a spawn error. */
+export function checkSentPy(thread: string, command: string, after: string, db?: string): Promise<boolean | 'unchecked'> {
+  return new Promise((done) => {
+    // A thread id that starts with a dash would read as an option.
+    if (thread.startsWith('-')) return done('unchecked')
+    try {
+      const child = execFile('python3', ['-I', join(import.meta.dirname, '..', 'cos_user_check.py'), ...(db === undefined ? [] : ['--db', db]), 'latest', thread, '--after', after], { timeout: 2000 }, (err) => {
+        const code = (err as { code?: unknown } | null)?.code
+        done(err === null ? true : code === 1 ? false : 'unchecked')
+      })
+      child.stdin?.on('error', () => {})
+      child.stdin?.end(command)
+    } catch {
+      done('unchecked')
+    }
+  })
+}
+
+/** The body of a press request: at most 256 bytes, else `null`. Also `null` if the body has not ended after 2 seconds, so a stalled body cannot hold the press lock. Past 256 bytes it stops buffering and answers at once. */
+function readBody(req: IncomingMessage): Promise<string | null> {
+  return new Promise((done) => {
+    const chunks: Buffer[] = []
+    let size = 0
+    const timer = setTimeout(() => done(null), 2000)
+    const finish = (body: string | null) => {
+      clearTimeout(timer)
+      done(body)
+    }
+    req.on('data', (c: Buffer) => {
+      size += c.length
+      if (size <= 256) chunks.push(c)
+      else finish(null)
+    })
+    req.on('end', () => finish(size <= 256 ? Buffer.concat(chunks).toString('utf8') : null))
+    req.on('error', () => finish(null))
+  })
+}
+
+const PRESS_COMMAND = /^(approve \d{1,7}|mark \d{1,7} todo)$/
+
+/** The command in a press body (`{"command": "approve 402"}`), or `null` unless it is exactly `approve N` or `mark N todo`. */
+export function pressCommand(body: string | null): string | null {
+  try {
+    const command = (JSON.parse(body ?? '') as { command?: unknown } | null)?.command
+    return typeof command === 'string' && PRESS_COMMAND.test(command) ? command : null
+  } catch {
+    return null
+  }
+}
+
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: () => Promise<string>; checkSent?: (thread: string, command: string, after: string) => Promise<boolean | 'unchecked'>; viewerGh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -488,22 +538,47 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
 
   const token = randomBytes(32).toString('hex')
   const pressReturn = opts.pressReturn ?? pressReturnMac
+  const checkSent = opts.checkSent ?? checkSentPy
   let lastPress = 0
   let pressing = false
+  /** After a press that answered `sent`, asks `checkSent` every 300 ms for up to 3 seconds whether T3 recorded the command as the user's message. */
+  const confirm = async (command: string, after: string): Promise<{ sent: boolean; reason?: string }> => {
+    const thread = cleanThreadId((readState() as { chiefThreadId?: unknown } | null)?.chiefThreadId)
+    if (thread === null) return { sent: false, reason: 'unchecked' }
+    const deadline = Date.now() + 3000
+    for (;;) {
+      const found = await checkSent(thread, command, after).catch((): 'unchecked' => 'unchecked')
+      if (found === true) return { sent: true }
+      if (found === 'unchecked') return { sent: false, reason: 'unchecked' }
+      if (Date.now() + 300 > deadline) return { sent: false, reason: 'not-recorded' }
+      await new Promise((r) => setTimeout(r, 300))
+    }
+  }
   const press = async (req: IncomingMessage, send: (status: number, body: string, type?: string) => void, port: number) => {
+    const arrived = new Date().toISOString()
     const origin = req.headers.origin
     const site = req.headers['sec-fetch-site']
     const got = Buffer.from(String(req.headers['x-dashboard-token'] ?? ''))
     const want = Buffer.from(token)
     if ((origin !== `http://127.0.0.1:${port}` && origin !== `http://localhost:${port}`) || (site !== undefined && site !== 'same-origin') || got.length !== want.length || !timingSafeEqual(got, want)) return send(403, 'forbidden')
-    req.resume()
     const json = (answer: { sent: boolean; reason?: string }) => send(200, JSON.stringify(answer), 'application/json')
-    if (pressing || Date.now() - lastPress < 3000) return json({ sent: false, reason: 'busy' })
+    if (pressing || Date.now() - lastPress < 3000) {
+      req.resume()
+      return json({ sent: false, reason: 'busy' })
+    }
     pressing = true
-    lastPress = Date.now()
     try {
+      const command = pressCommand(await readBody(req))
+      if (command === null) {
+        send(400, 'bad request')
+        // An oversize or stalled body may still be coming: close once the 400 is written.
+        req.socket.destroySoon()
+        return
+      }
+      lastPress = Date.now()
       await new Promise((r) => setTimeout(r, 1200))
-      json(pressResult(await pressReturn().catch((e: unknown) => e ?? new Error('failed'))))
+      const answer = pressResult(await pressReturn().catch((e: unknown) => e ?? new Error('failed')))
+      json(answer.sent ? await confirm(command, arrived) : answer)
     } finally {
       pressing = false
     }

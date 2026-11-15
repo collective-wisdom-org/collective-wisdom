@@ -334,7 +334,7 @@ function approveControls(r, chiefLink) {
       if (text === null) return ''
       const href = promptLink(chiefLink, text)
       const press = kind === 'approve' && href
-      const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
+      const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you and checks it arrived. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
       return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text)}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
@@ -344,6 +344,8 @@ const PRESS_MESSAGES = {
   'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.`,
   'no-focus': (action) => `${action} not sent: the dashboard could not put the cursor in the T3 message box. Press Send in the Chief of Staff thread.`,
   permission: (action) => `${action} not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.`,
+  'not-recorded': (action) => `${action} not sent: no new message with the command reached the Chief of Staff thread. If it is still in the message box, press Send there.`,
+  unchecked: (action) => `${action} may not have sent: the dashboard could not read T3's messages to check. Look in the Chief of Staff thread and press Send if it is still there.`,
   busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
 
@@ -370,7 +372,7 @@ function todoControl(r, chiefLink) {
   const text = todoCommand(r)
   if (text === null) return ''
   const href = promptLink(chiefLink, text)
-  const title = `Opens the Chief of Staff thread with "${text}" typed in and presses Send for you. If it can't, press Send.`
+  const title = `Opens the Chief of Staff thread with "${text}" typed in and presses Send for you and checks it arrived. If it can't, press Send.`
   return href ? `<a class="todo" href="${esc(href)}" title="${esc(title)}" data-return="${esc(text)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
 }
 
@@ -963,7 +965,7 @@ if (typeof document !== 'undefined') {
     pressNote = ''
     let answer = null
     try {
-      const res = await fetch('/press-return', { method: 'POST', headers: { 'X-Dashboard-Token': document.querySelector('meta[name="dashboard-token"]')?.content ?? '' } })
+      const res = await fetch('/press-return', { method: 'POST', headers: { 'X-Dashboard-Token': document.querySelector('meta[name="dashboard-token"]')?.content ?? '', 'Content-Type': 'application/json' }, body: JSON.stringify({ command }) })
       answer = await res.json()
     } catch {}
     pressNote = pressMessage(answer, repeat, pressAction(command))

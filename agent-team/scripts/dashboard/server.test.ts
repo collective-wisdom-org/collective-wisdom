@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
+import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -437,7 +437,7 @@ test('the page allows avatar images from one host only, and /api carries the vie
 
 const TOKEN = /<meta name="dashboard-token" content="([0-9a-f]{64})">/
 
-function send(port: number, method: string, headers: Record<string, string>): Promise<{ status: number; body: string }> {
+function send(port: number, method: string, headers: Record<string, string>, body?: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const req = request({ host: '127.0.0.1', port, method, path: '/press-return', headers }, (res) => {
       let body = ''
@@ -445,14 +445,18 @@ function send(port: number, method: string, headers: Record<string, string>): Pr
       res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
     })
     req.on('error', reject)
-    req.end()
+    req.end(body)
   })
 }
+
+const APPROVE = JSON.stringify({ command: 'approve 402' })
 
 test('press-return guard presses only for the page with the token, once per 3 seconds', async () => {
   const root = tmpRoot()
   let presses = 0
-  const srv = await startServer({ root, port: 0, pressReturn: async () => (presses++, 'sent') })
+  mkdirSync(join(root, '.agent-team'))
+  writeFileSync(join(root, '.agent-team', 'state.json'), JSON.stringify({ chiefThreadId: 'ct' }))
+  const srv = await startServer({ root, port: 0, pressReturn: async () => (presses++, 'sent'), checkSent: async () => true })
   try {
     const p = srv.port
     const host = `127.0.0.1:${p}`
@@ -475,13 +479,114 @@ test('press-return guard presses only for the page with the token, once per 3 se
     ]
     for (const [name, method, headers, status] of cases) assert.equal((await send(p, method, headers)).status, status, name)
     assert.equal(presses, 0, 'none of those pressed')
-    const first = await send(p, 'POST', { ...ok, 'Sec-Fetch-Site': 'same-origin' })
+    const first = await send(p, 'POST', { ...ok, 'Sec-Fetch-Site': 'same-origin' }, APPROVE)
     assert.deepEqual([first.status, JSON.parse(first.body), presses], [200, { sent: true }, 1])
-    assert.deepEqual([JSON.parse((await send(p, 'POST', ok)).body), presses], [{ sent: false, reason: 'busy' }, 1])
+    assert.deepEqual([JSON.parse((await send(p, 'POST', ok, APPROVE)).body), presses], [{ sent: false, reason: 'busy' }, 1])
   } finally {
     await srv.close()
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+/** One server for one press: posts `body` with the page's token and returns the answer. `chief` is the Chief of Staff thread id the state file holds, if any. */
+async function pressOnce(body: string | undefined, o: { press?: string; chief?: string; checkSent?: (thread: string, command: string, after: string) => Promise<boolean | 'unchecked'> }): Promise<{ status: number; body: string; presses: number }> {
+  let presses = 0
+  const root = tmpRoot()
+  if (o.chief) {
+    mkdirSync(join(root, '.agent-team'))
+    writeFileSync(join(root, '.agent-team', 'state.json'), JSON.stringify({ chiefThreadId: o.chief }))
+  }
+  const srv = await startServer({ root, port: 0, pressReturn: async () => (presses++, o.press ?? 'sent'), checkSent: o.checkSent ?? (async () => true) })
+  try {
+    const page = await call(srv.port, 'GET', '/', `127.0.0.1:${srv.port}`)
+    const headers = { Host: `127.0.0.1:${srv.port}`, Origin: `http://127.0.0.1:${srv.port}`, 'X-Dashboard-Token': TOKEN.exec(page.body)?.[1] ?? '' }
+    return { ...(await send(srv.port, 'POST', headers, body)), presses }
+  } finally {
+    await srv.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+}
+
+test('press-return takes only an exact approve or mark todo command, and presses nothing for anything else', async () => {
+  const cases: [string, string | undefined, number][] = [
+    ['no body', undefined, 400],
+    ['not JSON', 'approve 402', 400],
+    ['no command', '{}', 400],
+    ['command not a string', JSON.stringify({ command: 402 }), 400],
+    ['too long', JSON.stringify({ command: 'approve 402', pad: 'x'.repeat(300) }), 400],
+    ['trailing text', JSON.stringify({ command: 'approve 402; rm' }), 400],
+    ['trailing newline', JSON.stringify({ command: 'approve 402\n' }), 400],
+    ['too many digits', JSON.stringify({ command: 'approve 12345678' }), 400],
+    ['other command', JSON.stringify({ command: 'changes 402' }), 400],
+    ['approve', APPROVE, 200],
+    ['mark todo', JSON.stringify({ command: 'mark 419 todo' }), 200],
+  ]
+  await Promise.all(cases.map(async ([name, body, status]) => {
+    const res = await pressOnce(body, { chief: 'ct' })
+    assert.deepEqual([res.status, res.presses], [status, status === 200 ? 1 : 0], name)
+  }))
+})
+
+test('checkSentPy is true only for the user\'s own message and unchecked when the check cannot run', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cw-check-'))
+  try {
+    const db = join(dir, 't3.sqlite')
+    execFileSync('python3', ['-I', '-c', `
+import json, sqlite3, sys
+con = sqlite3.connect(sys.argv[1])
+con.execute("CREATE TABLE orchestration_v2_projection_messages (message_id TEXT, thread_id TEXT, role TEXT, streaming INTEGER, created_at TEXT, payload_json TEXT)")
+con.executemany("INSERT INTO orchestration_v2_projection_messages VALUES (?,?,?,?,?,?)", [
+  ("u1", "tu", "user", 0, "2026-11-02T01:00:00Z", json.dumps({"text": "approve 402", "createdBy": "user"})),
+  ("a1", "ta", "user", 0, "2026-11-02T01:00:00Z", json.dumps({"text": "approve 402", "createdBy": "agent"})),
+])
+con.commit()
+`, db])
+    const after = '2026-11-02T00:30:00Z'
+    const cases: [string, string, string, boolean | 'unchecked'][] = [
+      ['user message', 'tu', db, true],
+      ['agent message with the same words', 'ta', db, false],
+      ['missing db file', 'tu', join(dir, 'none.sqlite'), 'unchecked'],
+      ['thread id that reads as an option', '-tu', db, 'unchecked'],
+    ]
+    for (const [name, thread, file, want] of cases) assert.equal(await checkSentPy(thread, 'approve 402', after, file), want, name)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('press-return answers sent only when the check finds the user\'s message, and runs no check when the press did not send', async () => {
+  type Answer = boolean | 'unchecked' | Error
+  // [name, press output, Chief of Staff thread in state, what each check run answers (the last repeats), the answer, how many runs (-1: until the 3 second limit)]
+  const cases: [string, string, string | undefined, Answer[], unknown, number][] = [
+    ['recorded', 'sent', 'ct', [true], { sent: true }, 1],
+    ['recorded on a later try', 'sent', 'ct', [false, false, true], { sent: true }, 3],
+    ['never recorded', 'sent', 'ct', [false], { sent: false, reason: 'not-recorded' }, -1],
+    ['check could not run', 'sent', 'ct', ['unchecked'], { sent: false, reason: 'unchecked' }, 1],
+    ['check threw', 'sent', 'ct', [new Error('boom')], { sent: false, reason: 'unchecked' }, 1],
+    ['no Chief of Staff thread', 'sent', undefined, [true], { sent: false, reason: 'unchecked' }, 0],
+    ['press found no message box', 'no-focus', 'ct', [true], { sent: false, reason: 'no-focus' }, 0],
+  ]
+  await Promise.all(cases.map(async ([name, press, chief, answers, want, runs]) => {
+    const calls: [string, string, string][] = []
+    const before = Date.now()
+    const res = await pressOnce(APPROVE, {
+      press,
+      chief,
+      checkSent: async (t, c, a) => {
+        calls.push([t, c, a])
+        const next = answers.length > 1 ? answers.shift()! : answers[0]
+        if (next instanceof Error) throw next
+        return next
+      },
+    })
+    assert.deepEqual([res.status, JSON.parse(res.body)], [200, want], name)
+    if (runs >= 0) assert.equal(calls.length, runs, name)
+    else assert.ok(calls.length >= 3 && Date.now() - before >= 3500, `${name}: kept trying for about 3 seconds`)
+    for (const [thread, command, after] of calls) {
+      assert.deepEqual([thread, command], ['ct', 'approve 402'], name)
+      assert.ok(Date.parse(after) >= before - 1 && /Z$/.test(after), `${name}: after is when the request arrived`)
+    }
+  }))
 })
 
 test('pressResult maps the osascript output and errors', () => {
