@@ -54,13 +54,14 @@ test('the header is one sentence: Your turn first in the attention colour, zero 
   assert.equal(renderBadges(null), '')
 })
 
-test('tab counts sum the Your turn, In progress and Up next groups (Waiting to spec in, Backlog out) and count the merged list', () => {
+test('tab counts sum the Your turn, In progress and Up next groups (Waiting to spec in, Backlog out), count the merged list, and give the Backlog group its own count', () => {
   const g = (name, count) => ({ name, count, rows: [] })
   const status = [g('Awaiting merge approval', 2), g('Building', 3), g('Queued to build', 1), g('Other', undefined), g('Waiting to spec', 5), g('Backlog', 9)]
   const cases = [
-    [status, [1, 2, 3], { ship: 11, done: 3 }],
-    [[], [], { ship: 0, done: 0 }],
-    [undefined, undefined, { ship: 0, done: 0 }],
+    [status, [1, 2, 3], { ship: 11, done: 3, backlog: 9 }],
+    [[], [], { ship: 0, done: 0, backlog: 0 }],
+    [undefined, undefined, { ship: 0, done: 0, backlog: 0 }],
+    [[g('Backlog', 'many')], [], { ship: 0, done: 0, backlog: 0 }],
   ]
   for (const [s, m, want] of cases) assert.deepEqual(tabCounts(s, m), want)
 })

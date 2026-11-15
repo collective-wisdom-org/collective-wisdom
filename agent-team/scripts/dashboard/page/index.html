@@ -180,21 +180,21 @@ details.group.stale ul, details.group.stale ul a, li.ticket.stale, li.ticket.sta
 <p id="error" role="status"></p>
 <div class="tabs" role="tablist" aria-label="Dashboard">
 <button type="button" role="tab" id="tab-ship" data-tab="ship" aria-selected="true" aria-controls="panel-ship" tabindex="0">Ship loop <span class="pill tab-count" data-count="ship" aria-hidden="true"></span></button>
-<button type="button" role="tab" id="tab-cos" data-tab="cos" aria-selected="false" aria-controls="panel-cos" tabindex="-1">Chief of Staff</button>
+<button type="button" role="tab" id="tab-backlog" data-tab="backlog" aria-selected="false" aria-controls="panel-backlog" tabindex="-1">Backlog <span class="pill tab-count" data-count="backlog" aria-hidden="true"></span></button>
 <button type="button" role="tab" id="tab-done" data-tab="done" aria-selected="false" aria-controls="panel-done" tabindex="-1">Done <span class="pill tab-count" data-count="done" aria-hidden="true"></span></button>
-<button type="button" role="tab" id="tab-backlog" data-tab="backlog" aria-selected="false" aria-controls="panel-backlog" tabindex="-1">Backlog</button>
+<button type="button" role="tab" id="tab-cos" data-tab="cos" aria-selected="false" aria-controls="panel-cos" tabindex="-1">Chief of Staff</button>
 </div>
 <div id="panel-ship" role="tabpanel" aria-labelledby="tab-ship">
 <div id="status"><p class="quiet">Loading</p></div>
 </div>
-<div id="panel-cos" role="tabpanel" aria-labelledby="tab-cos" hidden>
-<div id="cos"><p class="quiet">Loading</p></div>
+<div id="panel-backlog" role="tabpanel" aria-labelledby="tab-backlog" hidden>
+<div id="backlog"><p class="quiet">Loading</p></div>
 </div>
 <div id="panel-done" role="tabpanel" aria-labelledby="tab-done" hidden>
 <div id="merged"><p class="quiet">Loading</p></div>
 </div>
-<div id="panel-backlog" role="tabpanel" aria-labelledby="tab-backlog" hidden>
-<div id="backlog"><p class="quiet">Loading</p></div>
+<div id="panel-cos" role="tabpanel" aria-labelledby="tab-cos" hidden>
+<div id="cos"><p class="quiet">Loading</p></div>
 </div>
 </main>
 <script type="module" src="/app.js"></script>
