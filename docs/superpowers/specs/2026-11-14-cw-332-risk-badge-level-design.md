@@ -1,6 +1,7 @@
 # CW-332: Show only the risk level on the dashboard badge and keep the reason in Details
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #344, with differences: [as-built](../as-built/2026-11-14-cw-332-risk-badge-level-as-built.md)
 **Ticket:** [#332](https://github.com/collective-wisdom-org/collective-wisdom/issues/332)
 **Builds on:** PR #267 (CW-266, dashboard redesign). The build waits for #267 to merge.
 
