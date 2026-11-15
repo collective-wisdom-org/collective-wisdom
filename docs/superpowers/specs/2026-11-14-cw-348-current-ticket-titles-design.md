@@ -1,6 +1,7 @@
 # CW-348: Keep dashboard ticket titles current when the issue title changes
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #379, as specified
 **Ticket:** [#348](https://github.com/collective-wisdom-org/collective-wisdom/issues/348)
 
 ## Goal
