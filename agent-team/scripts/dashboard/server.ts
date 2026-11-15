@@ -211,7 +211,7 @@ ObjC.bindFunction('AXUIElementCreateApplication', ['id', ['int']])
 ObjC.bindFunction('CFCopyDescription', ['id', ['id']])
 ObjC.bindFunction('AXIsProcessTrusted', ['bool', []])
 ObjC.bindFunction('AXUIElementCreateSystemWide', ['id', []])
-ObjC.bindFunction('AXUIElementCopyElementAtPosition', ['int', ['id', 'double', 'double', 'id*']])
+ObjC.bindFunction('AXUIElementCopyElementAtPosition', ['int', ['id', 'float', 'float', 'id*']])
 function attr(el, name) {
   const ref = Ref()
   return $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ref[0] : null
@@ -229,7 +229,7 @@ function click(el) {
   const hit = Ref()
   if ($.AXUIElementCopyElementAtPosition($.AXUIElementCreateSystemWide(), x, y, hit) !== 0) return false
   let up = hit[0], onComposer = false
-  for (let i = 0; i < 40 && up !== null && !onComposer; i++) { onComposer = isComposer(up); up = attr(up, 'AXParent') }
+  for (let i = 0; i < 40 && up != null && !onComposer; i++) { onComposer = isComposer(up); up = attr(up, 'AXParent') }
   if (!onComposer) return false
   const pt = $.CGPointMake(x, y)
   const home = $.CGEventGetLocation($.CGEventCreate($()))
