@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 route Cursor through default Auto for every role (WISE-459) (#460)
+
+Merged 2026-11-15 10:42 pm UTC.
+
+Cursor threads now all run on Cursor's default Auto, with no Intelligence or Fast tier, and Cursor subagents inherit their parent thread's model. Nothing to do unless a Cursor thread was set to another model by hand: its subagents follow it there.
+
 ## 2026-11-15 keep a quiet ticket helper in Writing tickets for 30 minutes (WISE-456) (#458)
 
 Merged 2026-11-15 9:06 pm UTC.
