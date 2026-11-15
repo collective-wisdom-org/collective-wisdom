@@ -1,6 +1,7 @@
 # CW-345: One Agents and Details control on every row, and a waiting-time counter
 
-**Status:** Draft, waiting for the user's review
+**Status:** Shipped
+**Shipped:** in PR #351, as specified
 **Ticket:** [#345](https://github.com/collective-wisdom-org/collective-wisdom/issues/345)
 **Builds on:** CW-266 (PR #340, merged), the redesign this keeps. CW-332 (PR #344, merged as `6e85821`), the risk pill, which this does not touch.
 
