@@ -14,7 +14,7 @@ When the user asks the Chief of Staff to mark a ticket Todo, or move one back to
 Facts from `main` at `6e85821`.
 
 - **GitHub.** `createBacklog` (`agent-team/scripts/dashboard/backlog.ts`) runs `gh issue list` and reads the `status:` labels itself. `want()` starts a read only when the last one started at least `REFRESH_MS` (60 s) ago. A failed read is swallowed (`catch {}`) and the last list stays. The page polls `/api` every 5 s.
-- **Linear and Jira.** `createTrackerLists` (`dashboard/lists.ts`) reads `.agent-team/tracker-lists.json` at most every 10 s. Only `cos_lists.py` writes that file: `cos_todo.py`'s first pass saves the Todo list, and the project-manager ranking saves the Backlog list (`project-manager/reference.md` step 4, Dashboard save). A state change the Chief of Staff makes on request saves nothing, so the list stays old until the next pass. A bad file is also swallowed.
+- **Linear and Jira.** `createTrackerLists` (`dashboard/lists.ts`) reads `.agent-team/tracker-lists.json` at most every 10 s. Only `cos_lists.py` writes that file: `cos_todo.py`'s first pass saves the Todo list, and the project-manager ranking saves the Backlog list (`project-manager/reference.md` step 3, Dashboard save). A state change the Chief of Staff makes on request saves nothing, so the list stays old until the next pass. A bad file is also swallowed.
 - **How the Chief of Staff marks a ticket.** A plain "mark N as todo" has no row in `chief-of-staff/commands.md`; the Chief of Staff runs the adapter's `set-state` and stops. `cancel N` also moves a ticket to Todo.
 
 ### The cause, confirmed
