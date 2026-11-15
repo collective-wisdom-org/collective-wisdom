@@ -1,7 +1,8 @@
 # CW-401: Color-code every dashboard Gantt bar by category, with a legend
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#401](https://github.com/collective-wisdom-org/collective-wisdom/issues/401)
+**Shipped:** in PR #410, as specified
 
 ## Goal
 
