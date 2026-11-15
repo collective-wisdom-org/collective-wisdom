@@ -658,8 +658,8 @@ test('renderGantt draws each CI wait bar on its task row and leaves durations, c
   const rows = view(withCi)
   assert.deepEqual(rows.map((r) => r.name), ['first', 'second', 'Total'])
   assert.deepEqual(rows.map((r) => [r.dur, r.cost]), view(renderGantt(sessions, now)).map((r) => [r.dur, r.cost]))
-  // Axis: 2m of first + 27m of merged CI (3m to 30m, second's work lies inside it) = 29m. The CI bar follows first's bar on first's track only.
-  assert.deepEqual(rows[0].bars, [[0, 6.9], [6.9, 93.1]])
+  // Axis: 2m of first + 27m of merged CI (3m to 30m, second's work lies inside it) = 29m. The CI bar sits on first's track only, before its work bar so work stays on top.
+  assert.deepEqual(rows[0].bars, [[6.9, 93.1], [0, 6.9]])
   assert.deepEqual(rows[1].bars, [[31.03, 6.9]])
   assert.equal([...withCi.matchAll(/class="bar ci"/g)].length, 1)
   assert.ok(!withCi.includes('class="bar running"'))

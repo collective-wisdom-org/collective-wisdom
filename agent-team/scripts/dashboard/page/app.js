@@ -595,7 +595,7 @@ export function renderGantt(sessions, now, ci) {
     return { left, width: Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100)) }
   }
   const owners = ciOwner(items, ciSpans)
-  // A task's CI wait: its CI spans merged, one blue bar each, after its working bars.
+  // A task's CI wait: its CI spans merged, one blue bar each, drawn before its working bars so work done during the wait stays on top.
   const ciBars = (n) =>
     union(ciSpans.filter((_, k) => owners[k] === n))
       .map(([a, b, open]) => {
@@ -618,7 +618,7 @@ export function renderGantt(sessions, now, ci) {
   const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
   const line = (row, spans, cost, depth, ci = '') => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
   <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
-  <span class="track">${bars(row, spans)}${ci}</span>
+  <span class="track">${ci}${bars(row, spans)}</span>
   <span class="num dur">${duration(length(spans))}</span>
   <span class="num cost">${dollars(cost)}</span>
 </div>`
