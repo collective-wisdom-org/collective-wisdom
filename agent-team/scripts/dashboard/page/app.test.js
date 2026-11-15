@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -944,7 +944,7 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
     const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
-    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve.slice(8)}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
 })
@@ -972,7 +972,8 @@ test('each Backlog card has a Mark todo control after the switch and before the 
     assert.equal(todoCommand({ id }), cmd, id)
     const backlog = (chief) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row({ id })] }], new Set(), 0, new Set(), new Set(), chief)
     const foot = (html) => html.match(/<div class="foot">([\s\S]*?)<span class="meta">/)[1]
-    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}">Mark todo</a>`
+    const tip = `Opens the Chief of Staff thread with "${cmd}" typed in and presses Send for you. If it can't, press Send.`
+    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" title="${esc(tip)}" data-return="${cmd}">Mark todo</a>`
     const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Mark todo</button>`
     for (const [chief, want] of [[link, withLink], [undefined, copy], ['t3-thread://v2/e/t', copy]]) {
       const f = foot(backlog(chief))
@@ -983,21 +984,29 @@ test('each Backlog card has a Mark todo control after the switch and before the 
   }
 })
 
-test('pressMessage: one line per reason, none when sent or a repeat click was busy', () => {
-  const generic = 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
-  const cases = [
-    [{ sent: true }, ''],
-    [{ sent: false, reason: 'busy' }, /^Approve not sent: another Approve was still being sent/],
-    [{ sent: false, reason: 'not-frontmost' }, 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.'],
-    [{ sent: false, reason: 'permission' }, /^Approve not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \(or the app that started the dashboard\)/],
-    [{ sent: false, reason: 'error' }, generic],
-    [{ sent: false, reason: 'toString' }, generic],
-    [{ sent: false }, generic],
-    [null, generic],
-  ]
-  for (const [answer, want] of cases) {
-    if (want instanceof RegExp) assert.match(pressMessage(answer), want)
-    else assert.equal(pressMessage(answer), want, JSON.stringify(answer))
+test('pressMessage: one line per reason for each control, none when sent or a repeat click was busy', () => {
+  const tail = ' Press Send in the Chief of Staff thread.'
+  for (const action of ['Approve', 'Mark todo']) {
+    const generic = `${action} not sent: the dashboard could not press Return.${tail}`
+    const cases = [
+      [{ sent: true }, ''],
+      [{ sent: false, reason: 'busy' }, `${action} not sent: another one-click send was still running.${tail}`],
+      [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front.${tail}`],
+      [{ sent: false, reason: 'permission' }, new RegExp(`^${action} not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \\(or the app that started the dashboard\\)`)],
+      [{ sent: false, reason: 'error' }, generic],
+      [{ sent: false, reason: 'toString' }, generic],
+      [{ sent: false }, generic],
+      [null, generic],
+    ]
+    for (const [answer, want] of cases) {
+      if (want instanceof RegExp) assert.match(pressMessage(answer, false, action), want)
+      else assert.equal(pressMessage(answer, false, action), want, `${action} ${JSON.stringify(answer)}`)
+    }
+    assert.equal(pressMessage({ sent: false, reason: 'busy' }, true, action), '')
   }
-  assert.equal(pressMessage({ sent: false, reason: 'busy' }, true), '')
+  assert.match(pressMessage({ sent: false, reason: 'busy' }), /^Approve not sent:/)
+})
+
+test('pressAction names the control from the command', () => {
+  for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Mark todo']]) assert.equal(pressAction(command), want, command)
 })
