@@ -1,6 +1,7 @@
 # CW-355: Remove a ticket from the dashboard Todo list when it leaves Todo
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #381, with differences: [as-built](../as-built/2026-11-14-cw-355-todo-list-stale.md)
 **Ticket:** [#355](https://github.com/collective-wisdom-org/collective-wisdom/issues/355)
 **Related:** #347
 
