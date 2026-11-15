@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 dashboard Gantt legend below the chart, ticket number above the card title (CW-413) (#418)
+
+Merged 2026-11-15 8:24 am UTC.
+
+The dashboard Gantt chart now shows its color legend below the chart instead of above it, and each ticket card shows the ticket number on its own line above the title.
+
 ## 2026-11-15 find a BUILD READY or MERGE READY soon after a child finishes, even when the finish notice is lost (CW-406) (#416)
 
 Merged 2026-11-15 8:20 am UTC.
