@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show the risk level as a coloured pill on dashboard cards (CW-332) (#344)
+
+Merged 2026-11-15 02:07 UTC.
+
+The dashboard shows each ticket's risk as a green, yellow or red pill with just Low, Medium or High. The reason is still in Details.
+
 ## 2026-11-15 redesign the dashboard as a friendlier product (CW-266) (#340)
 
 Merged 2026-11-15 01:59 UTC.
