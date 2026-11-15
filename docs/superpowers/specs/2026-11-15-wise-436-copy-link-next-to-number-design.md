@@ -63,6 +63,6 @@ Facts from main at `8c018e1`, `agent-team/scripts/dashboard/page/`.
 - The avatar column covers Done cards too, not just the cards with the button: the user's example was a Done card, and all of these cards share one grid.
 - The avatar stays on the number row and the title starts on the row below; the title just stops at the avatar's column. The avatar does not move down beside the title.
 - A card with no owner keeps an empty avatar column, so its title wraps one column gap (`--s1`) short of the edge. Dropping that gap would need a second grid rule for cards without an owner, which isn't worth it for a few pixels.
-- The ticket says "Epic cards" are untouched; the only other `rowHead` caller with an id is the Done card (`renderMerged`), which has no button. I read that as the card the ticket meant, and it stays as is.
+- The ticket says "Epic cards" are untouched; the only other `rowHead` caller with an id is the Done card (`renderMerged`), which has no button. I read that as the card the ticket meant: it gets no button and keeps its markup, and only the avatar column change reaches it.
 - I move `extra` in `rowHead` rather than adding a new slot, since only ticket cards pass one. If a later caller wants something after the title, it can add a slot then.
 - Column 1 changes from `minmax(0, max-content)` to `max-content`. A ticket number never needs to shrink, and a shrinking column could let a narrow card squeeze the button.
