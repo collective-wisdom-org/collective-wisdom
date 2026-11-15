@@ -37,7 +37,7 @@ test('backlog: Todo and Backlog from the issue list, team authors only, last goo
   await b.idle()
   assert.deepEqual(calls[0], ['issue', 'list', '--repo', 'o/r', '--state', 'open', '--limit', '200', '--json', 'number,title,labels,author,createdAt'])
   assert.deepEqual(calls.filter((c) => c[0] === 'api'), [['api', 'repos/o/r/collaborators/ann/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/eve/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/bob/permission', '--jq', '.role_name']])
-  assert.deepEqual(b.get(), [{ id: 'CW-1', title: 't1', state: 'Todo', priority: null, createdAt: null }, { id: 'CW-2', title: 'Fix ]8;;x  it', state: 'Backlog', priority: null, createdAt: null }, { id: 'CW-9', title: 'last', state: 'Backlog', priority: null, createdAt: null }])
+  assert.deepEqual(b.get(), [{ id: 'CW-1', title: 't1', state: 'Todo', priority: null, createdAt: null, owner: 'ann' }, { id: 'CW-2', title: 'Fix ]8;;x  it', state: 'Backlog', priority: null, createdAt: null, owner: 'ann' }, { id: 'CW-9', title: 'last', state: 'Backlog', priority: null, createdAt: null, owner: 'ann' }])
 
   // At most once a minute; a failed read keeps the list; a team login's answer is cached for good, a refusal for 5 minutes.
   const n = calls.length

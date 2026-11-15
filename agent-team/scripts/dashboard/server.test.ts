@@ -418,6 +418,23 @@ test('the page and /api carry the system scheme when it is known', async () => {
   }
 })
 
+test('the page allows avatar images from one host only, and /api carries the viewer login', async () => {
+  const srv = await startServer({ root: tmpRoot(), port: 0, viewerGh: async () => 'David\n' })
+  try {
+    const host = `127.0.0.1:${srv.port}`
+    const csp = String((await call(srv.port, 'GET', '/', host)).headers['content-security-policy'])
+    assert.match(csp, /(^|; )img-src 'self' https:\/\/avatars\.githubusercontent\.com(;|$)/)
+    let viewer: unknown = null
+    for (let i = 0; i < 20 && !viewer; i++) {
+      viewer = JSON.parse((await call(srv.port, 'GET', '/api', host)).body).viewer
+      if (!viewer) await sleep(50)
+    }
+    assert.equal(viewer, 'David')
+  } finally {
+    await srv.close()
+  }
+})
+
 const TOKEN = /<meta name="dashboard-token" content="([0-9a-f]{64})">/
 
 function send(port: number, method: string, headers: Record<string, string>): Promise<{ status: number; body: string }> {

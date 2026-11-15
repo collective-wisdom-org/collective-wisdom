@@ -15,6 +15,7 @@ import { createBacklog } from './backlog.ts'
 import { createTrackerLists } from './lists.ts'
 import { createMerged } from './merged.ts'
 import { createOpenPrs } from './open.ts'
+import { createViewer } from './viewer.ts'
 import { createDetails, gitRunner } from './details.ts'
 import { createCi, requiredFromProject } from './ci.ts'
 import type { CiWant } from './ci.ts'
@@ -230,7 +231,7 @@ export function pressResult(result: unknown): { sent: boolean; reason?: string }
   return { sent: false, reason: /\((?:-1743|1002|-1719|-25211)\)/.test(`${e?.message ?? ''} ${e?.stderr ?? ''}`) ? 'permission' : 'error' }
 }
 
-export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: () => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: () => Promise<string>; viewerGh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -239,6 +240,8 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
   const openPrs = createOpenPrs({ run: ghRunner(root) })
+  const viewer = createViewer({ run: opts.viewerGh ?? ghRunner(root) })
+  viewer.want()
   const updated = createUpdated({ run: ghRunner(root) })
   const backlog = createBacklog({ run: ghRunner(root) })
   const trackerLists = createTrackerLists({ read: () => readRegular(join(agentDir, 'tracker-lists.json'), [agentDir]) })
@@ -385,6 +388,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const wants: DetailWant[] = []
     merged.want(mergedCfg)
     openPrs.want(mergedCfg)
+    viewer.want()
     const mergedAll = merged.get()
     const mergedPrs = new Set(mergedAll.map((e) => `${e.id}#${e.number}`))
     const ganttIds = historyByTicket(history)
@@ -412,7 +416,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     backlog.want(titleCfg, trackerLists.changed())
     trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), openOwners: openPrs.owners(), issueOwners: trackerTitles.owners(), viewer: viewer.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const token = randomBytes(32).toString('hex')
@@ -443,7 +447,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
       const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
       if (path === '/') {
         // No other page may frame the dashboard: a framed Approve would carry the token and press Return.
-        headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+        headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://avatars.githubusercontent.com; frame-ancestors 'none'"
         headers['X-Frame-Options'] = 'DENY'
       }
       res.writeHead(status, headers)

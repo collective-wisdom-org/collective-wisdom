@@ -13,12 +13,13 @@ export type Session = { sessionId: string; cwd: string; updatedAt: number; stale
 export type TeamRole = 'ranking' | 'hygiene'
 type TeamState = 'running' | 'idle' | 'paused'
 type PmRow = { sessionId: string; role: TeamRole; state: 'running' | 'finished'; threadLink?: string; gantt: Session[] }
-type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; stageAt?: string; stale?: true; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][] }
+type StatusRow = { id: string; title: string; owner?: string; risk: string; next: string; stage: string; stageAt?: string; stale?: true; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][] }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
   status: { name: string; count: number; rows: StatusRow[]; moreUrl?: string; readAt?: number; stale?: true }[]
   merged: MergedEntry[]
+  viewer: string | null
   chief: { state: TeamState; threadLink?: string; gantt?: Session[] }
   pm: PmRow[]
 }
@@ -261,8 +262,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; retired?: Retired; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, retired = [], heads, merged = [], openPrs = {}, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; retired?: Retired; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; openOwners?: Record<string, string>; issueOwners?: Record<string, string>; viewer?: string | null; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, retired = [], heads, merged = [], openPrs = {}, openOwners = {}, issueOwners = {}, viewer = null, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   // Without `links`, the GitHub links come from `repo`.
   const links = input.links !== undefined ? input.links : repo?.isGithubIssues ? githubLinks(repo.url) : null
@@ -276,6 +277,9 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
       const out: StatusRow = { id: r.id, title: titles[r.id] || r.title || '', risk: r.risk, next: r.next, stage: str(t.stage) }
       if (r.stageAt) out.stageAt = r.stageAt
+      // The owner is the author of the open PR, else of the issue.
+      const owner = Object.hasOwn(openOwners, r.id) ? openOwners[r.id] : Object.hasOwn(issueOwners, r.id) ? issueOwners[r.id] : undefined
+      if (owner) out.owner = owner
       const issueUrl = links?.issue(r.id)
       if (issueUrl) out.issueUrl = issueUrl
       // State `pr` (set at MERGE READY) wins; before that the open PR found by its branch gives the link.
@@ -303,6 +307,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     const row: StatusRow = { id: b.id, title: b.title, risk: '', next: '', stage: '' }
     const issueUrl = links?.issue(b.id)
     if (issueUrl) row.issueUrl = issueUrl
+    if (b.owner) row.owner = b.owner
     return row
   }
   // A list read from the saved file carries a read time; one over an hour old is stale.
@@ -403,5 +408,5 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       if (threadLink) row.threadLink = threadLink
       return row
     })
-  return { generatedAt: now, status, merged: merged.map(withExtras), chief, pm: pmRows }
+  return { generatedAt: now, status, merged: merged.map(withExtras), viewer, chief, pm: pmRows }
 }

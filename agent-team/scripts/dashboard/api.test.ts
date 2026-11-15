@@ -572,3 +572,24 @@ test('a retired prefix: issues below the cutover keep it, in ids, branches, titl
   lists.want('ZZ', true, retired)
   assert.deepEqual(lists.get().map((i) => i.id), ['YY-5', 'ZZ-12'])
 })
+
+test('owner: status row takes the open PR author, else the issue author; lists carry theirs; helpers and chief none; viewer passes through', () => {
+  const cases: [string, Partial<Parameters<typeof buildApi>[0]>, string | undefined][] = [
+    ['open PR wins', { openOwners: { 'CW-1': 'pr-author' }, issueOwners: { 'CW-1': 'issue-author' } }, 'pr-author'],
+    ['issue author', { issueOwners: { 'CW-1': 'issue-author' } }, 'issue-author'],
+    ['other ticket only', { openOwners: { 'CW-2': 'x' }, issueOwners: { 'CW-3': 'y' } }, undefined],
+    ['none', {}, undefined],
+  ]
+  for (const [name, over, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1'), ...over }).owner, want, name)
+
+  const list = (id: string, state: 'Todo' | 'Backlog', owner?: string) => ({ id, title: id, state, priority: null, createdAt: null, ...(owner ? { owner } : {}) })
+  const api = build({ backlog: [list('CW-2', 'Todo', 'noah'), list('CW-3', 'Backlog', 'dana'), list('CW-4', 'Backlog')] })
+  const rows = api.status.flatMap((g) => g.rows).map((r) => [r.id, r.owner])
+  assert.deepEqual(rows, [['CW-2', 'noah'], ['CW-3', 'dana'], ['CW-4', undefined]])
+
+  const team = build({ snapshots: [teamSnap('h', { heading: 'TICKET HELPER', threadId: 'th', request: 'r' })], openOwners: { 'helper:h': 'x' }, issueOwners: { 'helper:h': 'x' } })
+  assert.equal((team.status[0].rows[0] as any).owner, undefined)
+  assert.equal('owner' in team.chief, false)
+  assert.equal(build({ viewer: 'david' }).viewer, 'david')
+  assert.equal(build().viewer, null)
+})

@@ -26,6 +26,19 @@ test('parseMerged: newest first, id from branch or title, junk left out, urls ch
   assert.equal(parseMerged('{}', CFG), null)
 })
 
+test('parseMerged owner: kept only for a valid login', () => {
+  const owner = (author: unknown) => parseMerged(JSON.stringify([pr({ author })]), CFG)![0].owner
+  const cases: [string, unknown, string | undefined][] = [
+    ['login', { login: 'Noah-1' }, 'Noah-1'],
+    ['bot', { login: 'app/dependabot' }, undefined],
+    ['null author', null, undefined],
+    ['no author', undefined, undefined],
+    ['number', { login: 5 }, undefined],
+    ['too long', { login: 'a'.repeat(40) }, undefined],
+  ]
+  for (const [name, author, want] of cases) assert.equal(owner(author), want, name)
+})
+
 test('parseMerged: an issueUrl function sets the Done row link, and wins over issueUrls', () => {
   const issueUrl = (id: string) => (id.startsWith('ENG-') ? `https://linear.app/acme/issue/${id}` : undefined)
   const json = JSON.stringify([pr({ headRefName: 'feat/eng-4-x', title: 'feat: x (ENG-4)' })])
