@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show a short title beside every ticket ID (CW-278) (#384)
+
+Merged 2026-11-15 5:41 am UTC.
+
+The Chief of Staff's reports now write every ticket as `CW-199: Background jobs` instead of a bare ID, including status, approval reminders, cleanup and the No Hands summary. Nothing to do; if a title can't be read, the ID shows alone.
+
 ## 2026-11-15 make dashboard top-level headers collapsible (CW-369) (#383)
 
 Merged 2026-11-15 5:26 am UTC.
