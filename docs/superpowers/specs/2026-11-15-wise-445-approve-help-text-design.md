@@ -1,6 +1,6 @@
 # WISE-445: Say on the dashboard Approve and Changes links when the Approve press works
 
-**Status:** Draft
+**Status:** Approved
 **Ticket:** [#445](https://github.com/collective-wisdom-org/collective-wisdom/issues/445)
 
 ## Goal
