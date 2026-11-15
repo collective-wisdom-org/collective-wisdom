@@ -78,9 +78,6 @@ def check_args(thread, trigger):
 
 def check_state(state):
     safe(state.get("wakeTaskId"), "wakeTaskId")
-    for r in cos_state.dicts(state.get("retiredThreads")):
-        if isinstance(r.get("threadId"), str):
-            safe(r["threadId"], "retired thread id")
     for tid, t in state["tickets"].items():
         safe(tid, "ticket id")
         if not cos_state.ID.match(tid):
@@ -124,10 +121,8 @@ def children(state):
 def stops(state, thread, trigger):
     """The one `stop` line for this thread, or None."""
     chief = state.get("chiefThreadId")
-    if not (trigger == "start" and (not chief or chief == thread)):
-        retired = {r.get("threadId") for r in cos_state.dicts(state.get("retiredThreads")) if isinstance(r.get("threadId"), str)}
-        if (chief and chief != thread) or thread in retired:
-            return "stop retired"
+    if chief and chief != thread:
+        return "stop not-chief"
     if state.get("paused") and trigger != "status":
         return "stop paused"
 

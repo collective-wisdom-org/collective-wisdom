@@ -58,7 +58,7 @@ The `Tickets` section carries a ticket helper's report (§ Tick, `helper-test`) 
 
 A `MERGE READY` or `BUILD READY` that a full read found by way of the sweep or the idle check reads `<PREFIX>-N merge ready, found by the sweep` (`build ready`, or `found by the idle check`), so the user can see a notice was lost.
 
-A continuation start (continuation.md § Continuation child) reads `<PREFIX>-N moved to a new child (old one under a retired thread)` under the lane it went to.
+A continuation start (continuation.md § Continuation child) reads `<PREFIX>-N moved to a new child (old one under an older thread)` under the lane it went to.
 
 Group **Moving** by lane, with the lane's count and limit. Queued tickets go under the lane they wait for. Empty lanes drop out. Spec-lane queued lines read `<PREFIX>-N changes requested, waiting for a spec slot` (or `answered, waiting for …`, `resumed, waiting for …`).
 

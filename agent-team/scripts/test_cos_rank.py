@@ -16,7 +16,7 @@ def load(name):
 cos_rank = load("cos_rank")
 
 STARTED = "2026-11-02T10:00:00Z"
-STATE = {"tickets": {"ABC-7": {"stage": "build"}}, "merged": {}, "retiredThreads": [], "pm": {"rankedAt": "old"}}
+STATE = {"tickets": {"ABC-7": {"stage": "build"}}, "merged": {}, "pm": {"rankedAt": "old"}}
 
 
 def entry(n=1, readiness="ready", **kw):

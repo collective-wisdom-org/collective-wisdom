@@ -40,9 +40,10 @@ READ = lambda t, c, p=0: f"child-read {t} {c} afterPosition={p}"  # noqa: E731
 @pytest.mark.parametrize(
     "state, trigger, thread, want",
     [
-        ({"chiefThreadId": "new"}, "user", ME, "stop retired"),
-        ({"retiredThreads": [{"threadId": ME}]}, "notice:c1", ME, "stop retired"),
-        ({"chiefThreadId": "new"}, "start", ME, "stop retired"),
+        ({"chiefThreadId": "new"}, "user", ME, "stop not-chief"),
+        ({"chiefThreadId": "new"}, "notice:c1", ME, "stop not-chief"),
+        ({"chiefThreadId": "new"}, "start", ME, "stop not-chief"),
+        ({"chiefThreadId": ME, "retiredThreads": [{"threadId": ME}]}, "user", ME, None),  # a leftover entry stops nothing
         ({"chiefThreadId": None}, "start", ME, None),
         ({"paused": True}, "user", ME, "stop paused"),
         ({"paused": True}, "status", ME, None),
@@ -324,7 +325,7 @@ def test_no_hands_drain_reason_with_a_quote_stops_the_plan(tmp_path, capsys):
 
 
 def test_status_act_plan_is_the_rotation_check(tmp_path, capsys):
-    state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "retiredThreads": [{"threadId": "r1"}], "paused": True}
+    state = {"tickets": {"ABC-1": queued("build-queued", CHANGES, "1")}, "paused": True}
     assert run(tmp_path, capsys, state, "status", "--after-reads") == [ROTATION]
 
 
