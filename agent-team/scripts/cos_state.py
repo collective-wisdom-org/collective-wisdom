@@ -13,7 +13,9 @@ show prints the working set (a few lines plus one status line per ticket). get p
 one ticket (or the pm block) as JSON. apply reads a JSON list of operations on stdin and
 applies all of them or none: it prints "unchanged", or "saved" and one line per changed
 ticket, and writes through a temp file, fsync and os.replace under a flock on state.lock
-next to the file. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
+next to the file. After either result, a start, merged or drop op also removes its ticket from the saved Todo and
+Backlog lists (tracker-lists.json next to the file, through cos_lists.remove) so the dashboard stops showing it; that
+never changes the output or the exit code. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
@@ -54,9 +56,14 @@ chiefProvider ({"threadId", "provider"}, both plain strings) is the provider (T3
 thread that recorded it; the top op sets it. The ticket field provider (a string, or null) is the provider of the ticket's
 child thread, set from a thread read. cos_tick.py compares them to flag a child on another harness.
 
+ganttPluginVersion is the agent-gantt version this Chief of Staff session runs: a string of dot-separated integers (0.1.12), or null.
+
 reset is null, or the marker of a session reset in flight: {"id" (8 hex chars), "startedAt" (a time with a zone), "reason" (a
 non-empty string), optional "mode" (reset, reset-scheduled or compact)}. lastResetAt is a time with a zone, or null. The top op
 rejects any other shape.
+
+takeover is null, or the marker of a take over (or resume) pass in progress: {"startedAt" (a time with a zone, not in the
+future), "mode" (take-over or resume)}. The top op rejects any other shape. show prints it as takeover=<mode> since <time>.
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
@@ -76,12 +83,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import cos_lists  # noqa: E402
+from clock12 import clock12  # noqa: E402
 import project_config  # noqa: E402
 
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
-    "reset", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
+    "ganttPluginVersion", "reset", "takeover", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
     "merged", "tickets", "pm", "observed", "noHands", "chiefProvider",
 }
 TICKET = {
@@ -337,11 +346,19 @@ def op_top(s, op):
             and marker.get("mode", "reset") in ("reset", "reset-scheduled", "compact")
         ):
             raise Reject("reset needs null, or an id (8 hex chars), a startedAt with a zone (not in the future) and a reason, and optionally a mode")
+    take = op["set"].get("takeover")
+    if take is not None and not (
+        isinstance(take, dict) and set(take) == {"startedAt", "mode"} and sane(take["startedAt"]) and take["mode"] in ("take-over", "resume")
+    ):
+        raise Reject("takeover needs null, or a startedAt with a zone (not in the future) and a mode (take-over or resume)")
     if op["set"].get("lastResetAt") is not None and not sane(op["set"]["lastResetAt"]):
         raise Reject("lastResetAt needs a time with a zone, not in the future, or null")
     sha = op["set"].get("skillCommit")
     if "skillCommit" in op["set"] and sha is not None and not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}", sha)):
         raise Reject("skillCommit needs the full 40-character sha from cos_rotation_check.py --skill-commit, or null")
+    ver = op["set"].get("ganttPluginVersion")
+    if ver is not None and not (isinstance(ver, str) and re.fullmatch(r"\d+(\.\d+)*", ver)):
+        raise Reject("ganttPluginVersion needs dot-separated integers like 0.1.12, or null")
     s.update(op["set"])
     for old in ("rotation", "rotationHeldUntil"):  # keys of the thread rotation this replaced
         s.pop(old, None)
@@ -548,6 +565,12 @@ def apply_file(path, ops):
             save(path, new)
             print("\n".join(["saved", *lines]))
         print("\n".join(notes), end="\n" if notes else "")
+    try:  # the ticket left Todo or Backlog; a failure here never changes the result
+        ids = [o["ticket"] for o in ops if isinstance(o, dict) and o.get("op") in ("start", "merged", "drop")]
+        if ids:
+            cos_lists.remove(ids, path.with_name("tracker-lists.json"))
+    except Exception:
+        pass
     return 0
 
 
@@ -555,15 +578,19 @@ def apply_file(path, ops):
 
 
 def t(s):
-    """HH:MM for a time on today's UTC date, the full string otherwise, - for none."""
+    """H:MMam/pm for a time on today's UTC date (no space: show prints key=value pairs), the full string otherwise, - for none."""
     if not s:
         return "-"
     d = parse(s)
-    return d.astimezone(timezone.utc).strftime("%H:%M") if d and d.date() == datetime.now(timezone.utc).date() else s
+    return clock12(d.astimezone(timezone.utc)).replace(" ", "") if d and d.date() == datetime.now(timezone.utc).date() else s
 
 
 def v(x):
     return "-" if x in (None, "") else json.dumps(x, separators=(",", ":")) if isinstance(x, (dict, bool)) else x
+
+
+def takeover_text(x):
+    return f"{x.get('mode')} since {t(x.get('startedAt'))}" if isinstance(x, dict) else "-"
 
 
 def show(s):
@@ -572,7 +599,7 @@ def show(s):
     out = [
         f"chief={v(s.get('chiefThreadId'))} paused={v(s.get('paused'))} "
         f"rateLimitedAt={t(s.get('rateLimitedAt'))} wakeTaskId={v(s.get('wakeTaskId'))} "
-        f"wakeAt={t(s.get('wakeAt'))} reset={v(s.get('reset'))} "
+        f"wakeAt={t(s.get('wakeAt'))} reset={v(s.get('reset'))} takeover={takeover_text(s.get('takeover'))} "
         f"lastResetAt={t(s.get('lastResetAt'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)

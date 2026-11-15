@@ -58,3 +58,20 @@ def test_writes_nothing_over_a_non_regular_file_or_into_a_link(monkeypatch, caps
         code, out = run(monkeypatch, capsys, target, ENTRIES)
         assert code == 2 and out.startswith("lists: cannot ")
     assert os.listdir(tmp_path / "real") == []
+
+
+def test_changed_stamps_the_file_and_a_list_save_keeps_the_stamp(monkeypatch, capsys, tmp_path):
+    f = tmp_path / "tracker-lists.json"
+    f.write_text(json.dumps({"todo": OLD, "backlog": OLD, "changed": "2020-01-01T00:00:00Z"}))
+    assert cos_lists.main(["--file", str(f), "changed"]) == 0
+    assert capsys.readouterr().out.strip() == "lists: saved changed"
+    got = json.loads(f.read_text())
+    assert got["todo"] == OLD and got["backlog"] == OLD
+    assert got["changed"] != "2020-01-01T00:00:00Z" and got["changed"].endswith("Z") and len(got["changed"]) == 24
+    assert run(monkeypatch, capsys, f, ENTRIES)[0] == 0
+    assert json.loads(f.read_text())["changed"] == got["changed"]
+    assert os.listdir(tmp_path) == ["tracker-lists.json"]
+    (tmp_path / "real").mkdir()
+    (tmp_path / "link").symlink_to(tmp_path / "real")
+    assert cos_lists.main(["--file", str(tmp_path / "link" / "tracker-lists.json"), "changed"]) == 2
+    assert capsys.readouterr().out.startswith("lists: cannot ") and os.listdir(tmp_path / "real") == []

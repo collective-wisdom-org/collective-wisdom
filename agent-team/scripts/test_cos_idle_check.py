@@ -139,10 +139,10 @@ RUNNING = ("c1", "t", "2026-11-02T04:49:00Z", "claudeAgent", None, None)
     "threads, runs, env, saved, want, code",
     [
         # running child: ok line with its link, newest sub-threads first, archived and other parents left out
-        ([RUNNING, *SUBS], [("running", None)], "env-1\n", "claudeAgent", f"ok ABC-1 (running, updated 04:49) {ENV}\n  sub new two <t3-thread://v2/env-1/s2>\n  sub old one <t3-thread://v2/env-1/s1>\nidle-check: 1 active, 0", 0),
+        ([RUNNING, *SUBS], [("running", None)], "env-1\n", "claudeAgent", f"ok ABC-1 (running, updated 4:49 am UTC) {ENV}\n  sub new two <t3-thread://v2/env-1/s2>\n  sub old one <t3-thread://v2/env-1/s1>\nidle-check: 1 active, 0", 0),
         # no environment id: the thread id stands in for the link; a changed provider is reported
-        ([RUNNING], [("running", None)], None, "codex", "ok ABC-1 (running, updated 04:49) c1\nprovider ABC-1 claudeAgent\nidle-check: 1 active, 0", 0),
-        ([RUNNING], [("completed", None)], "env-1", "claudeAgent", "full ABC-1 lost-notice (completed, updated 04:49, seen 04:30)", 1),
+        ([RUNNING], [("running", None)], None, "codex", "ok ABC-1 (running, updated 4:49 am UTC) c1\nprovider ABC-1 claudeAgent\nidle-check: 1 active, 0", 0),
+        ([RUNNING], [("completed", None)], "env-1", "claudeAgent", "full ABC-1 lost-notice (completed, updated 4:49 am UTC, seen 4:30 am UTC)", 1),
         ([("c1", "t", "2026-11-02T04:00:00Z", "claudeAgent", None, None)], [("running", None)], "env-1", "claudeAgent", "full ABC-1 idle 50m", 1),
         ([], [], "env-1", "claudeAgent", "full ABC-1 unread", 1),
     ],

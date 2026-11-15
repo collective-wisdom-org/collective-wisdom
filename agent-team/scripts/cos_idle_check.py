@@ -53,6 +53,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from clock12 import clock12  # noqa: E402
 
 ACTIVE = ("spec", "build", "merge")
 IDLE_AFTER = timedelta(minutes=45)
@@ -70,7 +71,7 @@ def parse_ts(s):
 
 
 def hhmm(dt):
-    return dt.astimezone(timezone.utc).strftime("%H:%M")
+    return f"{clock12(dt.astimezone(timezone.utc))} UTC"
 
 
 def fail(msg):

@@ -40,11 +40,10 @@ test('links', () => {
   assert.equal(firstRow({ state: stateOf('CW-171', { stageAt: 5 }) }).stageAt, undefined, 'stageAt must be a string')
 })
 
-test('row title: state wins, else tracker title, else empty', () => {
+test('row title: tracker wins, else state title, else empty', () => {
   const cases: [string, Record<string, unknown>, Record<string, string>, string][] = [
-    ['state wins', { title: 'from state' }, { 'CW-1': 'from tracker' }, 'from state'],
-    ['empty state', { title: '' }, { 'CW-1': 'from tracker' }, 'from tracker'],
-    ['missing state', { title: undefined }, { 'CW-1': 'from tracker' }, 'from tracker'],
+    ['tracker wins', { title: 'from state' }, { 'CW-1': 'from tracker' }, 'from tracker'],
+    ['tracker missing', { title: 'from state' }, {}, 'from state'],
     ['neither', { title: '' }, {}, ''],
   ]
   for (const [name, extra, titles, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), titles }).title, want, name)
@@ -454,14 +453,15 @@ test('Todo and Backlog rows follow the state groups, skip tickets in state or me
   assert.deepEqual(build({ backlog: [] }).status, [])
 })
 
-test('the Backlog group shows the top 3 by priority then newest, counts them all and links to the issues page', () => {
+test('the Backlog group sends every row by priority then newest, counts them all and links to the issues page', () => {
   const t = (id: string, state: 'Todo' | 'Backlog', priority: 'urgent' | 'high' | 'medium' | 'low' | null, createdAt: number | null) => ({ id, title: id, state, priority, createdAt })
   const group = (api: ReturnType<typeof build>, name: string) => api.status.find((g) => g.name === name)
   const cases: [string, Parameters<typeof buildApi>[0]['backlog'], Partial<Parameters<typeof buildApi>[0]>, [number, string[], string | undefined]][] = [
-    ['priority, then newest, no date last, no priority last', [t('CW-1', 'Backlog', null, 9), t('CW-2', 'Backlog', 'low', 1), t('CW-3', 'Backlog', 'high', 1), t('CW-4', 'Backlog', 'high', 5), t('CW-5', 'Backlog', 'high', null), t('CW-6', 'Backlog', 'urgent', 0)], {}, [6, ['CW-6', 'CW-4', 'CW-3'], 'https://github.com/o/r/issues']],
-    ['ties keep tracker order', [t('CW-1', 'Backlog', 'low', 1), t('CW-2', 'Backlog', 'low', 1), t('CW-3', 'Backlog', null, null), t('CW-4', 'Backlog', null, null)], {}, [4, ['CW-1', 'CW-2', 'CW-3'], 'https://github.com/o/r/issues']],
-    ['3 or fewer: all, a no-priority ticket too', [t('CW-1', 'Backlog', null, 1), t('CW-2', 'Backlog', 'low', 1)], {}, [2, ['CW-2', 'CW-1'], 'https://github.com/o/r/issues']],
+    ['priority, then newest, no date last, no priority last', [t('CW-1', 'Backlog', null, 9), t('CW-2', 'Backlog', 'low', 1), t('CW-3', 'Backlog', 'high', 1), t('CW-4', 'Backlog', 'high', 5), t('CW-5', 'Backlog', 'high', null), t('CW-6', 'Backlog', 'urgent', 0)], {}, [6, ['CW-6', 'CW-4', 'CW-3', 'CW-5', 'CW-2', 'CW-1'], 'https://github.com/o/r/issues']],
+    ['ties keep tracker order', [t('CW-1', 'Backlog', 'low', 1), t('CW-2', 'Backlog', 'low', 1), t('CW-3', 'Backlog', null, null), t('CW-4', 'Backlog', null, null)], {}, [4, ['CW-1', 'CW-2', 'CW-3', 'CW-4'], 'https://github.com/o/r/issues']],
+    ['a no-priority ticket too', [t('CW-1', 'Backlog', null, 1), t('CW-2', 'Backlog', 'low', 1)], {}, [2, ['CW-2', 'CW-1'], 'https://github.com/o/r/issues']],
     ['count is after the in-state and merged skips', [t('CW-1', 'Backlog', 'urgent', 1), t('CW-2', 'Backlog', 'high', 1), t('CW-3', 'Backlog', 'high', 1), t('CW-4', 'Backlog', 'low', 1), t('CW-5', 'Backlog', null, 1)], { state: stateOf('CW-1'), merged: [{ id: 'CW-2', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1, number: 1 }] }, [3, ['CW-3', 'CW-4', 'CW-5'], 'https://github.com/o/r/issues']],
+    ['more than a page: every row, newest first', Array.from({ length: 12 }, (_, i) => t(`CW-${i + 1}`, 'Backlog', 'low', i + 1)), {}, [12, Array.from({ length: 12 }, (_, i) => `CW-${12 - i}`), 'https://github.com/o/r/issues']],
     ['no link when the tracker is not github', [t('CW-1', 'Backlog', null, 1)], { repo: { url: 'https://github.com/o/r', isGithubIssues: false } }, [1, ['CW-1'], undefined]],
     ['no link when the repo is unknown', [t('CW-1', 'Backlog', null, 1)], { repo: null }, [1, ['CW-1'], undefined]],
   ]
@@ -499,4 +499,21 @@ test('ci spans reach the ticket row and the merged entry that own the PR; a PR w
   assert.ok(!('ci' in rows['CW-2']))
   assert.deepEqual(api.merged[0].ci, spans)
   assert.ok(!('ci' in api.merged[1]))
+})
+
+test('a saved Todo or Backlog list over an hour old is stale and carries its read time; a fresh one or one with no time is neither', () => {
+  const min = 60_000
+  const cases: [string, unknown, { readAt?: number; stale?: true }][] = [
+    ['an hour and a minute old', new Date(NOW - 61 * min).toISOString(), { readAt: NOW - 61 * min, stale: true }],
+    ['ten minutes old', new Date(NOW - 10 * min).toISOString(), { readAt: NOW - 10 * min }],
+    ['no at', undefined, {}],
+  ]
+  for (const [name, at, want] of cases) {
+    const lists = createTrackerLists({ read: () => JSON.stringify({ todo: { at, list: [{ id: 'CW-2', title: 'x' }] }, backlog: { at, list: [{ id: 'CW-3', title: 'y' }] } }) })
+    lists.want('CW')
+    const groups = build({ prefix: 'CW', repo: null, backlog: lists.get() }).status
+    assert.deepEqual(groups.map((g) => [g.name, g.readAt, g.stale]), [['Todo', want.readAt, want.stale], ['Backlog', want.readAt, want.stale]], name)
+  }
+  const gh = build({ backlog: [{ id: 'CW-2', title: 'x', state: 'Todo', priority: null, createdAt: null }] }).status[0]
+  assert.deepEqual([gh.readAt, gh.stale], [undefined, undefined], 'the GitHub path has neither')
 })

@@ -29,10 +29,12 @@ def world(tmp_path):
     for rel, text in {
         ".claude/skills/alpha/SKILL.md": "a\n", ".claude/skills/beta/SKILL.md": "b\n", ".claude/agents/ag.md": "ag\n", ".cursor/agents/ag.md": "ag\n",
         "scripts/cos_rotation_check.py": "x\n", "templates/machine-instruction.md": "Team text v1.\n",
+        "../mods/agent-gantt/.claude-plugin/plugin.json": '{"name": "agent-gantt", "version": "0.1.12"}\n',
     }.items():
         (at / rel).parent.mkdir(parents=True, exist_ok=True)
         (at / rel).write_text(text)
     shutil.copy(TOP / "install.sh", cw / "install.sh")
+    shutil.copy(TOP / "agent-team/scripts/gantt_plugin.py", at / "scripts/gantt_plugin.py")
     git(cw, "init", "-q", "-b", "main")
     git(cw, "add", "-A")
     git(cw, "commit", "-q", "-m", "init")
@@ -40,19 +42,23 @@ def world(tmp_path):
     return cw.resolve(), home
 
 
-# A stub claude, by mode: "installed" lists agent-gantt, "ok" lists nothing and installs, "fail" lists nothing and fails to install.
-# "missing" has no claude at all. It logs its arguments, one call per line, to claude.log beside HOME.
+# A stub claude, by mode: "installed" lists agent-gantt at the clone's version, "older" at an older one, "ok" lists nothing and installs,
+# "fail" lists nothing and fails to install, "older-fail" lists an older one and fails to update. A list after an update ran shows the fourth STUBS entry. "missing" has no claude at all. It logs its arguments, one call per line, to claude.log beside HOME.
 STUB = """#!/bin/sh
 echo "$*" >> "$(dirname "$0")/claude.log"
 case "$1 $2" in
-  "plugin list") echo '{list}' ;;
+  "plugin list") if [ -e "$(dirname "$0")/updated" ]; then echo '{after}'; else echo '{list}'; fi ;;
   "plugin install") {install} ;;
+  "plugin update") touch "$(dirname "$0")/updated"; {update} ;;
 esac
 """
-STUBS = {
-    "installed": ('[{"id":"agent-gantt@collective-wisdom","scope":"user"}]', "exit 0"),
-    "ok": ("[]", "exit 0"),
-    "fail": ("[]", 'echo "fetching" >&2; echo "network down" >&2; exit 1'),
+LISTED = '[{{"id":"agent-gantt@collective-wisdom","scope":"user","version":"{}"}}]'
+STUBS = {  # list output, install command, update command, list output after an update ran
+    "installed": (LISTED.format("0.1.12"), "exit 0", "exit 0", LISTED.format("0.1.12")),
+    "older": (LISTED.format("0.1.11"), "exit 0", "exit 0", LISTED.format("0.1.12")),
+    "older-fail": (LISTED.format("0.1.11"), "exit 0", 'echo "fetching" >&2; echo "network down" >&2; exit 1', LISTED.format("0.1.11")),
+    "ok": ("[]", "exit 0", "exit 0", "[]"),
+    "fail": ("[]", 'echo "fetching" >&2; echo "network down" >&2; exit 1', "exit 0", "[]"),
 }
 
 
@@ -72,7 +78,7 @@ def install(cw, home, *args, claude="installed"):
                     except OSError:
                         pass
     else:
-        (stub / "claude").write_text(STUB.format(list=STUBS[claude][0], install=STUBS[claude][1]))
+        (stub / "claude").write_text(STUB.format(list=STUBS[claude][0], install=STUBS[claude][1], update=STUBS[claude][2], after=STUBS[claude][3]))
         (stub / "claude").chmod(0o755)
     r = subprocess.run(["bash", str(cw / "install.sh"), *args], env={**os.environ, "HOME": str(home), "PATH": os.pathsep.join([str(stub), *path])}, capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
@@ -272,26 +278,33 @@ def test_cursor_rule_file(world, name, text, todo):
     assert (home / ".claude/CLAUDE.md").read_text() == f"{BEGIN}\nTeam text v1.\n{END}\n"
 
 
-# name, the claude stub mode, install.sh flags, whether `plugin install` is called, the Done count, a line expected in the output (None: none), whether a TODO is listed
+# name, the claude stub mode, install.sh flags, whether `plugin install` is called, whether `plugin update` is called, the Done count,
+# a line expected in the output (None: none), the start of the TODO expected (None: no TODO)
 GANTT_PLUGIN = [
-    ("no claude on PATH", "missing", [], False, 0, "claude is not on PATH", True),
-    ("already installed", "installed", [], False, 0, None, False),
-    ("not installed, install works", "ok", [], True, 1, "install  agent-gantt plugin", False),
-    ("install fails", "fail", [], True, 0, "(it failed: network down)", True),
-    ("dry run, not installed", "ok", ["--dry-run"], False, 1, "[dry-run] install  agent-gantt plugin", False),
+    ("no claude on PATH", "missing", [], False, False, 0, "claude is not on PATH", "Install the agent-gantt plugin (the Gantt pane): claude is not on PATH"),
+    ("already installed", "installed", [], False, False, 0, None, None),
+    ("not installed, install works", "ok", [], True, False, 1, "install  agent-gantt plugin", None),
+    ("install fails", "fail", [], True, False, 0, "(it failed: network down)", "Install the agent-gantt plugin (the Gantt pane) by hand: claude plugin install agent-gantt --marketplace collective-wisdom-org/collective-wisdom"),
+    ("dry run, not installed", "ok", ["--dry-run"], False, False, 1, "[dry-run] install  agent-gantt plugin", None),
+    ("older, update works", "older", [], False, True, 1, "update  agent-gantt plugin 0.1.11 -> 0.1.12 (claude plugin update, user scope)", None),
+    ("older, dry run", "older", ["--dry-run"], False, False, 1, "[dry-run] update  agent-gantt plugin 0.1.11 -> 0.1.12 (claude plugin update, user scope)", None),
+    ("older, update fails", "older-fail", [], False, True, 0, "(it failed: network down)", "Update the agent-gantt plugin (the Gantt pane) by hand: claude plugin update agent-gantt --scope user"),
 ]
 
 
-@pytest.mark.parametrize("name, claude, flags, called, changes, line, todo", GANTT_PLUGIN, ids=[c[0] for c in GANTT_PLUGIN])
-def test_agent_gantt_plugin_install(world, name, claude, flags, called, changes, line, todo):
+@pytest.mark.parametrize("name, claude, flags, installed, updated, changes, line, todo", GANTT_PLUGIN, ids=[c[0] for c in GANTT_PLUGIN])
+def test_agent_gantt_plugin_install(world, name, claude, flags, installed, updated, changes, line, todo):
     cw, home = world
     assert install(cw, home)[0] == 0  # a first run links everything, so the run under test counts only the plugin
     log = home.parent / "stub-bin/claude.log"
     rc, out = install(cw, home, *flags, claude=claude)
     calls = log.read_text().splitlines() if log.exists() else []
     assert rc == 0, out
-    assert any(c.startswith("plugin install agent-gantt ") and c.endswith(" --scope user") for c in calls) == called
+    assert any(c.startswith("plugin install agent-gantt ") and c.endswith(" --scope user") for c in calls) == installed
+    assert ("plugin update agent-gantt --scope user" in calls) == updated
     assert f"Done{' (dry run, nothing written)' if flags else ''}: {changes} change(s)" in out
     assert (line is None) or line in out
-    assert ("Install the agent-gantt plugin" in out.split("TODO:")[-1]) == todo
-    assert "claude plugin install agent-gantt --marketplace collective-wisdom-org/collective-wisdom" in out or not todo
+    done, _, todos = out.partition("TODO:")
+    assert (todo is None and not todos) or (todo in todos)
+    # the restart line comes after Done and before TODO, and only for an update that ran (not on a dry run)
+    assert ("Restart Claude Code to load the updated agent-gantt plugin." in done.split("Done")[-1]) == (claude == "older" and changes == 1 and not flags)

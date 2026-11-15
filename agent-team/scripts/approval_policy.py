@@ -56,9 +56,10 @@ PATH_DIRS = ("docs/agents/", "scripts/")
 # test_approval_policy.py fails when a listed script imports a local helper that is not listed, so a gate cannot move out of the list.
 HANDS_SCRIPTS = (
     "approval_policy.py", "no_hands.py", "cos_approve_pr.py", "cos_user_check.py", "merge_pr.py", "review_gate.py", "review_scope.py",
-    "ci_review.py", "wait-for-ci.sh", "gh.sh", "cos_brief.py", "cos_state.py", "cos_tick.py", "cos_route.py", "cos_head_check.py",
+    "ci_review.py", "wait-for-ci.sh", "gh.sh", "cos_brief.py", "cos_state.py", "cos_lists.py", "cos_tick.py", "cos_route.py", "cos_head_check.py",
     "agent_usage.py", "prices.json", "project_config.py", "user_config.py", "app_root.py",
     "release_notes.py", "pr_diff_delta.py",  # imported by merge_pr.py and review_scope.py
+    "clock12.py",  # imported by cos_state.py, release_notes.py and agent_usage.py
 )
 HANDS_TESTS = {"scripts/test_" + re.sub(r"\W", "_", n.removesuffix(".py")) + ".py" for n in HANDS_SCRIPTS if n.endswith((".py", ".sh"))}
 TEST_CONFIG = {"conftest.py", "pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml", "pyproject.toml", "setup.cfg", "tox.ini"}  # change how CI runs the tests, at the repo root or under agent-team/

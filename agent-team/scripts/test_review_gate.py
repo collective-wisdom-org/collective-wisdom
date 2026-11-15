@@ -11,6 +11,7 @@ SPEC.loader.exec_module(review_gate)
 HEAD, MID, OLD, SIDE = "a" * 40, "b" * 40, "c" * 40, "d" * 40
 CODE, SEC = "https://github.com/o/r/pull/7#issuecomment-1", "https://github.com/o/r/pull/7#issuecomment-2"
 NOTE = "Head moved to {h} by merging main; PR diff unchanged since {o}. Reviews from {o} stand."
+LIVING = "Head moved to {h} by the docs check fix commit; PR diff changed only in living docs since {o}: 'README.md'. Reviews from {o} stand."
 RESOLVED = "Head moved to {h} by resolving conflicts with main; reviews from {o} stand."
 
 
@@ -56,6 +57,7 @@ PASS = f"review-gate: pass head {HEAD} code {CODE} security {SEC}"
         ("agents", pr(comments=[]), None, 0, ["review-gate: rerun both: code: no Code review comment by me; security: no Security review comment by me"]),
         # Pushed after the reviews: the diff decides.
         ("agents", pr(), ("same", []), 0, [NOTE.format(h=HEAD, o=OLD), f"review-gate: note head {HEAD} reviewed {OLD}"]),
+        ("agents", pr(), ("living", ["README.md"]), 0, [LIVING.format(h=HEAD, o=OLD), f"review-gate: note head {HEAD} reviewed {OLD}"]),
         ("agents", pr(), ("changed", ["a.py", "b.py"]), 0, ["review-gate: rerun both: diff changed since ccccccc: 'a.py', 'b.py'"]),
         ("agents", pr(), "boom", 0, ["review-gate: rerun both: cannot compare diff since ccccccc: boom"]),
         # The note is posted: the same script now passes, with the same rule the merge gate runs.

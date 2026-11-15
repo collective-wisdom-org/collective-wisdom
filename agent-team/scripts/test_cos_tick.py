@@ -142,6 +142,21 @@ def test_look_plan_flags_a_child_on_another_provider(tmp_path, capsys, chief, ti
     assert [x for x in out if x.startswith("child-read ")] == [READ(i, t["childThreadId"]) for i, t in tickets.items() if t["stage"] in ("spec", "build", "merge")]
 
 
+FINISH = ["follow rotation.md § Thread rotation: Finish take over"]
+
+
+@pytest.mark.parametrize(
+    "trigger, extra, want",
+    [("user", (), FINISH), ("status", (), FINISH), ("notice:c1", (), FINISH), ("wake", (), FINISH), ("start", (), None), ("user", ("--after-reads",), None)],
+)
+def test_unfinished_take_over_is_the_whole_look_plan(tmp_path, capsys, trigger, extra, want):
+    state = {"tickets": {"ABC-1": BUILD}, "chiefProvider": None, "takeover": {"startedAt": "2026-11-08T11:50:00Z", "mode": "take-over"}}
+    out = run(tmp_path, capsys, state, trigger, *extra)
+    assert (out == want) if want else out != FINISH
+    assert run(tmp_path, capsys, {**state, "takeover": None}, trigger, *extra) != FINISH
+    assert run(tmp_path, capsys, {**state, "paused": True}, trigger, *extra) != FINISH
+
+
 def test_start_plan_has_no_provider_line(tmp_path, capsys):
     # startup.md step 3 reads the provider, so a new repo's start plan begins at Setup
     out = run(tmp_path, capsys, {"tickets": {}, "chiefProvider": None}, "start")
