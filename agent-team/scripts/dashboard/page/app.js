@@ -323,10 +323,22 @@ function approveControls(r, chiefLink) {
       const text = approveCommand(r, kind)
       if (text === null) return ''
       const href = promptLink(chiefLink, text)
-      const title = `Opens the Chief of Staff thread with "${text}" typed in. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`
-      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}">${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
+      const press = kind === 'approve' && href
+      const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
+      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text.slice('approve '.length))}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
+}
+
+const PRESS_MESSAGES = {
+  'not-frontmost': 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.',
+  permission: 'Approve not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), then press Send in the Chief of Staff thread.',
+}
+
+/** The line for the error area after Approve asked the server to press Return: empty when it was sent or a second click came inside the wait, else the reason in words. `answer` is the server's JSON, or null when the request failed. */
+export function pressMessage(answer) {
+  if (answer?.sent === true || answer?.reason === 'busy') return ''
+  return (typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : '') || 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
 }
 
 /** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */
@@ -917,6 +929,21 @@ if (typeof document !== 'undefined') {
     }
   }
   const seen = versionWatch()
+  // The Approve press message stays in the error line until the next Approve click or a reload.
+  let pressNote = ''
+  const showError = () => {
+    document.getElementById('error').textContent = [last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' ')
+  }
+  const pressReturn = async () => {
+    pressNote = ''
+    let answer = null
+    try {
+      const res = await fetch('/press-return', { method: 'POST', headers: { 'X-Dashboard-Token': document.querySelector('meta[name="dashboard-token"]')?.content ?? '' } })
+      answer = await res.json()
+    } catch {}
+    pressNote = pressMessage(answer)
+    showError()
+  }
   const poll = async () => {
     const err = document.getElementById('error')
     try {
@@ -929,7 +956,7 @@ if (typeof document !== 'undefined') {
         location.reload()
         return
       }
-      err.textContent = [last.restartError, last.trackerError].filter(Boolean).join(' ')
+      showError()
       drawStatus()
       draw()
       drawMerged()
@@ -957,6 +984,13 @@ if (typeof document !== 'undefined') {
   })
   document.addEventListener('click', (ev) => {
     const target = ev.target instanceof Element ? ev.target : null
+    const approve = target?.closest('a[data-return]')
+    if (approve) {
+      // Let the link open the thread; blur it so a Return that lands back here cannot click it again.
+      approve.blur()
+      pressReturn()
+      return
+    }
     const tab = target?.closest('button[data-tab]')
     if (tab) {
       selectTab(tab.dataset.tab)

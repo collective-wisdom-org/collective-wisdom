@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
-import type { Server } from 'node:http'
+import type { IncomingMessage, Server } from 'node:http'
 import { lstatSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { execFile, spawn } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
@@ -203,7 +203,34 @@ export function mergedPageOf(url: string): number {
   }
 }
 
-export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null> }): Promise<{ port: number; close(): Promise<void> }> {
+const PRESS_SCRIPT = `tell application "System Events"
+  set front to bundle identifier of first application process whose frontmost is true
+  if front is not "com.t3tools.t3code" then return "not-frontmost"
+  key code 36
+end tell
+return "sent"`
+
+/** Presses Return in T3 Code through macOS automation (fixed script, no user text, no shell). Resolves with the script's output; rejects on an osascript error or the 3 second timeout. */
+export function pressReturnMac(): Promise<string> {
+  if (process.platform !== 'darwin') return Promise.resolve('unsupported')
+  return new Promise((resolve, reject) => {
+    execFile('osascript', ['-e', PRESS_SCRIPT], { timeout: 3000 }, (err, stdout) => (err ? reject(err) : resolve(stdout)))
+  })
+}
+
+/** The JSON answer for a press: `result` is the runner's output, or the error it failed with. */
+export function pressResult(result: unknown): { sent: boolean; reason?: string } {
+  if (typeof result === 'string') {
+    const out = result.trim()
+    if (out === 'sent') return { sent: true }
+    return { sent: false, reason: out === 'not-frontmost' || out === 'unsupported' ? out : 'error' }
+  }
+  const e = result as { message?: unknown; stderr?: unknown } | null
+  // -1743: not allowed to control System Events; 1002, -1719, -25211: no Accessibility.
+  return { sent: false, reason: /\((?:-1743|1002|-1719|-25211)\)/.test(`${e?.message ?? ''} ${e?.stderr ?? ''}`) ? 'permission' : 'error' }
+}
+
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: () => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -388,6 +415,29 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
+  const token = randomBytes(32).toString('hex')
+  const pressReturn = opts.pressReturn ?? pressReturnMac
+  let lastPress = 0
+  let pressing = false
+  const press = async (req: IncomingMessage, send: (status: number, body: string, type?: string) => void, port: number) => {
+    const origin = req.headers.origin
+    const site = req.headers['sec-fetch-site']
+    const got = Buffer.from(String(req.headers['x-dashboard-token'] ?? ''))
+    const want = Buffer.from(token)
+    if ((origin !== `http://127.0.0.1:${port}` && origin !== `http://localhost:${port}`) || (site !== undefined && site !== 'same-origin') || got.length !== want.length || !timingSafeEqual(got, want)) return send(403, 'forbidden')
+    req.resume()
+    const json = (answer: { sent: boolean; reason?: string }) => send(200, JSON.stringify(answer), 'application/json')
+    if (pressing || Date.now() - lastPress < 3000) return json({ sent: false, reason: 'busy' })
+    pressing = true
+    lastPress = Date.now()
+    try {
+      await new Promise((r) => setTimeout(r, 1200))
+      json(pressResult(await pressReturn().catch((e: unknown) => e ?? new Error('failed'))))
+    } finally {
+      pressing = false
+    }
+  }
+
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
     const send = (status: number, body: string, type = 'text/plain; charset=utf-8') => {
       const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
@@ -399,6 +449,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const port = (server.address() as { port: number }).port
     const host = req.headers.host
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return send(403, 'forbidden')
+    if (path === '/press-return') return req.method === 'POST' ? void press(req, send, port) : send(405, 'method not allowed')
     if (req.method !== 'GET') return send(405, 'method not allowed')
     try {
       if (path === '/health') return send(200, JSON.stringify({ ok: true, root, code: running, pid: process.pid }), 'application/json')
@@ -407,7 +458,8 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
       if (page) {
         try {
           const text = readFileSync(join(import.meta.dirname, 'page', page[0]), 'utf8')
-          return send(200, path === '/' && theme ? text.replace('<html lang="en">', `<html lang="en" data-theme="${theme}">`) : text, page[1])
+          const themed = path === '/' && theme ? text.replace('<html lang="en">', `<html lang="en" data-theme="${theme}">`) : text
+          return send(200, path === '/' ? themed.replace('<meta name="dashboard-token" content="">', `<meta name="dashboard-token" content="${token}">`) : themed, page[1])
         } catch {
           return send(404, 'not found')
         }
