@@ -1,6 +1,7 @@
 # CW-339: Update the agent-gantt plugin when install.sh finds an older version
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #358, as specified
 **Ticket:** [#339](https://github.com/collective-wisdom-org/collective-wisdom/issues/339)
 
 ## Goal
