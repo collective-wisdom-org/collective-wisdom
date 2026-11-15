@@ -196,9 +196,9 @@ List first, create only what is missing. Safe to re-run. Delete a label with `~/
 | `agent` | `0052cc` | Worked by the agent team |
 | `agent-skip` | `cccccc` | Agent team skips this ticket |
 
-Backlog has no label: a ticket with no `status:` label is in Backlog, so there is no `status:backlog`.
+A ticket with no `status:` label is in Backlog; there is no `status:backlog`.
 
-For each missing label, run the `label create` line above with that row's name, color and description. Area labels from `project.md` use `--description 'Area: <name>'` and no `--color`. A label that already exists is left as it is, whatever its color or description.
+Create each missing label with the line above and the row's values. Area labels from `project.md` take `--description 'Area: <name>'` and no `--color`. An existing label is left as it is, whatever its color or description.
 
 ## Setup
 
