@@ -13,7 +13,8 @@ Plain mode saves chiefSessionId (when it differs from $CLAUDE_CODE_SESSION_ID) a
 with --record-takeover, takeoverContext, through cos_state.py. It never resets anything.
 The reset mode comes from RESET_MODES, keyed by state's chiefProvider.provider (reset, reset-scheduled, compact or none; a
 provider missing from it, or a missing chiefProvider, is none). On none the check never prints "rotate:": it prints
-"ok (no reset on <provider>; context=<N>k)" or "ok (no reset on <provider>; size unknown)". Holds: paused, and a
+"ok (no reset on <provider>; context=<N>k)" or "ok (no reset on <provider>; size unknown)". A stored skillCommit that is not a full sha acts like null and prints
+"ok; skillCommit is not a full sha; set skillCommit <sha>" where the null line would. Holds: paused, and a
 `reset` marker in state younger than 10 minutes ("ok (held: reset)"); an older marker does not hold and a trigger
 then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset" or
 "rotate: skill changed aaaaaaa..bbbbbbb; mode reset".
@@ -66,6 +67,7 @@ def _root():
 ROOT = _root()
 import project_config  # noqa: E402  (after _root(): it must find the same repo)
 SIZE_CAP = 220_000
+FULL_SHA = re.compile(r"[0-9a-f]{40}")
 CURSOR_FRESH_SECONDS = 120
 QUIET_RELAY_MIN = 10
 QUIET_RESET_MIN = 60
@@ -147,9 +149,13 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
             return "ok (held: reset)"
         stale = "; reset never confirmed"
     old = state.get("skillCommit")
+    bad = bool(old) and not (isinstance(old, str) and FULL_SHA.fullmatch(old))
+    if bad:
+        old = None
+    set_line = f"ok; {'skillCommit is not a full sha; ' if bad else ''}set skillCommit {commit}"
     if mode == "none":
         if not old:
-            return f"ok; set skillCommit {commit}"
+            return set_line
         return f"ok (no reset on {provider}; " + ("size unknown)" if context is None else f"context={k(context)})")
     waits = None
     if branch == project_config.target_branch() and old and commit != old:
@@ -174,7 +180,7 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
     if note or waits:
         return note or waits
     if not old:
-        return f"ok; set skillCommit {commit}"
+        return set_line
     return "ok (size unknown on Cursor)" if context is None else f"ok context={k(context)}"
 
 

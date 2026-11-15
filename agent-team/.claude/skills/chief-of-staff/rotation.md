@@ -17,7 +17,7 @@ It prints one line and exits 0: `rotate: <reason>; mode <reset|reset-scheduled|c
 | Trigger | Threshold |
 |---|---|
 | Size | context is 220k or more (ignores the quiet-turn rule) |
-| Skill change | the current skill commit differs from `skillCommit` in state (only on the merge target branch) **and** the turn is quiet (below). A `null` `skillCommit` prints `ok; set skillCommit <sha>`, save it and don't reset |
+| Skill change | the current skill commit differs from `skillCommit` in state (only on the merge target branch) **and** the turn is quiet (below). A `null` `skillCommit` prints `ok; set skillCommit <sha>`, and one that is not a full sha prints `ok; skillCommit is not a full sha; set skillCommit <sha>`; save the sha either way and don't reset |
 
 A turn is quiet when no ticket is in a `*-queued` stage, `lastRelayAt` is absent or 10 or more minutes old, and `lastResetAt` is absent or 60 or more minutes old. A skill change on a turn that isn't quiet prints `ok (skill change waits: queued <PREFIX>-N | relay <N>m ago | reset <N>m ago)`. Do nothing: the first quiet turn resets (now, if the size trigger also fires).
 
