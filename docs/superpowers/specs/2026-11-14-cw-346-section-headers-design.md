@@ -1,6 +1,7 @@
 # CW-346: Make the dashboard section headers stand out more
 
-**Status:** Draft, waiting for the user's review
+**Status:** Shipped
+**Shipped:** in PR #352, as specified
 **Ticket:** [#346](https://github.com/collective-wisdom-org/collective-wisdom/issues/346)
 **Builds on:** CW-266 (PR #340, merged), the redesign whose header rule this changes. Runs beside CW-345 (Agents · Details control), which changes the card foot and not the headers; whichever builds second rebases on the other.
 
