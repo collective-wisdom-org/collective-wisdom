@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-15 confirm dashboard Approve and Mark todo reached T3 as the user (WISE-455) (#457)
+
+Merged 2026-11-15 8:58 pm UTC.
+
+The dashboard's Approve and Mark todo now check that T3 recorded the command as your message, and the error line tells you when it did not. They still press Return for you.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-15 resolve a conflict instead of waiting for CI that cannot start (WISE-439) (#454)
 
 Merged 2026-11-15 7:37 pm UTC.
