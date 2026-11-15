@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, riskText, dayWords, actionFor, ganttSummary, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -28,7 +28,7 @@ test('threadLink becomes a copy button carrying the exact link', () => {
   const html = renderStatus(group([row({ threadLink: link })]))
   assert.match(html, /<div class="head">.*<button type="button" class="copy-icon" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link"/)
   assert.ok(!html.includes('>Copy thread link<'))
-  assert.ok(!renderStatus(group([row()])).includes('<button'))
+  assert.ok(!renderStatus(group([row()])).includes('copy-icon'))
 })
 
 test('empty inputs show quiet lines', () => {
@@ -80,7 +80,7 @@ test('the status sentence names the stage in plain words and ends with since HH:
   const at = new Date(2026, 10, 14, 9, 5).toISOString()
   const cases = [
     ['awaiting-merge', undefined, 'Waiting for your merge approval'],
-    ['awaiting-build', at, 'Spec is waiting for your approval since 09:05'],
+    ['awaiting-build', at, 'Spec is waiting for your approval'],
     ['blocked', undefined, 'Blocked. Needs an answer from you'],
     ['build', at, 'Building since 09:05'],
     ['build', 'soon', 'Building'],
@@ -272,12 +272,13 @@ test('a note says some rows were priced before the CW-220 fix when any drawn ses
   for (const p of [[2, undefined], [null]]) assert.match(html(...p), note)
 })
 
-test('a card with sessions gets a closed chart that reopens when its id is in the open set', () => {
+test('a card with sessions gets a closed Agents segment that reopens when its id is in the open set', () => {
   const g = [sess()]
   const html = (open) => renderStatus(group([row({ gantt: g }), row({ id: 'CW-2' })]), open)
-  assert.match(html(), /<details class="chart" data-ticket="CW-1"><summary>Agents <span class="pill">1<\/span>/)
-  assert.match(html(new Set(['CW-1'])), /<details class="chart" data-ticket="CW-1" open>/)
-  assert.equal(html().match(/<details class="chart"/g).length, 1)
+  assert.match(html(), /<button type="button" class="seg" data-ticket="CW-1" data-view="agents" id="seg-ticket-CW-1-agents" aria-expanded="false" aria-controls="pan-ticket-CW-1-agents">Agents <span class="pill">1<\/span>/)
+  assert.match(html(new Set(['CW-1'])), /data-view="agents" id="seg-ticket-CW-1-agents" aria-expanded="true"/)
+  assert.match(html(new Set(['CW-1'])), /<div class="panel" id="pan-ticket-CW-1-agents" role="region" aria-labelledby="seg-ticket-CW-1-agents"><div class="chart-body" data-ticket="CW-1">/)
+  assert.equal(html().match(/class="chart-body"/g).length, 1)
   // The pill counts tasks across sessions, not sessions; an older snapshot's session row beside task rows is not one.
   const rows = [grow({ kind: 'session' }), grow({ kind: 'task', depth: 1 }), grow({ kind: 'agent', depth: 2 }), grow({ kind: 'task', depth: 1 })]
   assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">3<\/span>/)
@@ -298,7 +299,7 @@ test('each ticket has a closed Details section that lists what is known, escaped
     ],
   })
   const bare = row({ id: 'CW-2', stage: '', risk: '', next: '' })
-  const section = (html, id) => html.match(new RegExp(`<details class="info" data-ticket="${id}"[^>]*>[\\s\\S]*?</details>`))[0]
+  const section = (html, id) => html.split(`id="pan-ticket-${id}-details"`)[1].split('</li>')[0]
   const lines = (html) => [...html.matchAll(/<dt>([^<]*)<\/dt><dd>([\s\S]*?)<\/dd>/g)].map((m) => [m[1], m[2].replace(/<[^>]+>/g, '')])
   const html = renderStatus(group([full, bare]))
 
@@ -318,11 +319,13 @@ test('each ticket has a closed Details section that lists what is known, escaped
   assert.ok(!section(html, 'CW-1').includes('<i>') && !section(html, 'CW-1').includes('<th>'))
 
   const none = section(html, 'CW-2')
-  assert.ok(none.startsWith('<details class="info" data-ticket="CW-2"><summary>Details</summary>'))
+  assert.ok(none.startsWith(' role="region" aria-labelledby="seg-ticket-CW-2-details" hidden><div class="info-body" data-ticket="CW-2">'))
   assert.match(none, /<p class="quiet">Nothing more known yet<\/p>/)
   assert.doesNotMatch(none, /<dt>|href=|<dd><\/dd>|info-links|info-facts/)
 
-  assert.match(renderStatus(group([full]), new Set(), new Set(), new Set(['CW-1'])), /<details class="info" data-ticket="CW-1" open>/)
+  const opened = renderStatus(group([full]), new Set(), new Set(), new Set(['CW-1']))
+  assert.match(opened, /data-view="details" id="seg-ticket-CW-1-details" aria-expanded="true"/)
+  assert.ok(!section(opened, 'CW-1').split('>')[0].includes('hidden'))
 })
 
 test('a spec or changes detail shows its sections, files and reviews as escaped text; only http urls link', () => {
@@ -336,7 +339,7 @@ test('a spec or changes detail shows its sections, files and reviews as escaped 
     reviews: [{ name: 'Code review', verdict: 'PASS', url: 'https://x.test/c' }, { name: 'Security review', verdict: 'CHANGES NEEDED', url: 'data:x' }],
   }
   const html = renderStatus(group([row({ id: 'CW-1', stage: '', risk: '', next: '', detail: spec }), row({ id: 'CW-2', stage: '', risk: '', next: '', detail: changes })]))
-  const section = (id) => html.match(new RegExp(`<details class="info" data-ticket="${id}"[^>]*>[\\s\\S]*?</details>`))[0]
+  const section = (id) => html.split(`id="pan-ticket-${id}-details"`)[1].split('</li>')[0]
   const a = section('CW-1')
   assert.match(a, /<header class="detail-head"><span>Spec<\/span><span class="detail-open"><a href="https:\/\/x\.test\/blob\/a\.md"/)
   assert.match(a, /<h4>Goal<\/h4><div class="detail-section"><p>ship &lt;b&gt;it&lt;\/b&gt; line two<\/p><\/div>/)
@@ -411,9 +414,11 @@ test('the meta line links the id and PR; the Spec link sits in Details and is le
 test('a merged row has a closed Details section filled only when open; it shows the links line and the PR text', () => {
   const e = { id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/9', issueUrl: 'https://x.test/issues/9', specUrl: 'https://x.test/blob/s.md', mergedAt: 0, detail: { kind: 'changes', sections: [{ name: 'Summary', text: 'Did **it**' }] } }
   const closed = renderMerged([e], 0).html
-  assert.match(closed, /<details class="info" data-merged="CW-9"><summary>Details<\/summary><div class="info-body" data-merged="CW-9"><\/div><\/details>/)
+  assert.match(closed, /data-view="details" id="seg-merged-CW-9-details" aria-expanded="false"/)
+  assert.match(closed, /<div class="panel" id="pan-merged-CW-9-details"[^>]* hidden><div class="info-body" data-merged="CW-9"><\/div><\/div>/)
   const open = renderMerged([e], 0, 10, new Set(), new Set(['CW-9'])).html
-  assert.match(open, /<details class="info" data-merged="CW-9" open>/)
+  assert.match(open, /data-view="details" id="seg-merged-CW-9-details" aria-expanded="true"/)
+  assert.doesNotMatch(open, /id="pan-merged-CW-9-details"[^>]* hidden>/)
   assert.match(open, /<p class="info-links">[^]*Issue #9[^]*Spec[^]*PR #9[^]*<\/p>/)
   assert.match(open, /<p>Did <strong>it<\/strong><\/p>/)
 })
@@ -495,9 +500,10 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const card = part('progress')
   assert.match(card, /<span class="title">&lt;img src=x onerror=1&gt;<\/span>[\s\S]*<span class="id">Ticket helper<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
-  assert.match(card, /<details class="chart" data-ticket="helper:&lt;img[^>]*>/)
+  assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
-  assert.ok(!/<a |Details|class="info"/.test(placeholder), 'no link or Details on the placeholder')
+  assert.ok(!/<a |class="info-body"/.test(placeholder), 'no link or Details panel on the placeholder')
+  assert.match(placeholder, /data-view="details"[^>]* disabled title="No ticket yet"/)
   assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
   assert.ok(!html.includes('<img'))
   const idle = part('not-started')
@@ -510,14 +516,16 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   assert.equal(renderStatus([todo]).includes('No state yet'), false)
 })
 
-test('merged row with sessions has a closed Agents chart that stays open when its id is in the open set; one without has none', () => {
+test('merged row with sessions has a closed Agents segment that stays open when its id is in the open set; one without has a disabled one', () => {
   const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
   const html = (gantt, open) => renderMerged([{ ...e, ...(gantt ? { gantt } : {}) }, { ...e, id: 'CW-2' }], 0, 10, open).html
-  assert.match(html([sess(), sess()]), /<details class="chart" data-merged="CW-1"><summary>Agents <span class="pill">2<\/span><\/summary><div class="chart-body" data-merged="CW-1"><\/div>/)
-  assert.match(html([sess()], new Set(['CW-1'])), /<details class="chart" data-merged="CW-1" open>/)
-  assert.equal(html([sess()]).match(/<details class="chart"/g).length, 1)
-  assert.doesNotMatch(html([]), /<details class="chart"|Agents/)
-  assert.doesNotMatch(html(), /<details class="chart"|Agents/)
+  assert.match(html([sess(), sess()]), /<button type="button" class="seg" data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="false" aria-controls="pan-merged-CW-1-agents">Agents <span class="pill">2<\/span><\/button>/)
+  assert.match(html([sess()], new Set(['CW-1'])), /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="true"/)
+  assert.equal(html([sess()]).match(/class="chart-body"/g).length, 1)
+  for (const none of [html([]), html()]) {
+    assert.match(none, /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="false" disabled title="No agent sessions recorded">Agents <span class="pill">0<\/span>/)
+    assert.doesNotMatch(none, /class="chart-body"|pan-merged-CW-1-agents/)
+  }
 })
 
 test('drawCharts writes a chart body only when its html changed; a body with no entry is never written', () => {
@@ -568,7 +576,7 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   assert.match(first.html, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(first.html, /Hygiene/)
   assert.ok(!first.html.includes('<img'))
-  assert.ok(/<details class="chart" data-pm="&lt;img[^>]* open>/.test(first.html))
+  assert.match(first.html, /data-pm="&lt;img[^"]*" data-view="agents" id="[^"]*" aria-expanded="true"/)
   assert.equal([...first.html.matchAll(/<li class="row">/g)].length, 10)
   assert.match(first.html, /Page 1 of 2/)
   const last = renderChief(api, 99)
@@ -605,4 +613,60 @@ test('renderGantt ends with a CI wait row of the merged spans and leaves the Tot
   assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
   assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
   assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d:\d\d to \d\d:\d\d"/)
+})
+
+test('waitText counts up from stageAt, rounded down, two units at most', () => {
+  const now = Date.UTC(2026, 10, 14, 12, 0)
+  const [M, H, D] = [60_000, 3_600_000, 86_400_000]
+  const ago = (ms) => new Date(now - ms).toISOString()
+  const cases = [[undefined, ''], ['soon', ''], [ago(-5 * M), 'waiting <1m'], [ago(30_000), 'waiting <1m'], [ago(42 * M), 'waiting 42m'], [ago(3 * H), 'waiting 3h'], [ago(3 * H + 16 * M), 'waiting 3h 16m'], [ago(3 * D), 'waiting 3d'], [ago(3 * D + 4 * H), 'waiting 3d 4h'], [ago(40 * D), 'waiting 40d']]
+  for (const [stageAt, want] of cases) assert.equal(waitText(stageAt, now), want, String(stageAt))
+})
+
+test('every row type draws the same switch first in its foot; one panel is open at most and a row with no tasks has a disabled Agents', () => {
+  const g = [sess()]
+  const status = (name, r) => (open, info) => renderStatus([{ name, count: 1, rows: [r] }], open, new Set(), info)
+  const merged = (gantt) => (open, info) => renderMerged([{ id: 'M', title: 't', mergedAt: 0, ...(gantt ? { gantt } : {}) }], 0, 10, open, info).html
+  const pm = (open) => renderChief({ chief: {}, pm: [{ sessionId: 'M', role: 'ranking', state: 'idle', gantt: g }] }, 0, open).html
+  const both = ['agents', 'details']
+  const cases = [
+    ['live card', status('Building', row({ id: 'M', gantt: g })), both, both],
+    ['card with no tasks', status('Building', row({ id: 'M' })), both, ['details']],
+    ['flat row', status('Queued to build', row({ id: 'M', gantt: g })), both, both],
+    ['blocked row', status('Other', row({ id: 'M', stage: 'blocked', gantt: g })), both, both],
+    ['helper', status('Building', row({ id: 'M', helper: true, gantt: g })), both, ['agents']],
+    ['merged', merged(g), both, both],
+    ['merged with no tasks', merged(), both, ['details']],
+    ['project manager', pm, ['agents'], ['agents']],
+  ]
+  const [none, id] = [new Set(), new Set(['M'])]
+  const opened = (html) => [...html.matchAll(/data-view="(\w+)" id="[^"]*" aria-expanded="true"/g)].map((m) => m[1])
+  for (const [name, render, views, can] of cases) {
+    const closed = render(none, none)
+    assert.match(closed, /<div class="foot"><div class="switch" role="group" aria-label="M panels">/, name)
+    assert.deepEqual([...closed.matchAll(/class="seg" data-\w+="M" data-view="(\w+)"/g)].map((m) => m[1]), views, name)
+    assert.equal(/id="pan-[a-z]+-M-agents"/.test(closed), can.includes('agents'), name)
+    for (const [v, html] of [['agents', render(id, none)], ['details', render(none, id)], ['agents', render(id, id)]]) {
+      assert.deepEqual(opened(html), can.includes(v) ? [v] : [], `${name} ${v}`)
+      assert.equal(html.match(/<div class="panel"[^>]*>/g)?.filter((t) => !t.includes(' hidden')).length ?? 0, can.includes(v) ? 1 : 0, `${name} ${v} panels`)
+    }
+  }
+})
+
+test('an awaiting card counts the wait instead of showing the status line; a build card keeps it; Details keeps it in full for both', () => {
+  const at = new Date(Date.now() - 196 * 60_000).toISOString()
+  const long = 'fathom-only spec at 368b05e, keeps GUY prefix'
+  const card = (r) => renderStatus(group([row({ next: long, ...r })]))
+  for (const stage of ['awaiting-merge', 'awaiting-build', 'awaiting-review']) {
+    const html = card({ stage, stageAt: at })
+    assert.match(html, /<p class="wait" data-ticket="CW-1"><time datetime="[^"]+" title="Since \d{4}-\d\d-\d\d \d\d:\d\d">waiting 3h 16m<\/time><\/p>/, stage)
+    assert.doesNotMatch(html, /<p class="next">|since \d\d:\d\d/, stage)
+    assert.match(html, /<dt>Next<\/dt><dd>fathom-only/, stage)
+  }
+  const missing = card({ stage: 'awaiting-merge' })
+  assert.doesNotMatch(missing, /class="wait"|class="next"/)
+  assert.match(missing, /<dt>Next<\/dt><dd>fathom-only/)
+  const build = card({ stageAt: at })
+  assert.match(build, /<p class="next">fathom-only[^<]*<\/p>/)
+  assert.doesNotMatch(build, /class="wait"/)
 })
