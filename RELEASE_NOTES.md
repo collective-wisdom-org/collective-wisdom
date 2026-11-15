@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show ticket owner avatar, hide empty Agents on others' tickets (WISE-424) (#427)
+
+Merged 2026-11-15 5:41 pm UTC.
+
+The dashboard now shows each ticket's owner as a small avatar and username on its card, and hides the empty Agents button on tickets someone else owns.
+
 ## 2026-11-15 Approve on the dashboard presses Send in T3 Code (WISE-423) (#425)
 
 Merged 2026-11-15 5:15 pm UTC.
