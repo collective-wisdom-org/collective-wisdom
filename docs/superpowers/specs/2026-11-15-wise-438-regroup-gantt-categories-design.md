@@ -1,7 +1,8 @@
 # WISE-438: Regroup Gantt bar categories
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#438](https://github.com/collective-wisdom-org/collective-wisdom/issues/438)
+**Shipped:** in PR #451, as specified
 
 ## Goal
 
