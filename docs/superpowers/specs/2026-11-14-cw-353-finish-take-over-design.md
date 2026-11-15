@@ -48,8 +48,8 @@ In `cos_tick.py`, every look plan except `start` checks `takeover` before the pr
 
 When the rotation check prints `finish:`, the tick prints the follow line, or the hook sends the turn back:
 
-1. Rerun the pass from step 1 in the mode `takeover` names (`take-over`: the four steps; `resume`: resume mode). Step 1 resets `takeover.startedAt`; that is harmless.
-2. Skip step 2 when `reset` is already `null` and the mode is `take-over`: step 2 ran, and only steps 3 and 4 are left. With `reset` still set, step 2 runs.
+1. Rerun the pass from step 1 in the mode `takeover` names (`take-over`: the four steps; `resume`: resume mode). The rerun skips the pass's own `takeover` op, so `startedAt` stays the original.
+2. In `take-over` mode: with `reset` set, go straight to step 2's reset-message search, skipping its plain `take over` branch (the newest message is the one that interrupted). With `reset` null and `lastResetAt` at or after `takeover.startedAt`, step 2 ran: skip it. With `reset` null and no such `lastResetAt`, run step 2 whole.
 3. Then handle the message that woke this turn as SKILL.md § Turn start says, including its own tick. Steps 3 and 4 are safe to rerun (the tick's rerun rule: each send and start is saved before the next line).
 
 ### Step 2 finds the reset message
@@ -78,13 +78,13 @@ Table rows added to existing table-driven tests, no new test files.
 
 - `test_cos_rotation_check.py` `test_decide`: `takeover` set gives `finish: …`, ahead of a fresh `reset` hold and of a size trigger; `takeover` null with the same state gives today's line. The hook test gets one row: `takeover` set blocks once.
 - `test_cos_tick.py`: `takeover` set gives the one follow line for `user`, `status` and `notice:` look plans, and no change for `start` or `--after-reads`.
-- `test_cos_state.py`: the `takeover` top op accepts null and a valid dict, and rejects a bad mode, a future or zoneless `startedAt`, or extra keys.
+- `test_cos_state.py`: the `takeover` top op accepts null and a valid dict, and rejects a bad mode, a missing `startedAt` or extra keys.
 
 ## Leaves out
 
 - The reset trigger, its size cap and skill-change rules.
 - Cursor and Codex reset support (CW-341, CW-342, CW-343).
-- kill-switch.md § Resume (a plain `take over` that passes the user check). It gets no marker.
+- kill-switch.md § Resume gets no marker; it only clears a leftover `takeover`. `stop everything` and `resume` are exempt from finishing first, and the tick shows no finish line while `paused`.
 
 ## Calls I made
 

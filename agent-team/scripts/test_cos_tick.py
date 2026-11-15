@@ -154,6 +154,7 @@ def test_unfinished_take_over_is_the_whole_look_plan(tmp_path, capsys, trigger, 
     out = run(tmp_path, capsys, state, trigger, *extra)
     assert (out == want) if want else out != FINISH
     assert run(tmp_path, capsys, {**state, "takeover": None}, trigger, *extra) != FINISH
+    assert run(tmp_path, capsys, {**state, "paused": True}, trigger, *extra) != FINISH
 
 
 def test_start_plan_has_no_provider_line(tmp_path, capsys):

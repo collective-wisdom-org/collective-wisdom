@@ -157,7 +157,7 @@ def provider_lines(state, thread):
 def look(state, thread, trigger):
     if trigger.partition(":")[0] == "start":  # startup.md step 3 reads the provider itself; resume mode sets and clears takeover
         return look_plan(state, thread, trigger)
-    if isinstance(state.get("takeover"), dict):  # an unfinished take over goes before everything, the provider check included
+    if isinstance(state.get("takeover"), dict) and not state.get("paused"):  # an unfinished take over goes before everything, the provider check included; a paused team (stop everything) finishes nothing
         return ["follow rotation.md § Thread rotation: Finish take over"]
     return provider_lines(state, thread) + look_plan(state, thread, trigger)
 
