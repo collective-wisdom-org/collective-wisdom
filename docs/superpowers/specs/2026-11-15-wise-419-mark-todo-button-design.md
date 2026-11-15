@@ -32,7 +32,7 @@ Facts from main at `6c0a09c`, `agent-team/scripts/dashboard/page/`.
 
 ### Style (`index.html`)
 
-`a.todo, button.todo`: the size of `a.approve` (same padding, radius, font size and weight, inline-flex, `height:auto`), filled with `--accent` and `--on-accent`, no border colour of its own (`border:1px solid var(--accent)` so it lines up with the outlined buttons). Hover: `filter:brightness(1.08)` and no underline, as `a.action`.
+`a.todo, button.todo`: the size of `a.approve` (same padding, radius, font size and weight, inline-flex, `height:auto`), filled with `--accent` and `--on-accent`, no border colour of its own (`border:1px solid var(--accent)` so it lines up with the outlined buttons). Hover: `filter:brightness(1.08)`, no underline, and the accent background set again so the shared `button:hover` rule does not turn the copy button grey. On a stale Backlog the link keeps `--on-accent` (a rule after the stale rules, which colour every link `--muted`).
 
 ### Test (`app.test.js`)
 
