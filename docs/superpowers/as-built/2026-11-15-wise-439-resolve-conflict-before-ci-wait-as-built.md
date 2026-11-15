@@ -10,3 +10,4 @@
 - `conflictHead` is also documented in `chief-of-staff/state-keys.md`.
 - `wait-for-ci.sh` reads a garbled merge-state answer (not two uppercase words) as "not a conflict" and keeps polling.
 - `cos_ready_check.load_prs` no longer takes a `mode` argument: the PR list always asks for `statusCheckRollup` and the merge state.
+- On a conflict, a failed `project_config.py target` read ends the wait with exit 2 (`cannot read project.md`), not exit 3.
