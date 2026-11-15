@@ -21,7 +21,7 @@ Run the tick with `--trigger status` (SKILL.md § Tick): it reads every active c
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 14:05, no BUILD READY yet. |
+| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 2026-11-01 2:05 pm UTC, no BUILD READY yet. |
 
 **Building (2)**
 
