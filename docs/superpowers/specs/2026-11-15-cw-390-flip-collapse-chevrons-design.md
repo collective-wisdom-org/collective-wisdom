@@ -1,6 +1,7 @@
 # CW-390: Flip the dashboard collapse chevrons the right way up
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #396, as specified
 **Ticket:** [#390](https://github.com/collective-wisdom-org/collective-wisdom/issues/390)
 **Builds on:** CW-369 (PR #383, merged), which added the band header chevrons.
 
