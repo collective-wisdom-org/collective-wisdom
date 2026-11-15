@@ -36,7 +36,6 @@ const THREAD_MAX = 200
 const HEADING_MAX = 40
 const REQUEST_MAX = 80
 const HELPER = 'TICKET HELPER'
-const BACKLOG_SHOWN = 3
 const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
 const HEADINGS: Record<string, TeamRole | 'helper'> = { 'BACKLOG RANKING': 'ranking', 'PROJECT MANAGER HYGIENE': 'hygiene', [HELPER]: 'helper' }
 
@@ -310,9 +309,9 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
   const shown = new Set([...Object.keys(tickets), ...merged.map((e) => e.id)])
   for (const name of ['Todo', 'Backlog'] as const) {
     let items = backlog.filter((b) => b.state === name && !shown.has(b.id))
-    // Backlog shows its top few: priority, then newest first (no date last), then tracker order (sort is stable). The count stays the full number.
+    // Backlog is sorted by priority, then newest first (no date last), then tracker order (sort is stable); the page pages it.
     if (name === 'Backlog') items = [...items].sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 4) - (b.priority ? PRIORITY_RANK[b.priority] : 4) || (b.createdAt ?? -Infinity) - (a.createdAt ?? -Infinity) || 0)
-    const rows = items.slice(0, name === 'Backlog' ? BACKLOG_SHOWN : undefined).map((b): StatusRow => {
+    const rows = items.map((b): StatusRow => {
       const row: StatusRow = { id: b.id, title: b.title, risk: '', next: '', stage: '' }
       const issueUrl = links?.issue(b.id)
       if (issueUrl) row.issueUrl = issueUrl
