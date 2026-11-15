@@ -45,7 +45,7 @@ test('pickFiledTicket takes the first ticket id under Tickets in a TICKET HELPER
   for (const [name, answer, want] of cases) assert.equal(pickFiledTicket(answer), want, name)
 })
 
-test('pickRequest takes the first non-empty line after the request marker', () => {
+test('pickRequest takes a Writing ticket line above the request marker, else the first non-empty line after it', () => {
   const head = 'TICKET HELPER. Chief of Staff thread: t1\n\nRules.\n\n'
   const cases: [string, string, string | null][] = [
     ['user request', `${head}The user's request, verbatim:\n\n  Add   a dark\tmode\nMore detail`, 'Add a dark mode'],
@@ -53,6 +53,11 @@ test('pickRequest takes the first non-empty line after the request marker', () =
     ['cut to 80', `${head}The user's request, verbatim:\n${'x'.repeat(100)}`, 'x'.repeat(80)],
     ['no marker', `${head}Please do it.`, null],
     ['marker with nothing after', `${head}The user's request, verbatim:\n  \n`, null],
+    ['description wins', `Writing ticket: Move   Writing tickets\n\n${head}The user's request, verbatim:\nmove the card`, 'Move Writing tickets'],
+    ['description on an observation', `${head}Writing ticket: Fix the lost notice\nThe Chief of Staff's observation:\nA notice was lost`, 'Fix the lost notice'],
+    ['empty description falls back', `${head}Writing ticket:   \nThe user's request, verbatim:\nAdd a dark mode`, 'Add a dark mode'],
+    ['description below the marker is ignored', `${head}The user's request, verbatim:\nReal\nWriting ticket: Fake`, 'Real'],
+    ['description cut to 80', `Writing ticket: ${'y'.repeat(100)}\n${head}The user's request, verbatim:\nx`, 'y'.repeat(80)],
   ]
   for (const [name, text, want] of cases) assert.equal(pickRequest(text), want, name)
 })

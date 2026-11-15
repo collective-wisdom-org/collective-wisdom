@@ -505,7 +505,7 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
-test('a running ticket helper is a placeholder card; a Todo row shows only under Waiting to spec; the Backlog is not on the Ship loop tab and there is no Not started band', () => {
+test('a running ticket helper is a placeholder card on the Backlog tab; a Todo row shows only under Waiting to spec; the Backlog is not on the Ship loop tab and there is no Not started band', () => {
   const hostile = '<img src=x onerror=1>'
   const link = '<t3-thread://v2/env/th1>'
   const mine = sess({ rows: [task({ segments: [[T, T + MIN]] })] })
@@ -514,14 +514,14 @@ test('a running ticket helper is a placeholder card; a Todo row shows only under
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
   const html = renderStatus([...group([row()]), writing, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }, spec, backlog])
   const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
-  const card = part('progress')
+  assert.ok(!part('progress').includes('Ticket helper'), 'no helper card on the Ship loop tab')
+  const card = renderBacklog([...group([row()]), writing, backlog])
   assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
   assert.ok(!/<a |class="info-body"/.test(placeholder), 'no link or Details panel on the placeholder')
   assert.match(placeholder, /data-view="details"[^>]* disabled title="No ticket yet"/)
-  assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
   assert.ok(!html.includes('<img'))
   const next = part('queued')
   assert.ok(next.indexOf('data-group="Queued to build"') < next.indexOf('data-group="Waiting to spec"'), 'Waiting to spec follows Queued to build')
@@ -529,7 +529,7 @@ test('a running ticket helper is a placeholder card; a Todo row shows only under
   assert.equal([...waiting.matchAll(/<li class="ticket compact">/g)].length, 2, 'spec-queued and Todo rows are compact cards')
   assert.ok(!waiting.includes('<li class="ticket">') && !/risk|since/.test(waiting.split('<li class="ticket compact">')[2]))
   assert.match(waiting, /href="https:\/\/x\.test\/issues\/7"/)
-  assert.deepEqual([html.includes('band-not-started'), html.includes('Not started'), html.includes('data-group="Backlog"'), html.includes('CW-8')], [false, false, false, false])
+  assert.deepEqual([html.includes('band-not-started'), html.includes('Not started'), html.includes('data-group="Backlog"'), html.includes('CW-8'), html.includes('Writing tickets')], [false, false, false, false, false])
   assert.equal(renderStatus([spec]).includes('No state yet'), false)
   assert.equal(renderStatus([backlog]), '<p class="quiet">No state yet</p>')
 })
@@ -805,6 +805,33 @@ test('clock: local 12-hour time with am/pm', () => {
   for (const [h, m, want] of cases) assert.equal(clock(new Date(2026, 0, 2, h, m).getTime()), want)
 })
 
+test('Writing tickets is a Backlog tab section: not on the Ship loop tab or in its counts, first on the Backlog tab, unpaged, no Mark todo, alone with the empty line when there is no Backlog', () => {
+  const helpers = { name: 'Writing tickets', count: 2, rows: [row({ id: 'helper:a', helper: true }), row({ id: 'helper:b', helper: true })] }
+  const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8' })] }
+  const building = { name: 'Building', count: 1, rows: [row({ id: 'CW-9' })] }
+  const ids = (html) => [...html.matchAll(/<span class="id">([^<]*)</g)].map((m) => m[1])
+  const cases = [
+    // [groups, Ship loop ids, Backlog tab group order, Backlog tab ids, Mark todo buttons, counts, header]
+    [[building, helpers, backlog], ['CW-9'], ['Writing tickets', 'Backlog'], ['Ticket helper', 'Ticket helper', 'CW-8'], 1, { ship: 1, done: 0, backlog: 1 }, 'Nothing needs you \u00b7 1 in progress'],
+    [[building, helpers], ['CW-9'], ['Writing tickets'], ['Ticket helper', 'Ticket helper'], 0, { ship: 1, done: 0, backlog: 0 }, 'Nothing needs you \u00b7 1 in progress'],
+    [[helpers], [], ['Writing tickets'], ['Ticket helper', 'Ticket helper'], 0, { ship: 0, done: 0, backlog: 0 }, 'Nothing needs you'],
+  ]
+  for (const [groups, ship, order, tab, todo, counts, header] of cases) {
+    const label = order.join('+')
+    assert.deepEqual(ids(renderStatus(groups)), ship, label)
+    assert.ok(!renderStatus(groups).includes('Writing tickets'), label)
+    const html = renderBacklog(groups)
+    assert.deepEqual([...html.matchAll(/data-group="([^"]*)"/g)].map((m) => m[1]), order, label)
+    assert.deepEqual(ids(html), tab, label)
+    assert.equal((html.match(/class="todo/g) ?? []).length, todo, label)
+    assert.equal(html.includes('Nothing in the Backlog'), !order.includes('Backlog'), label)
+    assert.deepEqual(tabCounts(groups, []), counts, label)
+    assert.equal(renderBadges(groups).replace(/<[^>]+>/g, ''), header, label)
+  }
+  assert.match(renderBacklog([helpers, backlog], new Set(['Writing tickets'])), /data-group="Writing tickets">/, 'collapsible')
+  assert.ok(!renderBacklog([{ ...helpers, rows: Array.from({ length: 12 }, (_, i) => row({ id: `helper:${i}`, helper: true })) }]).includes('data-backlog-page'), 'unpaged')
+})
+
 test('renderBacklog draws the Backlog group 10 rows of its page, clamps the page, and shows the pager only past one page; no group says so', () => {
   const ids = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => `CW-${from + i}`)
   // [rows, page, drawn ids, "Page X of Y" or null, disabled button, data-backlog-page of Previous and Next]
@@ -895,7 +922,8 @@ test('every card is a top row, an optional middle row and a bottom row; the meta
     ['Writing tickets', { stage: '', helper: true }, false, 'Low \u00b7 2m 00s \u00b7 $1.00'],
   ]
   for (const [name, r, middle, meta] of cases) {
-    const html = renderStatus([{ name, count: 1, rows: [row({ ...urls, ...r })] }]).split('</li>')[0]
+    const draw = name === 'Writing tickets' ? renderBacklog : renderStatus
+    const html = draw([{ name, count: 1, rows: [row({ ...urls, ...r })] }]).split('</li>')[0]
     const [head, actions, foot] = ['class="head"', 'class="actions"', 'class="foot"'].map((k) => html.indexOf(k))
     assert.ok(head > 0 && foot > head && (actions === -1 ? !middle : middle && actions > head && actions < foot), name)
     assert.equal(html.match(/<span class="meta">([\s\S]*?)<\/span><\/div>/)[1].replace(/<[^>]+>/g, ''), meta, name)
