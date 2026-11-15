@@ -14,7 +14,7 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 | Tracker (`linear`, `github` or `jira`) | `github` |
 | Tracker scope (`<TEAM>`) | `collective-wisdom-org/collective-wisdom` |
 | Issue identifier prefix (`<PREFIX>`) | `WISE` |
-| Retired issue prefixes | `CW<406`. Earlier prefixes and the issue number where each one stopped: issues numbered below 406 keep CW-N, later ones use the current prefix. none when the prefix never changed |
+| Retired issue prefixes | `CW<414`. Earlier prefixes and the issue number where each one stopped: issues numbered below 414 keep CW-N, later ones use the current prefix. none when the prefix never changed |
 | Approver | David. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
 | Review after conflict resolution (`off` or `on`) | `off`. Whether a conflict resolution is reviewed again before it can merge. `off`: reviews from before the resolution stand, and a merge you already approved goes ahead on the resolved head without asking again. `on`: code and security review run on the resolved head, and you approve it again |

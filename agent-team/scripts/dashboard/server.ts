@@ -14,6 +14,7 @@ import { createUpdated } from './updated.ts'
 import { createBacklog } from './backlog.ts'
 import { createTrackerLists } from './lists.ts'
 import { createMerged } from './merged.ts'
+import { createOpenPrs } from './open.ts'
 import { createDetails, gitRunner } from './details.ts'
 import { createCi, requiredFromProject } from './ci.ts'
 import type { CiWant } from './ci.ts'
@@ -210,6 +211,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   let lastState: unknown = null
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
+  const openPrs = createOpenPrs({ run: ghRunner(root) })
   const updated = createUpdated({ run: ghRunner(root) })
   const backlog = createBacklog({ run: ghRunner(root) })
   const trackerLists = createTrackerLists({ read: () => readRegular(join(agentDir, 'tracker-lists.json'), [agentDir]) })
@@ -355,6 +357,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const tickets = (lastState as { tickets?: unknown } | null)?.tickets
     const wants: DetailWant[] = []
     merged.want(mergedCfg)
+    openPrs.want(mergedCfg)
     const mergedAll = merged.get()
     const mergedPrs = new Set(mergedAll.map((e) => `${e.id}#${e.number}`))
     const ganttIds = historyByTicket(history)
@@ -382,7 +385,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     backlog.want(titleCfg, trackerLists.changed())
     trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {

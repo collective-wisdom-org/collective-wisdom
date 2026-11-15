@@ -30,14 +30,14 @@ In flight at spec time: #385 (PR #403, `feat/cw-385-clock-stamped-times`), #386 
 A new Identity row after `Issue identifier prefix`:
 
 ```
-| Retired issue prefixes | `CW<406`. Earlier prefixes and the issue number where each one stopped: issues numbered below 406 keep `CW-N`, later ones use the current prefix. `none` when the prefix never changed |
+| Retired issue prefixes | `CW<414`. Earlier prefixes and the issue number where each one stopped: issues numbered below 414 keep `CW-N`, later ones use the current prefix. `none` when the prefix never changed |
 ```
 
-- The value is one backticked token: comma-separated `PREFIX<N` pairs, oldest first, for example `AB<100,CW<406`. Each prefix matches `[A-Z][A-Z0-9]*` and differs from the current prefix and the others; the numbers rise strictly.
+- The value is one backticked token: comma-separated `PREFIX<N` pairs, oldest first, for example `AB<100,CW<414`. Each prefix matches `[A-Z][A-Z0-9]*` and differs from the current prefix and the others; the numbers rise strictly.
 - A missing row, `none` or an empty cell means no retired prefixes: every repo that never renamed keeps its behavior.
 - A row that is set but does not parse raises `SystemExit` with a `project.md: 'Retired issue prefixes' row ...` message, like `prefix()`. The scripts never guess an id.
 - `agent-team/templates/project.md` gets the row with `none`, so `set up this repo` renders it. The template note says the row is for the GitHub tracker, where the id is built from the issue number. On Linear and Jira a key change renames every issue in the tracker, so the row stays `none`.
-- The number `406` is a placeholder. The build sets it to one more than the highest issue or PR number on GitHub at the time of the final push before `MERGE READY`, and the `MERGE READY` names it.
+- The number is one more than the highest issue or PR number on GitHub at the final push before `MERGE READY`: `414`.
 
 `docs/agents/project.md` changes the prefix row to `WISE`, adds the retired row, changes the Branch pattern note to `<prefix>` is `wise`, and changes the Repo invariants bullet to `feat/wise-N-*` or `infra/wise-N-*`, and `feat/cw-N-*` or `infra/cw-N-*` for tickets numbered below the cutover. `CONTRIBUTING.md` line 4 changes the same way.
 
@@ -70,7 +70,7 @@ A new Identity row after `Issue identifier prefix`:
 
 ### Chief of Staff thread title and pick-up
 
-- The merge fast-forwards the root checkout, which updates the machine install and the root `project.md` together. The running Chief of Staff's next script call reads `WISE` with `CW<406` retired; its state keys (`CW-N`) still parse.
+- The merge fast-forwards the root checkout, which updates the machine install and the root `project.md` together. The running Chief of Staff's next script call reads `WISE` with `CW<414` retired; its state keys (`CW-N`) still parse.
 - The thread title stays `CW - Chief of Staff` until the next `start the team`, take over or `resume`, when § Thread title renames it to `WISE - Chief of Staff`. Nothing matches on the title, so the old title breaks nothing. No new step is added.
 - A child branched before the merge reads its own worktree's `project.md` with `CW` and no retired row. It handles only its own `CW-N` ticket, and the newer scripts read that copy correctly (no retired row means none). After it merges or rebases onto `main`, it reads the new rows.
 - A child branched after the merge reads `WISE` and the retired row.
@@ -119,7 +119,7 @@ The PR body lists the in-flight tickets at merge time and how each was handled, 
 
 ## Calls I made
 
-- **A cutover number in the retired row (`CW<406`).** The ticket's option A only lists retired prefixes. Without a number, the three scripts that turn an issue number into an id would name old in-flight issues `WISE-N` and report them as untracked. The cutover gives each issue number one id forever.
+- **A cutover number in the retired row (`CW<414`).** The ticket's option A only lists retired prefixes. Without a number, the three scripts that turn an issue number into an id would name old in-flight issues `WISE-N` and report them as untracked. The cutover gives each issue number one id forever.
 - **The cutover is set at the final push, not now.** It is one more than the highest issue or PR number on GitHub then. Tickets filed after that push but before the merge become `WISE-N`.
 - **Known tickets count by issue number in the untracked check.** A guard for a ticket started under `CW-N` in the window above, so it is never listed twice.
 - **This ticket keeps `CW-404`** for its branch, spec name and PR title, since it is below the cutover.

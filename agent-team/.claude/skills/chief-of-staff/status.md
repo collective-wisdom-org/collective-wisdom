@@ -21,7 +21,7 @@ Run the tick with `--trigger status` (SKILL.md § Tick): it reads every active c
 
 | Ticket | Risk | Next |
 |---|---|---|
-| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 14:05, no BUILD READY yet. |
+| **<PREFIX>-240** Example feature<br>[<PREFIX>-240](<thread link>) | not rated yet | Spec since 2026-11-01 2:05 pm UTC, no BUILD READY yet. |
 
 **Building (2)**
 
@@ -53,16 +53,19 @@ Groups, in this order, by stage:
 | Awaiting build approval | `awaiting-build` |
 | Building | `build` |
 | Queued to build | `build-queued`, in the `queue build:` order |
-| Other | `spec-queued` (in `queue spec:` order), `blocked` |
+| Waiting to spec | `spec-queued` (in `queue spec:` order) |
+| Other | `blocked` |
 
 Rules:
 
 - Empty groups drop out. The header count is the number of rows. Queued groups list tickets in the order they will start.
-- Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`blocked: <reason>`, `[changes requested, ]waiting for a spec slot`).
+- The dashboard's Waiting to spec group also lists the Todo tickets after these (SKILL.md § Lanes). A `status` answer makes no Todo read and leaves them out.
+- Risk and detail come from the ticket's `status` line in state. The `Risk: …` tail is the Risk cell. The rest, shortened to what changed or what the user must do, is the detail. When the user has an action, the detail names the reply (`Reply "approve N"`, or for a blocked ticket the question to answer). An `Other` row says why it is there (`blocked: <reason>`). A `Waiting to spec` row says `[changes requested, ]waiting for a spec slot`.
 - An `Awaiting teammate review` row's Next reads `PR #N, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>` (names from this turn's sweep `waiting` line, else the status line), plus `; your approval is held` when `heldApproval` is set.
 - The Ticket cell is `**<PREFIX>-N** title`, then `<br>` and the link to the ticket's child thread (`childThreadId` in state). A row with no `childThreadId` (or a null one) has no `<br>` and no link. The link is never repeated in Next.
 - The detail cell ends with `$X so far`, the dollar figure from one `python3 ~/.collective-wisdom/scripts/agent_usage.py --ticket <PREFIX>-N` per row, whatever the stage. A line starting `cost unknown` gives `cost unknown` instead. On exit 2 it adds nothing.
 - Titles follow report-format.md § Report format (state first, then one `list-tickets` call with label `agent` and fields `id, title`). If none has it, show the ID alone.
+- A `Merging` row's Next is `PR #N open, merge sent <time>` while this turn's merged check finds the PR open, never "merge in progress" from the relay alone.
 - Anything this turn's idle check or sweep found goes in that ticket's detail (`merge ready, found by the sweep`). A ticket the sweep found merged has left state, so it gets one line below the tables: `Merged: <PREFIX>-190: Export page (#178)`. A ticket left as untracked after sweep.md § Sweep's drop gets one more: `Not in my state: <PREFIX>-125: Retry button (in review, #132); <PREFIX>-126: Search page (in progress).`
 - After the tables comes the `Filling stopped:` line, then the full block for each pending approval (approvals.md § Approval requests), each with its risk on the first line.
 - No other report-format.md § Report format section (`Moving`, `Running`, `Done since last report`, `Tickets`, `Backlog`, `Cleanup`) appears in a `status` answer. A Cleanup item that came up waits for the next report.
