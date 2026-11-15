@@ -35,6 +35,8 @@ const BANDS = [
   { name: 'Up next', slug: 'queued', flat: true, has: (n) => QUEUED.includes(n) },
   { name: 'Not started', slug: 'not-started', flat: true, slim: true, has: (n) => NOT_STARTED.includes(n) },
 ]
+/** The saved-collapsed key of a top-level section. The colon keeps it apart from every API group name. */
+export const bandKey = (slug) => `band:${slug}`
 const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
 const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
 
@@ -357,7 +359,8 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
         return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
       })
       .join('\n')
-    return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
+    const key = bandKey(band.slug)
+    return `<details class="band band-${band.slug}" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>${band.name}</h2></summary>${sections}</details>`
   }).join('\n')
 }
 
@@ -438,12 +441,13 @@ function teamList(rows, page, size, open, empty) {
 }
 
 /** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
-export function renderChief(api, page = 0, open = new Set(), size = 10) {
+export function renderChief(api, page = 0, open = new Set(), size = 10, collapsed = new Set()) {
   const chief = api?.chief ?? {}
   const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
   const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${copyButton(chief.threadLink)}</div><div class="meta">${stateBadge(chief.state ?? 'idle')}</div>${body}</section>`
   const pm = teamList(list(api?.pm), page, size, open, 'No project manager threads yet.')
-  return { html: `${card}<h2>Project manager</h2>${pm.html}`, page: pm.page }
+  const key = bandKey('pm')
+  return { html: `${card}<details class="band band-pm" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>Project manager</h2></summary>${pm.html}</details>`, page: pm.page }
 }
 
 /** The tab to open from the saved value: `cos` or `done`, else `ship` for anything unknown or missing. */
@@ -747,12 +751,13 @@ if (typeof document !== 'undefined') {
   let shownCos = null
   const drawCos = () => {
     if (!last) return
-    const r = renderChief(last, pmPage, new Set())
+    const collapsed = readCollapsed()
+    const r = renderChief(last, pmPage, new Set(), 10, collapsed)
     pmPage = r.page
     if (r.html === shownCos) return
     shownCos = r.html
     const opened = new Set([...document.querySelectorAll('.seg[data-pm][data-view="agents"][aria-expanded="true"]')].map((d) => d.dataset.pm))
-    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened).html
+    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened, 10, collapsed).html
     draw()
   }
   const TAB_KEY = 'dashboard-tab'
@@ -897,14 +902,17 @@ if (typeof document !== 'undefined') {
     'toggle',
     (ev) => {
       const d = ev.target
-      if (!(d instanceof Element) || !d.matches('details.group')) return
+      if (!(d instanceof Element) || !d.matches('details.group, details[data-band]')) return
+      const key = d.dataset.group ?? d.dataset.band
       const names = readCollapsed()
-      if (d.open) names.delete(d.dataset.group)
-      else names.add(d.dataset.group)
+      if (d.open) names.delete(key)
+      else names.add(key)
       writeCollapsed(names)
     },
     true,
   )
+  // The Done band sits in index.html and is never redrawn, so apply its saved state once.
+  if (readCollapsed().has(bandKey('done'))) document.querySelector('details[data-band="band:done"]')?.removeAttribute('open')
   poll()
   setInterval(poll, 5000)
   setInterval(draw, 1000)

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, pageOf, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -504,7 +504,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const todo = { name: 'Todo', count: 1, rows: [row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
-  const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
+  const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
   const card = part('progress')
   assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
@@ -735,4 +735,27 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
     assert.match(html, text ? /<\/nav><p class="more"><a href="https:\/\/x\.test\/b"/ : /<\/ul><p class="more"><a href="https:\/\/x\.test\/b"/, label)
   }
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
+})
+
+test('top-level bands draw open unless their band key is collapsed; band keys never collide with group names', () => {
+  const groups = [{ name: 'Awaiting merge approval', count: 1, rows: [row()] }, { name: 'Building', count: 1, rows: [row({ id: 'CW-2' })] }]
+  const head = (html, slug) => html.match(new RegExp(`<details class="band band-${slug}"[^>]*>`))[0]
+  const api = { chief: {}, pm: [] }
+  const cases = [
+    ['status, none collapsed', () => renderStatus(groups), 'needs', true],
+    ['status, Your turn collapsed', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'needs', false],
+    ['status, other band stays open', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'progress', true],
+    ['status, a group name collapses no band', () => renderStatus(groups, new Set(), new Set(['Building'])), 'progress', true],
+    ['chief, none collapsed', () => renderChief(api).html, 'pm', true],
+    ['chief, pm collapsed', () => renderChief(api, 0, new Set(), 10, new Set([bandKey('pm')])).html, 'pm', false],
+  ]
+  for (const [name, html, slug, open] of cases) assert.equal(head(html(), slug).endsWith(' open>'), open, name)
+  const collapsedGroup = renderStatus(groups, new Set(), new Set(['Building']))
+  assert.ok(!collapsedGroup.match(/<details class="group" data-group="Building"[^>]*>/)[0].includes('open'))
+  assert.ok(collapsedGroup.match(/<details class="group needs-merge" data-group="Awaiting merge approval"[^>]*>/)[0].endsWith(' open>'))
+  const groupNames = ['Awaiting merge approval', 'Awaiting build approval', 'Awaiting teammate review', 'Queued to merge', 'Speccing', 'Queued to build', 'Other', 'Todo', 'Backlog', 'Building']
+  for (const slug of ['needs', 'progress', 'queued', 'not-started', 'pm']) {
+    assert.ok(bandKey(slug).startsWith('band:'))
+    assert.ok(!groupNames.includes(bandKey(slug)))
+  }
 })
