@@ -21,11 +21,11 @@ then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mod
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
 read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
-("ok (size unknown on Cursor)" while the conversation has no usage yet).
+("ok (no reset on cursor; size unknown)" while the conversation has no usage yet).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on "rotate:" or exit 2. It reads Cursor's stop payload (conversation_id equals
-chiefSessionId, loop_count 0, status completed), reading the size from the run store, and answers {"followup_message": reason}.
+chiefSessionId, loop_count 0, status completed), reading the size from the run store (silent when the store cannot be read and the mode is none), and answers {"followup_message": reason}.
 It never writes and any error exits 0 silently.
 COS_STATE_FILE, COS_PROJECTS_DIR and COS_CURSOR_PROJECTS_DIR override the state file, the Claude Code transcripts
 directory and the Cursor projects directory (~/.cursor/projects).
@@ -320,6 +320,8 @@ def run_hook(path):
         try:
             line = check(state, sid=sid, cursor=cursor)[0]
         except Unreadable as e:
+            if cursor and mode_for(state)[0] == "none":
+                return 0  # nothing to reset on this provider: don't wake the Chief over a store it can't read
             line = f"rotation-check: cannot read {e}"
         if not line.startswith("ok"):
             reason = f"{line}; run chief-of-staff/rotation.md § Thread rotation"

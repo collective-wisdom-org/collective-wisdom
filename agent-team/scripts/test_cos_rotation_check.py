@@ -157,6 +157,7 @@ CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "complet
     [
         (CURSOR, {"commit": NEW}, True, CLAUDE),  # a provider with a reset mode
         (CURSOR, {"commit": NEW}, False, {"provider": "cursor"}),  # no reset on this provider: silent
+        (CURSOR, {"readable": False}, False, {"provider": "cursor"}),  # ... even over a store it cannot read
         ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, False, CLAUDE),
         ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, True, CLAUDE),  # T3 Code names the folder agent-<id>
         ({**CURSOR, "loop_count": 1}, {"commit": NEW}, False, CLAUDE),

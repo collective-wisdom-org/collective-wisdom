@@ -363,7 +363,7 @@ def cursor_context(projects, agent):
 
     A run records inputTokens as a sum over its model requests, so tokens is the latest run's inputTokens divided by
     its request count: 1 plus the distinct `call-<uuid>` prefixes of its tool_call call_ids. That average is a floor
-    on the last prompt. started is the agent's earliest run, in UTC. Raises LookupError when no readable store has the
+    on the last prompt while every request leaves a tool_call event (checked on one run). started is the agent's earliest run, in UTC. Raises LookupError when no readable store has the
     agent (or a store that could hold it cannot be read), when run_events is missing, or when the usage cannot be parsed.
     """
     failed = []
@@ -396,7 +396,7 @@ def cursor_context(projects, agent):
                 con.close()
             tokens = int(json.loads(latest[0][3])["inputTokens"])
             started = min(parse_ts(t[0]) for t in times).astimezone(timezone.utc)
-        except (sqlite3.Error, TypeError, ValueError, KeyError, AttributeError):
+        except (sqlite3.Error, TypeError, ValueError, KeyError, AttributeError, OverflowError):
             raise LookupError(f"cannot read the context of {agent} in {db}")
         requests = 1 + len({re.sub(r"-\d+$", "", c[0].split("\n")[0]) for c in calls if isinstance(c[0], str)})
         return tokens // requests, started
