@@ -1,7 +1,7 @@
 # Contributing
 
 - Open an issue first for anything beyond a small fix.
-- One ticket = one branch = one PR. Name the branch `feat/cw-N-short-title`.
+- One ticket = one branch = one PR. Name the branch `feat/wise-N-short-title` (`feat/cw-N-short-title` for tickets numbered below 406).
 - Edit shared files under `agent-team/`. Run `./install.sh` once first, so sessions here reach the team through `~/.collective-wisdom`. `docs/agents/project.md` is this repo's own config and is not shipped.
 - Before you open a PR, run:
 

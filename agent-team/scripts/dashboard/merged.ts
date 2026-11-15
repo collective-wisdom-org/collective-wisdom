@@ -1,6 +1,6 @@
 import type { Session } from './api.ts'
 import type { Detail } from './details.ts'
-import { headsPattern } from './titles.ts'
+import { headsPattern, idForNumber, prefixesPattern } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
 export type MergedConfig = TitleConfig & { issueUrls: boolean; issueUrl?: (id: string) => string | undefined; heads?: string[] }
@@ -20,9 +20,9 @@ export function parseMerged(json: string, cfg: MergedConfig): MergedEntry[] | nu
     return null
   }
   if (!Array.isArray(data)) return null
-  const { prefix, slug, heads = ['feat/'] } = cfg
-  const byBranch = new RegExp(`^${headsPattern(heads)}${prefix.toLowerCase()}-(\\d+)(?:-|$)`)
-  const bySuffix = new RegExp(`\\s*\\(${prefix}-(\\d+)\\)$`)
+  const { prefix, retired = [], slug, heads = ['feat/'] } = cfg
+  const byBranch = new RegExp(`^${headsPattern(heads)}${prefixesPattern(prefix, retired, true)}-(\\d+)(?:-|$)`)
+  const bySuffix = new RegExp(`\\s*\\(${prefixesPattern(prefix, retired)}-(\\d+)\\)$`)
   const out: MergedEntry[] = []
   for (const p of data) {
     if (typeof p !== 'object' || p === null) continue
@@ -33,7 +33,7 @@ export function parseMerged(json: string, cfg: MergedConfig): MergedEntry[] | nu
     const n = (typeof headRefName === 'string' ? headRefName.match(byBranch)?.[1] : undefined) ?? clean.match(bySuffix)?.[1]
     if (!n) continue
     const prUrl = typeof url === 'string' && url.startsWith(`https://github.com/${slug}/pull/`) ? url : `https://github.com/${slug}/pull/${number}`
-    const entry: MergedEntry = { id: `${prefix}-${n}`, title: clean.replace(bySuffix, '').slice(0, 200), prUrl, mergedAt: time, number: number as number }
+    const entry: MergedEntry = { id: idForNumber(Number(n), prefix, retired), title: clean.replace(bySuffix, '').slice(0, 200), prUrl, mergedAt: time, number: number as number }
     const issueUrl = cfg.issueUrl ? cfg.issueUrl(entry.id) : cfg.issueUrls ? `https://github.com/${slug}/issues/${n}` : undefined
     if (issueUrl) entry.issueUrl = issueUrl
     out.push(entry)

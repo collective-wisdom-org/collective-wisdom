@@ -1,4 +1,6 @@
 import type { BacklogItem, Priority } from './backlog.ts'
+import { prefixesPattern } from './titles.ts'
+import type { Retired } from './titles.ts'
 
 const REFRESH_MS = 1_000
 const BAD = /[\x00-\x1f\x7f-\x9f\u2028\u2029]+/g
@@ -33,11 +35,11 @@ function createdOf(x: unknown): number | null {
   return Number.isNaN(t) ? null : t
 }
 
-/** The items of one saved list, or `undefined` when the value is not `{ list: [...] }`. Each item carries the list's `at` as `readAt` (ms) when it parses. An entry with no id of this prefix, or an id already taken, is dropped. */
-function parseList(value: unknown, state: BacklogItem['state'], prefix: string): BacklogItem[] | undefined {
+/** The items of one saved list, or `undefined` when the value is not `{ list: [...] }`. Each item carries the list's `at` as `readAt` (ms) when it parses. An entry with no id of this prefix or a retired one, or an id already taken, is dropped. */
+function parseList(value: unknown, state: BacklogItem['state'], prefix: string, retired: Retired): BacklogItem[] | undefined {
   const readAt = isObj(value) ? createdOf(value.at) : null
   if (!isObj(value) || !Array.isArray(value.list)) return undefined
-  const idRe = new RegExp(`^${prefix}-\\d+$`)
+  const idRe = new RegExp(`^${prefixesPattern(prefix, retired)}-\\d+$`)
   const seen = new Set<string>()
   const items: BacklogItem[] = []
   for (const e of value.list) {
@@ -58,6 +60,8 @@ const message = (why: string | null) => (why ? `Could not read the saved Todo an
 export function createTrackerLists(opts: { read: () => string | undefined; now?: () => number }) {
   const now = opts.now ?? Date.now
   let prefix: string | null = null
+  let retiredKey = ''
+  let retired: Retired = []
   let keep = true
   let readAt = -Infinity
   let todo: BacklogItem[] = []
@@ -65,7 +69,7 @@ export function createTrackerLists(opts: { read: () => string | undefined; now?:
   let stamp: string | null = null
   let error: string | null = null
 
-  function load(p: string) {
+  function load(p: string, r: Retired) {
     let file: unknown
     let bad: string | null = null
     try {
@@ -82,7 +86,7 @@ export function createTrackerLists(opts: { read: () => string | undefined; now?:
     if (typeof file.changed === 'string') stamp = file.changed
     if (!keep) return
     for (const key of ['todo', 'backlog'] as const) {
-      const items = parseList(file[key], key === 'todo' ? 'Todo' : 'Backlog', p)
+      const items = parseList(file[key], key === 'todo' ? 'Todo' : 'Backlog', p, r)
       if (items) key === 'todo' ? (todo = items) : (backlog = items)
       else if (file[key] !== undefined) bad = `${key} is not a list`
     }
@@ -91,9 +95,12 @@ export function createTrackerLists(opts: { read: () => string | undefined; now?:
 
   return {
     /** `lists` false (GitHub) reads the file for the change stamp only and keeps no lists. */
-    want(p: string | null, lists = true) {
-      if (p !== prefix || lists !== keep) {
+    want(p: string | null, lists = true, r: Retired = []) {
+      const key = JSON.stringify(r)
+      if (p !== prefix || lists !== keep || key !== retiredKey) {
         prefix = p
+        retiredKey = key
+        retired = r
         keep = lists
         todo = backlog = []
         stamp = error = null
@@ -101,7 +108,7 @@ export function createTrackerLists(opts: { read: () => string | undefined; now?:
       }
       if (!p || now() - readAt < REFRESH_MS) return
       readAt = now()
-      load(p)
+      load(p, retired)
     },
     get: (): BacklogItem[] => {
       if (!prefix || !keep) return []
