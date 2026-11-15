@@ -40,11 +40,10 @@ test('links', () => {
   assert.equal(firstRow({ state: stateOf('CW-171', { stageAt: 5 }) }).stageAt, undefined, 'stageAt must be a string')
 })
 
-test('row title: state wins, else tracker title, else empty', () => {
+test('row title: tracker wins, else state title, else empty', () => {
   const cases: [string, Record<string, unknown>, Record<string, string>, string][] = [
-    ['state wins', { title: 'from state' }, { 'CW-1': 'from tracker' }, 'from state'],
-    ['empty state', { title: '' }, { 'CW-1': 'from tracker' }, 'from tracker'],
-    ['missing state', { title: undefined }, { 'CW-1': 'from tracker' }, 'from tracker'],
+    ['tracker wins', { title: 'from state' }, { 'CW-1': 'from tracker' }, 'from tracker'],
+    ['tracker missing', { title: 'from state' }, {}, 'from state'],
     ['neither', { title: '' }, {}, ''],
   ]
   for (const [name, extra, titles, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), titles }).title, want, name)

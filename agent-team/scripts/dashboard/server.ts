@@ -357,11 +357,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     const ganttIds = historyByTicket(history)
     const ciWants: CiWant[] = []
     if (typeof tickets === 'object' && tickets !== null && !Array.isArray(tickets)) {
-      const blank = Object.entries(tickets).filter(([, t]) => {
-        const title = (t as { title?: unknown } | null)?.title
-        return !(typeof title === 'string' && title)
-      }).map(([id]) => id)
-      trackerTitles.want(blank, titleCfg)
+      trackerTitles.want(Object.keys(tickets), titleCfg)
       for (const [id, t] of Object.entries(tickets)) {
         const { stage, specPath, specSha, pr } = (t ?? {}) as Record<string, unknown>
         if (typeof stage === 'string' && DETAIL_STAGES.includes(stage)) wants.push({ id, stage, specPath, specSha, pr })
