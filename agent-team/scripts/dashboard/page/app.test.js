@@ -961,6 +961,7 @@ test('pressMessage: one line per reason, none when sent or a repeat click was bu
     [{ sent: true }, ''],
     [{ sent: false, reason: 'busy' }, /^Approve not sent: another Approve was still being sent/],
     [{ sent: false, reason: 'not-frontmost' }, 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.'],
+    [{ sent: false, reason: 'no-focus' }, 'Approve not sent: the dashboard could not put the cursor in the T3 message box. Press Send in the Chief of Staff thread.'],
     [{ sent: false, reason: 'permission' }, /^Approve not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \(or the app that started the dashboard\)/],
     [{ sent: false, reason: 'error' }, generic],
     [{ sent: false, reason: 'toString' }, generic],

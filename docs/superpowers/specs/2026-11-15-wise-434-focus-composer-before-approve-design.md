@@ -1,6 +1,6 @@
 # WISE-434: Focus the T3 composer before the dashboard presses Return on Approve
 
-**Status:** Draft
+**Status:** Approved
 **Ticket:** [#434](https://github.com/collective-wisdom-org/collective-wisdom/issues/434)
 
 ## Goal
@@ -33,7 +33,7 @@ What I checked on this machine (read only; nothing was focused or pressed):
 2. Take the frontmost app from `NSWorkspace`. If its bundle id is not `com.t3tools.t3code`, return `not-frontmost`.
 3. Read the app's `AXFocusedUIElement`. If it is the composer (rule below), go to step 6.
 4. Otherwise search the app's `AXFocusedWindow` depth first through `AXChildren`, at most 3000 elements, and skip any `AXWebArea` nested inside another `AXWebArea` (the browser pane, where the dashboard runs). The first composer found wins. With none found, return `no-focus`.
-5. Set `AXFocused` to true on it, then read `AXFocusedUIElement` again, up to 5 times, 50 ms apart. If it is still not the composer, return `no-focus`.
+5. Click the composer's centre: read its `AXPosition` and `AXSize`, post a synthetic left mouse down and up there (CGEvent), then warp the mouse back to where it was. Then read `AXFocusedUIElement` again, up to 10 times, 50 ms apart. If it is still not the composer (or the position or size can't be read), return `no-focus`. Setting `AXFocused` to true was tried first and returned success, but Electron ignores it and focus does not move, so the click is what ships.
 6. Check again that T3 Code is frontmost (else `not-frontmost`), then press Return with System Events `keyCode(36)`, as today, and return `sent`.
 
 The composer rule: role `AXTextArea` and description that starts with `Message `.
@@ -82,15 +82,15 @@ The JXA script itself can't run in CI (no macOS session, no Accessibility grant)
 
 ## Calls I made
 
-- **Accessibility, not a shortcut.** T3 has no focus-the-composer command in Beta 0.1.9 or Nightly 0.1.10. F6 (`workspace.focusNext`) can reach the composer, but it steps one area per press, the number of presses depends on what is open, and a user can rebind it. Setting `AXFocused` on the composer goes straight there, and the script checks the result.
+- **Accessibility, not a shortcut.** T3 has no focus-the-composer command in Beta 0.1.9 or Nightly 0.1.10. F6 (`workspace.focusNext`) can reach the composer, but it steps one area per press, the number of presses depends on what is open, and a user can rebind it. Clicking the composer goes straight there, and the script checks the result.
 - **JXA instead of AppleScript.** The AppleScript walk took 15.7 seconds, far past the 3 second timeout. JXA through the AX C functions took 100 ms. It is still one fixed script run through `osascript` with `execFile`, so the no-user-text, no-shell rule holds.
 - **The composer is found by its label, `Message <thread title>`.** That label is T3's own text, not a stable API. If a later T3 build renames it, every press answers `no-focus` and the draft stays, which is no worse than today. The PR notes the T3 versions checked.
 - **The search skips the browser pane** (a web area nested in another web area), so it can't pick a text box on the dashboard page.
 - **The first composer found wins, and the script doesn't check it is the Chief of Staff thread's.** The link just opened that thread, so it is normally the only composer in the window. In a split view showing two threads, Return could go to the other one. The server does not know the thread's title, so it can't compare. I accept that: it is the user's own window, and the label check still rules out every non-composer field.
-- **Focus is set, not clicked.** Setting `AXFocused` calls the element's own focus, with no mouse move and no screen position to compute. If the build finds Electron ignores it on this element, the fallback is a click at the element's centre through System Events, under the same confirm-or-don't-press rule, and the PR says which one shipped.
+- **Focus is clicked, not set.** The script clicks the composer's centre, with the position and size read through AX, and warps the mouse back to where it was, so the cursor moves there and straight back. It then re-reads the focused element up to 10 times, 50 ms apart, and presses Return only if the composer has focus. Setting `AXFocused` was tried first: the call returns success, but Electron ignores it and focus does not move. A synthetic mouse click at the composer's centre does move focus, so that is the shipped method.
 - **The search stops at 3000 elements** so a huge window can't run into the 3 second timeout. The composer was element 258 here.
 - **Accessibility trust is checked up front** (`AXIsProcessTrusted`), so a missing grant gives the existing `permission` line instead of a confusing `no-focus`.
 - **One new reason, `no-focus`,** for both "composer not found" and "focus did not take". The fix is the same for the user either way: press Send.
-- **I probed only by reading.** Nothing in this spec moved focus or pressed a key in the live T3 window. The build tests focus and Return against a throwaway thread.
+- **I probed only by reading.** The research for this spec only read. The later `AXFocused` and click tests were run against T3 on this Mac, and the build tests focus and Return against a throwaway thread.
 
 Touches: none of data, money, auth, user email or migrations. It changes the local script that presses Return on the user's Mac, which the security review checks.

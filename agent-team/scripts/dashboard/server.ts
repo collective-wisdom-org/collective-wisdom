@@ -204,18 +204,74 @@ export function mergedPageOf(url: string): number {
   }
 }
 
-const PRESS_SCRIPT = `tell application "System Events"
-  set frontId to bundle identifier of first application process whose frontmost is true
-  if frontId is not "com.t3tools.t3code" then return "not-frontmost"
-  key code 36
-end tell
-return "sent"`
+const PRESS_SCRIPT = `ObjC.import('ApplicationServices')
+ObjC.import('AppKit')
+ObjC.bindFunction('AXUIElementCopyAttributeValue', ['int', ['id', 'id', 'id*']])
+ObjC.bindFunction('AXUIElementCreateApplication', ['id', ['int']])
+ObjC.bindFunction('CFCopyDescription', ['id', ['id']])
+ObjC.bindFunction('AXIsProcessTrusted', ['bool', []])
+function attr(el, name) {
+  const ref = Ref()
+  return $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ref[0] : null
+}
+function str(v) { return v === null ? '' : String(ObjC.unwrap(v)) }
+function pair(v, a, b) {
+  const m = ObjC.unwrap($.CFCopyDescription(v)).match(new RegExp(a + ':(-?[0-9.]+) ' + b + ':(-?[0-9.]+)'))
+  return m ? [Number(m[1]), Number(m[2])] : null
+}
+function click(el) {
+  const p = attr(el, 'AXPosition'), s = attr(el, 'AXSize')
+  const at = p && pair(p, 'x', 'y'), size = s && pair(s, 'w', 'h')
+  if (!at || !size || size[0] < 1 || size[1] < 1) return false
+  const pt = $.CGPointMake(at[0] + size[0] / 2, at[1] + size[1] / 2)
+  const home = $.CGEventGetLocation($.CGEventCreate($()))
+  for (const t of [$.kCGEventLeftMouseDown, $.kCGEventLeftMouseUp]) $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent($(), t, pt, $.kCGMouseButtonLeft))
+  $.CGWarpMouseCursorPosition(home)
+  return true
+}
+function isComposer(el) {
+  return el !== null && str(attr(el, 'AXRole')) === 'AXTextArea' && str(attr(el, 'AXDescription')).startsWith('Message ')
+}
+function frontId() {
+  const f = $.NSWorkspace.sharedWorkspace.frontmostApplication
+  return f ? str(f.bundleIdentifier) : ''
+}
+function run() {
+  if (!$.AXIsProcessTrusted()) return 'permission'
+  if (frontId() !== 'com.t3tools.t3code') return 'not-frontmost'
+  const app = $.AXUIElementCreateApplication($.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier)
+  const focused = () => attr(app, 'AXFocusedUIElement')
+  if (!isComposer(focused())) {
+    const win = attr(app, 'AXFocusedWindow')
+    let target = null
+    const stack = win ? [[win, false]] : []
+    for (let seen = 0; stack.length && seen < 3000 && target === null; seen++) {
+      const [el, inWeb] = stack.pop()
+      if (isComposer(el)) { target = el; break }
+      const web = str(attr(el, 'AXRole')) === 'AXWebArea'
+      if (web && inWeb) continue
+      const kids = attr(el, 'AXChildren')
+      if (kids) for (let i = kids.count - 1; i >= 0; i--) stack.push([kids.objectAtIndex(i), inWeb || web])
+    }
+    if (target === null) return 'no-focus'
+    if (!click(target)) return 'no-focus'
+    let ok = false
+    for (let i = 0; i < 10 && !ok; i++) {
+      delay(0.05)
+      ok = isComposer(focused())
+    }
+    if (!ok) return 'no-focus'
+  }
+  if (frontId() !== 'com.t3tools.t3code') return 'not-frontmost'
+  Application('System Events').keyCode(36)
+  return 'sent'
+}`
 
-/** Presses Return in T3 Code through macOS automation (fixed script, no user text, no shell). Resolves with the script's output; rejects on an osascript error or the 3 second timeout. */
+/** Presses Return in T3 Code through a fixed JXA script (`osascript -l JavaScript`, no user text, no shell). The script checks Accessibility trust and that T3 Code is in front, clicks the message box (the mouse goes there and straight back) and re-reads the focused element, and presses Return only if the message box has focus. Resolves with the script's output (`sent`, `permission`, `not-frontmost` or `no-focus`); rejects on an osascript error or the 3 second timeout. */
 export function pressReturnMac(): Promise<string> {
   if (process.platform !== 'darwin') return Promise.resolve('unsupported')
   return new Promise((resolve, reject) => {
-    execFile('osascript', ['-e', PRESS_SCRIPT], { timeout: 3000 }, (err, stdout) => (err ? reject(err) : resolve(stdout)))
+    execFile('osascript', ['-l', 'JavaScript', '-e', PRESS_SCRIPT], { timeout: 3000 }, (err, stdout) => (err ? reject(err) : resolve(stdout)))
   })
 }
 
@@ -224,7 +280,7 @@ export function pressResult(result: unknown): { sent: boolean; reason?: string }
   if (typeof result === 'string') {
     const out = result.trim()
     if (out === 'sent') return { sent: true }
-    return { sent: false, reason: out === 'not-frontmost' || out === 'unsupported' ? out : 'error' }
+    return { sent: false, reason: out === 'not-frontmost' || out === 'unsupported' || out === 'no-focus' || out === 'permission' ? out : 'error' }
   }
   const e = result as { message?: unknown; stderr?: unknown } | null
   // -1743: not allowed to control System Events; 1002, -1719, -25211: no Accessibility.
