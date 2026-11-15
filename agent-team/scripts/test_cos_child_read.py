@@ -101,6 +101,27 @@ def test_child_read_lines(tmp_path, capsys, text, run, after, want):
     assert len(out) < 2000
 
 
+SAME_RUN = [(1, 1000001, "user_message", "go", 0), (2, 2000001, "user_message", "again", 0), (2, 2000002, "assistant_message", BUILD, 0), (2, 2000003, "assistant_message", "ok", 0)]
+LATER_RUN = [(1, 1000001, "user_message", "go", 0), (1, 1000002, "assistant_message", MERGE, 0), (2, 2000001, "user_message", "restart", 0), (2, 2000002, "assistant_message", "ok", 0)]
+
+
+@pytest.mark.parametrize(
+    "rows, after, want",
+    [
+        (SAME_RUN, None, "next=3 item=turn-item:2\nmarker BUILD READY\nfield specPath="),  # next is the newest message, item the one with the marker
+        (LATER_RUN, None, "next=3 item=turn-item:1\nmarker MERGE READY\nfield pr=12"),
+        (SAME_RUN, 1, "item=turn-item:2\nmarker BUILD READY"),
+        (SAME_RUN, 2, "next=3 item=turn-item:3\nmarker none\ntail:\n| ok\n"),  # a marker at or before --after is old
+        (LATER_RUN, 1, "next=3 item=turn-item:3\nmarker none\ntail:\n| ok\n"),
+    ],
+)
+def test_a_marker_before_a_newer_message_without_one_is_reported(tmp_path, capsys, rows, after, want):
+    db = tmp_path / "s.sqlite"
+    store(db, rows)
+    cos_child_read.main(["--db", str(db), "ABC-5", "t"] + ([] if after is None else ["--after", str(after)]))
+    assert want in capsys.readouterr().out
+
+
 def test_next_is_the_rank_among_the_threads_items(tmp_path, capsys):
     db = tmp_path / "s.sqlite"
     store(db, items(BUILD))

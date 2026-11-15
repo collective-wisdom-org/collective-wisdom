@@ -15,6 +15,7 @@ Otherwise:
 1. `set-state` In Progress and `add-label` `agent`, in one write.
 2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target` from `cos_models.py` for the `spec` role (models.md § Models), and the template below.
 3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), `title` (the ticket title you read for the readiness check), stage `spec` and its `status` line.
+4. Start the run wait for the ticket (sweep.md § Run wait), once the `start` op is saved.
 
 The child has none of your history. The task text must stand alone.
 
