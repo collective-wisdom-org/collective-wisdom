@@ -944,7 +944,7 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
     const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
-    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you and checks it arrived. If it can\'t, press Send.', ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
 })
@@ -972,7 +972,7 @@ test('each Backlog card has a Mark todo control after the switch and before the 
     assert.equal(todoCommand({ id }), cmd, id)
     const backlog = (chief) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row({ id })] }], new Set(), 0, new Set(), new Set(), chief)
     const foot = (html) => html.match(/<div class="foot">([\s\S]*?)<span class="meta">/)[1]
-    const tip = `Opens the Chief of Staff thread with "${cmd}" typed in and presses Send for you. If it can't, press Send.`
+    const tip = `Opens the Chief of Staff thread with "${cmd}" typed in and presses Send for you and checks it arrived. If it can't, press Send.`
     const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" title="${esc(tip)}" data-return="${cmd}">Mark todo</a>`
     const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Mark todo</button>`
     for (const [chief, want] of [[link, withLink], [undefined, copy], ['t3-thread://v2/e/t', copy]]) {
@@ -991,6 +991,8 @@ test('pressMessage: one line per reason for each control, none when sent or a re
     const cases = [
       [{ sent: true }, ''],
       [{ sent: false, reason: 'busy' }, `${action} not sent: another one-click send was still running.${tail}`],
+      [{ sent: false, reason: 'not-recorded' }, `${action} not sent: no new message with the command reached the Chief of Staff thread. If it is still in the message box, press Send there.`],
+      [{ sent: false, reason: 'unchecked' }, `${action} may not have sent: the dashboard could not read T3's messages to check. Look in the Chief of Staff thread and press Send if it is still there.`],
       [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front.${tail}`],
       [{ sent: false, reason: 'no-focus' }, `${action} not sent: the dashboard could not put the cursor in the T3 message box.${tail}`],
       [{ sent: false, reason: 'permission' }, new RegExp(`^${action} not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \\(or the app that started the dashboard\\)`)],
