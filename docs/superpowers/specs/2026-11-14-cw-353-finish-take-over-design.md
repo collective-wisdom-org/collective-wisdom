@@ -1,6 +1,7 @@
 # CW-353: Finish the Chief of Staff take-over pass when a user message interrupts it
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #368, as specified
 **Ticket:** [#353](https://github.com/collective-wisdom-org/collective-wisdom/issues/353)
 
 ## Goal
