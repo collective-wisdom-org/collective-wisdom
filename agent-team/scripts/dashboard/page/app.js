@@ -340,7 +340,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const sections = mine
       .map((g) => {
         const paged = g.name === 'Backlog'
-        const { at, pages } = pageOf(g.rows.length, backlogPage, BACKLOG_PAGE)
+        const { at, pages } = paged ? pageOf(g.rows.length, backlogPage, BACKLOG_PAGE) : { at: 0, pages: 1 }
         const shown = paged ? g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE) : g.rows
         const rows = shown.map((r) => ticket(r, { flat, slim: band.slim === true, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
         const pager =

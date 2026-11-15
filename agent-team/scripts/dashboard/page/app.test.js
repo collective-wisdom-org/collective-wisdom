@@ -692,24 +692,27 @@ test('clock: local 12-hour time with am/pm', () => {
 
 test('the Backlog group draws 10 rows of its page, clamps the page, and shows the pager only past one page', () => {
   const ids = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => `CW-${from + i}`)
-  // [rows, page, drawn ids, "Page X of Y" or null, disabled button]
+  // [rows, page, drawn ids, "Page X of Y" or null, disabled button, data-backlog-page of Previous and Next]
   const cases = [
-    [0, 0, [], null, null],
-    [10, 3, ids(1, 10), null, null],
-    [11, -1, ids(1, 10), 'Page 1 of 2', 'Previous'],
-    [11, 1, ids(11, 11), 'Page 2 of 2', 'Next'],
-    [11, 9, ids(11, 11), 'Page 2 of 2', 'Next'],
-    [25, 1, ids(11, 20), 'Page 2 of 3', null],
-    [25, 2, ids(21, 25), 'Page 3 of 3', 'Next'],
-    [25, NaN, ids(1, 10), 'Page 1 of 3', 'Previous'],
+    [0, 0, [], null, null, []],
+    [10, 3, ids(1, 10), null, null, []],
+    [11, -1, ids(1, 10), 'Page 1 of 2', 'Previous', [-1, 1]],
+    [11, 1, ids(11, 11), 'Page 2 of 2', 'Next', [0, 2]],
+    [11, 9, ids(11, 11), 'Page 2 of 2', 'Next', [0, 2]],
+    [25, 1, ids(11, 20), 'Page 2 of 3', null, [0, 2]],
+    [25, 2, ids(21, 25), 'Page 3 of 3', 'Next', [1, 3]],
+    [25, NaN, ids(1, 10), 'Page 1 of 3', 'Previous', [-1, 1]],
   ]
-  for (const [n, page, drawn, text, disabled] of cases) {
-    const html = renderStatus([{ name: 'Backlog', count: n, rows: ids(1, n).map((id) => row({ id })) }], new Set(), new Set(), new Set(), page)
+  for (const [n, page, drawn, text, disabled, targets] of cases) {
+    const html = renderStatus([{ name: 'Backlog', count: n, rows: ids(1, n).map((id) => row({ id })), moreUrl: 'https://x.test/b' }], new Set(), new Set(), new Set(), page)
     const label = `${n} rows, page ${page}`
     assert.deepEqual([...html.matchAll(/<span class="id">([^<]*)</g)].map((m) => m[1]), drawn, label)
     assert.equal(html.match(/<nav class="pager">[\s\S]*?<span>([^<]*)<\/span>/)?.[1] ?? null, text, label)
     assert.deepEqual([...html.matchAll(/<button type="button" data-backlog-page="-?\d+" disabled>([^<]*)</g)].map((m) => m[1]), disabled ? [disabled] : [], label)
+    assert.deepEqual([...html.matchAll(/data-backlog-page="(-?\d+)"/g)].map((m) => Number(m[1])), targets, label)
     assert.match(html, new RegExp(`<span class="pill">${n}</span>`), label)
+    // The Full backlog link stays, after the pager when there is one.
+    assert.match(html, text ? /<\/nav><p class="more"><a href="https:\/\/x\.test\/b"/ : /<\/ul><p class="more"><a href="https:\/\/x\.test\/b"/, label)
   }
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
 })
