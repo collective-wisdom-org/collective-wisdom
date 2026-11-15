@@ -1,6 +1,7 @@
 # CW-375: Stop naming a ticket helper after a ticket in its task text
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #398, as specified
 **Ticket:** [#375](https://github.com/collective-wisdom-org/collective-wisdom/issues/375)
 
 ## Goal
