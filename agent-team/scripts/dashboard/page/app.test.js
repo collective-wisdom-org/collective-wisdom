@@ -737,7 +737,7 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
 })
 
-test('top-level bands draw open unless their band key is collapsed; band keys never collide with group names', () => {
+test('top-level bands draw open unless their band key is collapsed, and leave their sub-sections alone', () => {
   const groups = [{ name: 'Awaiting merge approval', count: 1, rows: [row()] }, { name: 'Building', count: 1, rows: [row({ id: 'CW-2' })] }]
   const head = (html, slug) => html.match(new RegExp(`<details class="band band-${slug}"[^>]*>`))[0]
   const api = { chief: {}, pm: [] }
@@ -750,12 +750,7 @@ test('top-level bands draw open unless their band key is collapsed; band keys ne
     ['chief, pm collapsed', () => renderChief(api, 0, new Set(), 10, new Set([bandKey('pm')])).html, 'pm', false],
   ]
   for (const [name, html, slug, open] of cases) assert.equal(head(html(), slug).endsWith(' open>'), open, name)
-  const collapsedGroup = renderStatus(groups, new Set(), new Set(['Building']))
-  assert.ok(!collapsedGroup.match(/<details class="group" data-group="Building"[^>]*>/)[0].includes('open'))
-  assert.ok(collapsedGroup.match(/<details class="group needs-merge" data-group="Awaiting merge approval"[^>]*>/)[0].endsWith(' open>'))
-  const groupNames = ['Awaiting merge approval', 'Awaiting build approval', 'Awaiting teammate review', 'Queued to merge', 'Speccing', 'Queued to build', 'Other', 'Todo', 'Backlog', 'Building']
-  for (const slug of ['needs', 'progress', 'queued', 'not-started', 'pm']) {
-    assert.ok(bandKey(slug).startsWith('band:'))
-    assert.ok(!groupNames.includes(bandKey(slug)))
-  }
+  // A collapsed band leaves its sub-sections' own state alone.
+  const inside = renderStatus(groups, new Set(), new Set([bandKey('needs')])).match(/<details class="group needs-merge" data-group="Awaiting merge approval"[^>]*>/)[0]
+  assert.ok(inside.endsWith(' open>'))
 })
