@@ -67,7 +67,7 @@ def test_changed_stamps_the_file_and_a_list_save_keeps_the_stamp(monkeypatch, ca
     assert capsys.readouterr().out.strip() == "lists: saved changed"
     got = json.loads(f.read_text())
     assert got["todo"] == OLD and got["backlog"] == OLD
-    assert got["changed"] != "2020-01-01T00:00:00Z" and got["changed"].endswith("Z") and len(got["changed"]) == 20
+    assert got["changed"] != "2020-01-01T00:00:00Z" and got["changed"].endswith("Z") and len(got["changed"]) == 24
     assert run(monkeypatch, capsys, f, ENTRIES)[0] == 0
     assert json.loads(f.read_text())["changed"] == got["changed"]
     assert os.listdir(tmp_path) == ["tracker-lists.json"]

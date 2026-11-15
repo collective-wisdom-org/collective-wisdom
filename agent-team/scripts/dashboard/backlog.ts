@@ -81,12 +81,15 @@ export function createBacklog(opts: { run: Run; now?: () => number }) {
   }
 
   return {
-    /** `changed` is the Chief of Staff's change stamp. A new one reads at once; the first one seen only counts as seen. */
+    /** `changed` is the Chief of Staff's change stamp. A stamp different from the last one seen reads at once. */
     want(c: TitleConfig | null, changed: string | null = null) {
       cfg = c
-      const fresh = changed !== null && stamp !== null && changed !== stamp
+      const fresh = changed !== null && changed !== stamp
       if (changed !== null) stamp = changed
-      if (!c) return
+      if (!c) {
+        again = false
+        return
+      }
       if (fresh && busy) again = true
       if (busy || (!fresh && now() - readAt < REFRESH_MS)) return
       start(c)

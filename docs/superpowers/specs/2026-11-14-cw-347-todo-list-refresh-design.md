@@ -1,7 +1,7 @@
 # CW-347: Show a ticket on the dashboard Todo list as soon as the Chief of Staff marks it Todo
 
 **Status:** Shipped
-**Shipped:** in PR #356, as specified
+**Shipped:** in PR #356, with differences: [as-built](../as-built/2026-11-14-cw-347-todo-list-refresh.md)
 **Ticket:** [#347](https://github.com/collective-wisdom-org/collective-wisdom/issues/347)
 **Related:** [#345](https://github.com/collective-wisdom-org/collective-wisdom/issues/345) (building on `dashboard/page/app.js` now; this ticket changes one line there)
 
@@ -33,7 +33,7 @@ Every gap is under the 60 s refresh, so the refresh alone explains what the user
 
 ### A change stamp the Chief of Staff writes
 
-- `cos_lists.py changed` (no stdin) sets a top-level `"changed": "<now, UTC>"` in `tracker-lists.json` and keeps the `todo` and `backlog` lists as they are. It prints `lists: saved changed` and exits 0, or exit 2 with `lists: cannot <what>`, with the same folder and regular-file checks and temp-file rename as a list save.
+- `cos_lists.py changed` (no stdin) sets a top-level `"changed": "<now, UTC, to the millisecond>"` in `tracker-lists.json` and keeps the `todo` and `backlog` lists as they are. It prints `lists: saved changed` and exits 0, or exit 2 with `lists: cannot <what>`, with the same folder and regular-file checks and temp-file rename as a list save.
 - The dashboard reads the stamp on every tracker: on GitHub it means "read the issues again now", and on Linear and Jira it is ignored (the saved lists are the change).
 
 ### The Chief of Staff, on a state change the user asks for
@@ -47,7 +47,7 @@ One new row in `chief-of-staff/commands.md`, which is outside the size-limited c
 ### GitHub: re-read on a new stamp
 
 - `server.ts` reads `tracker-lists.json` for the stamp on every tracker. `lists.ts` gains a `changed()` getter for it; `want(null)` (GitHub) still reads the file for the stamp, but keeps no lists.
-- `createBacklog.want(cfg, changed)` starts a read at once when `changed` differs from the stamp it last saw, even inside the 60 s. If a read is already running, it runs one more read right after, because the running one may have started before the label changed. The first stamp it sees counts as seen, so a server start does not cost an extra read.
+- `createBacklog.want(cfg, changed)` starts a read at once when `changed` differs from the stamp it last saw, even inside the 60 s. If a read is already running, it runs one more read right after, because the running one may have started before the label changed. The first stamp it sees also reads at once, so a file that had no stamp before still triggers a read.
 - The 60 s background refresh stays as it is, for changes the user makes on GitHub directly.
 
 ### Linear and Jira: a faster file read

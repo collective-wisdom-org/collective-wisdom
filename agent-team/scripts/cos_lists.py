@@ -59,8 +59,13 @@ def stamp():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def stamp_ms():
+    """Millisecond stamp for `changed`, so two changes inside one second differ."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
 def update(file, change):
-    """Run change(held) on the file's top-level object and write it back. Raises Cannot."""
+    """Run change(held) on the file's top-level object and write it back. Raises Cannot. No lock: two writers at the same moment can drop one key."""
     path = Path(file) if file else DEFAULT_FILE
     try:
         if not stat.S_ISDIR(os.lstat(path.parent).st_mode) or not regular(path):
@@ -94,7 +99,7 @@ def save(kind, tickets, file=None):
 
 def mark_changed(file=None):
     """Set the top-level `changed` stamp and keep both lists. Raises Cannot."""
-    update(file, lambda held: held.__setitem__("changed", stamp()))
+    update(file, lambda held: held.__setitem__("changed", stamp_ms()))
 
 
 class Parser(argparse.ArgumentParser):
