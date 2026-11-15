@@ -8,7 +8,7 @@
 :root { color-scheme: light dark;
   --s1:.25rem; --s2:.5rem; --s3:.75rem; --s4:1rem; --s6:1.5rem; --s8:2rem;
   --t-title:1.375rem; --t-body:.9375rem; --t-small:.8125rem; --t-section:1.125rem; --t-band:.6875rem;
-  --bg:light-dark(#fafafa, #000000); --card:light-dark(#ffffff, #111111); --soft:light-dark(#f3f4f6, #1f1f1f); --line:light-dark(#e5e7eb, #ffffff14); --section-line:light-dark(#d1d5db, #ffffff40); --shadow:light-dark(#0000000f, transparent);
+  --bg:light-dark(#fafafa, #000000); --card:light-dark(#ffffff, #111111); --soft:light-dark(#f3f4f6, #1f1f1f); --line:light-dark(#e5e7eb, #ffffff14); --section-line:light-dark(#d1d5db, #ffffff40); --shadow:light-dark(#0000000f, transparent); --edge:light-dark(#00000014, #ffffff1a);
   --fg:light-dark(#111827, #f5f5f5); --muted:light-dark(#636a77, #a1a1a1);
   --accent:light-dark(#2563eb, #60a5fa); --on-accent:light-dark(#ffffff, #0b1220);
   --attn:light-dark(#b45309, #f59e0b); --attn-tint:light-dark(#fffbeb, #2a1f0a);
@@ -47,8 +47,8 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 .needs-merge > summary h3 .pill, .needs-build > summary h3 .pill { background:var(--attn-tint); color:var(--attn); }
 ul { list-style:none; margin:0; padding:0; }
 ul.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap:var(--s3); align-items:start; }
-.ticket { min-width:0; background:var(--card); border-radius:12px; padding:var(--s4); display:flex; flex-direction:column; gap:var(--s1); box-shadow:0 1px 2px var(--shadow); }
-.ticket.attn { background:linear-gradient(var(--attn-tint), var(--attn-tint)), var(--card); box-shadow:inset 3px 0 0 var(--attn), 0 1px 2px var(--shadow); }
+.ticket { min-width:0; background:var(--card); border-radius:12px; padding:var(--s4); display:flex; flex-direction:column; gap:var(--s1); box-shadow:0 0 0 1px var(--edge), 0 1px 2px var(--shadow); }
+.ticket.attn { background:linear-gradient(var(--attn-tint), var(--attn-tint)), var(--card); box-shadow:inset 3px 0 0 var(--attn), 0 0 0 1px var(--edge), 0 1px 2px var(--shadow); }
 .head { display:flex; align-items:flex-start; gap:var(--s1); }
 .head .id { flex:none; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1.35; }
 .head .id a { color:var(--muted); } .head .id a:hover { color:var(--fg); }
@@ -78,7 +78,7 @@ p.more { margin:var(--s2) 0 0; font-size:var(--t-small); }
 .panel { margin-top:var(--s2); padding-top:var(--s3); border-top:1px solid var(--line); }
 .panel .info-body, .panel .gantt { margin-top:0; }
 @media (max-width: 29.99rem) { .seg { height:2.25rem; } .foot .summary, .foot .meta { flex:1 1 100%; } }
-.ticket.blocked { background:var(--red-tint); box-shadow:inset 3px 0 0 var(--red), 0 1px 2px var(--shadow); }
+.ticket.blocked { background:var(--red-tint); box-shadow:inset 3px 0 0 var(--red), 0 0 0 1px var(--edge), 0 1px 2px var(--shadow); }
 li.blocked .status { color:var(--red); }
 .badge { display:inline-block; max-width:100%; padding:0 var(--s2); border-radius:999px; font-size:var(--t-small); line-height:1.6; background:var(--soft); color:var(--muted); }
 .badge.pass { color:var(--green); }
@@ -95,7 +95,7 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .tabs button { height:2rem; padding:0 var(--s4); border:0; border-radius:8px; color:var(--muted); font-size:var(--t-small); font-weight:500; }
 .tabs button:hover:not(:disabled) { background:transparent; color:var(--fg); }
 .tabs button[aria-selected="true"], .tabs button[aria-selected="true"]:hover:not(:disabled) { background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 2px var(--shadow); }
-.cos-card { display:flex; flex-direction:column; gap:var(--s2); background:var(--card); border-radius:12px; padding:var(--s4); box-shadow:0 1px 2px var(--shadow); }
+.cos-card { display:flex; flex-direction:column; gap:var(--s2); background:var(--card); border-radius:12px; padding:var(--s4); box-shadow:0 0 0 1px var(--edge), 0 1px 2px var(--shadow); }
 .cos-card .head { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2); }
 .state { color:var(--muted); font-size:var(--t-small); font-weight:400; }
 .state::before { content:""; display:inline-block; width:.5em; height:.5em; margin-right:.4em; border-radius:50%; background:currentColor; vertical-align:.05em; }
