@@ -22,7 +22,7 @@ CW-365 drew the PR's CI wait as blue bars on a separate `CI wait` row below `Tot
 A new pure function picks, for each CI span, one of the top-level tasks `ganttTasks` returns:
 
 - The owner is the task whose latest finished working span ends at or before the CI span's start, taking the task with the latest such end. That is the task that most likely pushed the commit CI ran on.
-- A working span counts as finished when it has an end that is not the open running end. A task still running when CI starts does not qualify through its open span, only through spans it already finished.
+- A working span counts as finished when it has an end that is not the open running end. A task still running when CI starts does not qualify through its open span, only through spans it already finished. A stale session's open span counts as finished, because its end is closed at the session's last update.
 - Only the task's own spans count, not its subagent rows'. A subagent's work sits inside its task's span.
 - Ties go to the task that started first (the earlier one in `ganttTasks` order).
 - If no task qualifies (CI started before any task finished a span), the earliest task owns the span.
@@ -31,7 +31,7 @@ It is exported for the test.
 
 ### 2. Drawing (`renderGantt`)
 
-- Each task's CI spans are merged (overlapping spans from a push that cancelled a run draw as one bar) and drawn on that task's `.track`, after its working bars, as `<span class="bar ci" ...>` with `left` and `width` from the same `place(a, b)`, at least 0.5% wide.
+- Each task's CI spans are merged (overlapping spans from a push that cancelled a run draw as one bar) and drawn on that task's `.track`, before its working bars (so work done during the wait stays on top), as `<span class="bar ci" ...>` with `left` and `width` from the same `place(a, b)`, at least 0.5% wide.
 - Each CI bar keeps CW-365's tooltip: `CI wait`, then `<start> to <end> · <duration>`, or `<start>, running · <duration so far>` while open. It never carries the `running` class, so an open span stays blue, not amber.
 - Merging is per task: a span merges only with other spans of the same task. Two tasks' spans never share a bar.
 - `ciRow` and the `CI wait` row are removed. The row tooltip with the commit count goes with it.
