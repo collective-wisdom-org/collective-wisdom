@@ -690,7 +690,7 @@ export function renderGantt(sessions, now, ci) {
     return [line(i, i.spans, itemCost(i), 0, ciBars(n)), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
   })
   const legend = CATEGORIES.filter(([key]) => drawn.has(key))
-  const legendHtml = legend.length ? `<ul class="legend" aria-label="Bar colors">${legend.map(([key, label]) => `<li><span class="swatch cat-${key}"></span>${label}</li>`).join('')}</ul>\n` : ''
+  const legendHtml = legend.length ? `\n<ul class="legend" aria-label="Bar colors">${legend.map(([key, label]) => `<li><span class="swatch cat-${key}"></span>${label}</li>`).join('')}</ul>` : ''
   const sum = ganttCost(items)
   const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null
   const note =
@@ -700,10 +700,10 @@ export function renderGantt(sessions, now, ci) {
   const isOld = sessions.some((s) => s.pricing !== 2)
   const oldNote = isOld ? '<p class="gnote">Some rows were priced before the token rate fix and keep their old costs.</p>' : ''
   return `<div class="gantt">
-${legendHtml}${rows.join('\n')}
+${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
 ${note}
-${oldNote}
+${oldNote}${legendHtml}
 </div>`
 }
 

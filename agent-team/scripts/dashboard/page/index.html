@@ -57,6 +57,8 @@ ul.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%
 .head .id a { color:var(--muted); } .head .id a:hover { color:var(--fg); }
 .head .title { flex:0 1 auto; min-width:0; }
 .head .copy-icon { margin-top:-.1rem; }
+.head:has(> .id) { display:grid; grid-template-columns:minmax(0, max-content) auto; justify-content:start; align-items:start; column-gap:var(--s1); }
+.head .id { grid-column:1 / -1; }
 .title { font-weight:600; line-height:1.35; }
 .meta { color:var(--muted); font-size:var(--t-small); min-width:0; }
 .meta a { color:var(--muted); } .meta a:hover { color:var(--fg); }
@@ -141,7 +143,7 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .detail-more { margin:var(--s1) 0 0; color:var(--muted); }
 .gantt { container-type:inline-size; background:var(--soft); border-radius:10px; padding:var(--s2) var(--s3); margin-top:var(--s2); }
 .grow { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; grid-template-areas:"name dur cost" "track track track"; gap:var(--s1) var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); }
-.grow:first-child, .legend + .grow { border-top:0; }
+.grow:first-child { border-top:0; }
 .grow .name { grid-area:name; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .grow .track { grid-area:track; }
 .grow .dur { grid-area:dur; }
@@ -162,7 +164,7 @@ details.group.stale ul, details.group.stale ul a, li.ticket.stale, li.ticket.sta
 .bar.running { animation:pulse 1.6s ease-in-out infinite alternate; }
 @keyframes pulse { to { opacity:.55; } }
 @media (prefers-reduced-motion: reduce) { .bar.running { animation:none; box-shadow:inset 0 0 0 2px var(--fg); } }
-.legend { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s3); margin:0 0 var(--s2); padding:0; list-style:none; color:var(--muted); font-size:var(--t-small); }
+.legend { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s3); margin:var(--s2) 0 0; padding:0; list-style:none; color:var(--muted); font-size:var(--t-small); }
 .legend li { display:flex; align-items:center; gap:var(--s1); }
 .swatch { width:10px; height:10px; border-radius:6px; }
 @container (min-width: 36rem) {
