@@ -839,7 +839,7 @@ if (typeof document !== 'undefined') {
   const drawStatus = () => {
     if (!last) return
     backlogPage = pageOf(last.status.find((g) => g.name === 'Backlog')?.rows.length ?? 0, backlogPage, BACKLOG_PAGE).at
-    const json = JSON.stringify([last.status, backlogPage], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
+    const json = JSON.stringify([last.status, backlogPage, last.chief?.threadLink], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
     if (json === shownStatus) return
     shownStatus = json
     const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-ticket][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.ticket))
