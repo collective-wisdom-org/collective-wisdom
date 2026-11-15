@@ -1,7 +1,7 @@
 # CW-370: Show every dashboard row as a card
 
 **Status:** Shipped
-**Shipped:** in PR #389, as specified
+**Shipped:** in PR #389, as specified (no screenshots; see the PR's Not proven)
 **Ticket:** [#370](https://github.com/collective-wisdom-org/collective-wisdom/issues/370)
 **Overlaps:** CW-349, CW-350, CW-354, CW-357 and CW-369 edit the same row markup or `renderStatus`. Whoever builds second rebases on the others.
 
@@ -40,13 +40,13 @@ Facts from main at `90d7a68`, `agent-team/scripts/dashboard/page/`.
 
 ### Not started in the grid
 
-Not started rows are slim (id only) and sit in the same grid, so on a wide screen they show as several short cards per line. That reads as a set of chips rather than a list. I keep it, per the ticket's assumption, and the PR proof shows it; if it looks wrong the PR says so.
+Not started rows are slim (id only) and sit in the same grid, so on a wide screen they show as several short cards per line. That reads as a set of chips rather than a list. I keep it, per the ticket's assumption,. The PR could not show it (no screenshots), so it is listed under Not proven.
 
 ## Test
 
 One table-driven test in `app.test.js`: for each section (Your turn, In progress, Up next, Not started from `renderStatus`; Done from `renderMerged`; project manager from `renderChief`), the rows come out as `li.ticket` inside `ul.cards`, and the html has no `li class="row"` or `ul class="rows"`. A blocked Up next row has `ticket blocked`, a Your turn row has `ticket attn`. The existing merged pager test that counts `<li class="row">` changes to count the new class.
 
-The panels, copy icon, pager and 5-second redraw are unchanged code; the existing tests cover them. The PR proof is screenshots of both tabs in light and dark, at desktop and phone width.
+The panels, copy icon, pager and 5-second redraw are unchanged code; the existing tests cover them. The PR proof is the markup test and a grep. Screenshots of both tabs in light and dark, at desktop and phone width, were not taken, and the PR lists them under Not proven.
 
 ## Files
 
@@ -65,7 +65,7 @@ The panels, copy icon, pager and 5-second redraw are unchanged code; the existin
 ## Calls I made
 
 - **Up next, Done and the project manager list go into the multi-column grid.** On a wide screen they show two or three cards per line instead of one list. The ticket assumed this; the other choice was a one-column stack of cards.
-- **Not started's id-only rows are short cards in the same grid.** They look like chips on a wide screen. Kept per the ticket; flagged in the PR proof.
+- **Not started's id-only rows are short cards in the same grid.** They look like chips on a wide screen. Kept per the ticket; listed under Not proven in the PR.
 - **One class, `ticket`, for every row, with `compact` and `blocked` modifiers,** instead of keeping `row` and styling it like a card. Then there is one card rule and nothing left named `row`.
 - **The blocked tint keeps the card shadow** (`inset` red edge plus the drop shadow), the same way `.ticket.attn` does.
 - **A live card that is blocked gets no `blocked` class**, as today: only flat rows were marked blocked, and the ticket doesn't ask to change that.
