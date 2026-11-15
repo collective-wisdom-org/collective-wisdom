@@ -10,14 +10,14 @@ After a `/compact`, the part of `chief-of-staff/SKILL.md` that comes back holds 
 
 ## Today
 
-Facts from `main` at `da765ee`.
+Facts from `main` at `10f93a1` (after CW-317, #336, merged).
 
-- `SKILL.md` is 40,540 bytes. Sections in order, with sizes: frontmatter and intro 3,946; When to read a reference file 2,632; Tools 2,657; Working set 1,641; Models 497; Lanes 1,410; State file 2,538; Tick 11,980 (its plan-line table alone 6,405); Child path 7,332; Lean turns 2,708; Guardrails 3,181.
+- `SKILL.md` is 40,110 bytes. Sections in order, with sizes: frontmatter and intro 4,029; When to read a reference file 2,597; Tools 2,634; Working set 1,641; Models 497; Lanes 1,410; State file 2,538; Tick 11,573 (its plan-line table alone 6,408); Child path 7,332; Lean turns 2,662; Guardrails 3,181. The core named below is about 23,500 bytes today without the trigger table.
 - In the CW-315 run the compacted skill was cut at byte 20,908, mid-sentence in the plan-line table (`Cleanup line, \`Child read script u`), then `[... skill content truncated for compaction; use Read on the skill path ...]`. That fits Claude Code keeping the first 5,000 tokens or so of each skill it re-attaches after a compaction.
 - The re-read line the ticket asks for is already there: line 21, added by CW-316, says to read `SKILL.md` in full (and `.agent-team/chief-notes.md`) when the text does not end with "End of chief-of-staff SKILL.md."
 - `SKILL.md` § Models repeats what `models.md` § Models already says (role from `cos_models.py`, exit 1 means `BLOCKED: no <role> routing`, never fall back).
 - `test_section_pointers.py` fails when a `§` pointer names a heading that is gone, so every pointer to a moved section must follow it.
-- Open PRs #336 (CW-317) and #279 (CW-278) also edit `SKILL.md`. The build rebases on whatever has merged by then and measures after the rebase.
+- #336 (CW-317) has merged and this spec is measured after it. Open PR #279 (CW-278) also edits `SKILL.md`; the build rebases on whatever has merged by then and measures after the rebase.
 
 ## Design
 
@@ -31,7 +31,7 @@ A test in `agent-team/scripts/test_agent_files.py` holds it there: in the chief-
 
 Core, in this order:
 
-1. Frontmatter, title, the re-read line, the "You route work" paragraph and the `stop retired` / `stop paused` rules.
+1. Frontmatter, title, the re-read line, the "You route work" paragraph and the `stop not-chief` / `stop paused` rules.
 2. § Tick: the two calls, the exit-2 and `unsafe` rule (short form), the rerun rule, and the plan-line table.
 3. § Child path: marker, pending request, stuck check, rate limit, observe.
 4. § Guardrails.
