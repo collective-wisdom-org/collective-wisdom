@@ -1,7 +1,7 @@
 # CW-341: Read a Cursor Chief of Staff's context size in the rotation check
 
 **Status:** Shipped
-**Shipped:** in PR #361, as specified
+**Shipped:** in PR #361, with differences: [as-built](../as-built/2026-11-14-cw-341-cursor-context-size-as-built.md)
 **Ticket:** [#341](https://github.com/collective-wisdom-org/collective-wisdom/issues/341)
 
 ## Goal
