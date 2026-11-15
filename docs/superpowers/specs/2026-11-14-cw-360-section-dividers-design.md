@@ -1,6 +1,7 @@
 # CW-360: Make the dividers between dashboard sections more prominent
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #366, as specified
 **Ticket:** [#360](https://github.com/collective-wisdom-org/collective-wisdom/issues/360)
 **Builds on:** CW-346 (PR #352, merged), which added the rule under each section header. Other dashboard page tickets are in flight (CW-348, CW-349, CW-350, CW-354, CW-357, CW-359); this one changes two lines of CSS in `index.html` and rebases on whichever lands first.
 
