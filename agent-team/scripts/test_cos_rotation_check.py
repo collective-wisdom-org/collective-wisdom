@@ -48,6 +48,7 @@ INVALID = "ok; skillCommit is not a full sha; set skillCommit"
         # an unfinished take over comes after paused and ahead of the reset hold and every trigger; null is today's line
         ({"takeover": {"startedAt": ago(7), "mode": "take-over"}}, -1_000, OLD, "main", "finish: take over unfinished since 7m; mode take-over"),
         ({"takeover": {"startedAt": ago(2), "mode": "resume"}, "reset": {"id": "0a1b2c3d", "startedAt": ago(1)}}, 40_000, NEW, "main", "finish: take over unfinished since 2m; mode resume"),
+        ({"takeover": {"startedAt": ago(2), "mode": "bogus"}}, 40_000, NEW, "main", "finish: take over unfinished since 2m; mode ?"),
         ({"takeover": {"startedAt": ago(2), "mode": "take-over"}, "paused": True}, 40_000, NEW, "main", "ok (held: paused)"),
         ({"takeover": None, "reset": {"id": "0a1b2c3d", "startedAt": ago(1)}}, 40_000, NEW, "main", "ok (held: reset)"),
         # a reset marker holds for 10 minutes; an older one does not and the trigger fires again

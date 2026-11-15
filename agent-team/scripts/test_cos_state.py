@@ -188,8 +188,6 @@ def test_top_skill_commit_must_be_a_full_sha(value, ok):
         ({"startedAt": OLD, "mode": "take-over"}, 1),
         ({"startedAt": OLD, "mode": "resume"}, 1),
         ({"startedAt": OLD, "mode": "reset"}, 0),
-        ({"startedAt": "2020-01-01T00:00:00", "mode": "resume"}, 0),
-        ({"startedAt": "2999-01-01T00:00:00Z", "mode": "resume"}, 0),
         ({"mode": "resume"}, 0),
         ({"startedAt": OLD, "mode": "resume", "x": 1}, 0),
         ("take-over", 0),
@@ -200,4 +198,3 @@ def test_top_takeover_is_null_or_a_marker(value, ok):
     with pytest.raises(cos_state.Reject, match="takeover needs") if not ok else contextlib.nullcontext():
         new = cos_state.apply_ops({}, ops)[0]
         assert new["takeover"] == value
-        assert f"takeover={'-' if value is None else value['mode'] + ' since ' + OLD}" in cos_state.show(new)

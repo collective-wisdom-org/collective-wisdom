@@ -147,7 +147,8 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
     take = state.get("takeover")
     if isinstance(take, dict):  # a take over (or resume) pass started and never finished
         age = minutes_since(take.get("startedAt"), now)
-        return f"finish: take over unfinished since {'?' if age is None else age}m; mode {take.get('mode')}"
+        mode = take.get("mode") if take.get("mode") in ("take-over", "resume") else "?"
+        return f"finish: take over unfinished since {'?' if age is None else age}m; mode {mode}"
     marker, stale = state.get("reset"), ""
     if isinstance(marker, dict):  # a reset started and never confirmed by a take over
         age = minutes_since(marker.get("startedAt"), now)
