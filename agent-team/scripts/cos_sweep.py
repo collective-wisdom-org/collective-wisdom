@@ -12,7 +12,7 @@ Usage:
     4. the untracked check, on the state as step 1 left it: tickets in flight that state doesn't know,
     5. the review check, last, on the state as step 1 left it (tickets in awaiting-review; it needs no thread read).
 Prints the lines that need action, then one last line. A line needs action when its first word is one
-the Chief of Staff acts on: merged, mismatch and unreadable (merged check); ready and pushed (ready
+the Chief of Staff acts on: merged, mismatch and unreadable (merged check); ready, conflict and pushed (ready
 check); full (parent check); untracked; approved, changes, moved, closed and unreadable (review check).
 A part's summary and its other lines (`ok`, `idle`, `building`, `no-pr`, `writing`, `waiting`,
 the ready check's `unreadable`) are left out, and so is a part that printed nothing needing action.
@@ -21,7 +21,7 @@ lines and summary, as before. The last line:
     sweep: read in full: ABC-3 (ready), ABC-7 (old-parent); merged: ABC-2 #14
     sweep: read in full: none; merged: none
     sweep: read in full: none; merged: none; untracked: ABC-5 #12, ABC-6; review: ABC-7 approved
-A ticket is listed once, with every reason, when the ready check prints `ready` or `pushed` for it
+A ticket is listed once, with every reason, when the ready check prints `ready`, `conflict` or `pushed` for it
 or the parent check prints `full` for it. A part that cannot run prints its own
 "cos_<name>: <what>" line, the others still run, and the last line ends "; didn't run: <parts>".
 The `; untracked:` list shows only when the untracked check found something. The `; review:` tail appears only when the review check printed an approved, changes, moved or closed line.
@@ -45,7 +45,7 @@ import cos_untracked_check  # noqa: E402
 ROOT = root()
 ACTION = {  # the first words the Chief of Staff acts on, per part
     "merged": {"merged", "mismatch", "unreadable"},
-    "ready": {"ready", "pushed"},
+    "ready": {"ready", "pushed", "conflict"},
     "parent": {"full"},
     "untracked": {"untracked"},
     "review": {"approved", "changes", "moved", "closed", "unreadable"},

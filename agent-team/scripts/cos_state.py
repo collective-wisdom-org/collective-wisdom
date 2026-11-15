@@ -50,6 +50,9 @@ changesRelayed ({"head", "at"}: the head and time a reviewer's changes request w
 set in any stage and is never cleared by the script; null clears it. It must be an object with a full 40-hex
 head and an at time with a zone (2026-11-02T10:00:00Z), or the op is rejected.
 
+conflictHead (a full 40-hex SHA, or null) is the PR head a merge conflict was last sent back to the child for. It may be set
+in any stage and is never cleared by the script; the ready check does not flag the same head twice. Anything else is rejected.
+
 noApproval (true only) marks a merge-lane run that carries no user approval (a conflict sent to the merge lane while
 reviews stand). It is allowed only in merge, merge-queued and blocked, and a stage op to any other stage clears it.
 
@@ -103,7 +106,7 @@ TOP = {
 TICKET = {
     "stage", "firstTaskId", "childThreadId", "parentThreadId", "status", "branch", "specPath",
     "specSha", "pr", "headSha", "rateLimitResumes", "lastSeenAt", "lastPosition", "resumeStage",
-    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "title",
+    "pendingRelay", "approvalItemId", "queuedAt", "restarts", "note", "heldApproval", "changesRelayed", "conflictHead", "title",
     "noApproval", "provider", "stageAt",
 }
 STAGES = (
@@ -232,6 +235,9 @@ def check(t):
         and getattr(parse(relayed.get("at")), "tzinfo", None) is not None
     ):
         raise Reject("changesRelayed needs an object with a full head and an at time with a zone")
+    conflict_head = t.get("conflictHead")
+    if conflict_head is not None and not (isinstance(conflict_head, str) and re.fullmatch(r"[0-9a-f]{40}", conflict_head)):
+        raise Reject("conflictHead needs a full 40-hex head or null")
     if "noApproval" in t:
         if t["noApproval"] is not True:
             raise Reject("noApproval must be true")

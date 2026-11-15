@@ -420,10 +420,12 @@ if __name__ == "__main__":
     try:
         if sys.argv[1:] == ["no-ci"]:
             print("yes" if no_ci() else "no")
+        elif sys.argv[1:] == ["target"]:
+            print(target_branch())
         elif sys.argv[1:] == ["chief-title"]:
             print(chief_thread_title())
         else:
-            raise SystemExit("usage: project_config.py no-ci|chief-title")
+            raise SystemExit("usage: project_config.py no-ci|target|chief-title")
     except SystemExit as e:
         print(e, file=sys.stderr)
         sys.exit(2)

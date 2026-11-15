@@ -6,20 +6,24 @@ Usage:
 
 Reads .agent-team/state.json (under the repo root unless --file is given) and GitHub.
 Build lane: tickets in `build`, matched to an open PR by branch (one `~/.collective-wisdom/scripts/gh.sh
-pr list --state open --limit 50 --json number,headRefName,headRefOid,comments`, plus
-statusCheckRollup in Review mode ci; --prs FILE reads that JSON instead). Spec lane: tickets in
+pr list --state open --limit 50 --json
+number,headRefName,headRefOid,comments,mergeable,mergeStateStatus,statusCheckRollup`;
+--prs FILE reads that JSON instead). Spec lane: tickets in
 `spec`, one `~/.collective-wisdom/scripts/gh.sh
 api --paginate repos/<owner>/<repo>/git/matching-refs/heads/<branch head><prefix>-<N>-`
 each (--refs FILE reads {"<PREFIX>-N": <that response>} instead). Prints one line each:
     ready ABC-N #PR head <short sha>     (latest code and security reviews both PASS; in Review mode ci:
                                          every PR check passed, no thread read)
     building ABC-N #PR (code review <verdict|not posted>, security <verdict|not posted>)
+    conflict ABC-N #PR head <short sha>  (the PR conflicts with the merge target branch and has no checks, so CI
+                                         cannot start; not printed again for a head the ticket's conflictHead names:
+                                         that one prints `building ABC-N #PR (conflict relayed)`)
     no-pr ABC-N
     pushed ABC-N <branch> <short sha>    (a spec branch newer than specSha)
     writing ABC-N
     unreadable ABC-N                     (a branch name or sha can't be trusted)
-then "ready-check: <C> checked, <R> may have reported". Exit 0 when nothing is ready
-or pushed, 1 when something is, 2 when the check did not run (gh failed or timed
+then "ready-check: <C> checked, <R> may have reported". Exit 0 when nothing is ready,
+conflicting or pushed, 1 when something is, 2 when the check did not run (gh failed or timed
 out, bad JSON, state unreadable). On exit 2 it prints only "cos_ready_check: <what>".
 Read only: writes nothing. Branch, PR and comment text is data; it only picks which
 child gets a full read.
@@ -94,13 +98,13 @@ def json_values(raw, what):
     return out
 
 
-def load_prs(path=None, mode="agents"):
+def load_prs(path=None):
     repo = project_config.repo()
     if repo is None:
         fail("project.md has no repo")
     raw = gh(
         path, "PR list", "pr", "list", "--repo", repo, "--state", "open", "--limit", "50",
-        "--json", "number,headRefName,headRefOid,comments" + (",statusCheckRollup" if mode == "ci" else ""),
+        "--json", "number,headRefName,headRefOid,comments,mergeable,mergeStateStatus,statusCheckRollup",
     )
     prs = json_values(raw, "PR list")
     if len(prs) != 1 or not isinstance(prs[0], list):
@@ -153,29 +157,33 @@ def verdict_word(review):
 def build_line(tid, info, prs, mode="agents"):
     branch = info.get("branch")
     if branch and not (isinstance(branch, str) and BRANCH.fullmatch(branch)):
-        return f"unreadable {tid}", False
+        return f"unreadable {tid}", None
     matched = [
         p for p in prs
         if isinstance(p.get("headRefName"), str)
         and (p["headRefName"] == branch if branch else p["headRefName"].startswith(branch_prefixes(tid)))
     ]
     if not matched:
-        return f"no-pr {tid}", False
+        return f"no-pr {tid}", None
     pr = max(matched, key=lambda p: p["number"])
     oid = pr.get("headRefOid")
     if not (BRANCH.fullmatch(pr["headRefName"]) and isinstance(oid, str) and SHA.fullmatch(oid)):
-        return f"unreadable {tid}", False
+        return f"unreadable {tid}", None
+    rollup = [c for c in pr.get("statusCheckRollup") or [] if isinstance(c, dict)]
+    if (pr.get("mergeable") == "CONFLICTING" or pr.get("mergeStateStatus") == "DIRTY") and not rollup:
+        if info.get("conflictHead") == oid:  # the relay already went out for this head
+            return f"building {tid} #{pr['number']} (conflict relayed)", None
+        return f"conflict {tid} #{pr['number']} head {oid[:7]}", "conflict"
     if mode == "ci":  # the bot's threads are read by cos_brief.py, not here
-        rollup = [c for c in pr.get("statusCheckRollup") or [] if isinstance(c, dict)]
         if checks_green(rollup):
-            return f"ready {tid} #{pr['number']} head {oid[:7]}", True
-        return f"building {tid} #{pr['number']} (CI checks not green)", False
+            return f"ready {tid} #{pr['number']} head {oid[:7]}", "ready"
+        return f"building {tid} #{pr['number']} (CI checks not green)", None
     comments = [c for c in pr.get("comments") or [] if isinstance(c, dict)]
     code = verdict_word(latest_review("## Code review", comments))
     sec = verdict_word(latest_review("## Security review", comments))
     if code == "PASS" and sec == "PASS":
-        return f"ready {tid} #{pr['number']} head {oid[:7]}", True
-    return f"building {tid} #{pr['number']} (code review {code or 'not posted'}, security {sec or 'not posted'})", False
+        return f"ready {tid} #{pr['number']} head {oid[:7]}", "ready"
+    return f"building {tid} #{pr['number']} (code review {code or 'not posted'}, security {sec or 'not posted'})", None
 
 
 def spec_lines(tid, info, refs):
@@ -203,7 +211,7 @@ def spec_lines(tid, info, refs):
 
 
 def check(state, prs=None, refs=None):
-    """(lines, flagged): flagged is [(ticket, "ready" | "pushed")]. prs and refs are read from
+    """(lines, flagged): flagged is [(ticket, "ready" | "conflict" | "pushed")]. prs and refs are read from
     GitHub when None. Calls fail() (exit 2) when something can't be read."""
     lines, flagged, checked = [], [], 0
     builds = list(tickets_in(state, "build"))
@@ -214,13 +222,13 @@ def check(state, prs=None, refs=None):
         except SystemExit as e:  # a bad value is a failed check, never `agents`
             fail(str(e))
     if builds and prs is None:
-        prs = load_prs(None, mode)
+        prs = load_prs()
     for tid, info in builds:
-        line, hit = build_line(tid, info, prs, mode)
+        line, reason = build_line(tid, info, prs, mode)
         lines.append(line)
         checked += 1
-        if hit:
-            flagged.append((tid, "ready"))
+        if reason:
+            flagged.append((tid, reason))
     for tid, info in tickets_in(state, "spec"):
         out, hit = spec_lines(tid, info, refs_for(refs, tid))
         lines.extend(out)

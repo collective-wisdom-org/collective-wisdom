@@ -96,6 +96,26 @@ def test_changes_relayed_is_a_validated_record_the_script_never_clears(op, want)
 @pytest.mark.parametrize(
     "stage_now, op, want",
     [
+        ("build", set_(conflictHead=A), A),
+        ("awaiting-review", set_(conflictHead=None), None),
+        ("build", stage("awaiting-review", headSha=B), A),  # nothing but a set clears it
+        ("build", set_(conflictHead="abc"), "reject"),
+        ("build", set_(conflictHead=A.upper()), "reject"),  # not lower-case hex
+        ("build", set_(conflictHead={"head": A}), "reject"),
+    ],
+)
+def test_conflict_head_is_a_full_sha_the_script_never_clears(stage_now, op, want):
+    state = {"tickets": {"ABC-1": {"stage": stage_now, "headSha": A, "lastSeenAt": OLD, "status": "s", "conflictHead": A}}}
+    if want == "reject":
+        with pytest.raises(cos_state.Reject, match="conflictHead needs"):
+            cos_state.apply_ops(state, [op])
+    else:
+        assert cos_state.apply_ops(state, [op])[0]["tickets"]["ABC-1"]["conflictHead"] == want
+
+
+@pytest.mark.parametrize(
+    "stage_now, op, want",
+    [
         ("merge", set_(noApproval=True), True),
         ("blocked", set_(noApproval=True), True),
         ("awaiting-merge", set_(noApproval=True), "reject"),
