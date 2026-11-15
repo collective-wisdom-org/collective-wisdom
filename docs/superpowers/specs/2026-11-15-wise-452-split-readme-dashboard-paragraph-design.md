@@ -1,7 +1,8 @@
 # WISE-452: Split the README dashboard paragraph
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#452](https://github.com/collective-wisdom-org/collective-wisdom/issues/452)
+**Shipped:** in PR #453, as specified
 
 ## Goal
 
