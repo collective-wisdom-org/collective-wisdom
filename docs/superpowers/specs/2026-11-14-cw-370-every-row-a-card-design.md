@@ -1,6 +1,7 @@
 # CW-370: Show every dashboard row as a card
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #389, as specified
 **Ticket:** [#370](https://github.com/collective-wisdom-org/collective-wisdom/issues/370)
 **Overlaps:** CW-349, CW-350, CW-354, CW-357 and CW-369 edit the same row markup or `renderStatus`. Whoever builds second rebases on the others.
 
