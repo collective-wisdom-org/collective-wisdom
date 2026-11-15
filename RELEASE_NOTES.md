@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-15 drop left-Todo tickets from the dashboard lists and show their age (CW-355) (#381)
+
+Merged 2026-11-15 5:19 am UTC.
+
+A ticket the Chief of Staff starts, merges or drops now disappears from the dashboard's Todo and Backlog lists straight away. A list that was last read from the tracker over an hour ago now shows how old it is and its rows are greyed out. Linear and Jira repos only.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-15 keep dashboard ticket titles current (CW-348) (#379)
 
 Merged 2026-11-15 5:16 am UTC.
