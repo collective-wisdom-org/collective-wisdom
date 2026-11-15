@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 find a BUILD READY or MERGE READY soon after a child finishes, even when the finish notice is lost (CW-406) (#416)
+
+Merged 2026-11-15 8:20 am UTC.
+
+When a spec or build child finishes at `BUILD READY` or `MERGE READY` and T3's finish notice is lost, the Chief of Staff now finds it within about a minute and sends the approval request, instead of waiting for some other turn. Nothing to do on your side.
+
 ## 2026-11-15 reorder the dashboard tabs and add a Backlog tab count (CW-411) (#417)
 
 Merged 2026-11-15 8:17 am UTC.
