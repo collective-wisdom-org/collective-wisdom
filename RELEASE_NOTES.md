@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show a Todo or Backlog change on the dashboard right away (CW-347) (#356)
+
+Merged 2026-11-15 02:52 UTC.
+
+The dashboard now shows a ticket in Todo or Backlog within a few seconds of asking the Chief of Staff to move it, and shows a message when the Todo and Backlog lists cannot be read.
+
 ## 2026-11-15 make dashboard section headers stand out (CW-346) (#352)
 
 Merged 2026-11-15 02:33 UTC.
