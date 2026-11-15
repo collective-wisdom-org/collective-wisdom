@@ -1,7 +1,8 @@
 # WISE-439: Resolve a conflict instead of waiting for CI that cannot start
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#439](https://github.com/collective-wisdom-org/collective-wisdom/issues/439)
+**Shipped:** in PR #454, with differences: [as-built](../as-built/2026-11-15-wise-439-resolve-conflict-before-ci-wait-as-built.md)
 
 ## Goal
 
