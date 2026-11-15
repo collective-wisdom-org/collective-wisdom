@@ -57,3 +57,22 @@ def test_project_md_is_local_and_never_shipped():
     local = TOP / "docs" / "agents" / "project.md"
     assert local.is_file() and not local.is_symlink()
     assert not (ROOT / "docs" / "agents" / "project.md").exists()
+
+
+CORE_BUDGET = 18000
+
+
+def test_chief_of_staff_core_fits_the_compaction_budget():
+    """A /compact keeps only the first part of the skill. The Tick, Child path and Guardrails must fit in it."""
+    data = (ROOT / ".claude" / "skills" / "chief-of-staff" / "SKILL.md").read_bytes()
+    heading = lambda name: re.search(rb"^## " + name + rb"$", data, re.M)
+    tick, child, guard = (heading(n) for n in (b"Tick", b"Child path", b"Guardrails"))
+    assert tick and child and guard and tick.start() < child.start() < guard.start(), (
+        "chief-of-staff SKILL.md must have ## Tick, ## Child path and ## Guardrails in that order"
+    )
+    after = re.search(rb"^## ", data[guard.end() :], re.M)
+    core = guard.end() + after.start() if after else len(data)
+    assert core <= CORE_BUDGET, (
+        f"chief-of-staff SKILL.md core (top to the end of ## Guardrails) is {core} bytes, over {CORE_BUDGET}: "
+        "a /compact cuts the skill there. Move detail into a reference file; do not raise the limit."
+    )
