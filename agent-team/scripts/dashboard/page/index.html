@@ -143,9 +143,10 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .grow.sub { color:var(--muted); font-size:var(--t-small); }
 .grow.stale { color:var(--muted); }
 .grow.stale .track { opacity:.5; }
-.grow.gtotal, .grow.gciwait { grid-template-areas:"name dur cost"; }
+.grow.gtotal { grid-template-areas:"name dur cost"; }
 .grow.gtotal { font-weight:600; }
 .grow.gciwait.running .dur { color:var(--attn); }
+.grow.gciwait .bar { background:var(--accent); }
 .gnote { margin:var(--s1) 0 0; color:var(--muted); font-size:var(--t-small); }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .track { position:relative; height:var(--s2); background:var(--card); border-radius:6px; }
@@ -153,7 +154,7 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .bar.running { background:var(--attn); }
 @container (min-width: 36rem) {
   .grow { grid-template-columns:14rem minmax(0, 1fr) 5rem 4.5rem; grid-template-areas:"name track dur cost"; }
-  .grow.gtotal, .grow.gciwait { grid-template-areas:"name . dur cost"; }
+  .grow.gtotal { grid-template-areas:"name . dur cost"; }
 }
 </style>
 </head>

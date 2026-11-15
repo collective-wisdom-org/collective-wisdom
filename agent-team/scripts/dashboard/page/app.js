@@ -509,16 +509,28 @@ const rowTitle = ({ r, s, clockNow }) => {
   return [r.name, meta.join(' · '), s.cwd].join('\n')
 }
 
-/** The `CI wait` row: the merged length of the PR's CI spans [start, end|null], an open end running to `now`. Empty when there are no spans. */
-function ciRow(ci, now) {
-  const spans = (Array.isArray(ci) ? ci : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0])).map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
+/** The PR's CI spans [start, end, open] with an open end running to `now`; bad entries are dropped. */
+const ciSpansOf = (ci, now) =>
+  (Array.isArray(ci) ? ci : [])
+    .filter((p) => Array.isArray(p) && Number.isFinite(p[0]))
+    .map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
+
+/** The `CI wait` row: the merged length of the CI spans, one blue bar per merged span (`place(a, b)` gives its left and width in percent). Empty when there are no spans. */
+function ciRow(spans, place) {
   if (spans.length === 0) return ''
   const merged = union(spans)
   const open = merged.some((p) => p[2])
   const last = Math.max(...spans.map((p) => p[1]))
   const range = `${clock(Math.min(...spans.map((p) => p[0])))} to ${open ? 'now, running' : clock(last)}`
   const title = esc(`CI wait\n${spans.length} ${spans.length === 1 ? 'commit' : 'commits'} ran CI · ${range}`)
-  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
+  const bars = merged
+    .map(([a, b, o]) => {
+      const { left, width } = place(a, b)
+      const tip = esc(`CI wait\n${o ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
+      return `<span class="bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+    })
+    .join('')
+  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="track">${bars}</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
 }
 
 const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
@@ -534,14 +546,15 @@ export function renderGantt(sessions, now, ci) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
-  const wait = ciRow(ci, now)
-  // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
+  const ciSpans = ciSpansOf(ci, now)
+  // The axis is active time: the union of every working span and CI span, so a time maps to the axis ms before it and gaps with neither take no width. The total counts working spans only.
   const active = activeSpans(items)
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)
-  const scale = Math.max(1, total)
+  const axis = ciSpans.length ? union([...active, ...ciSpans]) : active
+  const scale = Math.max(1, axis.reduce((n, [a, b]) => n + (b - a), 0))
   const pos = (t) => {
     let before = 0
-    for (const [a, b] of active) {
+    for (const [a, b] of axis) {
       if (t >= b) before += b - a
       else {
         if (t > a) before += t - a
@@ -550,11 +563,15 @@ export function renderGantt(sessions, now, ci) {
     }
     return before
   }
+  const place = (a, b) => {
+    const left = Math.min(99, (pos(a) / scale) * 100)
+    return { left, width: Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100)) }
+  }
+  const wait = ciRow(ciSpans, place)
   const bars = (row, spans) =>
     union(spans)
       .map(([a, b, open]) => {
-        const left = Math.min(99, (pos(a) / scale) * 100)
-        const width = Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100))
+        const { left, width } = place(a, b)
         const running = open && !row.s.stale
         const range = running ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`
         const meta = [range, running ? '' : duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
