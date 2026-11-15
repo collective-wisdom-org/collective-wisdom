@@ -59,7 +59,8 @@ The pill is `aria-hidden` and the count is in `aria-label`, so a screen reader r
 ### Styling (`index.html`)
 
 - `.tabs .pill { background:var(--line); margin-left:var(--s1) }`, like `.seg .pill`, so the pill shows on the tab strip's `--soft` background. On the selected tab (`--card` background) `--line` still shows. Both colours already have dark-mode values.
-- The pill is `inline-block` with `vertical-align:.05em`, so it sits on the text line. At phone width the three tabs plus two short pills still fit; the build checks this at 360px and lets the strip wrap with `flex-wrap:wrap` only if they do not.
+- An empty pill (before the first poll) is hidden with `.tabs .pill:empty { display:none; }`.
+- The pill is `inline-block` with `vertical-align:.05em`, so it sits on the text line. At phone width the three tabs plus two short pills still fit; the strip is not changed.
 
 ### Tests (`app.test.js`)
 
