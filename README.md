@@ -203,6 +203,7 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
   With a Chief of Staff thread, they open that thread with `approve 402` or `changes 402: ` typed in the input; `Changes` waits for you to add what to change and press Send, and `Approve` presses Send for you: the dashboard server presses Return in T3 Code, so T3 sends the message as yours.
   That needs a one-time macOS permission: turn on T3 Code (or the app that started the dashboard) in System Settings > Privacy & Security > Accessibility, and allow it to control System Events under Automation when macOS asks.
   Until then, or when T3 Code is not the app in front when the press fires (about 1.2 seconds after the click), the draft stays in the thread, the page's error line says `Approve not sent` (or `Mark todo not sent`) and why, and you press Send.
+  Before pressing Return the server clicks the T3 message box (the cursor moves there and straight back) and checks that the cursor landed; if it can't, nothing is pressed, the error line says so, and you press Send.
   With no Chief of Staff thread, they copy the command and show `Copied`.
   The page never sends a message itself: `Approve` and `Mark todo` press Return in T3 Code, so T3 sends the message as yours.
   The press is a local `POST /press-return` that needs the page's own origin and a per-run token, and runs at most once every 3 seconds.
