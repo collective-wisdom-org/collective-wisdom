@@ -7,6 +7,7 @@ Usage:
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] apply < ops.json
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] prune
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] init
+    ~/.collective-wisdom/scripts/cos_state.py now [--iso]
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket). get prints
@@ -16,6 +17,11 @@ ticket, and writes through a temp file, fsync and os.replace under a flock on st
 next to the file. After either result, a start, merged or drop op also removes its ticket from the saved Todo and
 Backlog lists (tracker-lists.json next to the file, through cos_lists.remove) so the dashboard stops showing it; that
 never changes the output or the exit code. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
+now prints the current time as 2026-11-15 5:16 am UTC (--iso: 2026-11-15T05:16:00Z) and reads no state file; it is the only
+source of a clock time the Chief of Staff writes into a ticket comment.
+
+A status line takes its since time from the script: {since} in the text of a start, stage or set op becomes the ticket's
+stageAt as 2026-11-15 5:16 am UTC. A status with since followed by a digit before its first double quote (a hand-typed time) is rejected.
 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
@@ -36,7 +42,8 @@ Operations (each {"op": NAME, ...}):
     no-hands  set (a fresh No Hands run record, or drain, or endedAt with endReason). Only no_hands.py uses it; no other op writes "noHands".
 
 heldApproval ({"head", "itemId", "at"}: the user's approve N, held until a teammate approves) is allowed only
-in awaiting-review, must carry a full head, an itemId and an at, and its head must equal the ticket's headSha. A new headSha and a stage op to any other
+in awaiting-review, must carry a full head and an itemId, and its head must equal the ticket's headSha. The op sends head and itemId; the script
+stamps at, and an op that names at is rejected. A new headSha and a stage op to any other
 stage clear it; setting it in another stage is rejected.
 
 changesRelayed ({"head", "at"}: the head and time a reviewer's changes request was sent back to the child) may be
@@ -126,6 +133,12 @@ def now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def stamp_text(iso):
+    """2026-11-15 5:16 am UTC for an ISO time with a zone: the one clock-time format status lines and comments use."""
+    d = parse(iso).astimezone(timezone.utc)
+    return f"{d:%Y-%m-%d} {clock12(d)} UTC"
+
+
 def parse(s):
     try:
         return datetime.fromisoformat(s.replace("Z", "+00:00"))
@@ -173,11 +186,27 @@ def clean_title(val):
     return BAD_TITLE.sub(" ", val).strip()[:200]
 
 
+HAND_TIME = re.compile(r"since\s*\d")
+
+
+def fill_status(text, stage_at):
+    """Replace {since} with the stageAt time; reject a hand-typed since time before the first quote (a quoted line is left alone)."""
+    if not isinstance(text, str):
+        return text
+    if HAND_TIME.search(text.split('"', 1)[0]):
+        raise Reject("status: write since {since}, not a time; the script fills it from stageAt")
+    return text.replace("{since}", stamp_text(stage_at or now()))
+
+
 def merge_set(t, sets):
-    """t.update(sets), but a dict value for restarts merges into the existing counts."""
+    """t.update(sets), but a dict value for restarts merges into the existing counts and heldApproval gets its at stamped."""
     for k, val in sets.items():
         if k == "title":
             val = clean_title(val)
+        if k == "heldApproval" and isinstance(val, dict):
+            if "at" in val:
+                raise Reject("heldApproval at is stamped by the script")
+            val = {**val, "at": now()}
         if k == "restarts" and isinstance(val, dict) and isinstance(t.get(k), dict):
             t[k] = {**t[k], **val}
         else:
@@ -216,7 +245,7 @@ def check(t):
             isinstance(held, dict) and isinstance(held.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", held["head"])
             and held.get("itemId") and held.get("at")
         ):
-            raise Reject("heldApproval needs an object with a full head, itemId and at")
+            raise Reject("heldApproval needs an object with a full head and itemId")
         if held["head"] != t.get("headSha"):
             raise Reject("heldApproval head must equal the ticket's headSha")
 
@@ -231,13 +260,14 @@ def op_start(s, op):
         if t.get("childThreadId") != op["childThreadId"]:
             raise Reject(f"{tid} already exists with another childThreadId")
         return
+    stamp = now()
     s["tickets"][tid] = {
         "stage": "spec", "firstTaskId": op["firstTaskId"], "childThreadId": op["childThreadId"],
-        "parentThreadId": op["parentThreadId"], "status": op["status"],
+        "parentThreadId": op["parentThreadId"], "status": fill_status(op["status"], stamp),
         "branch": op.get("branch"), "title": title, "specPath": None, "specSha": None, "pr": None,
         "headSha": None, "rateLimitResumes": 0, "lastSeenAt": now(), "lastPosition": 0,
         "resumeStage": None, "pendingRelay": None, "approvalItemId": None, "queuedAt": None,
-        "restarts": {"spec": 0}, "note": "", "stageAt": now(),
+        "restarts": {"spec": 0}, "note": "", "stageAt": stamp,
     }
     s["lastRelayAt"] = now()
     run = s.get("noHands")
@@ -288,6 +318,7 @@ def op_stage(s, op):
     t.update(stage=new, status=op["status"])
     if new != old:
         t["stageAt"] = now()
+    t["status"] = fill_status(op["status"], t.get("stageAt"))
     if new in ACTIVE and (new != old or new_child):  # a continuation start keeps the lane
         s["lastRelayAt"] = now()
     if new.endswith("-queued") and (new != old or not t.get("queuedAt")):
@@ -309,6 +340,8 @@ def op_set(s, op):
         s["lastRelayAt"] = now()
     old_head, had_held = t.get("headSha"), bool(t.get("heldApproval"))
     merge_set(t, op["set"])
+    if "status" in op["set"]:
+        t["status"] = fill_status(op["set"]["status"], t.get("stageAt"))
     if t.get("headSha") != old_head and "heldApproval" not in op["set"]:
         t.pop("heldApproval", None)
     withdrawn = had_held and not t.get("heldApproval")  # the user's approve N no longer counts
@@ -656,7 +689,12 @@ def main(argv=None):
     sub.add_parser("apply")
     sub.add_parser("prune")
     sub.add_parser("init")
+    sub.add_parser("now").add_argument("--iso", action="store_true")
     a = ap.parse_args(argv)
+
+    if a.cmd == "now":
+        print(now() if a.iso else stamp_text(now()))
+        return 0
 
     if a.cmd == "init":
         if a.file.exists():

@@ -1,5 +1,6 @@
 import contextlib
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,8 @@ SPEC.loader.exec_module(cos_state)
 
 OLD = "2020-01-01T00:00:00Z"
 A, B = "a" * 40, "b" * 40
-HELD = {"head": A, "itemId": "m1", "at": OLD}
+HELD = {"head": A, "itemId": "m1"}  # what an op sends; the script adds at
+HELD_AT = {**HELD, "at": OLD}  # what the state file holds
 
 
 def stage(to, **sets):
@@ -39,12 +41,12 @@ def set_(**sets):
         ("awaiting-merge", None, set_(heldApproval=HELD), "reject: only belongs to awaiting-review", None),
         ("awaiting-merge", None, stage("awaiting-merge", heldApproval=HELD), "reject: only belongs to awaiting-review", None),
         # cleared by a head change, by a stage op to any other stage, and by the user's hold
-        ("awaiting-review", HELD, set_(headSha=B), "new", None),
-        ("awaiting-review", HELD, stage("awaiting-review", headSha=B), "new", None),
-        ("awaiting-review", HELD, stage("awaiting-merge", headSha=A), "kept", None),
-        ("awaiting-review", HELD, stage("build"), "kept", None),
-        ("awaiting-review", HELD, set_(heldApproval=None), "new", None),
-        ("awaiting-review", HELD, set_(note="n"), "kept", HELD),
+        ("awaiting-review", HELD_AT, set_(headSha=B), "new", None),
+        ("awaiting-review", HELD_AT, stage("awaiting-review", headSha=B), "new", None),
+        ("awaiting-review", HELD_AT, stage("awaiting-merge", headSha=A), "kept", None),
+        ("awaiting-review", HELD_AT, stage("build"), "kept", None),
+        ("awaiting-review", HELD_AT, set_(heldApproval=None), "new", None),
+        ("awaiting-review", HELD_AT, set_(note="n"), "kept", HELD),
     ],
 )
 def test_awaiting_review_stamp_and_held_approval(stage_now, held, op, stamp, want_held):
@@ -59,7 +61,7 @@ def test_awaiting_review_stamp_and_held_approval(stage_now, held, op, stamp, wan
     new, _, _ = cos_state.apply_ops(state, [op])
     got = new["tickets"]["ABC-1"]
     assert (got["lastSeenAt"] == OLD) == (stamp == "kept")
-    assert got.get("heldApproval") == want_held
+    assert {k: v for k, v in (got.get("heldApproval") or {}).items() if k != "at"} == (want_held or {})
     shown = cos_state.show(new).splitlines()
     assert f"awaiting-review={int(got['stage'] == 'awaiting-review')}" in shown[1]
     if got["stage"] == "awaiting-review":
@@ -249,6 +251,45 @@ def test_top_gantt_plugin_version_must_be_dotted_integers(value, ok):
     ops = [{"op": "top", "set": {"ganttPluginVersion": value}}]
     with pytest.raises(cos_state.Reject, match="ganttPluginVersion needs") if not ok else contextlib.nullcontext():
         assert cos_state.apply_ops({}, ops)[0]["ganttPluginVersion"] == value
+
+
+# the since time in a status is the ticket's stageAt, filled from {since}; a hand-typed one is rejected
+@pytest.mark.parametrize(
+    "op, ok",
+    [
+        ({**START, "status": "spec since {since}: x"}, True),
+        ({**stage("build"), "status": "build since {since}: x"}, True),
+        ({**stage("awaiting-merge"), "status": "awaiting-merge since {since}: x"}, True),  # same stage: the current stageAt
+        (set_(status="awaiting-merge since {since}: x"), True),
+        (set_(status='blocked: "stuck since 5 days"'), True),  # quoted words are left alone
+        ({**stage("build"), "status": "build since 5:20am: x"}, False),
+        (set_(status="awaiting-merge since 14:05: x"), False),
+    ],
+)
+def test_status_since_time_is_the_stage_at_stamp(op, ok):
+    state = {"tickets": {"ABC-1": {"stage": "awaiting-merge", "status": "s", "stageAt": OLD}}}
+    if not ok:
+        with pytest.raises(cos_state.Reject, match="write since {since}"):
+            cos_state.apply_ops(state, [op])
+        return
+    got = cos_state.apply_ops(state, [op])[0]["tickets"][op.get("ticket")]
+    assert got["status"] == (op.get("set") or op)["status"].replace("{since}", cos_state.stamp_text(got["stageAt"]))
+
+
+@pytest.mark.parametrize("given", [{}, {"at": OLD}])
+def test_held_approval_at_is_stamped_and_never_given(given):
+    state = {"tickets": {"ABC-1": {"stage": "awaiting-review", "headSha": A, "lastSeenAt": OLD, "status": "s"}}}
+    if given:
+        with pytest.raises(cos_state.Reject, match="at is stamped"):
+            cos_state.apply_ops(state, [set_(heldApproval={**HELD, **given})])
+    else:
+        assert cos_state.apply_ops(state, [set_(heldApproval=HELD)])[0]["tickets"]["ABC-1"]["heldApproval"]["at"] != OLD
+
+
+def test_now_prints_the_stamp_text_and_the_iso_form(capsys):
+    assert cos_state.main(["now"]) == 0 and re.fullmatch(r"\d{4}-\d\d-\d\d (1[0-2]|[1-9]):\d\d (am|pm) UTC", capsys.readouterr().out.strip())
+    assert cos_state.main(["now", "--iso"]) == 0 and cos_state.parse(capsys.readouterr().out.strip())
+    assert cos_state.stamp_text("2026-11-15T17:05:00Z") == "2026-11-15 5:05 pm UTC"
 
 
 def test_show_time_today_is_12_hour_without_a_space_and_other_days_stay_iso():

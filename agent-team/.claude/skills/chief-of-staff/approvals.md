@@ -64,7 +64,7 @@ Rules:
 - A `MERGE READY` that `cos_review_check.py --route` sends to `awaiting-review` (SKILL.md § Child path) gets the same block, with these differences:
   - The auto-approval check doesn't run yet. It runs when the ticket reaches `awaiting-merge` (sweep.md § Sweep, `approved` line).
   - The block gains `Waiting on: <names> (GitHub review)` under `Reviews:`, and its reply line reads `Reply "approve N" now and I'll merge once <names> approve this head, or "changes N: …".`
-  - The `awaiting-review` status line reads `awaiting-review since <time>: PR #N head <short>, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>. Risk: <Level> (<reason>).`
+  - The `awaiting-review` status line reads `awaiting-review since {since}: PR #N head <short>, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>. Risk: <Level> (<reason>).`
   - The block is not posted again when the teammate approves the same head; the sweep's reminder line is.
 - Post the full block once, in the first report after the marker. Post it again when the user asks (`status`, `where's <PREFIX>-N?`) and when a child re-reports after `changes N`. A new SHA means a new block.
 
@@ -122,4 +122,4 @@ An auto-approval still posts the whole block, so the user sees what went through
 
 ## Ticket comment on approval
 
-When you relay a spec or merge approval (commands.md § Commands), also `comment` on the ticket: `the user approved the <spec|merge> at <time>: "<words>". Head <sha>.` (the SHA for a merge only). For an auto-approval (§ Auto-approval) the comment is `auto-approved the <spec|merge> at <time> under <tolerance> (Risk: <Level> (<reason>)).`, with ` Head <sha>.` added for a merge. Under a No Hands run `<tolerance>` is `No Hands` and the `Risk:` part is as rated, or `unrated`. If send-or-queue.md § Send or queue queued the relay, end the comment with `Waiting for a <lane> slot.` Sending it later posts nothing more.
+When you relay a spec or merge approval (commands.md § Commands), also `comment` on the ticket (every `<time>` in these comments is the output of `python3 ~/.collective-wisdom/scripts/cos_state.py now`, run just before posting): `the user approved the <spec|merge> at <time>: "<words>". Head <sha>.` (the SHA for a merge only). For an auto-approval (§ Auto-approval) the comment is `auto-approved the <spec|merge> at <time> under <tolerance> (Risk: <Level> (<reason>)).`, with ` Head <sha>.` added for a merge. Under a No Hands run `<tolerance>` is `No Hands` and the `Risk:` part is as rated, or `unrated`. If send-or-queue.md § Send or queue queued the relay, end the comment with `Waiting for a <lane> slot.` Sending it later posts nothing more.
