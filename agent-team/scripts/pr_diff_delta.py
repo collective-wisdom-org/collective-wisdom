@@ -16,7 +16,15 @@ case), and is a regular file (mode 100644, or absent) on both sides. review_scop
 Exit 0, last line (full SHAs):
   pr-diff-delta: same since <reviewed> at <head>
   pr-diff-delta: docs since <reviewed> at <head>: <file>, ...   files differ and every one is a docs file (same file format as changed)
+  pr-diff-delta: living since <reviewed> at <head>: <file>, ... the head is the docs check's one fix commit on the reviewed head (see below); same file format
   pr-diff-delta: changed since <reviewed> at <head>: <file>, <file>, ... (quoted with repr; first 10, then "... N more")
+Living: when the result would be "changed", it is "living" instead if all of these hold (any failure to check gives "changed", never exit 2):
+  - `git rev-list --parents <reviewed>..<head>` is one commit, whose only parent is the reviewed head;
+  - its subject is exactly `docs: bring docs in line with <PREFIX>-<N>` (open-pr's docs check step 2);
+  - every differing file is a docs file, or a regular ASCII-named .md file that matches an entry on the `Living docs to search:` line of project.md's
+    `## Docs check` section as committed on origin/<target> (an entry ending in / matches any path under it, any other entry only that exact path)
+    and is not on the hands path (approval_policy.on_hands_path).
+
 Exit 2: bad arguments or a read failed. Last line: pr-diff-delta: cannot <what>
 Exit 2 means "could not tell": run the reviews.
 """
@@ -28,6 +36,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import approval_policy  # noqa: E402
 import project_config  # noqa: E402
 
 ROOT = root()
@@ -88,11 +97,51 @@ def raw_entries(sha, run):
     return entries
 
 
-def delta(reviewed, head, run):
-    """Return ("same", []), ("docs", files) or ("changed", files). Raises CmdError when it can't compare.
+def is_living(path, modes, entries):
+    """True for a regular ASCII-named .md file that matches a living-docs entry and is not on the hands path."""
+    exact = [e for e in entries if not e.endswith("/")]
+    under = [e for e in entries if e.endswith("/")]
+    named = path in exact or any(path.startswith(e) for e in under)
+    return (
+        named and path.isascii() and path.endswith(".md") and ".." not in path.split("/")
+        and all(m in REGULAR for m in modes) and not approval_policy.on_hands_path(path)
+    )
+
+
+def fix_commit(reviewed, head, prefix, run):
+    """True when head is one commit on top of reviewed, with the docs check's commit subject."""
+    commits = run(["git", "rev-list", "--parents", f"{reviewed}..{head}"]).splitlines()
+    if len(commits) != 1 or commits[0].split() != [head, reviewed]:
+        return False
+    subject = run(["git", "log", "-1", "--format=%s", head]).removesuffix("\n")
+    return re.fullmatch(re.escape(f"docs: bring docs in line with {prefix}-") + "[0-9]+", subject) is not None
+
+
+def modes_of(path, old, new):
+    """The modes of path at both heads; a head with no entry for it has it unchanged, so the other head's entry gives them."""
+    return [m for e in (old, new) if path in e for m in e[path][:2]]
+
+
+def living(shas, files, old, new, run, config):
+    """True when the move from shas[0] to shas[1] is the docs check's fix commit and changed only docs and living docs.
+
+    Fails closed: any problem reading or parsing gives False.
+    """
+    try:
+        found = config()
+        if not found or not fix_commit(*shas, found[0], run):
+            return False
+        return all(is_docs(p, modes_of(p, old, new)) or is_living(p, modes_of(p, old, new), found[1]) for p in files)
+    except (Exception, SystemExit):
+        return False
+
+
+def delta(reviewed, head, run, config=project_config.living_docs):
+    """Return ("same", []), ("docs", files), ("living", files) or ("changed", files). Raises CmdError when it can't compare.
 
     "docs": files differ and every differing file is a docs file on its modes at both heads. A head with no entry for a
-    file has it unchanged against its base there, so the other head's entry gives the modes. Expects origin/<target> and
+    file has it unchanged against its base there, so the other head's entry gives the modes. "living": see the module
+    docstring; `config` gives (prefix, living-docs entries) from origin/<target>, or None. Expects origin/<target> and
     both commits to be local already.
     """
     shas = [run(["git", "rev-parse", "--verify", f"{s}^{{commit}}"]).strip() for s in (reviewed, head)]
@@ -100,8 +149,9 @@ def delta(reviewed, head, run):
     files = sorted(p for p in old.keys() | new.keys() if old.get(p) != new.get(p))
     if not files:
         return "same", []
-    docs = all(is_docs(p, [m for e in (old, new) if p in e for m in e[p][:2]]) for p in files)
-    return ("docs" if docs else "changed"), files
+    if all(is_docs(p, modes_of(p, old, new)) for p in files):
+        return "docs", files
+    return ("living" if living(shas, files, old, new, run, config) else "changed"), files
 
 
 def main(argv, run=run):
