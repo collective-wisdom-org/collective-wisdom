@@ -44,11 +44,17 @@ export function pickFiledTicket(answer: string): string | null {
 const REQUEST_MARKER = /^The (?:user['\u2019]s request, verbatim|Chief of Staff['\u2019]s observation):/
 const REQUEST_LENGTH = 80
 
-/** The first non-empty line after the request marker of a ticket helper's task prompt, whitespace collapsed and cut to 80 characters, or null. */
+const WRITING_TICKET = /^Writing ticket:(.*)$/
+
+/** The title of a ticket helper's task prompt, whitespace collapsed and cut to 80 characters, or null. It is the text of a `Writing ticket:` line above the request marker, else the first non-empty line after the marker. A `Writing ticket:` line below the marker is the user's own text and is ignored. */
 export function pickRequest(text: string): string | null {
   const lines = text.split('\n')
   const marker = lines.findIndex(line => REQUEST_MARKER.test(line.trim()))
   if (marker === -1) return null
+  for (const raw of lines.slice(0, marker)) {
+    const described = WRITING_TICKET.exec(raw.trim())?.[1].replace(/\s+/g, ' ').trim()
+    if (described) return described.slice(0, REQUEST_LENGTH)
+  }
   for (const raw of lines.slice(marker + 1)) {
     const line = raw.replace(/\s+/g, ' ').trim()
     if (line !== '') return line.slice(0, REQUEST_LENGTH)
