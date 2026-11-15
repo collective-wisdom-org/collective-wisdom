@@ -43,22 +43,22 @@ def world(tmp_path):
 
 
 # A stub claude, by mode: "installed" lists agent-gantt at the clone's version, "older" at an older one, "ok" lists nothing and installs,
-# "fail" lists nothing and fails to install, "older-fail" lists an older one and fails to update. "missing" has no claude at all. It logs its arguments, one call per line, to claude.log beside HOME.
+# "fail" lists nothing and fails to install, "older-fail" lists an older one and fails to update. A list after an update ran shows the fourth STUBS entry. "missing" has no claude at all. It logs its arguments, one call per line, to claude.log beside HOME.
 STUB = """#!/bin/sh
 echo "$*" >> "$(dirname "$0")/claude.log"
 case "$1 $2" in
-  "plugin list") echo '{list}' ;;
+  "plugin list") if [ -e "$(dirname "$0")/updated" ]; then echo '{after}'; else echo '{list}'; fi ;;
   "plugin install") {install} ;;
-  "plugin update") {update} ;;
+  "plugin update") touch "$(dirname "$0")/updated"; {update} ;;
 esac
 """
 LISTED = '[{{"id":"agent-gantt@collective-wisdom","scope":"user","version":"{}"}}]'
-STUBS = {  # list output, install command, update command
-    "installed": (LISTED.format("0.1.12"), "exit 0", "exit 0"),
-    "older": (LISTED.format("0.1.11"), "exit 0", "exit 0"),
-    "older-fail": (LISTED.format("0.1.11"), "exit 0", 'echo "fetching" >&2; echo "network down" >&2; exit 1'),
-    "ok": ("[]", "exit 0", "exit 0"),
-    "fail": ("[]", 'echo "fetching" >&2; echo "network down" >&2; exit 1', "exit 0"),
+STUBS = {  # list output, install command, update command, list output after an update ran
+    "installed": (LISTED.format("0.1.12"), "exit 0", "exit 0", LISTED.format("0.1.12")),
+    "older": (LISTED.format("0.1.11"), "exit 0", "exit 0", LISTED.format("0.1.12")),
+    "older-fail": (LISTED.format("0.1.11"), "exit 0", 'echo "fetching" >&2; echo "network down" >&2; exit 1', LISTED.format("0.1.11")),
+    "ok": ("[]", "exit 0", "exit 0", "[]"),
+    "fail": ("[]", 'echo "fetching" >&2; echo "network down" >&2; exit 1', "exit 0", "[]"),
 }
 
 
@@ -78,7 +78,7 @@ def install(cw, home, *args, claude="installed"):
                     except OSError:
                         pass
     else:
-        (stub / "claude").write_text(STUB.format(list=STUBS[claude][0], install=STUBS[claude][1], update=STUBS[claude][2]))
+        (stub / "claude").write_text(STUB.format(list=STUBS[claude][0], install=STUBS[claude][1], update=STUBS[claude][2], after=STUBS[claude][3]))
         (stub / "claude").chmod(0o755)
     r = subprocess.run(["bash", str(cw / "install.sh"), *args], env={**os.environ, "HOME": str(home), "PATH": os.pathsep.join([str(stub), *path])}, capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
@@ -306,5 +306,5 @@ def test_agent_gantt_plugin_install(world, name, claude, flags, installed, updat
     assert (line is None) or line in out
     done, _, todos = out.partition("TODO:")
     assert (todo is None and not todos) or (todo in todos)
-    # the restart line comes after Done and before TODO, and only for an update that ran or would run
-    assert ("Restart Claude Code to load the updated agent-gantt plugin." in done.split("Done")[-1]) == (claude == "older" and changes == 1)
+    # the restart line comes after Done and before TODO, and only for an update that ran (not on a dry run)
+    assert ("Restart Claude Code to load the updated agent-gantt plugin." in done.split("Done")[-1]) == (claude == "older" and changes == 1 and not flags)

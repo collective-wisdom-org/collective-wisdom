@@ -6,7 +6,8 @@ Usage:
 
 Compares the user-scope `agent-gantt@collective-wisdom` entry of `claude plugin list --json` with the version in
 mods/agent-gantt/.claude-plugin/plugin.json of the clone this script sits in, and runs
-`claude plugin update agent-gantt --scope user` when the installed one is older. It never installs.
+`claude plugin update agent-gantt --scope user` when the installed one is older, then lists again: if the user-scope version reads and is
+still older than the clone's, the line is a todo. It never installs.
 A version reads only when it is dot-separated non-negative integers; versions compare part by part, a missing part as 0.
 The line is one of:
     gantt-plugin: no claude
@@ -14,7 +15,7 @@ The line is one of:
     gantt-plugin: left alone (<why>)
     gantt-plugin: current <installed>
     gantt-plugin: would update <old> -> <new>        (--dry-run)
-    gantt-plugin: updated <old> -> <new>
+    gantt-plugin: updated <old> -> <now>             (<now>: the version a second `claude plugin list` shows, else the clone's)
     gantt-plugin: todo <what to do by hand>
 """
 
@@ -64,6 +65,10 @@ def installed_entries():
     return [p for p in plugins if isinstance(p, dict) and p.get("id") == PLUGIN_ID]
 
 
+def user_entries():
+    return [e for e in installed_entries() or [] if e.get("scope") == "user"]
+
+
 def run_update():
     """None on success, else the reason, which is the last line of the output when there is one."""
     try:
@@ -100,7 +105,14 @@ def decide(dry_run):
     failed = run_update()
     if failed:
         return f"todo Update the agent-gantt plugin (the Gantt pane) by hand: {' '.join(UPDATE)} ({failed})"
-    return f"updated {have_text} -> {want_text}"
+    after = user_entries()  # the update can exit 0 and still leave the old version (a marketplace that is behind the clone)
+    now_text = after[0].get("version") if after else None
+    now = parse(now_text)
+    if now is None:
+        return f"updated {have_text} -> {want_text}"
+    if older(now, want):
+        return f"todo Update the agent-gantt plugin (the Gantt pane) by hand: {' '.join(UPDATE)} (it ran, but the installed version is still {now_text})"
+    return f"updated {have_text} -> {now_text}"
 
 
 def main():

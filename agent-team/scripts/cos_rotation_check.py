@@ -18,8 +18,8 @@ provider missing from it, or a missing chiefProvider, is none). On none the chec
 `reset` marker in state younger than 10 minutes ("ok (held: reset)"); an older marker does not hold and a trigger
 then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset",
 "rotate: skill changed aaaaaaa..bbbbbbb; mode reset" or "rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode reset".
-The plugin trigger reads only mods/agent-gantt/.claude-plugin/plugin.json of the clone (never runs claude) and compares its version
-with ganttPluginVersion in state. It works like the skill change (merge target branch, quiet turn; otherwise
+The plugin trigger reads only mods/agent-gantt/.claude-plugin/plugin.json of the clone (never runs claude) and fires when its version
+is newer than ganttPluginVersion in state (gantt_plugin.py's compare; an equal or older clone does not fire). It works like the skill change (merge target branch, quiet turn; otherwise
 "ok (plugin change waits: <why>)"); a skill change on the same turn wins the line. It is off when ganttPluginVersion is null or
 not dot-separated integers, when the clone's version does not read, and on mode none.
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
@@ -50,6 +50,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from gantt_plugin import older, parse  # noqa: E402
 
 HERE = Path(__file__).absolute().parent
 # The clone's agent-team/ folder, through any ~/.collective-wisdom link. SKILL_PATHS and their history live here, not in the app.
@@ -79,7 +80,6 @@ RESET_HOLD_MIN = 10
 # Reset mode per provider (T3's providerInstanceId, as chiefProvider.provider in state holds it): reset, reset-scheduled,
 # compact or none. A provider missing here is none. Change together with docs/compatibility.md's "Context reset (rotation check)" row.
 RESET_MODES = {"claudeAgent": "reset"}
-VERSION = re.compile(r"\d+(\.\d+)*")
 PLUGIN_JSON = "mods/agent-gantt/.claude-plugin/plugin.json"
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",
@@ -140,7 +140,7 @@ def plugin_version():
         v = json.loads((TEAM.parent / PLUGIN_JSON).read_text()).get("version")
     except (OSError, ValueError, AttributeError):
         return None
-    return v if isinstance(v, str) and VERSION.fullmatch(v) else None
+    return v if parse(v) is not None else None
 
 
 def mode_for(state):
@@ -176,7 +176,8 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP, plugin=None):
     waits = None
     if branch == project_config.target_branch():
         stored = state.get("ganttPluginVersion")
-        plugin_new = bool(plugin) and isinstance(stored, str) and VERSION.fullmatch(stored) and stored != plugin
+        have, want = parse(stored), parse(plugin)
+        plugin_new = have is not None and want is not None and older(have, want)
         if (old and commit != old) or plugin_new:
             why = quiet_wait(state, now)
             if old and commit != old:

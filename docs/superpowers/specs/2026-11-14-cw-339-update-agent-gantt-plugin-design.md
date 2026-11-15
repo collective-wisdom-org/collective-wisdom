@@ -39,17 +39,19 @@ A new `agent-team/scripts/gantt_plugin.py` holds the compare and update, so `ins
 | Installed equal to or newer than the clone | `gantt-plugin: current <installed>` |
 | The clone's version does not read | `gantt-plugin: todo Check the agent-gantt plugin version by hand: mods/agent-gantt/.claude-plugin/plugin.json in <clone> has no readable version, so it is unknown whether  claude plugin update agent-gantt --scope user  is needed.` |
 | Installed older, `--dry-run` | `gantt-plugin: would update <old> -> <new>` |
-| Installed older, update succeeds | `gantt-plugin: updated <old> -> <new>` |
+| Installed older, update succeeds, and a second list shows the user-scope version at the clone's or newer | `gantt-plugin: updated <old> -> <actual>` (`<actual>` is the version the second list shows) |
+| Installed older, update succeeds, but the second list shows the user-scope version still older than the clone's | `gantt-plugin: todo Update the agent-gantt plugin (the Gantt pane) by hand: claude plugin update agent-gantt --scope user (it ran, but the installed version is still <actual>)` |
+| Installed older, update succeeds, and the second list does not read (fails, not an array, no user entry, or a version that does not read) | `gantt-plugin: updated <old> -> <new>` (the clone's version) |
 | Installed older, update fails | `gantt-plugin: todo Update the agent-gantt plugin (the Gantt pane) by hand: claude plugin update agent-gantt --scope user (it failed: <last line of output>)`, or `(it failed)` with no output |
 
-A version reads only when it is dot-separated non-negative integers (`0.1.12`, `1.0`); versions compare part by part as numbers, with missing parts as 0. The update runs `claude plugin update agent-gantt --scope user` with stdin from `/dev/null` and a 120 s timeout (a timeout is a failure). The script never installs: `install.sh` keeps its install step.
+A version reads only when it is dot-separated non-negative integers (`0.1.12`, `1.0`); versions compare part by part as numbers, with missing parts as 0. The update runs `claude plugin update agent-gantt --scope user` with stdin from `/dev/null` and a 120 s timeout (a timeout is a failure). After a successful update it lists again and reads the user-scope version, because an update can exit 0 and leave the old version (a marketplace that is behind the clone). The script never installs: `install.sh` keeps its install step.
 
 ### 2. `install.sh`
 
 The plugin block runs `python3 -I "$ROOT/agent-team/scripts/gantt_plugin.py"` (with `--dry-run` in a dry run) and acts on the line:
 
 - `no claude`, `not installed`: as today (the to-do, or the install).
-- `updated` / `would update`: print `update  agent-gantt plugin <old> -> <new> (claude plugin update, user scope)` and count one change. The summary after `Done: ...` (before `TODO:`) adds `Restart Claude Code to load the updated agent-gantt plugin.`
+- `updated` / `would update`: print `update  agent-gantt plugin <old> -> <new> (claude plugin update, user scope)` and count one change. After a real update (`updated`), the summary after `Done: ...` (before `TODO:`) adds `Restart Claude Code to load the updated agent-gantt plugin.` A dry run prints no restart line, because nothing was updated.
 - `todo <text>`: add `<text>` to the to-dos. The run goes on.
 - `current`, `left alone`, or any other line: nothing.
 
@@ -59,7 +61,7 @@ The inline Python that reads `claude plugin list` moves into the script.
 
 A new state key, `ganttPluginVersion`: the agent-gantt version this Chief of Staff session runs. `cos_state.py` accepts a string of dot-separated integers or `null` for it, and rejects anything else.
 
-- **Rotation trigger.** `cos_rotation_check.py` reads the clone's mod version (a file read; it never runs `claude`, so the Stop hook stays fast). When `ganttPluginVersion` is set, the clone's version reads and differs from it, and the branch is the merge target branch, it works like the skill change: on a quiet turn `rotate: agent-gantt plugin <old> -> <new>; mode <mode>`, otherwise `ok (plugin change waits: <why>)`. A skill change on the same turn wins the line. `null`, an unreadable stored value or an unreadable clone version turns the trigger off with no line of its own. On mode `none` it does nothing (the plugin is Claude Code only).
+- **Rotation trigger.** `cos_rotation_check.py` reads the clone's mod version (a file read; it never runs `claude`, so the Stop hook stays fast). When `ganttPluginVersion` is set, the clone's version reads and is newer than it (the same part-by-part compare as `gantt_plugin.py`, shared from there; an equal or older clone does not fire, so a stale clone or a rollback does not reset the thread), and the branch is the merge target branch, it works like the skill change: on a quiet turn `rotate: agent-gantt plugin <old> -> <new>; mode <mode>`, otherwise `ok (plugin change waits: <why>)`. A skill change on the same turn wins the line. `null`, an unreadable stored value or an unreadable clone version turns the trigger off with no line of its own. On mode `none` it does nothing (the plugin is Claude Code only).
 - **Update before the reset.** In `rotation.md`'s Reset, a new first step for every reset reason: run `python3 ~/.collective-wisdom/scripts/gantt_plugin.py`. On `todo <text>` add a Cleanup line `agent-gantt plugin: <text>`; the reset goes on whatever it prints. The fresh session that the reset starts then loads the updated plugin.
 - **Take over.** Take over step 1 (and resume mode, which runs it) also runs `gantt_plugin.py`. Step 4 saves `ganttPluginVersion`: the `<installed>` from `current`, or the `<old>` from `updated <old> -> <new>` (this session loaded the old one, so the next quiet turn resets to load the new one, and that reset's pre-step finds it current), or `null` for any other line. A `todo` line becomes a Cleanup line, as in the reset.
 - `state-keys.md` gets the `ganttPluginVersion` bullet, and `rotation.md`'s trigger table gets a Plugin change row.
@@ -85,7 +87,7 @@ So a merge that bumps the mod reaches a running Chief of Staff on its next quiet
 - Updating a project- or local-scope install: `install.sh` installs at user scope only, so only that one is updated.
 - Rerunning all of `install.sh` from the Chief of Staff, for example to link a new skill name after a merge. Only the plugin is updated.
 - Restarting child threads that are already running: they keep the plugin they loaded until they end.
-- Checking after the update that the installed version reached the clone's.
+- Checking that the installed version reached the clone's beyond one more `claude plugin list` right after the update: no retry and no later check.
 - Pre-release or build suffixes (`0.2.0-beta`): they don't read, so the plugin is left alone. The mod has never used them.
 - Cursor and Codex Chief of Staff threads: they don't run Claude Code plugins and don't reset.
 
@@ -94,10 +96,11 @@ So a merge that bumps the mod reaches a running Chief of Staff on its next quiet
 - **A running Chief of Staff resets its own context to load the new plugin.** A plugin loads at session start, so updating it in place leaves the running session on the old one. I reuse the skill-change reset (the same quiet-turn rule), and the update runs just before the reset sends its message. I have not seen a `freshContext: true` reset load a newly updated plugin; the build checks it on this machine, and the PR lists it under Not proven if it can't.
 - **The Stop hook never runs `claude`.** The rotation check only reads the clone's plugin.json and compares it with state; `claude plugin list` and the update run in the reset and the take over, which happen at most once per reset.
 - **A take-over that had to update records the old version**, so the next quiet turn resets once more to load the new one. This covers `start the team` and resume, which don't go through the reset's pre-step.
-- **The update source is the marketplace.** On this machine the marketplace is the root checkout folder, so the update lands the clone's version. On a machine whose marketplace is GitHub, an update from a clone ahead of `main` can land an older version; the next check tries again. No check runs afterwards.
+- **The update source is the marketplace.** On this machine the marketplace is the root checkout folder, so the update lands the clone's version. On a machine whose marketplace is GitHub, an update from a clone ahead of `main` can land an older version. The script lists once more after a successful update; if the version it reads is still older than the clone's, it prints the to-do with the version still installed instead of claiming `updated`. If that second list does not read, it keeps the clone's version in the line. The next check tries again.
 - **"Unreadable version" splits two ways.** The ticket lists it both as a to-do and as left alone. An unreadable installed version is left alone (the ticket's Scope line says so); an unreadable clone version is a to-do, because that file is ours.
 - **Only a user-scope entry is compared.** A project-scope-only entry still counts as installed and is left alone, since `--scope user` would fail on it.
-- **The restart line in `install.sh` goes after the Done count, not under TODO**, so a clean update shows no to-do. A dry run counts the update as a change, as it counts the install today.
+- **The restart line in `install.sh` goes after the Done count, not under TODO**, so a clean update shows no to-do. A dry run counts the update as a change, as it counts the install today, but prints no restart line.
+- **The plugin trigger fires only when the clone is newer than the stored version.** A difference in either direction used to rotate; a clone behind the stored version (a rollback, a stale checkout) would then reset the thread for nothing.
 - **Versions compare as dotted integers with missing parts as 0**; anything else doesn't read.
 
 Touches: none of these (data, money, auth, user email, migrations). It changes `install.sh`, the chief-of-staff skill, `cos_rotation_check.py` and `cos_state.py`, which are on the approval and hands paths.

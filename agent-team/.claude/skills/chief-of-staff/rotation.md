@@ -18,7 +18,7 @@ It prints one line and exits 0: `rotate: <reason>; mode <reset|reset-scheduled|c
 |---|---|
 | Size | context is 220k or more (ignores the quiet-turn rule) |
 | Skill change | the current skill commit differs from `skillCommit` in state (only on the merge target branch) **and** the turn is quiet (below). A `null` `skillCommit` prints `ok; set skillCommit <sha>`; one that is not a full sha prints `ok; skillCommit is not a full sha; set skillCommit <sha>`. Save the sha, don't reset |
-| Plugin change | `ganttPluginVersion` in state differs from the version in the clone's `mods/agent-gantt/.claude-plugin/plugin.json` (a file read; the check never runs `claude`), on the merge target branch **and** a quiet turn. A skill change on the same turn wins the line. Off when either version is `null` or unreadable, and on mode `none` |
+| Plugin change | the version in the clone's `mods/agent-gantt/.claude-plugin/plugin.json` is newer than `ganttPluginVersion` in state (a file read; the check never runs `claude`), on the merge target branch **and** a quiet turn. A skill change on the same turn wins the line. Off when either version is `null` or unreadable, and on mode `none` |
 
 A turn is quiet when no ticket is in a `*-queued` stage, `lastRelayAt` is absent or 10 or more minutes old, and `lastResetAt` is absent or 60 or more minutes old. A skill or plugin change on a turn that isn't quiet prints `ok (skill change waits: <why>)` or `ok (plugin change waits: <why>)`, `<why>` being `queued <PREFIX>-N`, `relay <N>m ago` or `reset <N>m ago`. Do nothing: the first quiet turn resets (now, if the size trigger also fires).
 

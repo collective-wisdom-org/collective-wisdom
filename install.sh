@@ -306,7 +306,8 @@ machine_install() {
       fi ;;
     "gantt-plugin: updated "*|"gantt-plugin: would update "*)
       versions="${line#gantt-plugin: updated }"; versions="${versions#gantt-plugin: would update }"
-      msay "update  agent-gantt plugin $versions (claude plugin update, user scope)"; MCHANGED=$((MCHANGED + 1)); GANTT_RESTART=1 ;;
+      msay "update  agent-gantt plugin $versions (claude plugin update, user scope)"; MCHANGED=$((MCHANGED + 1))
+      [ "$DRY" -eq 1 ] || GANTT_RESTART=1 ;;
     "gantt-plugin: todo "*) MTODOS+=("${line#gantt-plugin: todo }") ;;
   esac
 

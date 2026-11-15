@@ -82,6 +82,10 @@ PLUGIN_WAITS = "ok (plugin change waits: "
         ({**GANTT, "ganttPluginVersion": "v1"}, -50_000, OLD, "main", "ok context="),
         ({**GANTT, "plugin": None}, -50_000, OLD, "main", "ok context="),
         ({"plugin": "0.1.13"}, -50_000, OLD, "main", "ok context="),
+        # the stored version is newer than the clone's (a pull behind, a rollback): no rotation; an older stored one rotates
+        ({**GANTT, "ganttPluginVersion": "0.1.14"}, -50_000, OLD, "main", "ok context="),
+        ({**GANTT, "ganttPluginVersion": "0.1.9"}, -50_000, OLD, "main", "rotate: agent-gantt plugin 0.1.9 -> 0.1.13; mode reset"),
+        ({**GANTT, "ganttPluginVersion": "0.2"}, -50_000, OLD, "main", "ok context="),  # compared as numbers, not text
     ],
 )
 def test_decide(cap, state, context_over_cap_by, commit, branch, want):
@@ -329,7 +333,7 @@ def test_skill_commit_follows_the_clone_not_the_app(tmp_path):
     run = _repo(clone)
     scripts = clone / "agent-team" / "scripts"
     scripts.mkdir()
-    for f in ("cos_rotation_check.py", "app_root.py", "project_config.py"):
+    for f in ("cos_rotation_check.py", "app_root.py", "project_config.py", "gantt_plugin.py"):
         (scripts / f).write_text((Path(__file__).with_name(f)).read_text())
     run("add", "-A")
     run("commit", "-qm", "one")
