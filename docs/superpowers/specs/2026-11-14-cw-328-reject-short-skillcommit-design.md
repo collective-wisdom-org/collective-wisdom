@@ -1,6 +1,7 @@
 # CW-328: Reject a short skillCommit and report a mismatch on its own line
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #337, as specified
 **Ticket:** [#328](https://github.com/collective-wisdom-org/collective-wisdom/issues/328)
 
 ## Goal
