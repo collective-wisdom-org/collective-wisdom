@@ -89,16 +89,7 @@ export const stageSentence = (stage) => {
   const s = String(stage ?? '')
   return STAGE_SENTENCES.get(s) ?? stageWords(s)
 }
-/** Stages whose card sits under a section that already names them, so the card draws no status line. */
-const SECTION_STAGES = new Set(['build', 'build-queued', 'spec', 'spec-queued', 'merge', 'merge-queued'])
-
-/** `waiting 3h 16m`: the time since `stageAt`, rounded down, two units at most (`<1m`, `42m`, `3h 16m`, `3d 4h`); empty when `stageAt` is missing or does not parse. */
-export function waitText(stageAt, now) {
-  const at = stageAt ? Date.parse(stageAt) : NaN
-  return Number.isNaN(at) ? '' : `waiting ${ageWords(at, now)}`
-}
-
-/** The time since `at` (ms), in the words of `waitText`: `<1m`, `42m`, `3h 16m`, `3d 4h`. */
+/** The time since `at` (ms), in words, two units at most: `<1m`, `42m`, `3h 16m`, `3d 4h`. */
 function ageWords(at, now) {
   const m = Math.max(0, Math.floor((now - at) / 60_000))
   const units = (big, bigUnit, rest, restUnit) => `${big}${bigUnit}${rest ? ` ${rest}${restUnit}` : ''}`
@@ -125,7 +116,6 @@ export function dayWords(ms, now) {
 const ACTIONS = new Map([
   ['awaiting-merge', ['Open PR', 'prUrl']],
   ['awaiting-build', ['Open spec', 'specUrl']],
-  ['blocked', ['Open issue', 'issueUrl']],
 ])
 /** The one action a ticket that needs the user offers, or null when the stage has none or its url is not http(s). */
 export function actionFor(r) {
@@ -276,7 +266,10 @@ export function renderDetails(r, now) {
 /** The copy glyph: two overlapping rounded rectangles, drawn in the button's text color. */
 const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"/></svg>'
 
-const copyButton = (l) => (l ? `<button type="button" class="copy-icon" data-copy="${esc(l)}" aria-label="Copy thread link" title="Copy thread link">${COPY_ICON}</button>` : '')
+/** The thread glyph: a speech bubble, drawn before the copy glyph on a ticket card so the button reads as the thread's link. */
+const THREAD_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 3.5A1.5 1.5 0 0 1 4 2h8a1.5 1.5 0 0 1 1.5 1.5v6A1.5 1.5 0 0 1 12 11H7l-3 2.5V11A1.5 1.5 0 0 1 2.5 9.5z"/></svg>'
+
+const copyButton = (l, { thread = false } = {}) => (l ? `<button type="button" class="copy-icon${thread ? ' with-thread' : ''}" data-copy="${esc(l)}" aria-label="Copy thread link" title="Copy thread link">${thread ? THREAD_ICON : ''}${COPY_ICON}</button>` : '')
 const viewOf = (id, open, info) => (open.has(id) ? 'agents' : info.has(id) ? 'details' : '')
 
 /**
@@ -308,41 +301,58 @@ export const summaryLine = (gantt, now) => {
   return metaLine([duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
 }
 
+/** `approve 402` (or `changes 402: ` with `kind` `changes`) for a ticket waiting on the user to approve a merge or a build; null for any other stage or an id with no number. */
+export function approveCommand(r, kind = 'approve') {
+  if (r?.stage !== 'awaiting-merge' && r?.stage !== 'awaiting-build') return null
+  const n = /-(\d+)$/.exec(String(r.id))?.[1]
+  return n ? (kind === 'changes' ? `changes ${n}: ` : `approve ${n}`) : null
+}
+
+const THREAD_LINK = /^<t3-thread:\/\/v2\/([A-Za-z0-9:._%-]+)\/([A-Za-z0-9:._%-]+)>$/
+
+/** `t3code://threads/ENV/THREAD?prompt=TEXT`, which T3 opens as an unsent draft in that thread; built from the dashboard's `<t3-thread://v2/ENV/THREAD>` link. Null when the link is missing or not that shape. */
+export function promptLink(chiefLink, text) {
+  const m = typeof chiefLink === 'string' ? THREAD_LINK.exec(chiefLink) : null
+  return m ? `t3code://threads/${m[1]}/${m[2]}?prompt=${encodeURIComponent(text)}` : null
+}
+
+/** The Approve and Changes controls: a link that opens the Chief of Staff thread with the command typed in, or, with no thread link, a button that copies the command. */
+function approveControls(r, chiefLink) {
+  return [['approve', 'Approve'], ['changes', 'Changes']]
+    .map(([kind, label]) => {
+      const text = approveCommand(r, kind)
+      if (text === null) return ''
+      const href = promptLink(chiefLink, text)
+      return href ? `<a class="approve" href="${esc(href)}">${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
+    })
+    .join('')
+}
+
 /**
- * One ticket as a card (`li.ticket`). Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
- * A card is the ticket number and title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
- * A compact card is the title and one footer with the control and the meta line; a blocked flat row is laid out as a full card so it can say why and offer its action. A row from the tracker's Todo list has no stage or risk, and carries `stale` when that list is old, which greys it.
- * Every card starts with its ticket number, then the title, and carries `Spec` and `PR` links in its meta line when it has them. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
+ * One ticket as a card (`li.ticket`), the same three rows for every card. Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
+ * Top row: the ticket number, the title and the thread copy button. Middle row (only when it has something): the `Open PR` or `Open spec` link and the Approve and Changes controls.
+ * Bottom row: the Agents and Details control, then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
+ * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
-function ticket(r, { flat, attn, group, open, info }) {
+function ticket(r, { flat, attn, group, open, info, chiefLink }) {
   const blocked = r.stage === 'blocked'
   const risk = riskText(r.risk)
   const action = actionFor(r)
   const compact = flat && !blocked
-  const phrase = compact && r.stage ? (group === 'Waiting to spec' ? stageSentence(r.stage) : '') : ''
+  const phrase = r.stage && (group === 'Waiting to spec' || group === 'Other') ? stageSentence(r.stage) : ''
+  const summary = summaryLine(r.gantt, Date.now())
   const meta = metaLine([
     risk && (risk.level ? `<span class="badge risk risk-${risk.level}">${esc(risk.text)}</span>` : `<span class="risk-none">${esc(risk.text)}</span>`),
     r.helper ? '' : specSpan(r.specUrl),
     r.helper ? '' : prSpan(r.prUrl),
+    summary && `<span class="summary" data-ticket="${esc(r.id)}">${esc(summary)}</span>`,
     phrase && esc(phrase),
   ])
-  const summary = summaryLine(r.gantt, Date.now())
   const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
   const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
-  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink))
-  if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
-  const status = r.stage && !SECTION_STAGES.has(r.stage) ? stageSentence(r.stage) : ''
-  const waiting = String(r.stage).startsWith('awaiting-')
-  const wait = waiting ? waitText(r.stageAt, Date.now()) : ''
-  const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(localTimes(r.next))}</p>` : ''
-  return `<li class="${cls}">
-  ${head}
-  <div class="meta">${meta}</div>
-  ${status ? `<p class="status">${esc(status)}</p>` : ''}
-  ${note}
-  ${action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : ''}
-  <div class="foot">${sw.control}${summary ? `<span class="summary" data-ticket="${esc(r.id)}">${esc(summary)}</span>` : ''}</div>${sw.panels}
-</li>`
+  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink, { thread: true }))
+  const actions = (action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : '') + approveControls(r, chiefLink)
+  return `<li class="${cls}">\n  ${head}\n  ${actions ? `<div class="actions">${actions}</div>\n  ` : ''}<div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
 }
 
 /** Page count and the clamped 0-based page `at` for a list of `length` rows; a non-number page is 0. */
@@ -353,8 +363,8 @@ export function pageOf(length, page, size) {
 
 const BACKLOG_PAGE = 10
 
-/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). The Backlog group is not drawn here; `renderBacklog` draws it on its own tab. */
-export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set()) {
+/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `chiefLink` is the Chief of Staff thread link the Approve controls open. The Backlog group is not drawn here; `renderBacklog` draws it on its own tab. */
+export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), chiefLink = '') {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   const html = BANDS.map((band) => {
     const mine = groups.filter((g) => band.has(g.name))
@@ -362,7 +372,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const flat = band.flat === true
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
+        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info, chiefLink })).join('\n')
         // A Todo list read from the tracker over an hour ago says how old it is; its rows carry `stale` and grey themselves.
         const age = g.stale === true && Number.isFinite(g.readAt) ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
         return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul></details>`
@@ -804,11 +814,6 @@ if (typeof document !== 'undefined') {
       const text = summaryLine(rows.get(span.dataset.ticket)?.gantt, now)
       if (text && span.textContent !== text) span.textContent = text
     }
-    // The waiting counter counts up from stageAt; write it only when the text changed (once a minute).
-    for (const t of document.querySelectorAll('.wait[data-ticket] time')) {
-      const text = waitText(t.getAttribute('datetime'), now)
-      if (text && t.textContent !== text) t.textContent = text
-    }
     fill('.info-body[data-merged]', new Map(last.merged.map((e) => [e.id, e])), shownMergedInfo)
   }
   // The merged list is redrawn only when its html changed (compared with every chart and Details closed, so opening one is not a change), so a poll keeps the page and any selection.
@@ -872,7 +877,7 @@ if (typeof document !== 'undefined') {
   const drawStatus = () => {
     if (!last) return
     backlogPage = pageOf(last.status.find((g) => g.name === 'Backlog')?.rows.length ?? 0, backlogPage, BACKLOG_PAGE).at
-    const json = JSON.stringify([last.status, backlogPage], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
+    const json = JSON.stringify([last.status, backlogPage, last.chief?.threadLink], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
     if (json === shownStatus) return
     shownStatus = json
     const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-ticket][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.ticket))
@@ -880,7 +885,7 @@ if (typeof document !== 'undefined') {
     const info = opened('details')
     shownInfo.clear()
     const collapsed = readCollapsed()
-    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info)
+    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info, last.chief?.threadLink)
     document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
