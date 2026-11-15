@@ -1,6 +1,7 @@
 # CW-394: Show the PR link on the dashboard card as soon as the PR is opened
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #409, as specified
 **Ticket:** [#394](https://github.com/collective-wisdom-org/collective-wisdom/issues/394)
 
 ## Goal
