@@ -334,21 +334,27 @@ function approveControls(r, chiefLink) {
       const href = promptLink(chiefLink, text)
       const press = kind === 'approve' && href
       const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
-      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text.slice('approve '.length))}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
+      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text)}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
 }
 
 const PRESS_MESSAGES = {
-  'not-frontmost': 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.',
-  permission: 'Approve not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.',
+  'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.`,
+  permission: (action) => `${action} not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.`,
+  busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
 
-/** The line for the error area after Approve asked the server to press Return: empty when it was sent, or when a second click on the same ticket came inside the wait (`repeat`), else the reason in words. `answer` is the server's JSON, or null when the request failed. */
-export function pressMessage(answer, repeat = false) {
+/** The name of the control that sent `command` (the `data-return` value): `Mark todo` for `mark N todo`, else `Approve`. */
+export function pressAction(command) {
+  return String(command).startsWith('mark ') ? 'Mark todo' : 'Approve'
+}
+
+/** The line for the error area after Approve or Mark todo asked the server to press Return: empty when it was sent, or when a second click on the same command came inside the wait (`repeat`), else the reason in words, starting with `action`. `answer` is the server's JSON, or null when the request failed. */
+export function pressMessage(answer, repeat = false, action = 'Approve') {
   if (answer?.sent === true || (answer?.reason === 'busy' && repeat)) return ''
-  if (answer?.reason === 'busy') return 'Approve not sent: another Approve was still being sent. Press Send in the Chief of Staff thread.'
-  return (typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : '') || 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
+  const line = typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : null
+  return line ? line(action) : `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.`
 }
 
 /** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */
@@ -362,7 +368,8 @@ function todoControl(r, chiefLink) {
   const text = todoCommand(r)
   if (text === null) return ''
   const href = promptLink(chiefLink, text)
-  return href ? `<a class="todo" href="${esc(href)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
+  const title = `Opens the Chief of Staff thread with "${text}" typed in and presses Send for you. If it can't, press Send.`
+  return href ? `<a class="todo" href="${esc(href)}" title="${esc(title)}" data-return="${esc(text)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
 }
 
 /**
@@ -939,22 +946,22 @@ if (typeof document !== 'undefined') {
     }
   }
   const seen = versionWatch()
-  // The Approve press message stays in the error line until the next Approve click or a reload.
+  // The press message for Approve or Mark todo stays in the error line until the next press or a reload.
   let pressNote = ''
   const showError = () => {
     document.getElementById('error').textContent = [last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' ')
   }
-  let pressedTicket = null
-  const pressReturn = async (ticket) => {
-    const repeat = ticket === pressedTicket
-    pressedTicket = ticket
+  let pressedCommand = null
+  const pressReturn = async (command) => {
+    const repeat = command === pressedCommand
+    pressedCommand = command
     pressNote = ''
     let answer = null
     try {
       const res = await fetch('/press-return', { method: 'POST', headers: { 'X-Dashboard-Token': document.querySelector('meta[name="dashboard-token"]')?.content ?? '' } })
       answer = await res.json()
     } catch {}
-    pressNote = pressMessage(answer, repeat)
+    pressNote = pressMessage(answer, repeat, pressAction(command))
     showError()
   }
   const poll = async () => {
