@@ -2,7 +2,8 @@
 # Wait for a PR's CI checks and print a last line the caller can check.
 # Usage: ~/.collective-wisdom/scripts/wait-for-ci.sh <PR number>
 # Exit 0: checks passed, or the PR has no checks and project.md declares no CI. Exit 1: checks failed.
-# Exit 2: could not read or watch.
+# Exit 2: could not read or watch, or no checks showed up.
+# Exit 3: the PR conflicts with the merge target branch, so CI cannot start. Resolve the conflict, push and run it again.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
@@ -34,15 +35,32 @@ has_rows() {
 # Poll every 15 s for up to 5 min until at least one check exists.
 # A repo that declares no CI polls twice (one 15 s wait). A check that registers later is still caught:
 # merge_pr.py reads the rollup at merge and holds the PR until every check on it has passed.
+# A conflicting PR gets no CI, so each try without checks also reads the PR's merge state.
 tries=20
 [ "$declared" = yes ] && tries=2
 found=0
+mergeable=unknown
+mstate=unknown
 for i in $(seq 1 "$tries"); do
   rc=0
   out=$("$here/gh.sh" pr checks "$n" 2>/dev/null) || rc=$?
   if { [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ] || [ "$rc" -eq 8 ]; } && has_rows "$out"; then
     found=1
     break
+  fi
+  # UNKNOWN (not computed yet), any other value or a failed read is not a conflict: keep polling.
+  if st=$("$here/gh.sh" pr view "$n" --json mergeable,mergeStateStatus -q '.mergeable + " " + .mergeStateStatus' 2>/dev/null) \
+    && [[ "$st" =~ ^[A-Z_]+\ [A-Z_]+$ ]]; then
+    mergeable="${st% *}"
+    mstate="${st#* }"
+    if [ "$mergeable" = CONFLICTING ] || [ "$mstate" = DIRTY ]; then
+      if ! target=$(python3 -I "$here/project_config.py" target); then
+        echo "wait-for-ci: cannot read project.md for PR #$n at $sha"
+        exit 2
+      fi
+      echo "wait-for-ci: PR #$n at $sha: conflict with $target"
+      exit 3
+    fi
   fi
   [ "$i" -lt "$tries" ] && sleep 15
 done
@@ -58,7 +76,7 @@ if [ "$found" -ne 1 ]; then
       exit 0
     fi
   fi
-  echo "wait-for-ci: no checks on PR #$n at $sha"
+  echo "wait-for-ci: no checks on PR #$n at $sha (mergeable $mergeable, mergeStateStatus $mstate)"
   exit 2
 fi
 
