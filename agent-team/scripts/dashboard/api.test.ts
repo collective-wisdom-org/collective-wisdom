@@ -548,6 +548,7 @@ test('a retired prefix: issues below the cutover keep it, in ids, branches, titl
   const row = (v: string) => `| Issue identifier prefix | \`ZZ\` |\n| Retired issue prefixes | ${v} |\n`
   const rows: [string, string, { prefix: string; below: number }[]][] = [
     ['a pair', row('`YY<10`. Earlier prefixes, no more ticks'), [{ prefix: 'YY', below: 10 }]],
+    ['text before the token', row('Earlier: `YY<10`'), [{ prefix: 'YY', below: 10 }]],
     ['two pairs', row('`XX<5,YY<10`'), [{ prefix: 'XX', below: 5 }, { prefix: 'YY', below: 10 }]],
     ['none', row('`none`'), []],
     ['no row', '| Issue identifier prefix | `ZZ` |\n', []],

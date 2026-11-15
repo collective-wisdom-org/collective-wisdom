@@ -200,7 +200,7 @@ def fill(state, text):
 def ticket_of(pr):
     """The ticket id a PR belongs to (abc-N in its branch, or (ABC-N) in its title), or None."""
     branch = pr.get("headRefName")
-    m = isinstance(branch, str) and re.search(project_config.branch_ticket_re(), branch.lower())
+    m = isinstance(branch, str) and re.search(project_config.branch_search_re(), branch.lower())
     if not m:
         title = pr.get("title")
         m = isinstance(title, str) and re.search(rf"\(({project_config.ticket_re().pattern})\)", title)

@@ -57,7 +57,13 @@ def test_bad_retired_row_stops_the_script(monkeypatch, tmp_path, row):
         project_config.retired_prefixes()
 
 
-HIT = re.compile(r"\bCW\b|\bcw-\d")
+def repo_prefixes():
+    """The current and retired prefixes of this repo's own project.md, whatever PROJECT_MD says."""
+    rows = project_config._parse((REPO / "docs" / "agents" / "project.md").read_text())
+    return [project_config.value("Issue identifier prefix", rows), *(p for p, _ in project_config.retired_prefixes(rows))]
+
+
+HIT = re.compile("|".join(rf"\b{p}\b|\b{p.lower()}-\d" for p in repo_prefixes()))
 
 
 def python_hits(path):

@@ -133,6 +133,14 @@ def branch_ticket_re():
     return f"{branch_heads_re()}({_alternation(p.lower() for p in prefixes())})-(\\d+)"
 
 
+def branch_search_re():
+    """Regex source that finds a ticket anywhere in a lower-cased branch name: `(?<![a-z0-9])(<lower-case prefixes>)-(\\d+)(?!\\d)`.
+
+    Unlike branch_ticket_re it is not tied to the branch heads, so `claude/abc-12-x` matches. Group 1 is the prefix, group 2 the number.
+    """
+    return f"(?<![a-z0-9])({_alternation(p.lower() for p in prefixes())})-(\\d+)(?!\\d)"
+
+
 def repo():
     """`<owner>/<repo>` from project.md, or None."""
     r = value("Repo")

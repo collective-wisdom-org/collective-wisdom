@@ -17,7 +17,7 @@ export function prefixFromProject(markdown: string): string | null {
 
 /** The `Retired issue prefixes` row as project_config.retired_prefixes reads it: one backticked `PREFIX<N,...` token, oldest first. Missing, `none` or empty gives none. A row that does not parse gives none too (the scripts stop on it; the dashboard must not), and so does one naming `current`. */
 export function retiredFromProject(markdown: string, current: string | null = prefixFromProject(markdown)): Retired {
-  const token = markdown.match(/^\|\s*Retired issue prefixes\b[^|]*\|\s*`([^`]*)`/m)?.[1]?.trim() ?? ''
+  const token = markdown.match(/^\|\s*Retired issue prefixes\b[^|]*\|[^`|]*`([^`]*)`/m)?.[1]?.trim() ?? ''
   if (token === '' || token.toLowerCase() === 'none') return []
   const out: Retired = []
   for (const part of token.split(',')) {

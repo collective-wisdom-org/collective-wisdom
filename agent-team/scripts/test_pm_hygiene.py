@@ -103,6 +103,8 @@ AGENT_STATE = {"tickets": {}, "merged": {"ABC-1": {"pr": 5, "at": "2026-11-07T11
     ([pr(7, branch="feat/other", title="Do it (ABC-2)")], {}, None, ["get ABC-2 #7"]),
     ([OLD_MERGE, OLD_OPEN, pr(8, state="CLOSED")], {}, None, []),
     ([pr(7, branch="feat/abc-12-x")], {}, None, ["get ABC-12 #7"]),
+    ([pr(7, branch="claude/abc-12-x")], {}, None, ["get ABC-12 #7"]),
+    ([pr(7, branch="abc-12-x")], {}, None, ["get ABC-12 #7"]),
     ([pr(7, branch="feat/abc-1-x")], {}, {"tickets": {"ABC-1": {}}, "merged": {}}, []),
     ([pr(7, branch="main", title="no ticket")], {}, None, []),
     # second run: the moves
