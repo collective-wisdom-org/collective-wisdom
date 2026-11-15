@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 move the dashboard Backlog to its own tab and add a spec queue (CW-387) (#407)
+
+Merged 2026-11-15 7:27 am UTC.
+
+The dashboard has a Backlog tab, and Up next shows a "Waiting to spec" list of the tickets waiting for a spec slot (queued specs, then Todo). The Ship loop tab no longer has a Not started section.
+
 ## 2026-11-15 show ticket counts in the dashboard Ship loop and Done tab labels (CW-388) (#408)
 
 Merged 2026-11-15 7:21 am UTC.
