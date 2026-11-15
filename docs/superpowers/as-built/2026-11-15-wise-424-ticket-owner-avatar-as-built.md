@@ -8,4 +8,5 @@
 
 - The spec puts the badge in the head beside the copy button. It shipped on the first row of the card (the ticket id row), right-aligned at the card's top right; the title and copy button stay on the second row.
 - The viewer is read by a new `viewer.ts` (`createViewer`), and `startServer` takes an optional `viewerGh` runner for it so tests can inject a login.
-- `createOpenPrs.get()` still returns the number map; its new `owners()` returns the owner map.
+- The avatar `<img>` carries `referrerpolicy="no-referrer"`, which the spec's markup does not.
+- The login rule is one exported `loginOf` in `titles.ts`, shared by `merged.ts`, `open.ts`, `backlog.ts` and `viewer.ts`, not repeated in each file.
