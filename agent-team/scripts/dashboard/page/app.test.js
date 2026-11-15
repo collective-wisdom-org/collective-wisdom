@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -638,34 +638,48 @@ test('a group with an http(s) moreUrl ends with an escaped Full backlog link ins
   for (const bad of ['javascript:alert(1)', '//x.test/issues', undefined]) assert.ok(!html(bad).includes('Full backlog'), String(bad))
 })
 
-test('renderGantt ends with a CI wait row of the merged spans and leaves the Total row alone', () => {
-  const sessions = [sess({ rows: [task({ segments: [[T, T + 2 * MIN]], end: T + 2 * MIN })] })]
-  const now = T + 20 * MIN
-  const spans = [[T + 3 * MIN, T + 8 * MIN], [T + 6 * MIN, T + 10 * MIN]]
-  const last = (html) => view(html).at(-1)
+test('ciOwner gives each CI span to the task that last finished a working span before it', () => {
+  const item = (...spans) => ({ spans: spans.map(([a, b, open = false]) => [T + a * MIN, T + b * MIN, open]), s: {} })
+  const A = item([0, 2])
+  const B = item([5, 9, true])
+  const C = item([3, 4])
   const cases = [
-    ['overlap counts once', renderGantt(sessions, now, spans), 'CI wait', '7m 00s'],
-    ['an open span runs to now and looks running', renderGantt(sessions, now, [[T + 3 * MIN, null]]), 'CI wait', '17m 00s'],
-    ['no spans, no row', renderGantt(sessions, now, []), 'Total', '2m 00s'],
+    ['the gap after A ends, before B starts', [A, item([6, 8])], [3, 4], 0],
+    ['starts while B runs: B has no finished span, A owns it', [A, B], [6, 8], 0],
+    ['still running: the task that finished last before it', [A, C], [7, null], 1],
+    ['before any task finished: the earliest task', [A, C], [1, 2], 0],
+    ['a tie goes to the earlier task', [item([0, 2]), item([1, 2])], [3, 4], 0],
+    ['a later finish beats an earlier one', [item([0, 4]), item([1, 2])], [5, 6], 0],
   ]
-  for (const [name, html, rowName, dur] of cases) assert.deepEqual([last(html)?.name, last(html)?.dur], [rowName, dur], name)
-  const withWait = view(renderGantt(sessions, now, spans))
-  assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
-  assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
-  assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
-  const two = [sess({ rows: [task({ segments: [[T, T + 2 * MIN], [T + 10 * MIN, T + 12 * MIN]], end: T + 12 * MIN })] })]
-  const bars = [
-    ['a CI span in a gap sits between the working bars on the combined axis', two, [[T + 4 * MIN, T + 6 * MIN]], [[0, 33.33], [66.67, 33.33]], [[33.33, 33.33]]],
-    ['an open CI span ends at the right edge', sessions, [[T + 3 * MIN, null]], [[0, 10.53]], [[10.53, 89.47]]],
-  ]
-  for (const [name, s, ci, work, wait] of bars) {
-    const [row, , ciWait] = view(renderGantt(s, now, ci))
-    assert.deepEqual([row.bars, ciWait.bars], [work, wait], name)
-    assert.ok(!renderGantt(s, now, ci).includes('class="bar running"'), name)
-    assert.deepEqual(view(renderGantt(s, now, ci))[1], view(renderGantt(s, now))[1], name)
+  for (const [name, items, [a, b], want] of cases) {
+    assert.deepEqual(ciOwner(items, [[T + a * MIN, b === null ? T + 20 * MIN : T + b * MIN, b === null]]), [want], name)
   }
-  assert.equal(renderGantt(two, now, []), renderGantt(two, now), 'no CI spans, same chart as before')
-  assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m"/)
+})
+
+test('renderGantt draws each CI wait bar on its task row and leaves durations, costs and the Total alone', () => {
+  const now = T + 30 * MIN
+  const sessions = [
+    sess({
+      rows: [
+        task({ name: 'first', cost: 1, segments: [[T, T + 2 * MIN]], end: T + 2 * MIN }),
+        task({ name: 'second', cost: 2, start: T + 10 * MIN, segments: [[T + 10 * MIN, T + 12 * MIN]], end: T + 12 * MIN }),
+      ],
+    }),
+  ]
+  // Both spans start after "first" ended and before "second" started; the second overlaps the first and is open.
+  const ci = [[T + 3 * MIN, T + 6 * MIN], [T + 5 * MIN, null]]
+  const withCi = renderGantt(sessions, now, ci)
+  const rows = view(withCi)
+  assert.deepEqual(rows.map((r) => r.name), ['first', 'second', 'Total'])
+  assert.deepEqual(rows.map((r) => [r.dur, r.cost]), view(renderGantt(sessions, now)).map((r) => [r.dur, r.cost]))
+  // Axis: 2m of first + 27m of merged CI (3m to 30m, second's work lies inside it) = 29m. The CI bar sits on first's track only, before its work bar so work stays on top.
+  assert.deepEqual(rows[0].bars, [[6.9, 93.1], [0, 6.9]])
+  assert.deepEqual(rows[1].bars, [[31.03, 6.9]])
+  assert.equal([...withCi.matchAll(/class="bar ci"/g)].length, 1)
+  assert.ok(!withCi.includes('class="bar running"'))
+  assert.ok(!withCi.includes('CI wait</span>'))
+  assert.match(withCi, /title="CI wait\n\d\d?:\d\d [ap]m, running · 27m 00s"/)
+  assert.equal(renderGantt(sessions, now, []), renderGantt(sessions, now), 'no CI spans, same chart as before')
 })
 
 test('waitText counts up from stageAt, rounded down, two units at most', () => {
