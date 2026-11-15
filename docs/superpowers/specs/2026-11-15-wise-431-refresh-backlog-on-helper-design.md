@@ -1,7 +1,8 @@
 # WISE-431: Refresh the dashboard Backlog when a ticket helper files a ticket
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#431](https://github.com/collective-wisdom-org/collective-wisdom/issues/431)
+**Shipped:** in PR #433, as specified
 
 ## Goal
 
