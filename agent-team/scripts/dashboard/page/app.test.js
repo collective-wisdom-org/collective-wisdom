@@ -26,7 +26,8 @@ test('only http(s) urls become links; a missing prUrl has no PR anchor', () => {
 test('threadLink becomes a copy button carrying the exact link', () => {
   const link = '<t3-thread://v2/env/th"1>'
   const html = renderStatus(group([row({ threadLink: link })]))
-  assert.match(html, /<div class="head">.*<button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" title="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect/)
+  // The button follows the ticket number and comes before the title.
+  assert.match(html, /<div class="head"><span class="id">.*?<\/span><button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" title="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect.*?<\/button><span class="title">/)
   assert.ok(!html.includes('>Copy thread link<'))
   assert.ok(!renderStatus(group([row()])).includes('copy-icon'))
 })
@@ -133,8 +134,8 @@ test('risk shows the level word only, in its colour class; unreadable text shows
 test('an action sits in the middle row only for a stage that needs the user and an http(s) url', () => {
   const urls = { prUrl: 'https://x.test/pull/2', specUrl: 'https://x.test/blob/s.md', issueUrl: 'https://x.test/issues/1' }
   const cases = [
-    [{ stage: 'awaiting-merge' }, { label: 'Open PR', url: urls.prUrl }],
-    [{ stage: 'awaiting-build' }, { label: 'Open spec', url: urls.specUrl }],
+    [{ stage: 'awaiting-merge' }, { label: 'View PR', url: urls.prUrl }],
+    [{ stage: 'awaiting-build' }, { label: 'View spec', url: urls.specUrl }],
     [{ stage: 'blocked' }, null],
     [{ stage: 'build' }, null],
     [{ stage: 'awaiting-merge', prUrl: 'javascript:alert(1)' }, null],
@@ -142,7 +143,7 @@ test('an action sits in the middle row only for a stage that needs the user and 
   ]
   for (const [r, want] of cases) assert.deepEqual(actionFor({ ...urls, ...r }), want, JSON.stringify(r))
   const html = renderStatus([{ name: 'Awaiting merge approval', count: 1, rows: [row({ ...urls, stage: 'awaiting-merge' })] }])
-  assert.match(html, /<div class="actions"><a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>Open PR<\/a>/)
+  assert.match(html, /<div class="actions"><a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>View PR<\/a>/)
   assert.doesNotMatch(renderStatus(group([row(urls)])), /class="action"/)
 })
 
@@ -516,7 +517,7 @@ test('a running ticket helper is a placeholder card on the Backlog tab; a Todo r
   const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
   assert.ok(!part('progress').includes('Ticket helper'), 'no helper card on the Ship loop tab')
   const card = renderBacklog([...group([row()]), writing, backlog])
-  assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
+  assert.match(card, /<span class="id">Ticket helper<\/span><button[^>]*>.*?<\/button><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
