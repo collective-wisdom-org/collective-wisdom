@@ -178,7 +178,7 @@ def test_start_plan_has_no_provider_line(tmp_path, capsys):
                 "ABC-6": SPEC1,
             },
             [
-                f"send ABC-5 merge {json.dumps(CHANGES)}", f"send ABC-3 build {json.dumps(CHANGES)}",
+                f"send ABC-5 merge {json.dumps(CHANGES)}", "merge-wait ABC-5", f"send ABC-3 build {json.dumps(CHANGES)}",
                 f"send ABC-2 build {json.dumps(CHANGES)}", f"send ABC-1 spec {json.dumps(CHANGES)}",
                 *TAIL,
             ],
@@ -207,16 +207,20 @@ def test_start_plan_has_no_provider_line(tmp_path, capsys):
         # merge approvals: head check, and the auto one also checks the rule
         (
             {"ABC-1": queued("merge-queued", USER_MERGE, "1", pr=5, headSha="a" * 40)},
-            ["head-check ABC-1 pr=5 head=" + "a" * 40, f"send ABC-1 merge {json.dumps(USER_MERGE)}", "start-todo", "start-todo", *TODO],
+            ["head-check ABC-1 pr=5 head=" + "a" * 40, f"send ABC-1 merge {json.dumps(USER_MERGE)}", "merge-wait ABC-1", "start-todo", "start-todo", *TODO],
         ),
         (
             {"ABC-1": queued("merge-queued", AUTO_MERGE, "1", pr=5, headSha="b" * 40), "ABC-2": BUILD, "ABC-3": SPEC1, "ABC-4": tk("spec", "c4")},
-            ["head-check ABC-1 pr=5 head=" + "b" * 40, f"run python3 {S}/cos_approve_pr.py ABC-1 --auto", f"send ABC-1 merge {json.dumps(AUTO_MERGE)}", *TAIL],
+            ["head-check ABC-1 pr=5 head=" + "b" * 40, f"run python3 {S}/cos_approve_pr.py ABC-1 --auto", f"send ABC-1 merge {json.dumps(AUTO_MERGE)}", "merge-wait ABC-1", *TAIL],
         ),
-        # no parent thread: no finish notice will come, so a merge send starts the merge wait; a build send does not
+        # every merge send starts the merge wait, whatever the parent thread (this thread or none); a build send does not
         (
             {"ABC-1": queued("merge-queued", CHANGES, "1", parentThreadId=None), "ABC-2": queued("build-queued", CHANGES, "2", parentThreadId=None)},
             [f"send ABC-1 merge {json.dumps(CHANGES)}", "merge-wait ABC-1", f"send ABC-2 build {json.dumps(CHANGES)}", "start-todo", "start-todo", *TODO],
+        ),
+        (
+            {"ABC-1": queued("merge-queued", CHANGES, "1", parentThreadId=ME)},
+            [f"send ABC-1 merge {json.dumps(CHANGES)}", "merge-wait ABC-1", "start-todo", "start-todo", *TODO],
         ),
         # a ticket under an older thread continues in a new child; a queued ticket with no relay is rebuilt
         (
@@ -241,7 +245,7 @@ def set_limits(**rows):
 
 
 M1, M2 = queued("merge-queued", CHANGES, "1"), queued("merge-queued", CHANGES, "2")
-SEND_M, SEND_B = f"send ABC-1 merge {json.dumps(CHANGES)}", f"send ABC-2 build {json.dumps(CHANGES)}"
+SEND_M, SEND_B = [f"send ABC-1 merge {json.dumps(CHANGES)}", "merge-wait ABC-1"], f"send ABC-2 build {json.dumps(CHANGES)}"
 
 
 def report(cap, spec, build, why):
@@ -261,9 +265,9 @@ def report(cap, spec, build, why):
         ({"cap": 3}, {"ABC-1": BUILD, "ABC-2": SPEC1}, ["start-todo", *report(3, 2, 2, "spec slot free")]),
         ({"spec": 1}, {"ABC-1": BUILD}, ["start-todo", *report(3, 1, 2, "spec slot free")]),
         # the cap full of spec and build still sends a queued merge; a second queued merge waits behind the one in `merge`
-        ({}, {"ABC-1": M1, "ABC-3": BUILD, "ABC-4": tk("build", "c4"), "ABC-5": SPEC1, "ABC-6": tk("spec", "c6")}, [SEND_M, *report(4, 2, 2, "lanes full")]),
+        ({}, {"ABC-1": M1, "ABC-3": BUILD, "ABC-4": tk("build", "c4"), "ABC-5": SPEC1, "ABC-6": tk("spec", "c6")}, [*SEND_M, *report(4, 2, 2, "lanes full")]),
         ({}, {"ABC-1": M1, "ABC-3": tk("merge", "c3")}, ["start-todo", "start-todo", *report(4, 2, 2, "spec slot free")]),
-        ({"merge": 5}, {"ABC-1": M1, "ABC-2": M2}, [SEND_M, "start-todo", "start-todo", *report(4, 2, 2, "spec slot free")]),
+        ({"merge": 5}, {"ABC-1": M1, "ABC-2": M2}, [*SEND_M, "start-todo", "start-todo", *report(4, 2, 2, "spec slot free")]),
     ],
 )
 def test_act_plan_under_configured_limits(tmp_path, capsys, limits, tickets, want):
