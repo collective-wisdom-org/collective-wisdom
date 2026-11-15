@@ -1,6 +1,7 @@
 # CW-266: A friendly dashboard, one headline per ticket
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #340, with differences: [as-built](../as-built/2026-11-14-cw-266-friendly-dashboard-as-built.md)
 **Ticket:** [#266](https://github.com/collective-wisdom-org/collective-wisdom/issues/266)
 **Replaces:** PR #267 (Noah's first build of this ticket, on `feat/cw-266-dashboard-friendly-redesign`). Its design doc, `docs/superpowers/specs/2026-11-08-dashboard-friendly-redesign-design.md`, lives only on that branch; this spec carries its design over and adapts it to today's main.
 
