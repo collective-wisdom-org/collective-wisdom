@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 keep chief-of-staff mid-turn rules inside the compaction budget (CW-329) (#338)
+
+Merged 2026-11-15 01:34 UTC.
+
+The Chief of Staff skill is reordered so its tick plan-line table, child handling and guardrails fit in the part Claude Code keeps after a `/compact`. Nothing to do. Anything the chief needs rarely now lives in `session.md`, `fallbacks.md` and `readiness.md`.
+
 ## 2026-11-15 reject a short skillCommit and report it on its own line (CW-328) (#337)
 
 Merged 2026-11-15 01:00 UTC.
