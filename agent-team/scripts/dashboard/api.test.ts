@@ -411,7 +411,8 @@ test('where a root checkout TICKET HELPER snapshot lands', () => {
       assert.deepEqual(row, { id: 'helper:b', title: 'newer', helper: true, risk: '', next: '', stage: '', threadLink: '<t3-thread://v2/env/th-b>' })
     }],
     ['no request gives an empty title', { snapshots: [helper('a')] }, (api) => assert.equal(api.status[0].rows[0].title, '')],
-    ['finished, no ticket: nowhere', { snapshots: [helper('a', { rows: [teamRow(false)] }), helper('b', { updatedAt: NOW - 61_000 })] }, (api) => assert.deepEqual(api.status, [])],
+    ['finished, no ticket: nowhere', { snapshots: [helper('a', { rows: [teamRow(false)] }), helper('b', { updatedAt: NOW - 31 * 60_000 })] }, (api) => assert.deepEqual(api.status, [])],
+    ['open helper quiet for 5 minutes: still a placeholder', { snapshots: [helper('a', { updatedAt: NOW - 300_000 })] }, (api) => assert.deepEqual(ids(api, 'Writing tickets'), [['helper:a', ['a']]])],
     ['ticket on the board: before the worktree sessions, not a placeholder', { state: stateOf('CW-1', { branch: 'feat/cw-1-x' }), worktrees: [{ path: WT, branch: 'feat/cw-1-x' }], prefix: 'CW', snapshots: [helper('a', { ticket: 'CW-1' }), { ...teamSnap('w'), cwd: WT, updatedAt: NOW - 500 }] }, (api) => {
       assert.equal(ids(api, 'Writing tickets'), undefined)
       assert.deepEqual(ids(api, 'Building'), [['CW-1', ['a', 'w']]])
