@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show only the owner avatar, pinned to the card's right edge (WISE-428) (#432)
+
+Merged 2026-11-15 6:13 pm UTC.
+
+On the dashboard, a card's owner now shows as just their avatar, lined up at the card's right edge. Hover the avatar to see the username.
+
 ## 2026-11-15 show ticket owner avatar, hide empty Agents on others' tickets (WISE-424) (#427)
 
 Merged 2026-11-15 5:41 pm UTC.
