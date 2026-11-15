@@ -19,12 +19,13 @@ provider missing from it, or a missing chiefProvider, is none). On none the chec
 then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset" or
 "rotate: skill changed aaaaaaa..bbbbbbb; mode reset".
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
-2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size
-trigger is off (no context size on Cursor).
+2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
+read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
+("ok (size unknown on Cursor)" while the conversation has no usage yet).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on "rotate:" or exit 2. It reads Cursor's stop payload (conversation_id equals
-chiefSessionId, loop_count 0, status completed), with the size trigger off, and answers {"followup_message": reason}.
+chiefSessionId, loop_count 0, status completed), reading the size from the run store, and answers {"followup_message": reason}.
 It never writes and any error exits 0 silently.
 COS_STATE_FILE, COS_PROJECTS_DIR and COS_CURSOR_PROJECTS_DIR override the state file, the Claude Code transcripts
 directory and the Cursor projects directory (~/.cursor/projects).
@@ -219,8 +220,15 @@ def branch():
     return git("branch", "--show-current")
 
 
-def read_context(sid=None):
-    """(tokens, start time) of session sid, or of $CLAUDE_CODE_SESSION_ID."""
+def read_context(sid=None, cursor=False):
+    """(tokens, start time) of session sid, or of $CLAUDE_CODE_SESSION_ID. cursor: sid is a Cursor conversation id,
+    read from its run store; (None, None) when it has no usage yet."""
+    if cursor:
+        projects = Path(os.environ.get("COS_CURSOR_PROJECTS_DIR") or Path.home() / ".cursor" / "projects")
+        try:
+            return load_module("agent_usage").cursor_context(projects, sid if sid.startswith("agent-") else f"agent-{sid}") or (None, None)
+        except LookupError:
+            raise Unreadable("context")
     projects = Path(os.environ.get("COS_PROJECTS_DIR") or Path.home() / ".claude" / "projects")
     try:
         with contextlib.redirect_stderr(io.StringIO()), mock.patch.dict(
@@ -274,9 +282,9 @@ def save_top(path, **keys):
         return False
 
 
-def check(state, record=False, sid=None, sized=True):
-    """(line, takeoverContext to save or None). Raises Unreadable. sized=False: no context size (Cursor)."""
-    context = read_context(sid)[0] if sized else None
+def check(state, record=False, sid=None, cursor=False):
+    """(line, takeoverContext to save or None). Raises Unreadable. cursor: sid is a Cursor conversation id."""
+    context = read_context(sid, cursor)[0]
     tk = None
     if record and context is not None and state.get("chiefThreadId"):
         tk = {"threadId": state["chiefThreadId"], "tokens": context}
@@ -310,7 +318,7 @@ def run_hook(path):
         if not sid or (bare(sid) != bare(mine) if cursor else sid != mine) or skip:
             return 0
         try:
-            line = check(state, sid=sid, sized=not cursor)[0]
+            line = check(state, sid=sid, cursor=cursor)[0]
         except Unreadable as e:
             line = f"rotation-check: cannot read {e}"
         if not line.startswith("ok"):
@@ -341,7 +349,7 @@ def main(argv=None):
         sid = sid or cursor_id
         if sid and sid != state.get("chiefSessionId"):
             save_top(path, chiefSessionId=sid)
-        line, tk = check(state, record=args.record_takeover, sized=not cursor_id)
+        line, tk = check(state, record=args.record_takeover, sid=sid, cursor=bool(cursor_id))
     except Unreadable as e:
         print(f"rotation-check: cannot read {e}")
         return 2

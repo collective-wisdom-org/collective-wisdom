@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from test_agent_usage import context_store
 
 SPEC = importlib.util.spec_from_file_location(
     "cos_rotation_check", Path(__file__).with_name("cos_rotation_check.py")
@@ -101,7 +102,7 @@ def test_line_by_reset_mode(monkeypatch, provider, state, context, commit, want)
     assert crc.decide(state, context, NOW, commit, "main") == want
 
 
-def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, readable=True, commit=OLD):
+def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, readable=True, commit=OLD, real_store=False):
     path = tmp_path / "state.json"
     if state is not None:
         path.write_text(json.dumps(state))
@@ -109,12 +110,13 @@ def run_hook(monkeypatch, capsys, tmp_path, hook_in, state, context=230_000, rea
     monkeypatch.setenv("HOME", str(tmp_path / "home"))  # no machine copy unless a test adds one
     monkeypatch.setattr(sys, "stdin", io.StringIO(hook_in if isinstance(hook_in, str) else json.dumps(hook_in)))
 
-    def read_context(sid=None):
+    def read_context(sid=None, cursor=False):
         if not readable:
             raise crc.Unreadable("context")
         return context, datetime.now(timezone.utc) - timedelta(hours=1)
 
-    monkeypatch.setattr(crc, "read_context", read_context)
+    if not real_store:
+        monkeypatch.setattr(crc, "read_context", read_context)
     monkeypatch.setattr(crc, "skill_commit", lambda: commit)
     monkeypatch.setattr(crc, "branch", lambda: "main")
     assert crc.main(["--hook"]) == 0
@@ -155,7 +157,6 @@ CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "complet
     [
         (CURSOR, {"commit": NEW}, True, CLAUDE),  # a provider with a reset mode
         (CURSOR, {"commit": NEW}, False, {"provider": "cursor"}),  # no reset on this provider: silent
-        (CURSOR, {}, False, CLAUDE),  # context is 230k, over the cap, but Cursor has no size trigger
         ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, False, CLAUDE),
         ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, True, CLAUDE),  # T3 Code names the folder agent-<id>
         ({**CURSOR, "loop_count": 1}, {"commit": NEW}, False, CLAUDE),
@@ -168,26 +169,44 @@ def test_hook_on_cursor_answers_with_a_followup_only_for_the_chief_once(monkeypa
     assert (list(json.loads(out)) == ["followup_message"] and "rotate: skill changed" in out) if followup else out == ""
 
 
-@pytest.mark.parametrize("ages, want_id, want_line", [
-    ({"C1": 1, "C2": 0.5, "C3": 10}, "C2", "ok (size unknown on Cursor)"),  # the newest fresh one is the Chief's
-    ({"C1": 10}, None, "rotation-check: cannot read context"),  # only stale ones: not Cursor
+def test_hook_on_cursor_reads_the_size_from_the_run_store(monkeypatch, capsys, tmp_path):
+    context_store(tmp_path / "cur" / "proj", "agent-C1", [(1, {"inputTokens": 230_000}, [])])
+    monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(tmp_path / "cur"))
+    monkeypatch.setitem(crc.RESET_MODES, "cursor", "reset")
+    out = run_hook(monkeypatch, capsys, tmp_path, CURSOR, {**STATE, "chiefSessionId": "C1", "chiefProvider": {"provider": "cursor"}}, real_store=True)
+    assert "rotate: size 230k >= 220k; mode reset" in json.loads(out)["followup_message"]
+
+
+USAGE = [(1, {"inputTokens": 230_000}, [])]
+SIZE_RESET = "rotate: size 230k >= 220k; mode reset"
+
+
+@pytest.mark.parametrize("ages, turns, provider, want_id, want_line", [
+    ({"C1": 1, "C2": 0.5, "C3": 10}, USAGE, "cursor", "C2", "ok (no reset on cursor; context=230k)"),  # the newest fresh one is the Chief's
+    ({"C2": 1}, USAGE, "p-reset", "C2", SIZE_RESET),
+    ({"C2": 1}, [(1, None, [])], "p-reset", "C2", "ok (size unknown on Cursor)"),  # no usage yet
+    ({"C2": 1}, None, "p-reset", "C2", "rotation-check: cannot read context"),  # no store has the conversation
+    ({"C1": 10}, USAGE, "p-reset", None, "rotation-check: cannot read context"),  # only stale ones: not Cursor
 ])
-def test_plain_on_cursor_saves_the_conversation_id_with_the_size_trigger_off(monkeypatch, capsys, tmp_path, ages, want_id, want_line):
+def test_plain_on_cursor_saves_the_conversation_id_and_reads_the_size(monkeypatch, capsys, tmp_path, ages, turns, provider, want_id, want_line):
     app, cursor, path = tmp_path / "my_app.x", tmp_path / "cursor", tmp_path / "state.json"
+    slug = str(app).replace("/", "-").replace("_", "-").replace(".", "-").strip("-")
+    if turns:
+        context_store(cursor / slug, "agent-C2", turns)
+    monkeypatch.setitem(crc.RESET_MODES, "p-reset", "reset")
     for cid, minutes in ages.items():
-        f = cursor / (str(app).replace("/", "-").replace("_", "-").replace(".", "-").strip("-")) / "agent-transcripts" / cid / f"{cid}.jsonl"
+        f = cursor / slug / "agent-transcripts" / cid / f"{cid}.jsonl"
         f.parent.mkdir(parents=True)
         f.write_text("{}\n")
         os.utime(f, (time.time() - minutes * 60,) * 2)
-    path.write_text(json.dumps({"chiefThreadId": "T1", "skillCommit": OLD, "chiefProvider": CLAUDE}))
+    path.write_text(json.dumps({"chiefThreadId": "T1", "skillCommit": OLD, "chiefProvider": {"provider": provider}}))
     monkeypatch.setattr(crc, "ROOT", app)
     monkeypatch.setenv("COS_STATE_FILE", str(path))
     monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(cursor))
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
-    monkeypatch.setattr(crc, "read_context", lambda sid=None: (_ for _ in ()).throw(crc.Unreadable("context")))
     monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
     monkeypatch.setattr(crc, "branch", lambda: "main")
-    assert crc.main([]) == (0 if want_id else 2)
+    assert crc.main([]) == (2 if "cannot read" in want_line else 0)
     assert capsys.readouterr().out.strip() == want_line
     assert json.loads(path.read_text()).get("chiefSessionId") == want_id
 
@@ -201,14 +220,14 @@ def test_plain_saves_session_and_takeover(monkeypatch, capsys, tmp_path, context
     path.write_text(json.dumps({"chiefThreadId": "T1", "chiefSessionId": "old", "skillCommit": OLD, "tickets": {}, "chiefProvider": CLAUDE}))
     monkeypatch.setenv("COS_STATE_FILE", str(path))
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "S9")
-    monkeypatch.setattr(crc, "read_context", lambda sid=None: (context, datetime.now(timezone.utc) - timedelta(hours=1)))
+    monkeypatch.setattr(crc, "read_context", lambda sid=None, cursor=False: (context, datetime.now(timezone.utc) - timedelta(hours=1)))
     monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
     monkeypatch.setattr(crc, "branch", lambda: "main")
     assert crc.main(["--record-takeover"] if record else []) == 0
     assert capsys.readouterr().out.strip() == want_line
     saved = json.loads(path.read_text())
     assert saved["chiefSessionId"] == "S9" and saved.get("takeoverContext") == want_tk
-    monkeypatch.setattr(crc, "read_context", lambda sid=None: (_ for _ in ()).throw(crc.Unreadable("context")))
+    monkeypatch.setattr(crc, "read_context", lambda sid=None, cursor=False: (_ for _ in ()).throw(crc.Unreadable("context")))
     assert crc.main([]) == 2
     assert capsys.readouterr().out.strip() == "rotation-check: cannot read context"
 
