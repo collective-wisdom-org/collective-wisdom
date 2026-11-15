@@ -1,6 +1,7 @@
 # CW-388: Show ticket counts in the dashboard Ship loop and Done tab labels
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #PRN, as specified
 **Ticket:** [#388](https://github.com/collective-wisdom-org/collective-wisdom/issues/388)
 **Related:** #371 (Agents button count; this reuses its `pill` look), #387 (adds a Backlog tab and moves Todo and Backlog off Ship loop; whichever builds second rebases on the other). Builds on #350 (the Done tab).
 
