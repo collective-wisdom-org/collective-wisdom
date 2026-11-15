@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 keep the reviews when only the docs check changed the head (CW-362) (#377)
+
+Merged 2026-11-15 5:01 am UTC.
+
+When the docs check's fix commit changes only the living docs (and none of the files that decide approvals or merges), the code and security reviews from before it now stand. You no longer see a second review round for a docs-only touch-up.
+
 ## 2026-11-15 draw CI wait as blue bars on the dashboard gantt (CW-365) (#378)
 
 Merged 2026-11-15 4:58 am UTC.
