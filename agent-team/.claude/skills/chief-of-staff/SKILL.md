@@ -60,7 +60,7 @@ Exit 2 prints `cos_tick: <what>`: fix the call (bad arguments) or rebuild state 
 | `start-todo` | One start from Todo (readiness.md § Todo start), printed once per free spec slot. |
 | `observe` | § Child path "Observe". |
 | `report cap=N spec=S build=B merge=1 (filling stopped: …)` | Print the cap and limits from those values, and report-format.md § Report format only if the turn changed what the user sees. Never write "none stuck" or the like. `lanes full` gives `Filling stopped: lanes full.`; `spec slot free` gives one of its other two `Filling stopped:` lines. With no parenthetical (rate limited) there is no slot fill and no such line. |
-| `run … cos_rotation_check.py` | The rotation check: the last Bash call of every turn that made a tool call, run from the root checkout. On `rotate:` or exit 2, read rotation.md § Thread rotation. |
+| `run … cos_rotation_check.py` | The rotation check: the last Bash call of every turn that made a tool call, run from the root checkout. On `rotate:`, `finish:` or exit 2, read rotation.md § Thread rotation. |
 
 ## Child path
 
@@ -114,6 +114,7 @@ python3 ~/.collective-wisdom/scripts/cos_restart.py <PREFIX>-N --run <recentRuns
 
 You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), a merge wait that ends (sweep.md § Merge wait), or the rate-limit wake (rate-limit.md § Rate limit). There is no timer.
 
+- A message that arrives while a take over runs, or any turn where the tick prints `follow rotation.md § Thread rotation: Finish take over` or the rotation check prints `finish:`: finish the pass first (rotation.md § Thread rotation "Finish take over"), then answer the message.
 - `start the team`, the rate-limit wake, a user command that runs a pass, a child's run finishing, `status`, `where's <PREFIX>-N?` and a user question: run the tick with that trigger (§ Tick).
 - `take over`, `resume` and resume mode run the lean take-over pass instead (rotation.md § Thread rotation "Take over" step 3). Each also starts the dashboard (startup.md Setup step 4).
 - A ticket request, a team-change request or a request for another repo (the ticket helper and cross-repo rows in commands.md § Commands), and a `CHIEF OF STAFF REQUEST` or `REPLY` message, run no tick: do what their commands.md § Commands row says, reply, end the turn. When their message is a command, apply it first.
@@ -145,7 +146,7 @@ Reference files are in this directory. Read one when its trigger happens.
 |---|---|
 | `startup.md` | `start the team`, `resume`, or `python3 ~/.collective-wisdom/scripts/cos_state.py show` exits 2 |
 | `setup.md` | `set up this repo`, or startup.md § Setup step 0 finds the repo `missing` or with `placeholders` |
-| `rotation.md` | the rotation check says `rotate:`, `take over`, or `reset` is non-null in state |
+| `rotation.md` | the rotation check says `rotate:` or `finish:`, `take over`, or `reset` or `takeover` is non-null in state |
 | `cross-repo.md` | the user asks for work in another repo, or a `CHIEF OF STAFF REQUEST` or `REPLY` arrives |
 | `ticket-helper.md` | a new ticket, a ticket edit, "place / link these tickets", a change to how the team works, a run-finished notice for a thread not in `tickets`, or an `observe` note that says `file` (§ Child path) |
 | `kill-switch.md` | `stop everything` or `resume` |
