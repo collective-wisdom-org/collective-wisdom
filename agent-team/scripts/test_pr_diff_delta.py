@@ -104,6 +104,8 @@ def boom():
         ({"agent-team/.claude/skills/foo/run.sh": "x\n"}, FIX, "one", CONFIG, "changed"),  # not .md
         ({SKILL: "x\n"}, FIX, "one", ("CW", ["agent-team/docs/agents/"]), "changed"),  # not in the list
         ({"docs/superpowers/specs/x.md": "x\n"}, "docs: tidy", "one", boom, "docs"),
+        ({"agent-team/.claude/skills/foo/NEW.md": "x\n", SKILL: "x\n"}, FIX, "one", CONFIG, "changed"),  # a living file added
+        ({"agent-team/.claude/skills/foo/LINK.md": ("link", "SKILL.md"), SKILL: "x\n"}, FIX, "one", CONFIG, "changed"),  # symlink
     ],
 )
 def test_delta_living(tmp_path, edits, subject, shape, config, expected):
@@ -116,7 +118,10 @@ def test_delta_living(tmp_path, edits, subject, shape, config, expected):
     def commit(files, msg):
         for path, text in files.items():
             (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-            (tmp_path / path).write_text(text)
+            if isinstance(text, tuple):  # ("link", target): a symlink
+                (tmp_path / path).symlink_to(text[1])
+            else:
+                (tmp_path / path).write_text(text)
         git("add", "-A")
         git("commit", "-m", msg)
         return git("rev-parse", "HEAD").strip()

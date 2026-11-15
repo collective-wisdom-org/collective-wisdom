@@ -23,7 +23,8 @@ Living: when the result would be "changed", it is "living" instead if all of the
   - its subject is exactly `docs: bring docs in line with <PREFIX>-<N>` (open-pr's docs check step 2);
   - every differing file is a docs file, or a regular ASCII-named .md file that matches an entry on the `Living docs to search:` line of project.md's
     `## Docs check` section as committed on origin/<target> (an entry ending in / matches any path under it, any other entry only that exact path)
-    and is not on the hands path (approval_policy.on_hands_path).
+    and is not on the hands path (approval_policy.on_hands_path);
+  - the fix commit adds or deletes no file (an existing file edited in place passes).
 
 Exit 2: bad arguments or a read failed. Last line: pr-diff-delta: cannot <what>
 Exit 2 means "could not tell": run the reviews.
@@ -44,6 +45,7 @@ GH = str(Path(__file__).absolute().parent / "gh.sh")
 SHOW = 10
 AGENT_CONFIG = ("claude.md", "claude.local.md", "agents.md")  # lowercase: tools read these from subfolders
 REGULAR = ("100644", "000000")  # 000000: the file is absent on that side
+ZERO = "0" * 40  # the blob of an absent file in `git diff --raw`
 
 
 def is_docs(path, modes):
@@ -122,14 +124,23 @@ def modes_of(path, old, new):
     return [m for e in (old, new) if path in e for m in e[path][:2]]
 
 
+def absent(path, mine, other):
+    """True when path is absent at the head `mine` was taken at. No entry there means unchanged against the base, so the other head's old blob says."""
+    if path in mine:
+        return mine[path][3] == ZERO
+    return path in other and other[path][2] == ZERO
+
+
 def living(shas, files, old, new, run, config):
     """True when the move from shas[0] to shas[1] is the docs check's fix commit and changed only docs and living docs.
 
-    Fails closed: any problem reading or parsing gives False.
+    A file added or deleted by that commit (absent at one head only) gives False. Fails closed: any problem reading or parsing gives False.
     """
     try:
         found = config()
         if not found or not fix_commit(*shas, found[0], run):
+            return False
+        if any(absent(p, old, new) != absent(p, new, old) for p in files):
             return False
         return all(is_docs(p, modes_of(p, old, new)) or is_living(p, modes_of(p, old, new), found[1]) for p in files)
     except (Exception, SystemExit):
