@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 title the Chief of Staff thread <PREFIX> - Chief of Staff (CW-380) (#399)
+
+Merged 2026-11-15 6:51 am UTC.
+
+The Chief of Staff thread is now titled `<PREFIX> - Chief of Staff` (for example `CW - Chief of Staff`) each time it starts, takes over or resumes, so you can tell repos apart. Nothing to do.
+
 ## 2026-11-15 make dashboard cards stand out with a hairline edge (CW-395) (#400)
 
 Merged 2026-11-15 6:30 am UTC.
