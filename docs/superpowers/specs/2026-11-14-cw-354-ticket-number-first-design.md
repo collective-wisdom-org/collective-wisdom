@@ -1,6 +1,7 @@
 # CW-354: Put the ticket number first and the spec and PR links on every dashboard row
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #372, as specified
 **Ticket:** [#354](https://github.com/collective-wisdom-org/collective-wisdom/issues/354)
 **Builds on:** CW-345 (PR #351, merged), the Agents and Details control this keeps, and CW-346 (PR #352, merged), the section headers. Edits the same page as CW-349 (Backlog pagination) and CW-350 (Done tab); whichever builds second rebases on the other.
 
