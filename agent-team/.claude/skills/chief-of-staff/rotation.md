@@ -52,8 +52,8 @@ Take over, after a reset (the `take over` command):
 
 Finish take over: a `finish:` line from the rotation check or the Stop hook, or the tick's `follow rotation.md § Thread rotation: Finish take over`, means a pass was interrupted. Finish it before anything else:
 
-1. Rerun the pass from step 1 in the mode `takeover` names (`take-over`: the four steps above; `resume`: Resume mode below). Step 1 sets `takeover` again.
-2. Skip step 2 when `reset` is already `null` and the mode is `take-over`: step 2 ran, and only steps 3 and 4 are left. With `reset` still set, run step 2.
+1. Rerun the pass from step 1 in the mode `takeover` names (`take-over`: the four steps above; `resume`: Resume mode below), without step 1's `takeover` op, so `startedAt` stays the original.
+2. In `take-over` mode, with `reset` still set, go straight to step 2's reset-message search and skip its plain `take over` branch: the newest message is now the one that interrupted. With `reset` null and `lastResetAt` at or after `takeover.startedAt`, step 2 already ran: skip it. With `reset` null and no such `lastResetAt`, run step 2 whole.
 3. Then handle the message that woke this turn (SKILL.md § Turn start), with its own tick. Steps 3 and 4 rerun safely (SKILL.md § Tick: each send and start is saved before the next line).
 
 ## Thread rotation: Resume mode
