@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 make dashboard cards stand out with a hairline edge (CW-395) (#400)
+
+Merged 2026-11-15 6:30 am UTC.
+
+Dashboard cards now have a faint outline, so they stand out a little more from the page in both light and dark mode. Nothing to do.
+
 ## 2026-11-15 name a ticket helper row after the ticket it filed (CW-375) (#398)
 
 Merged 2026-11-15 6:24 am UTC.
