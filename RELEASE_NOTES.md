@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 split the README dashboard paragraphs into one sentence per line (WISE-452) (#453)
+
+Merged 2026-11-15 7:25 pm UTC.
+
+The README's dashboard section is now a list, one sentence per line, so dashboard changes from different PRs no longer conflict on one long line. The text itself is unchanged.
+
 ## 2026-11-15 focus the T3 composer before Approve presses Return (WISE-434) (#450)
 
 Merged 2026-11-15 7:15 pm UTC.
