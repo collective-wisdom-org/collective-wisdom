@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 reject a short skillCommit and report it on its own line (CW-328) (#337)
+
+Merged 2026-11-15 01:00 UTC.
+
+The Chief of Staff's state file now refuses a short `skillCommit`, and the rotation check says plainly when the stored one is not a full sha. If you see that line, save the printed sha; nothing else changes.
+
 ## 2026-11-15 remove retired-thread forwarding (CW-317) (#336)
 
 Merged 2026-11-15 00:21 UTC.
