@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 Mark todo button on Backlog cards (WISE-419) (#420)
+
+Merged 2026-11-15 4:47 pm UTC.
+
+The dashboard's Backlog tab now has a blue Mark todo button on each card. It opens the Chief of Staff thread with `mark N todo` typed in, and you press Send.
+
 ## 2026-11-15 dashboard Gantt legend below the chart, ticket number above the card title (CW-413) (#418)
 
 Merged 2026-11-15 8:24 am UTC.
