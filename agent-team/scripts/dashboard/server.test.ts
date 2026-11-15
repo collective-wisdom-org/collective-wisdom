@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
+import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -525,6 +525,33 @@ test('press-return takes only an exact approve or mark todo command, and presses
     const res = await pressOnce(body, { chief: 'ct' })
     assert.deepEqual([res.status, res.presses], [status, status === 200 ? 1 : 0], name)
   }))
+})
+
+test('checkSentPy is true only for the user\'s own message and unchecked when the check cannot run', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cw-check-'))
+  try {
+    const db = join(dir, 't3.sqlite')
+    execFileSync('python3', ['-I', '-c', `
+import json, sqlite3, sys
+con = sqlite3.connect(sys.argv[1])
+con.execute("CREATE TABLE orchestration_v2_projection_messages (message_id TEXT, thread_id TEXT, role TEXT, streaming INTEGER, created_at TEXT, payload_json TEXT)")
+con.executemany("INSERT INTO orchestration_v2_projection_messages VALUES (?,?,?,?,?,?)", [
+  ("u1", "tu", "user", 0, "2026-11-02T01:00:00Z", json.dumps({"text": "approve 402", "createdBy": "user"})),
+  ("a1", "ta", "user", 0, "2026-11-02T01:00:00Z", json.dumps({"text": "approve 402", "createdBy": "agent"})),
+])
+con.commit()
+`, db])
+    const after = '2026-11-02T00:30:00Z'
+    const cases: [string, string, string, boolean | 'unchecked'][] = [
+      ['user message', 'tu', db, true],
+      ['agent message with the same words', 'ta', db, false],
+      ['missing db file', 'tu', join(dir, 'none.sqlite'), 'unchecked'],
+      ['thread id that reads as an option', '-tu', db, 'unchecked'],
+    ]
+    for (const [name, thread, file, want] of cases) assert.equal(await checkSentPy(thread, 'approve 402', after, file), want, name)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('press-return answers sent only when the check finds the user\'s message, and runs no check when the press did not send', async () => {

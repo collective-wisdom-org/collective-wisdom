@@ -299,12 +299,12 @@ export function pressResult(result: unknown): { sent: boolean; reason?: string }
 }
 
 /** One run of `cos_user_check.py latest <thread> --after <after>` with `command` on stdin, the same check the Chief of Staff makes before it acts. `true` when it exits 0 (the user's message is there), `false` on exit 1 (not there yet), `'unchecked'` on any other exit, a timeout or a spawn error. */
-export function checkSentPy(thread: string, command: string, after: string): Promise<boolean | 'unchecked'> {
+export function checkSentPy(thread: string, command: string, after: string, db?: string): Promise<boolean | 'unchecked'> {
   return new Promise((done) => {
     // A thread id that starts with a dash would read as an option.
     if (thread.startsWith('-')) return done('unchecked')
     try {
-      const child = execFile('python3', ['-I', join(import.meta.dirname, '..', 'cos_user_check.py'), 'latest', thread, '--after', after], { timeout: 2000 }, (err) => {
+      const child = execFile('python3', ['-I', join(import.meta.dirname, '..', 'cos_user_check.py'), ...(db === undefined ? [] : ['--db', db]), 'latest', thread, '--after', after], { timeout: 2000 }, (err) => {
         const code = (err as { code?: unknown } | null)?.code
         done(err === null ? true : code === 1 ? false : 'unchecked')
       })
@@ -316,17 +316,23 @@ export function checkSentPy(thread: string, command: string, after: string): Pro
   })
 }
 
-/** The body of a press request: at most 256 bytes, else `null`. */
+/** The body of a press request: at most 256 bytes, else `null`. Also `null` if the body has not ended after 2 seconds, so a stalled body cannot hold the press lock. Past 256 bytes it stops buffering and answers at once. */
 function readBody(req: IncomingMessage): Promise<string | null> {
   return new Promise((done) => {
     const chunks: Buffer[] = []
     let size = 0
+    const timer = setTimeout(() => done(null), 2000)
+    const finish = (body: string | null) => {
+      clearTimeout(timer)
+      done(body)
+    }
     req.on('data', (c: Buffer) => {
       size += c.length
       if (size <= 256) chunks.push(c)
+      else finish(null)
     })
-    req.on('end', () => done(size <= 256 ? Buffer.concat(chunks).toString('utf8') : null))
-    req.on('error', () => done(null))
+    req.on('end', () => finish(size <= 256 ? Buffer.concat(chunks).toString('utf8') : null))
+    req.on('error', () => finish(null))
   })
 }
 
@@ -563,7 +569,12 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     pressing = true
     try {
       const command = pressCommand(await readBody(req))
-      if (command === null) return send(400, 'bad request')
+      if (command === null) {
+        send(400, 'bad request')
+        // An oversize or stalled body may still be coming: close once the 400 is written.
+        req.socket.destroySoon()
+        return
+      }
       lastPress = Date.now()
       await new Promise((r) => setTimeout(r, 1200))
       const answer = pressResult(await pressReturn().catch((e: unknown) => e ?? new Error('failed')))
