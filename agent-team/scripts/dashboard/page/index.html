@@ -14,7 +14,9 @@
   --attn:light-dark(#b45309, #f59e0b); --attn-tint:light-dark(#fffbeb, #2a1f0a);
   --red:light-dark(#b91c1c, #f87171); --red-tint:light-dark(#fef2f2, #2a1212);
   --green:light-dark(#15803d, #4ade80); --green-tint:light-dark(#f0fdf4, #0f2a17);
-  --yellow:light-dark(#a16207, #facc15); --yellow-tint:light-dark(#fefce8, #2a2410); }
+  --yellow:light-dark(#a16207, #facc15); --yellow-tint:light-dark(#fefce8, #2a2410);
+  --cat-planning:light-dark(#6250d6, #9085e9); --cat-building:light-dark(#1baf7a, #199e70); --cat-review:light-dark(#eb6834, #d95926); --cat-docs:light-dark(#eda100, #c98500);
+  --cat-ci:var(--accent); --cat-merge:light-dark(#e87ba4, #d55181); --cat-other:light-dark(#9ca3af, #6b7280); }
 :root[data-theme="dark"] { color-scheme: dark; }
 :root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
@@ -138,7 +140,7 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .detail-more { margin:var(--s1) 0 0; color:var(--muted); }
 .gantt { container-type:inline-size; background:var(--soft); border-radius:10px; padding:var(--s2) var(--s3); margin-top:var(--s2); }
 .grow { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; grid-template-areas:"name dur cost" "track track track"; gap:var(--s1) var(--s3); align-items:center; padding:var(--s2) 0; border-top:1px solid var(--line); }
-.grow:first-child { border-top:0; }
+.grow:first-child, .legend + .grow { border-top:0; }
 .grow .name { grid-area:name; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .grow .track { grid-area:track; }
 .grow .dur { grid-area:dur; }
@@ -153,9 +155,15 @@ details.group.stale ul, details.group.stale ul a { color:var(--muted); }
 .gnote { margin:var(--s1) 0 0; color:var(--muted); font-size:var(--t-small); }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .track { position:relative; height:var(--s2); background:var(--card); border-radius:6px; }
-.bar { position:absolute; top:0; bottom:0; background:var(--green); border-radius:6px; }
-.bar.running { background:var(--attn); }
-.bar.ci { background:var(--accent); }
+.bar { position:absolute; top:0; bottom:0; border-radius:6px; }
+.cat-planning { background:var(--cat-planning); } .cat-building { background:var(--cat-building); } .cat-review { background:var(--cat-review); } .cat-docs { background:var(--cat-docs); }
+.cat-ci { background:var(--cat-ci); } .cat-merge { background:var(--cat-merge); } .cat-other { background:var(--cat-other); }
+.bar.running { animation:pulse 1.6s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity:.55; } }
+@media (prefers-reduced-motion: reduce) { .bar.running { animation:none; box-shadow:inset 0 0 0 2px var(--fg); } }
+.legend { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s3); margin:0 0 var(--s2); padding:0; list-style:none; color:var(--muted); font-size:var(--t-small); }
+.legend li { display:flex; align-items:center; gap:var(--s1); }
+.swatch { width:10px; height:10px; border-radius:6px; }
 @container (min-width: 36rem) {
   .grow { grid-template-columns:14rem minmax(0, 1fr) 5rem 4.5rem; grid-template-areas:"name track dur cost"; }
   .grow.gtotal { grid-template-areas:"name . dur cost"; }
