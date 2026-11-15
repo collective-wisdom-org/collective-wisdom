@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 make dashboard top-level headers collapsible (CW-369) (#383)
+
+Merged 2026-11-15 5:26 am UTC.
+
+You can now collapse the section headers on the dashboard (Your turn, In progress, Up next, Not started, and Project manager). The dashboard remembers your choice across refreshes and reloads. Nothing to do.
+
 ## 2026-11-15 drop left-Todo tickets from the dashboard lists and show their age (CW-355) (#381)
 
 Merged 2026-11-15 5:19 am UTC.
