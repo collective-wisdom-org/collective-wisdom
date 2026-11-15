@@ -1,7 +1,8 @@
 # WISE-440: Bring the compatibility doc up to date with main and add the rows it is missing
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#440](https://github.com/collective-wisdom-org/collective-wisdom/issues/440)
+**Shipped:** in PR #447, as specified
 **Related:** [#441](https://github.com/collective-wisdom-org/collective-wisdom/issues/441), [#442](https://github.com/collective-wisdom-org/collective-wisdom/issues/442), [#443](https://github.com/collective-wisdom-org/collective-wisdom/issues/443), [#342](https://github.com/collective-wisdom-org/collective-wisdom/issues/342), [#343](https://github.com/collective-wisdom-org/collective-wisdom/issues/343)
 
 Written after the fact: the sweep was a hand run asked for by the user, and this spec records what it changed and why.
