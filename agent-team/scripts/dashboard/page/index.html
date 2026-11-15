@@ -32,6 +32,7 @@ h3 { font-size:var(--t-body); font-weight:600; margin:var(--s4) 0 var(--s3); }
 details.group > summary { margin:var(--s4) 0 var(--s3); }
 details.group > summary > h3 { display:inline; margin:0; }
 .band > summary + .group > summary { margin-top:var(--s2); }
+#backlog > .group:first-child > summary { margin-top:0; }
 summary { cursor:pointer; list-style:none; }
 summary::-webkit-details-marker { display:none; }
 summary::after { content:""; display:inline-block; width:.4em; height:.4em; margin-left:.55em; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-135deg); vertical-align:-.05em; transition:transform .15s; }
@@ -92,6 +93,8 @@ button.copy-icon:hover:not(:disabled) { background:none; color:var(--fg); }
 button.copy-icon[data-state="copied"] { color:var(--green); }
 button.copy-icon[data-state="failed"] { color:var(--red); }
 .tabs { display:inline-flex; gap:2px; margin:0 0 var(--s6); padding:3px; background:var(--soft); border-radius:10px; }
+.tabs .pill { background:var(--line); margin-left:var(--s1); }
+.tabs .pill:empty { display:none; }
 .tabs button { height:2rem; padding:0 var(--s4); border:0; border-radius:8px; color:var(--muted); font-size:var(--t-small); font-weight:500; }
 .tabs button:hover:not(:disabled) { background:transparent; color:var(--fg); }
 .tabs button[aria-selected="true"], .tabs button[aria-selected="true"]:hover:not(:disabled) { background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 2px var(--shadow); }
@@ -144,7 +147,7 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .grow.sub { color:var(--muted); font-size:var(--t-small); }
 .grow.stale { color:var(--muted); }
 .read-age { margin:0 0 var(--s2); color:var(--muted); font-size:var(--t-small); }
-details.group.stale ul, details.group.stale ul a { color:var(--muted); }
+details.group.stale ul, details.group.stale ul a, li.ticket.stale, li.ticket.stale a { color:var(--muted); }
 .grow.stale .track { opacity:.5; }
 .grow.gtotal { grid-template-areas:"name dur cost"; }
 .grow.gtotal { font-weight:600; }
@@ -168,9 +171,10 @@ details.group.stale ul, details.group.stale ul a { color:var(--muted); }
 </header>
 <p id="error" role="status"></p>
 <div class="tabs" role="tablist" aria-label="Dashboard">
-<button type="button" role="tab" id="tab-ship" data-tab="ship" aria-selected="true" aria-controls="panel-ship" tabindex="0">Ship loop</button>
+<button type="button" role="tab" id="tab-ship" data-tab="ship" aria-selected="true" aria-controls="panel-ship" tabindex="0">Ship loop <span class="pill tab-count" data-count="ship" aria-hidden="true"></span></button>
 <button type="button" role="tab" id="tab-cos" data-tab="cos" aria-selected="false" aria-controls="panel-cos" tabindex="-1">Chief of Staff</button>
-<button type="button" role="tab" id="tab-done" data-tab="done" aria-selected="false" aria-controls="panel-done" tabindex="-1">Done</button>
+<button type="button" role="tab" id="tab-done" data-tab="done" aria-selected="false" aria-controls="panel-done" tabindex="-1">Done <span class="pill tab-count" data-count="done" aria-hidden="true"></span></button>
+<button type="button" role="tab" id="tab-backlog" data-tab="backlog" aria-selected="false" aria-controls="panel-backlog" tabindex="-1">Backlog</button>
 </div>
 <div id="panel-ship" role="tabpanel" aria-labelledby="tab-ship">
 <div id="status"><p class="quiet">Loading</p></div>
@@ -180,6 +184,9 @@ details.group.stale ul, details.group.stale ul a { color:var(--muted); }
 </div>
 <div id="panel-done" role="tabpanel" aria-labelledby="tab-done" hidden>
 <div id="merged"><p class="quiet">Loading</p></div>
+</div>
+<div id="panel-backlog" role="tabpanel" aria-labelledby="tab-backlog" hidden>
+<div id="backlog"><p class="quiet">Loading</p></div>
 </div>
 </main>
 <script type="module" src="/app.js"></script>

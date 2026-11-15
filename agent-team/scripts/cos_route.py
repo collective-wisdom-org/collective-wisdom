@@ -36,7 +36,7 @@ Prints lines the caller acts on, then a last line, exit 0 unless noted:
                                             the caller adds pendingRelay and, for a user spec approval, approvalItemId)
     set: <JSON>                             a continuation has no stage op: add these keys to the lane's stage op
     moving: <line>                          copy under Moving (a send to a ticket with no known parent thread)
-    merge-wait: <T>                         a merge-lane send that prints a moving line: start the merge wait (cos_merge_wait.py)
+    merge-wait: <T>                         a merge-lane send: start the merge wait (cos_merge_wait.py)
     fallback: <line>                        a continuation that falls back to sending to the old child adds this
                                             (in the merge lane, also: start the merge wait)
     route: send <lane>                      send with t3_thread_send, then apply the stage op
@@ -133,7 +133,7 @@ def route(state, tid, caller, thread, setting):
     if parent and parent != chief:
         start = " and start the merge wait" if lane == "merge" else ""
         return [f"fallback: if the continuation sends to the old child, add under Moving: {moving}{start}"] + extra, f"route: continuation {lane}", 0
-    wait = [f"merge-wait: {tid}"] if lane == "merge" and not parent else []
+    wait = [f"merge-wait: {tid}"] if lane == "merge" else []
     return [f"stage: {json.dumps(op)}"] + ([f"moving: {moving}"] if not parent else []) + wait, f"route: send {lane}", 0
 
 

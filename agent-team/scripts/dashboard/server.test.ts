@@ -267,7 +267,7 @@ test('a root checkout helper that filed a ticket is recorded as that ticket\'s s
   }
 })
 
-test('a linear project serves the Todo and Backlog the Chief of Staff saved, and a ticket in state shows once', async () => {
+test('a linear project serves the Todo (under Waiting to spec) and Backlog the Chief of Staff saved, and a ticket in state shows once', async () => {
   const root = tmpRoot()
   mkdirSync(join(root, '.agent-team'))
   mkdirSync(join(root, 'docs/agents'), { recursive: true })
@@ -279,7 +279,7 @@ test('a linear project serves the Todo and Backlog the Chief of Staff saved, and
   try {
     const api = JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body)
     const groups = Object.fromEntries(api.status.map((g: any) => [g.name, g.rows.map((r: any) => r.id)]))
-    assert.deepEqual([groups.Todo, groups.Backlog], [['CW-2'], ['CW-3']])
+    assert.deepEqual([groups.Todo, groups['Waiting to spec'], groups.Backlog], [undefined, ['CW-2'], ['CW-3']])
     assert.equal(api.status.find((g: any) => g.name === 'Backlog').moreUrl, undefined)
     assert.equal(Object.values(groups).flat().filter((id) => id === 'CW-1').length, 1)
   } finally {
