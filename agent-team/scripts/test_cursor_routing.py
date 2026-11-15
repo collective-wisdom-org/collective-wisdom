@@ -9,28 +9,28 @@ import cos_models
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / ".claude" / "skills"
 # Auto bills at the list price of the model each request is routed to, so it has no price row by design.
-UNPRICED = "auto-smart"
+UNPRICED = "default"
 
 
 def routed_models():
     """(where, model id) for each Cursor model: agent files, the cos_models.py Cursor routes, and cursor values in skills.
 
-    A bracket suffix on an id (`auto-smart[optimize_for=balanced]`) is dropped.
+    `inherit` names no model (the parent's route is collected from cos_models.py), so it is dropped.
     """
     found = []
     for f in sorted((ROOT / ".cursor" / "agents").glob("*.md")):
-        found += [(f.name, m.split("[")[0]) for m in re.findall(r"^model:\s*(\S+)", f.read_text(), re.M)]
+        found += [(f.name, m) for m in re.findall(r"^model:\s*(\S+)", f.read_text(), re.M)]
     for role, row in cos_models.MODELS["cursor"].items():
         found += [(f"cos_models.py cursor {role}", v["model"]) for k, v in row.items() if k != "pinned"]
-        found += [(f"cos_models.py cursor {role}", m.split("[")[0]) for m in re.findall(r"model: (\S+)", row.get("pinned", ""))]
+        found += [(f"cos_models.py cursor {role}", m) for m in re.findall(r"model: (\S+)", row.get("pinned", ""))]
     for f in sorted(SKILLS.glob("**/*.md")):
         found += [(str(f.relative_to(ROOT)), m) for m in re.findall(r'[iI]nstanceId: "cursor", model: "([^"]+)"', f.read_text())]
-    return found
+    return [(where, m) for where, m in found if m != "inherit"]
 
 
 def test_every_cursor_model_is_priced_except_auto_and_none_is_claude():
     found = routed_models()
-    assert {m for _, m in found} >= {"auto-smart"}  # the collection found the routing, not nothing
+    assert {m for _, m in found} >= {"default"}  # the collection found the routing, not nothing
     assert agent_usage.family(UNPRICED) is None  # the day Auto gets a price, drop the exception
     for where, model in found:
         if model != UNPRICED:

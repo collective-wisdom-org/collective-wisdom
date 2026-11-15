@@ -40,13 +40,13 @@ Fable 5.1 and Haiku 5.5 are not used: they are not part of the default setup.
 
 Provider id: `cursor`.
 
-No Cursor run starts on a Claude model, Grok, Composer or Gemini; the team routes only to Auto (`auto-smart`) (CW-275: the user's Cursor cannot pick models). Auto Intelligence is `auto-smart` with `optimize_for` `intelligence`; Auto Fast is `auto-smart` with `optimize_for` `balanced` (Auto has no fast option, so the name is for the balanced tier). The context window stays at Cursor's default. A Cursor Chief of Staff thread with no `optimize_for` option set is on the right model: the default is balanced, which is what the `chief` role names.
+No Cursor run starts on a Claude model, Grok, Composer or Gemini; the team routes only to Auto (CW-275: the user's Cursor cannot pick models). Auto is the model `default` with no options, for every role. A subagent runs on `model: inherit` in its `.cursor/agents` file, so it takes its parent thread's model, which is Auto. The context window stays at Cursor's default.
 
 Role values: `python3 ~/.collective-wisdom/scripts/cos_models.py cursor <role>`.
 
-Auto bills at the list price of the model each request is routed to, so `prices.json` has no `auto-smart` row and `agent_usage.py` reports `cost unknown` for Auto runs, never a low number, when the run store records `auto-smart`, which is unconfirmed (follow-up check 3; G8 in `docs/compatibility.md`).
+Auto bills at the list price of the model each request is routed to, so `prices.json` has no `default` row and `agent_usage.py` reports `cost unknown` for Auto runs, never a low number, when the run store records `default`, which is unconfirmed (follow-up check 3; G8 in `docs/compatibility.md`).
 
-Not yet observed: whether a Cursor subagent honors `model: auto-smart[optimize_for=...]` (Cursor documents only concrete ids and `inherit`), whether `t3_thread_configure` switches a Cursor child to another `optimize_for` mid-thread, and what the run store records for an Auto run (routed model, `optimize_for`). Until the subagent `model:` and run store checks are observed, the Cursor review model is unpinned and unrecorded, so a code or security review PASS on Cursor carries less assurance than one on Claude Code; keep the approval risk tolerance strict for a Cursor Chief of Staff until then.
+Not yet observed: whether a Cursor subagent with `model: inherit` under an Auto parent runs on Auto, and what the run store records for an Auto run. Until those checks are observed, the Cursor review model is unpinned and unrecorded, so a code or security review PASS on Cursor carries less assurance than one on Claude Code; keep the approval risk tolerance strict for a Cursor Chief of Staff until then.
 
 ### Codex
 
