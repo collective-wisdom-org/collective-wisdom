@@ -1,6 +1,7 @@
 # CW-350: Move the dashboard Done list to its own Done tab
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #376, as specified
 **Ticket:** [#350](https://github.com/collective-wisdom-org/collective-wisdom/issues/350)
 
 ## Goal
