@@ -613,18 +613,17 @@ export const CATEGORIES = [
   ['planning', 'Planning'],
   ['building', 'Building'],
   ['review', 'Review'],
-  ['docs', 'Docs and cleanup'],
   ['ci', 'CI wait'],
   ['merge', 'Merge and ship'],
   ['other', 'Other'],
 ]
 const CATEGORY_LABEL = new Map(CATEGORIES)
 
-// First match wins, so a name that mentions a PR can still be review or docs work, and a plan can still be built.
+// First match wins, so a spec revision reads as planning before `changes` can make it review, a name that mentions a PR can still be review, and docs cleanup is building.
 const CATEGORY_RULES = [
-  ['review', /\b(?:review|security|changes)\b|^fix\b/i],
-  ['docs', /\b(?:docs?|documenter|compact|compacter|slop|cleanup)\b/i],
-  ['building', /\b(?:build|implement|implementer|code)\b/i],
+  ['planning', /^(?:spec\b|(?:[A-Z][A-Z0-9]*-\d+\s+)?changes$)/i],
+  ['review', /\b(?:review|security|changes|documenter|docs? check)\b|^fix\b/i],
+  ['building', /\b(?:build|implement|implementer|code|docs?|compact|compacter|slop|cleanup)\b/i],
   ['merge', /\b(?:merge|open-pr|pr|ship|autopilot)\b/i],
   ['planning', /\b(?:spec|kickoff|tickets?|plan|chief of staff|approve|start|take over|status|backlog|ranking|hygiene|explore|research|general-purpose)\b/i],
 ]
