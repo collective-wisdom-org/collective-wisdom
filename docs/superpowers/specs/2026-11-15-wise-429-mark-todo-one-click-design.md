@@ -1,6 +1,7 @@
 # WISE-429: Send Mark todo from the dashboard with one click
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #444, as specified
 **Ticket:** [#429](https://github.com/collective-wisdom-org/collective-wisdom/issues/429)
 
 ## Goal
