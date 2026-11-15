@@ -1,7 +1,8 @@
 # CW-386: Find a merge soon after the Chief of Staff relays a merge approval
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#386](https://github.com/collective-wisdom-org/collective-wisdom/issues/386)
+**Shipped:** in PR #405, as specified
 
 ## Goal
 
