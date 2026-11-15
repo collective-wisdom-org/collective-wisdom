@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show dashboard status-text times in local am/pm (CW-373) (#392)
+
+Merged 2026-11-15 6:00 am UTC.
+
+Times the Chief of Staff writes into ticket status lines, like `build since 3:55am UTC`, now show on the dashboard in your local time as `10:55 pm`, with no timezone. Nothing to do.
+
 ## 2026-11-15 show every dashboard row as a card (CW-370) (#389)
 
 Merged 2026-11-15 5:45 am UTC.
