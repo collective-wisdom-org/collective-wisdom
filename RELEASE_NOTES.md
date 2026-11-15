@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 color-code Gantt bars by category with a legend (CW-401) (#410)
+
+Merged 2026-11-15 7:43 am UTC.
+
+The dashboard's agent charts now color each bar by kind of work (planning, building, review, docs, CI wait, merge, other) and show a legend. Running bars pulse instead of turning amber.
+
 ## 2026-11-15 show the PR link on the card as soon as the PR opens (CW-394) (#409)
 
 Merged 2026-11-15 7:32 am UTC.
