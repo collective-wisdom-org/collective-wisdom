@@ -28,7 +28,6 @@ STATE = {
     "paused": False,
     "tickets": {"ABC-1": ticket(), "ABC-2": ticket("awaiting-build"), "ABC-4": ticket("awaiting-build")},
     "merged": {"ABC-8": 7, "ABC-9": {"pr": 9, "at": "2020-01-01T00:00:00Z"}},
-    "retiredThreads": [{"threadId": "t1", "retiredAt": "2026-11-01T00:00:00Z", "archivedAt": None}],
     "pm": {},
     "staleKey": "x",
 }
@@ -49,9 +48,6 @@ QUEUE = {"op": "stage", "ticket": "ABC-2", "stage": "build-queued", "status": "q
     [{"op": "drop", "ticket": "ABC-1"}],
     [{"op": "top", "set": {"paused": True, "reset": RESET, "lastResetAt": "2026-11-14T10:05:00Z"}}],
     [{"op": "pm", "set": {"rankedAt": "x"}}],
-    [{"op": "retire", "threadId": "t2"}],
-    [{"op": "archive", "threadId": "t1", "archivedAt": "2026-11-02T00:00:00Z"}],
-    [{"op": "unretire", "threadId": "t1"}],
     [{"op": "prune"}],
 ])
 def test_apply_twice_is_idempotent(tmp_path, capsys, ops):
@@ -128,7 +124,6 @@ def test_new_head_in_a_stamped_stage_restamps_lastSeenAt(stage, op, restamped):
     {"op": "drop", "ticket": "nope"},
     {"op": "unknown"},
     {k: v for k, v in START.items() if k != "parentThreadId"},
-    {"op": "retire", "threadId": "t2", "successor": "t3"},
     {"op": "top", "set": {"rotation": {"from": "a"}}},
     {"op": "top", "set": {"reset": {**RESET, "id": "xyz"}}},
     {"op": "top", "set": {"reset": {**RESET, "mode": "rotate"}}},
@@ -218,15 +213,9 @@ def test_prune_drops_observed_older_than_a_week():
     }
 
 
-@pytest.mark.parametrize("ops, retired, shown", [
-    ([{"op": "retire", "threadId": "t2"}], ["t1", "t2"], "t1>t0 t2>?"),
-    ([{"op": "retire", "threadId": "t1"}], ["t1"], "t1>t0"),
-])
-def test_retire_keeps_an_existing_successor(ops, retired, shown):
-    state = {**STATE, "retiredThreads": [{**STATE["retiredThreads"][0], "successor": "t0"}]}
-    new, _, _ = cos_state.apply_ops(state, ops)
-    assert [r["threadId"] for r in new["retiredThreads"]] == retired
-    assert f"\nretired: {shown}\n" in cos_state.show(new)
+def test_prune_drops_a_leftover_retired_threads_key():
+    new, _, _ = cos_state.apply_ops({**STATE, "retiredThreads": [{"threadId": "t1"}]}, [{"op": "prune"}])
+    assert "retiredThreads" not in new
 
 
 def test_top_sets_reset_and_drops_a_leftover_rotation():

@@ -9,13 +9,11 @@ Usage:
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] init
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
-show prints the working set (a few lines plus one status line per ticket, and the retired
-threads as <id>><successor>, oldest first, with "(archived)" on archived ones; a successor is
-only on entries retired before CW-316). get prints
+show prints the working set (a few lines plus one status line per ticket). get prints
 one ticket (or the pm block) as JSON. apply reads a JSON list of operations on stdin and
 applies all of them or none: it prints "unchanged", or "saved" and one line per changed
 ticket, and writes through a temp file, fsync and os.replace under a flock on state.lock
-next to the file. init writes an empty state file if there is none. prune drops old merged and retired entries, observed entries older than 7 days and unknown top-level keys.
+next to the file. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
@@ -27,12 +25,9 @@ Operations (each {"op": NAME, ...}):
     set       ticket, set (ticket fields other than stage)
     merged    ticket, pr
     drop      ticket
-    top       set (top-level keys other than tickets, merged, retiredThreads, pm, lastRelayAt); also drops a leftover
+    top       set (top-level keys other than tickets, merged, pm, lastRelayAt); also drops a leftover
               rotation or rotationHeldUntil (keys of the old thread rotation) from the state
     pm        set
-    retire    threadId
-    archive   threadId, archivedAt (a time, or null to undo)
-    unretire  threadId
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
               observation ticket helper) or hold. The only op that writes "observed".
     prune
@@ -86,7 +81,7 @@ import project_config  # noqa: E402
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
-    "retiredThreads", "reset", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
+    "reset", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
     "merged", "tickets", "pm", "observed", "noHands", "chiefProvider",
 }
 TICKET = {
@@ -330,7 +325,7 @@ def op_drop(s, op):
 
 def op_top(s, op):
     need(op, "set")
-    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "retiredThreads", "lastRelayAt", "observed", "noHands"}, "top-level")
+    keys_ok(op["set"], TOP - {"tickets", "merged", "pm", "lastRelayAt", "observed", "noHands"}, "top-level")
     zoned = lambda x: isinstance(x, str) and getattr(parse(x), "tzinfo", None) is not None  # noqa: E731
     sane = lambda x: zoned(x) and parse(x) <= datetime.now(timezone.utc) + timedelta(minutes=5)  # noqa: E731  # a future time would hold resets for good
     marker = op["set"].get("reset")
@@ -388,31 +383,6 @@ def op_pm(s, op):
     need(op, "set")
     keys_ok(op["set"], PM, "pm")
     s.setdefault("pm", {}).update(op["set"])
-
-
-def retired(s, op):
-    return next((r for r in s["retiredThreads"] if r.get("threadId") == op.get("threadId")), None)
-
-
-def op_retire(s, op):
-    need(op, "threadId")
-    if not retired(s, op):
-        s["retiredThreads"].append({"threadId": op["threadId"], "retiredAt": now(), "archivedAt": None})
-
-
-def op_archive(s, op):
-    need(op, "threadId", optional=("archivedAt",))
-    if "archivedAt" not in op:
-        raise Reject("missing archivedAt")
-    entry = retired(s, op)
-    if not entry:
-        raise Reject(f"no retired thread {op['threadId']}")
-    entry["archivedAt"] = op["archivedAt"]
-
-
-def op_unretire(s, op):
-    need(op, "threadId")
-    s["retiredThreads"] = [r for r in s["retiredThreads"] if r.get("threadId") != op["threadId"]]
 
 
 def dicts(v):
@@ -473,23 +443,19 @@ def op_prune(s, op, notes=None):
     if isinstance(s.get("observed"), dict):
         for k in ("sightings", "filed"):
             s["observed"][k] = [x for x in dicts(s["observed"].get(k)) if within(x.get("at"), WEEK)]
-    s["retiredThreads"] = [
-        r for r in s["retiredThreads"]
-        if not (r.get("archivedAt") and older_than_day(r["archivedAt"]))
-    ]
 
 
 OPS = {
     "start": op_start, "stage": op_stage, "set": op_set, "merged": op_merged, "drop": op_drop,
-    "top": op_top, "pm": op_pm, "retire": op_retire, "archive": op_archive,
-    "unretire": op_unretire, "prune": op_prune, "observe": op_observe, "no-hands": op_no_hands,
+    "top": op_top, "pm": op_pm,
+    "prune": op_prune, "observe": op_observe, "no-hands": op_no_hands,
 }
 
 
 def apply_ops(state, ops):
     """Return (new state, change lines, notes). Raises Reject("op <i>: <reason>")."""
     s = copy.deepcopy(state)
-    for k, empty in (("tickets", {}), ("merged", {}), ("retiredThreads", [])):
+    for k, empty in (("tickets", {}), ("merged", {})):
         s.setdefault(k, empty)
     notes, filed_now, ticketless = [], [False], set()  # filed_now: an observe op already said file in this call
     if not isinstance(ops, list):
@@ -636,17 +602,12 @@ def show(s):
         f"{i} #{m.get('pr', '-')}" for i, m in merged.items()
         if isinstance(m, dict) and not older_than_day(m.get("at"))
     ]
-    rt = sorted(
-        (r for r in s.get("retiredThreads") or [] if isinstance(r, dict)),
-        key=lambda r: str(r.get("retiredAt") or ""),
-    )
     pm = s.get("pm") if isinstance(s.get("pm"), dict) else {}
     ranked = " ".join(
         f"{r.get('id')}({r.get('readiness')})" for r in pm.get("ranked") or [] if isinstance(r, dict)
     )
     out += [
         "merged (24h): " + (", ".join(recent) or "-"),
-        "retired: " + (" ".join(f"{r.get('threadId')}>{r.get('successor') or '?'}{'(archived)' if r.get('archivedAt') else ''}" for r in rt) or "-"),
         f"pm: rankedAt={t(pm.get('rankedAt'))} lastDailyAt={t(pm.get('lastDailyAt'))} "
         f"lastCheckAt={t(pm.get('lastCheckAt'))} ranked={ranked or '-'}",
         "unknown keys: " + (" ".join(k for k in s if k not in TOP) or "-"),

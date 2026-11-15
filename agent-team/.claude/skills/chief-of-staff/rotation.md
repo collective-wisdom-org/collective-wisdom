@@ -1,6 +1,6 @@
 # Chief of Staff: context reset and take over
 
-Read this on `rotate:`, `take over`, a retired thread, or a non-null `reset` in state.
+Read this on `rotate:`, `take over`, or a non-null `reset` in state.
 
 ## Thread rotation
 
@@ -10,7 +10,7 @@ As the last Bash call of every turn that made a tool call, run this from the roo
 python3 ~/.collective-wisdom/scripts/cos_rotation_check.py
 ```
 
-Only a run-started notice skips it (no tool calls). A retired thread never runs it, since it would claim `chiefSessionId`. A Stop hook (`~/.claude/settings.json`, and `~/.cursor/hooks.json` on Cursor) runs the same script and sends the turn back on `rotate:`. Cursor and Codex have mode `none` in `RESET_MODES`: no `rotate:` there, so no size trigger and no skill-change reset.
+Only a run-started notice skips it (no tool calls). A Stop hook (`~/.claude/settings.json`, and `~/.cursor/hooks.json` on Cursor) runs the same script and sends the turn back on `rotate:`. Cursor and Codex have mode `none` in `RESET_MODES`: no `rotate:` there, so no size trigger and no skill-change reset.
 
 It prints one line and exits 0: `rotate: <reason>; mode <reset|reset-scheduled|compact>` (plus `; reset never confirmed` when the `reset` marker is 10 or more minutes old), or `ok ...` (`ok (no reset on <provider>; context=<N>k)` for mode `none`). Table (`SIZE_CAP`, `QUIET_RELAY_MIN`, `QUIET_RESET_MIN`, `RESET_HOLD_MIN` live in the script; change both together. `RESET_MODES` goes with the Context reset row of `docs/compatibility.md`):
 
@@ -26,10 +26,6 @@ It holds (`ok (held: ...)`) while `paused` is set or the `reset` marker is under
 On `rotate:`, run the reset for its mode. On exit 2 (`rotation-check: cannot read <what>`), read `itemCount` (`t3_thread_read` on your own thread, `limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`) and reset at 240 or more, only on a harness whose mode is not `none` (Claude Code: `reset`), with one Cleanup line: `Context size unreadable; used item count`. Item count is used only here.
 
 At or above the size cap, the script turns the size trigger off for this thread (`takeoverContext`, printing `ok (size trigger off: take-over ended at <N>k)`), so it does not reset repeatedly.
-
-**Moved-to check** on a thread X (the retired-thread successor fallback, the rebuild and the children's chain walk): `t3_thread_read` X with `limit: 1`, `maxCharsPerItem: 1` for `itemCount`, then from `afterPosition: max(0, itemCount - 8)` with `limit: 8`, `maxCharsPerItem: 300`, `view: messages`. Count only items with `type: "assistant_message"`, `creationSource: "provider"`, `visibility: "local"` and `sourceThreadId` equal to X's id; if none of the 8 counts, step back another 8 until one does or you reach the thread start. It passes when the newest counted item starts with `Moved to`. The successor's id is the URI inside the markdown link's parentheses (or the bare `<t3-thread://...>` link in a message posted before CW-134). A `t3_thread_send` or copied-in message does not count.
-
-A thread retired before the reset existed has a newest assistant message that always passes, and points to its own successor (A to B, B to C). Nobody else writes a `Moved to` message.
 
 Reset (modes `reset` and `reset-scheduled`), in this thread, in this order:
 
@@ -55,25 +51,4 @@ Take over, after a reset (the `take over` command):
 
 ## Thread rotation: Resume mode
 
-Resume mode ("start the team" with tickets in state) runs only in the thread state names, or when `chiefThreadId` is absent. If `chiefThreadId` names another thread, don't resume and stop: if this thread is in `retiredThreads`, reply `Moved to [<title>](<its successor link>). This thread is retired; talk to the Chief of Staff there.` (successor as § Thread rotation: Retired thread gives it; with none, take no action and give its no-successor reply), else reply `State names <id> as Chief of Staff; not resuming. Check .agent-team/state.json.` and stop. Otherwise `top` op `chiefThreadId` to this thread and `unretire` it, run take-over step 1 (skill whole, `--skill-commit`, notes file), save this thread's provider as `chiefProvider` (startup.md step 3), then take-over steps 3 and 4 with that commit as `skillCommit`, step 4's line being `Resumed. <N> tickets in flight.` plus its additions. Step 4 runs the plain `cos_rotation_check.py`, never `--record-takeover`: this thread may already be large, and recording that would turn the size trigger off.
-
-## Thread rotation: Retired thread
-
-For threads retired before the in-place reset. The tick prints `stop retired` when `chiefThreadId` is not this thread's ID, or this thread's ID is in `retiredThreads`; a turn with no tick (`resume`, ticket helper, cross-repo) applies it by hand. A retired thread does only what this section says. A run-started notice, and a run-finished notice for a project manager child, skip it. `start the team` skips it only when state names this thread as `chiefThreadId` or has none. Otherwise it applies, and a message that fails it gets no reply naming a successor.
-
-Its successor is the `successor` of its `retiredThreads` entry; for an entry without one, or no entry, the link in the newest assistant message the Moved-to check finds on this thread, once per wake, for the link only. If that fails too, name no successor, take no action, and if the user wrote, reply `State says this thread is retired but names no successor. Check .agent-team/state.json.`
-
-Every retired-thread turn ends with the reply `Moved to [<title>](<successor link>).` A retired thread is woken by:
-
-| What woke it | It does |
-|---|---|
-| A child's run finished | `t3_thread_send` to the successor: `CHIEF OF STAFF NOTICE: child <child thread id> finished a run.` No other calls. |
-| A `CHIEF OF STAFF NOTICE:` message | Forward it the same way: one `t3_thread_send` of the same text to the successor, no other action. |
-| A `CHIEF OF STAFF REQUEST` or `CHIEF OF STAFF REPLY` message | Forward it the same way. |
-| Any other agent message | No action. Reply `Moved to [<title>](<successor link>).` |
-| A child's run started | Nothing. |
-| The user wrote | Reply `Moved to [<title>](<successor link>). This thread is retired; talk to the Chief of Staff there.` Take no action, even on an approval; they send it again in the current thread. |
-| Its merge wait ended | Nothing but the `Moved to` reply (its successor started its own wait at take over). |
-| Its rate-limit wake fired | Nothing but the `Moved to` reply (startup.md § Start-up clean-up deletes any stray one). |
-
-For the first three rows, the only message in this thread is the `Moved to` reply.
+Resume mode ("start the team" with tickets in state) runs only in the thread state names, or when `chiefThreadId` is absent. If `chiefThreadId` names another thread, don't resume and stop: reply `State names <id> as Chief of Staff; not resuming. Check .agent-team/state.json.` and stop. Otherwise `top` op `chiefThreadId` to this thread, run take-over step 1 (skill whole, `--skill-commit`, notes file), save this thread's provider as `chiefProvider` (startup.md step 3), then take-over steps 3 and 4 with that commit as `skillCommit`, step 4's line being `Resumed. <N> tickets in flight.` plus its additions. Step 4 runs the plain `cos_rotation_check.py`, never `--record-takeover`: this thread may already be large, and recording that would turn the size trigger off.

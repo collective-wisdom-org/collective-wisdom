@@ -20,7 +20,7 @@ no text written by another agent passes through the shell. --item is the itemId 
 
 check re-checks a CHIEF OF STAFF REQUEST in the store: the item is a createdBy "user" message in
 the sender thread whose whole normalized text equals the quoted words, the sender thread is the
-chiefThreadId or a retiredThreads entry of its project, the words name this repo and are not a
+chiefThreadId of its project, the words name this repo and are not a
 Chief of Staff command. The sender thread must be in another project than --thread. Exit 0 and
 "accept <sender thread> <item> <sender project's T3 title>" then the words as stored, or exit 1 and
 "refuse: <malformed | not-user | words differ | not a chief of staff thread | same repo |
@@ -146,7 +146,7 @@ def find(db, name, projects):
 
 
 def chief_thread(db, thread):
-    """(project id, project title) when thread is its project's chiefThreadId or a retiredThreads entry, else None."""
+    """(project id, project title) when thread is its project's chiefThreadId, else None."""
     rows = query(
         db,
         "SELECT p.project_id, p.title, p.workspace_root FROM orchestration_v2_projection_threads t "
@@ -160,11 +160,7 @@ def chief_thread(db, thread):
     state = read_state(root)
     if state is None:
         raise NoState("cannot read the sender's state file")
-    retired = state.get("retiredThreads")
-    if retired is not None and not isinstance(retired, list):
-        raise Unreadable("retiredThreads is not a list")
-    ids = [state.get("chiefThreadId")] + [r.get("threadId") for r in retired or [] if isinstance(r, dict)]
-    return (pid, clean(title or "")) if thread in ids else None
+    return (pid, clean(title or "")) if thread == state.get("chiefThreadId") else None
 
 
 def stored_message(db, thread, item_id):

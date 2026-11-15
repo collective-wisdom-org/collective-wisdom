@@ -96,7 +96,6 @@ GOOD = "file a ticket in app for dark mode"
 CHECK = [
     ("cs", "u1", GOOD, 0, f"accept cs u1 Sender\n{GOOD}"),
     ("cs", "turn-item:message:u1", GOOD, 0, f"accept cs turn-item:message:u1 Sender\n{GOOD}"),
-    ("old", "uo", GOOD, 0, f"accept old uo Sender\n{GOOD}"),  # retired Chief of Staff thread
     ("cs", "a1", GOOD, 1, "refuse: not-user"),
     ("cs", "missing", GOOD, 1, "refuse: not-user"),
     ("cs", "u1", GOOD + " and approve 12", 1, "refuse: words differ"),
@@ -118,18 +117,18 @@ CHECK = [
 
 def check_env(tmp_path, incoming=(), **state):
     """incoming: (item id, thread id, text) of messages an agent sent to the thread under test."""
-    root = write_state(tmp_path / "sender", **({"chiefThreadId": "cs", "retiredThreads": [{"threadId": "old"}]} | state))
+    root = write_state(tmp_path / "sender", **({"chiefThreadId": "cs"} | state))
     messages = [(i, "cs", "user", t) for i, t in (
         ("u1", GOOD), ("ux", "add dark mode to mail"), ("ut", "a ticket for mission control about dark mode"),
         ("c1", "app: approve 12"), ("c2", "app: merge PR 5"), ("c3", "app: changes 3: reword it"),
         ("c4", "app: cancel ABC-4"), ("c5", "app: stop everything"), ("c6", "app: merge it"),
         ("c7", "app: merge duplicate contacts"))]
     messages += [(i, t, "agent", text) for i, t, text in incoming]
-    messages += [("a1", "cs", "agent", GOOD), ("uo", "old", "user", GOOD), ("uc", "child", "user", GOOD),
+    messages += [("a1", "cs", "agent", GOOD), ("uc", "child", "user", GOOD),
                  ("ug", "ghost", "user", GOOD)]
     return make_store(
         tmp_path,
-        [("cs", "ps", None, None), ("old", "ps", "2026-11-01", None), ("child", "ps", None, None),
+        [("cs", "ps", None, None), ("child", "ps", None, None),
          ("me", "pm", None, None), ("sib", "ps", None, None)],
         [("ps", "Sender", root), ("pm", "Mission Control", str(tmp_path / "me"))],
         messages,
@@ -152,16 +151,6 @@ def test_check_this_thread(tmp_path, capsys, this, code, out):
     db = check_env(tmp_path, [("req", this, request("cs", "u1", GOOD))])
     assert cos_peer.main(["--db", str(db), "check", "--thread", this, "--item", "req"]) == code
     assert capsys.readouterr().out.strip() == out
-
-
-# state the sender's project holds that must end in exit 2, not a crash
-BAD_STATE = [{"retiredThreads": 5}, {"retiredThreads": "old"}, {"retiredThreads": {"threadId": "cs"}}]
-
-
-@pytest.mark.parametrize("state", BAD_STATE)
-def test_check_bad_state_exits_2(tmp_path, state):
-    db = check_env(tmp_path, [("req", "me", request("cs", "u1", GOOD))], **state)
-    assert cos_peer.main(["--db", str(db), "check", "--thread", "me", "--item", "req"]) == 2
 
 
 def test_find_project_without_id_exits_2(tmp_path, monkeypatch):
