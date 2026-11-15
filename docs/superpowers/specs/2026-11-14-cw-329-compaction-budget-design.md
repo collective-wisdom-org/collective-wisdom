@@ -1,6 +1,7 @@
 # CW-329: Keep the chief-of-staff rules a chief needs mid-turn inside the compaction budget
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #338, as specified
 **Ticket:** [#329](https://github.com/collective-wisdom-org/collective-wisdom/issues/329)
 **Related:** [CW-315](https://github.com/collective-wisdom-org/collective-wisdom/issues/315) (the run that found it, gap G25 in `docs/compatibility.md`), [CW-316](https://github.com/collective-wisdom-org/collective-wisdom/issues/316) (reset in place)
 
