@@ -500,3 +500,20 @@ test('ci spans reach the ticket row and the merged entry that own the PR; a PR w
   assert.deepEqual(api.merged[0].ci, spans)
   assert.ok(!('ci' in api.merged[1]))
 })
+
+test('a saved Todo or Backlog list over an hour old is stale and carries its read time; a fresh one or one with no time is neither', () => {
+  const min = 60_000
+  const cases: [string, unknown, { readAt?: number; stale?: true }][] = [
+    ['an hour and a minute old', new Date(NOW - 61 * min).toISOString(), { readAt: NOW - 61 * min, stale: true }],
+    ['ten minutes old', new Date(NOW - 10 * min).toISOString(), { readAt: NOW - 10 * min }],
+    ['no at', undefined, {}],
+  ]
+  for (const [name, at, want] of cases) {
+    const lists = createTrackerLists({ read: () => JSON.stringify({ todo: { at, list: [{ id: 'CW-2', title: 'x' }] }, backlog: { at, list: [{ id: 'CW-3', title: 'y' }] } }) })
+    lists.want('CW')
+    const groups = build({ prefix: 'CW', repo: null, backlog: lists.get() }).status
+    assert.deepEqual(groups.map((g) => [g.name, g.readAt, g.stale]), [['Todo', want.readAt, want.stale], ['Backlog', want.readAt, want.stale]], name)
+  }
+  const gh = build({ backlog: [{ id: 'CW-2', title: 'x', state: 'Todo', priority: null, createdAt: null }] }).status[0]
+  assert.deepEqual([gh.readAt, gh.stale], [undefined, undefined], 'the GitHub path has neither')
+})

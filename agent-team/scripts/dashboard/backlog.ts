@@ -3,7 +3,7 @@ import type { TitleConfig } from './titles.ts'
 type Run = (args: string[]) => Promise<string>
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const
 export type Priority = (typeof PRIORITIES)[number]
-export type BacklogItem = { id: string; title: string; state: 'Todo' | 'Backlog'; priority: Priority | null; createdAt: number | null }
+export type BacklogItem = { id: string; title: string; state: 'Todo' | 'Backlog'; priority: Priority | null; createdAt: number | null; readAt?: number }
 
 const REFRESH_MS = 60_000
 const RETRY_MS = 5 * 60 * 1000
