@@ -13,8 +13,10 @@ const RELAY = /^CHIEF OF STAFF:\s*/i
 const TICKET = /[A-Z][A-Z0-9]*-\d+/
 const SHIP_LOOP = /^Run \/ship-loop for ([A-Z][A-Z0-9]*-\d+): ?(.*)$/
 const STAGE = /Do the (spec|build|merge) stage/
-// A role's id is `true` when the prompt may name its ticket. The ranking prompt lists every ticket in flight and an observation helper files a ticket of its own, so neither names one.
-const HELPERS: [string, string, boolean][] = [['TICKET HELPER.', 'Ticket helper', true], ['BACKLOG RANKING.', 'Backlog ranking', false], ['PROJECT MANAGER HYGIENE.', 'Hygiene', false]]
+/** A ticket helper's row name; `withHelperTicket` adds the ticket it filed. */
+export const TICKET_HELPER = 'Ticket helper'
+// No role takes an id from its prompt: the context ahead of a request names other tickets.
+const HELPERS: [string, string][] = [['TICKET HELPER.', TICKET_HELPER], ['BACKLOG RANKING.', 'Backlog ranking'], ['PROJECT MANAGER HYGIENE.', 'Hygiene']]
 // What a Chief of Staff relay asks for, first match wins; the relay names no ticket.
 const RELAY_WORK: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/approved the spec/i, () => 'build'],
@@ -38,7 +40,7 @@ export function taskName(text: string, earlier: string[] = []): string {
       return `${stage[0]!.toUpperCase()}${stage.slice(1)} ${ship[1]}: ${title}`.trim().slice(0, NAME_MAX)
     }
     const helper = HELPERS.find(([marker]) => line.startsWith(marker))
-    if (helper) return [helper[1], helper[2] && !/Observation\.$/.test(line) ? text.match(/\b[A-Z][A-Z0-9]*-\d+\b/)?.[0] : ''].filter(Boolean).join(' ')
+    if (helper) return helper[1]
     if (!RELAY.test(line)) return line.slice(0, NAME_MAX)
     const work = line.replace(RELAY, '')
     let name = work

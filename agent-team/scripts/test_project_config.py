@@ -1,4 +1,6 @@
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -330,3 +332,29 @@ def test_living_docs_reads_the_committed_project_md(tmp_path, committed, expect)
         return ""
 
     assert project_config.living_docs(run) == expect
+
+
+@pytest.mark.parametrize(
+    "row, out, code",
+    [
+        ("| Issue identifier prefix (`<PREFIX>`) | `CW` |\n", "CW - Chief of Staff\n", 0),
+        ("| Issue identifier prefix (`<PREFIX>`) | `GUY` |\n", "GUY - Chief of Staff\n", 0),
+        ("| Issue identifier prefix (`<PREFIX>`) | `GORP` |\n", "GORP - Chief of Staff\n", 0),
+        ("| Repo | `me/thing` |\n", "", 2),
+        ("| Issue identifier prefix (`<PREFIX>`) | TODO(owner) |\n", "", 2),
+        ("| Issue identifier prefix (`<PREFIX>`) | `cw` |\n", "", 2),
+    ],
+)
+def test_chief_title_cli(tmp_path, row, out, code):
+    md = tmp_path / "project.md"
+    md.write_text("| Key | Value |\n|---|---|\n" + row)
+    script = Path(project_config.__file__)
+    p = subprocess.run(
+        [sys.executable, "-I", str(script), "chief-title"],
+        env={"PROJECT_MD": str(md)},
+        capture_output=True,
+        text=True,
+    )
+    assert (p.stdout, p.returncode) == (out, code)
+    if code:
+        assert "Issue identifier prefix" in p.stderr

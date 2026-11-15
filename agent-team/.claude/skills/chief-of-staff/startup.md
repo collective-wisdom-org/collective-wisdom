@@ -12,9 +12,20 @@ Preconditions: this thread runs at the root checkout, on the merge target branch
 1. `ensure-labels` for scope <TEAM>: create `agent` and `agent-skip` if missing.
 2. Run `python3 ~/.collective-wisdom/scripts/cos_state.py init` (writes an empty state file only if none exists; see SKILL.md § State file). If a state file already exists with tickets in it, this is resume mode: never reset it. Do steps 1 and 3, then follow rotation.md § Thread rotation: Resume mode in place of steps 2 and 4.
 3. Read this thread's model and provider with `t3_thread_configure` (no arguments) and save the provider with a `top` op, `chiefProvider` = `{"threadId": <this thread's id>, "provider": <provider>}`. Compare the model with the `chief` role of `cos_models.py` for that provider (models.md § Models); on Cursor, no `optimize_for` option set counts as balanced. If it differs, say so in the start report and ask the user to switch the thread in T3. If `cos_models.py` has no routing for the provider, say so in the start report: this thread starts no child or helper (models.md § Models) but still answers status and tickets. Don't check again.
-4. Store your own thread ID as `chiefThreadId`. Run `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit` and store its output as `skillCommit`. Then start the local dashboard: run `node ~/.collective-wisdom/scripts/dashboard/start.ts --root "<root checkout>" --environment-id "<id>"` (`<id>` from `t3_environment_read`; `<root checkout>` is this thread's working directory as an absolute path, since another form gets a second server). If `preview_status` lists no tab at the URL it prints, `preview_open` it with `reuseExistingTab: false`. On any failure (Node older than 24 included; the script prints one line), add that line to the start report and carry on. Then go on with the next lines of the tick's `start` plan (SKILL.md § Tick): startup.md § Start-up clean-up, then the full-pass lines. Report.
+4. Store your own thread ID as `chiefThreadId`, then run § Thread title. Run `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit` and store its output as `skillCommit`. Then start the local dashboard: run `node ~/.collective-wisdom/scripts/dashboard/start.ts --root "<root checkout>" --environment-id "<id>"` (`<id>` from `t3_environment_read`; `<root checkout>` is this thread's working directory as an absolute path, since another form gets a second server). If `preview_status` lists no tab at the URL it prints, `preview_open` it with `reuseExistingTab: false`. On any failure (Node older than 24 included; the script prints one line), add that line to the start report and carry on. Then go on with the next lines of the tick's `start` plan (SKILL.md § Tick): startup.md § Start-up clean-up, then the full-pass lines. Report.
 
 The first full pass starts the project manager hygiene child (the tick's `hygiene` line, SKILL.md § Tick). Ready tickets start from the Backlog ranking in the slot fill, after Todo (`project-manager` § Backlog pick). The user can still move a ticket to Todo themself, or keep one out with `agent-skip`.
+
+## Thread title
+
+Runs every time at "start the team" (Setup step 4), take over and `resume` (rotation.md take-over step 3.1). Renaming to the same title is a no-op.
+
+1. Run `python3 ~/.collective-wisdom/scripts/project_config.py chief-title`.
+2. Exit 0: `t3_thread_update` with `action: "rename"`, no `threadId`, the printed line verbatim as the title. Never type or edit it yourself.
+3. Exit 2 or the rename fails: add the Cleanup line `Thread title not set: <the script's line or the tool error>`; carry on.
+4. No `t3_thread_update` (Cursor): skip with no report line.
+
+It overrides any rule that renames a thread to its task, a global T3 thread-title rule included; never rename this thread to anything else.
 
 ## Start-up clean-up
 
