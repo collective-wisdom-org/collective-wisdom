@@ -143,12 +143,12 @@ test('dayWords says today, yesterday or the date', () => {
   for (const [ms, want] of cases) assert.equal(dayWords(ms, now), want, String(ms))
 })
 
-test('a card footer summarises the agents, time and cost from the gantt; nothing without one', () => {
+test('a card footer summarises the time and cost from the gantt; nothing without one', () => {
   const sessions = [sess({ rows: [task({ cost: 1, segments: [[T, T + 2 * MIN]] }), sub({ cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] })] })]
-  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { agents: 2, ms: 3 * MIN, cost: 1.5 })
+  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { ms: 3 * MIN, cost: 1.5 })
   assert.equal(ganttSummary([], T), null)
   const foot = (gantt) => renderStatus(group([row({ gantt })])).match(/<span class="summary"[^>]*>([^<]*)</)?.[1]
-  assert.equal(foot(sessions), '2 agents \u00b7 3m 00s \u00b7 $1.50')
+  assert.equal(foot(sessions), '3m 00s \u00b7 $1.50')
   assert.equal(foot(undefined), undefined)
   assert.equal(ganttSummary([sess({ rows: [task({ cost: null })] })], T + 10 * MIN).cost, null)
   // A running session's summary moves with the clock; the span carries the ticket id so the page can refresh it between rebuilds.
@@ -286,9 +286,9 @@ test('a card with sessions gets a closed Agents segment that reopens when its id
   assert.match(html(new Set(['CW-1'])), /data-view="agents" id="seg-ticket-CW-1-agents" aria-expanded="true"/)
   assert.match(html(new Set(['CW-1'])), /<div class="panel" id="pan-ticket-CW-1-agents" role="region" aria-labelledby="seg-ticket-CW-1-agents"><div class="chart-body" data-ticket="CW-1">/)
   assert.equal(html().match(/class="chart-body"/g).length, 1)
-  // The pill counts tasks across sessions, not sessions; an older snapshot's session row beside task rows is not one.
+  // The pill counts tasks and subagents across sessions, not sessions; an older snapshot's session row beside task rows is not one.
   const rows = [grow({ kind: 'session' }), grow({ kind: 'task', depth: 1 }), grow({ kind: 'agent', depth: 2 }), grow({ kind: 'task', depth: 1 })]
-  assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">3<\/span>/)
+  assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">4<\/span>/)
 })
 
 test('each ticket has a closed Details section that lists what is known, escaped, and reopens from the info set', () => {
@@ -533,6 +533,20 @@ test('merged row with sessions has a closed Agents segment that stays open when 
   for (const none of [html([]), html()]) {
     assert.match(none, /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="false" disabled title="No agent sessions recorded">Agents <span class="pill">0<\/span>/)
     assert.doesNotMatch(none, /class="chart-body"|pan-merged-CW-1-agents/)
+  }
+})
+
+test('the Agents pill counts every task and subagent on every row type; an empty gantt is a disabled Agents 0', () => {
+  const g = [sess({ rows: [task({}), sub({}), sub({}), task({}), grow({ kind: 'agent', depth: 2 })] })]
+  const pm = (gantt) => renderChief({ chief: {}, pm: [{ sessionId: 'M', role: 'ranking', state: 'idle', gantt }] }, 0, new Set()).html
+  const cases = [
+    ['card', (gantt) => renderStatus(group([row({ gantt })]))],
+    ['merged', (gantt) => renderMerged([{ id: 'M', title: 't', mergedAt: 0, gantt }], 0, 10).html],
+    ['project manager', pm],
+  ]
+  for (const [name, render] of cases) {
+    assert.match(render(g), /Agents <span class="pill">5<\/span>/, name)
+    assert.match(render([]), /disabled[^>]*>Agents <span class="pill">0<\/span>/, name)
   }
 })
 
