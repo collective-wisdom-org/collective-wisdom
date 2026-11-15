@@ -3,13 +3,16 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_lists.py [--file PATH] <todo|backlog> < list-tickets JSON
+    ~/.collective-wisdom/scripts/cos_lists.py [--file PATH] changed
 
 stdin is the `list-tickets` result as the tracker adapter returns it: a JSON list, or an object holding an `issues` or
 `tickets` list. --file defaults to .agent-team/tracker-lists.json under the repo root. Replaces that one kind with
-{"at": <now, UTC>, "list": <the first 250 entries, as given>} and keeps the other kind. Writes through a temp file and a
-rename, and writes nothing when .agent-team is not a real folder or the file is not a regular file.
-Prints `lists: saved <kind> <n>` and exits 0. Exit 2 with `lists: cannot <what>` when stdin is not one of those shapes or
-the write fails; the caller goes on. cos_todo.py calls save() on its first pass.
+{"at": <now, UTC>, "list": <the first 250 entries, as given>} and keeps the other kind. `changed` reads no stdin: it sets
+the top-level "changed" stamp to now (UTC) and keeps both lists, so the dashboard reads the tracker again. A list save
+keeps the stamp. Writes through a temp file and a rename, and writes nothing when .agent-team is not a real folder or the
+file is not a regular file.
+Prints `lists: saved <kind> <n>` (`lists: saved changed` for `changed`) and exits 0. Exit 2 with `lists: cannot <what>`
+when stdin is not one of those shapes or the write fails; the caller goes on. cos_todo.py calls save() on its first pass.
 """
 
 import argparse
@@ -52,11 +55,12 @@ def regular(path):
         return True
 
 
-def save(kind, tickets, file=None):
-    """Replace one kind in the file. `tickets` is the stdin text or an already parsed list. Raises Cannot."""
-    if kind not in KINDS:
-        raise Cannot(f"save {kind}")
-    items = entries(tickets) if isinstance(tickets, str) else list(tickets)[:MAX]
+def stamp():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def update(file, change):
+    """Run change(held) on the file's top-level object and write it back. Raises Cannot."""
     path = Path(file) if file else DEFAULT_FILE
     try:
         if not stat.S_ISDIR(os.lstat(path.parent).st_mode) or not regular(path):
@@ -66,7 +70,7 @@ def save(kind, tickets, file=None):
         except (OSError, ValueError):
             held = {}
         held = held if isinstance(held, dict) else {}
-        held[kind] = {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "list": items}
+        change(held)
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)  # never through a planted link
@@ -77,7 +81,20 @@ def save(kind, tickets, file=None):
             tmp.unlink(missing_ok=True)
     except OSError as e:
         raise Cannot(f"write: {e.strerror or e}")
+
+
+def save(kind, tickets, file=None):
+    """Replace one kind in the file. `tickets` is the stdin text or an already parsed list. Raises Cannot."""
+    if kind not in KINDS:
+        raise Cannot(f"save {kind}")
+    items = entries(tickets) if isinstance(tickets, str) else list(tickets)[:MAX]
+    update(file, lambda held: held.__setitem__(kind, {"at": stamp(), "list": items}))
     return len(items)
+
+
+def mark_changed(file=None):
+    """Set the top-level `changed` stamp and keep both lists. Raises Cannot."""
+    update(file, lambda held: held.__setitem__("changed", stamp()))
 
 
 class Parser(argparse.ArgumentParser):
@@ -89,9 +106,13 @@ class Parser(argparse.ArgumentParser):
 def main(argv=None):
     ap = Parser(description="Save the Todo or Backlog list for the dashboard.")
     ap.add_argument("--file")
-    ap.add_argument("kind", choices=KINDS)
+    ap.add_argument("kind", choices=(*KINDS, "changed"))
     args = ap.parse_args(argv)
     try:
+        if args.kind == "changed":
+            mark_changed(args.file)
+            print("lists: saved changed")
+            return 0
         n = save(args.kind, sys.stdin.read(), args.file)
     except Cannot as e:
         print(f"lists: cannot {e}")
