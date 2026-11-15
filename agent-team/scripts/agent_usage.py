@@ -618,8 +618,9 @@ def main():
         return sum(b.values())
 
     cols = ("spec", "build", "merge", "implementer", "review")
+    since_utc, until_utc = args.since.astimezone(timezone.utc), args.until.astimezone(timezone.utc)
     print(
-        f"Window {args.since:%Y-%m-%d} {clock12(args.since)} UTC to {args.until:%Y-%m-%d} {clock12(args.until)} UTC (API-equivalent $)\n"
+        f"Window {since_utc:%Y-%m-%d} {clock12(since_utc)} UTC to {until_utc:%Y-%m-%d} {clock12(until_utc)} UTC (API-equivalent $)\n"
     )
     print(f"{'thread':46}" + "".join(f"{c:>12}" for c in cols) + f"{'total':>10}")
     sums = defaultdict(float)
