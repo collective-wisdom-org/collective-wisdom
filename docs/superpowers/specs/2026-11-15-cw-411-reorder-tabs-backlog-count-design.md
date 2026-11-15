@@ -1,6 +1,7 @@
 # CW-411: Reorder the dashboard tabs and add a Backlog tab count
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #417, as specified
 **Ticket:** [#411](https://github.com/collective-wisdom-org/collective-wisdom/issues/411)
 **Related:** #388 (the Ship loop and Done tab pills this copies), #387 (the Backlog tab).
 
