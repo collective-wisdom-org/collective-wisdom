@@ -275,23 +275,32 @@ const viewOf = (id, open, info) => (open.has(id) ? 'agents' : info.has(id) ? 'de
 /**
  * The Agents and Details control of one row and the panels it opens. `scope` is `ticket`, `merged` or `pm`; `view` is `agents`, `details` or `` (closed).
  * `details` is the Details body html, `null` for a disabled Details segment, `false` for none. Agents is disabled (`Agents 0`) with no panel when the Gantt has no tasks.
+ * `hideAgents` leaves the Agents segment out when it would read `Agents 0` (a ticket someone else owns); with no segment left the switch is empty.
  * One panel is open at most; a view whose segment is disabled comes back closed.
  */
-function panelSwitch(scope, id, { gantt, view = '', details = false }) {
+function panelSwitch(scope, id, { gantt, view = '', details = false, hideAgents = false }) {
   const n = gantt ? taskCount(gantt) : 0
   const attr = `data-${scope}="${esc(id)}"`
-  const segs = [{ v: 'agents', label: `Agents <span class="pill">${n}</span>`, body: n ? `<div class="chart-body" ${attr}></div>` : null, off: 'No agent sessions recorded' }]
+  const segs = hideAgents && n === 0 ? [] : [{ v: 'agents', label: `Agents <span class="pill">${n}</span>`, body: n ? `<div class="chart-body" ${attr}></div>` : null, off: 'No agent sessions recorded' }]
   if (details !== false) segs.push({ v: 'details', label: 'Details', body: details === null ? null : `<div class="info-body" ${attr}>${details}</div>`, off: 'No ticket yet' })
   const shown = segs.find((s) => s.v === view && s.body !== null)?.v
   const key = (s) => esc(`${scope}-${id}-${s.v}`)
   const buttons = segs.map((s) => `<button type="button" class="seg" ${attr} data-view="${s.v}" id="seg-${key(s)}" aria-expanded="${s.v === shown}"${s.body === null ? ` disabled title="${s.off}"` : ` aria-controls="pan-${key(s)}"`}>${s.label}</button>`)
   const panels = segs.filter((s) => s.body !== null).map((s) => `<div class="panel" id="pan-${key(s)}" role="region" aria-labelledby="seg-${key(s)}"${s.v === shown ? '' : ' hidden'}>${s.body}</div>`)
+  if (!segs.length) return { control: '', panels: '' }
   return { control: `<div class="switch" role="group" aria-label="${esc(id)} panels">${buttons.join('')}</div>`, panels: panels.join('') }
 }
 const prSpan = (url) => (isHttp(url) ? `<span class="pr">${link(url, 'PR')}</span>` : '')
 const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')}</span>` : '')
-/** The first line of every row: the ticket number, then the title (left out when empty, so the id is not shown twice), then `extra`. */
-const rowHead = (idHtml, title, extra = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}</div>`
+/** The ticket owner's GitHub avatar and login. The initial sits under the image, so a slow or failed image still shows it. Empty without an owner. */
+export const ownerBadge = (login) =>
+  typeof login === 'string' && login
+    ? `<span class="owner" title="${esc(login)}"><span class="avatar" aria-hidden="true"><span class="initial">${esc(login[0].toUpperCase())}</span><img src="https://avatars.githubusercontent.com/${esc(encodeURIComponent(login))}?s=40" alt="" loading="lazy" width="20" height="20"></span><span class="login">${esc(login)}</span></span>`
+    : ''
+/** True when the ticket's owner and the viewer are both logins and differ (GitHub logins are case-insensitive). */
+export const foreign = (owner, viewer) => typeof owner === 'string' && typeof viewer === 'string' && owner !== '' && viewer !== '' && owner.toLowerCase() !== viewer.toLowerCase()
+/** The first line of every row: the ticket number, then the title (left out when empty, so the id is not shown twice), then `extra`, then the owner badge (`ownerHtml`) at the right end. */
+const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}${ownerHtml}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
 /** `41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
@@ -349,7 +358,7 @@ function todoControl(r, chiefLink) {
  * Bottom row: the Agents and Details control, the Mark todo control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
  * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
-function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false }) {
+function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false, viewer = null }) {
   const blocked = r.stage === 'blocked'
   const risk = riskText(r.risk)
   const action = actionFor(r)
@@ -363,9 +372,9 @@ function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false 
     summary && `<span class="summary" data-ticket="${esc(r.id)}">${esc(summary)}</span>`,
     phrase && esc(phrase),
   ])
-  const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
+  const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()), hideAgents: foreign(r.owner, viewer) })
   const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
-  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink, { thread: true }))
+  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink, { thread: true }), ownerBadge(r.owner))
   const actions = (action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : '') + approveControls(r, chiefLink)
   return `<li class="${cls}">\n  ${head}\n  ${actions ? `<div class="actions">${actions}</div>\n  ` : ''}<div class="foot">${sw.control}${markTodo ? todoControl(r, chiefLink) : ''}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
 }
@@ -378,8 +387,8 @@ export function pageOf(length, page, size) {
 
 const BACKLOG_PAGE = 10
 
-/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `chiefLink` is the Chief of Staff thread link the Approve controls open. The Backlog group is not drawn here; `renderBacklog` draws it on its own tab. */
-export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), chiefLink = '') {
+/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `chiefLink` is the Chief of Staff thread link the Approve controls open; `viewer` is the dashboard user's GitHub login (cards of another owner drop an empty Agents control). The Backlog group is not drawn here; `renderBacklog` draws it on its own tab. */
+export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), chiefLink = '', viewer = null) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   const html = BANDS.map((band) => {
     const mine = groups.filter((g) => band.has(g.name))
@@ -387,7 +396,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const flat = band.flat === true
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info, chiefLink })).join('\n')
+        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info, chiefLink, viewer })).join('\n')
         // A Todo list read from the tracker over an hour ago says how old it is; its rows carry `stale` and grey themselves.
         const age = g.stale === true && Number.isFinite(g.readAt) ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
         return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul></details>`
@@ -401,11 +410,11 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
 }
 
 /** The Backlog tab: the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each card gets a Mark todo control. */
-export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '') {
+export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '', viewer = null) {
   const g = list(groups).find((x) => x.name === BACKLOG)
   if (!g) return '<p class="quiet">Nothing in the Backlog</p>'
   const { at, pages } = pageOf(g.rows.length, backlogPage, BACKLOG_PAGE)
-  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info, chiefLink, markTodo: true })).join('\n')
+  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info, chiefLink, markTodo: true, viewer })).join('\n')
   const pager =
     pages > 1
       ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
@@ -446,7 +455,7 @@ const stamp = (ms) => {
 }
 
 /** One page of the merged list as compact cards plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
-export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
+export function renderMerged(list, page, size = 10, open = new Set(), info = new Set(), viewer = null) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const { at, pages } = pageOf(list.length, page, size)
   const rows = list
@@ -461,9 +470,9 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
         prSpan(e.prUrl),
       ])
       const view = viewOf(e.id, open, info)
-      const sw = panelSwitch('merged', e.id, { gantt: e.gantt, view, details: view === 'details' ? renderDetails(e, Date.now()) : '' })
+      const sw = panelSwitch('merged', e.id, { gantt: e.gantt, view, details: view === 'details' ? renderDetails(e, Date.now()) : '', hideAgents: foreign(e.owner, viewer) })
       return `<li class="ticket compact">
-  ${rowHead(link(e.issueUrl, e.id), e.title)}
+  ${rowHead(link(e.issueUrl, e.id), e.title, '', ownerBadge(e.owner))}
   <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}
 </li>`
     })
@@ -836,13 +845,13 @@ if (typeof document !== 'undefined') {
   let shownMerged = null
   const drawMerged = () => {
     if (!last) return
-    const r = renderMerged(last.merged, mergedPage)
+    const r = renderMerged(last.merged, mergedPage, 10, new Set(), new Set(), last.viewer)
     mergedPage = r.page
     if (r.html !== shownMerged) {
       shownMerged = r.html
       const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-merged][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.merged))
       shownMergedInfo.clear()
-      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('agents'), opened('details')).html
+      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('agents'), opened('details'), last.viewer).html
       draw()
     }
   }
@@ -892,7 +901,7 @@ if (typeof document !== 'undefined') {
   const drawStatus = () => {
     if (!last) return
     backlogPage = pageOf(last.status.find((g) => g.name === 'Backlog')?.rows.length ?? 0, backlogPage, BACKLOG_PAGE).at
-    const json = JSON.stringify([last.status, backlogPage, last.chief?.threadLink], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
+    const json = JSON.stringify([last.status, backlogPage, last.chief?.threadLink, last.viewer], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
     if (json === shownStatus) return
     shownStatus = json
     const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-ticket][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.ticket))
@@ -900,8 +909,8 @@ if (typeof document !== 'undefined') {
     const info = opened('details')
     shownInfo.clear()
     const collapsed = readCollapsed()
-    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info, last.chief?.threadLink)
-    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info, last.chief?.threadLink)
+    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info, last.chief?.threadLink, last.viewer)
+    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info, last.chief?.threadLink, last.viewer)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
   // The Ship loop, Backlog and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.
@@ -1012,6 +1021,14 @@ if (typeof document !== 'undefined') {
       () => show('failed', 'Copy failed'),
     )
   })
+  // A failed avatar hides itself (the initial shows through); image errors do not bubble, so listen in the capture phase.
+  document.addEventListener(
+    'error',
+    (ev) => {
+      if (ev.target instanceof Element && ev.target.matches('.avatar img')) ev.target.hidden = true
+    },
+    true,
+  )
   // toggle does not bubble, so listen in the capture phase.
   document.addEventListener(
     'toggle',

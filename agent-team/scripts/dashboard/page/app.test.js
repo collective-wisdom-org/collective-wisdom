@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -558,6 +558,31 @@ test('the Agents pill counts every task and subagent on every row type; an empty
     assert.match(render(g), /Agents <span class="pill">5<\/span>/, name)
     assert.match(render([]), /disabled[^>]*>Agents <span class="pill">0<\/span>/, name)
   }
+})
+
+test('owner avatar on every card type; Agents is left out only for a foreign owner with no sessions; Details stays', () => {
+  const kinds = {
+    status: (o, viewer) => renderStatus(group([row(o)]), new Set(), new Set(), new Set(), '', viewer),
+    backlog: (o, viewer) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row(o)] }], new Set(), 0, new Set(), new Set(), '', viewer),
+    done: (o, viewer) => renderMerged([{ ...o, mergedAt: 0 }], 0, 10, new Set(), new Set(), viewer).html,
+  }
+  const owners = [['viewer', 'david'], ['viewer in another case', 'DAVID'], ['other', 'noah'], ['none', undefined]]
+  for (const [kind, render] of Object.entries(kinds)) {
+    for (const [who, owner] of owners) {
+      for (const viewer of ['david', null]) {
+        for (const gantt of [[], [sess({ rows: [task({})] })]]) {
+          const html = render({ ...row(), ...(owner ? { owner } : {}), gantt }, viewer)
+          const name = `${kind} ${who} viewer=${viewer} tasks=${gantt.length}`
+          assert.equal(html.includes('class="owner"'), owner !== undefined, `${name} avatar`)
+          assert.equal(html.includes('data-view="agents"'), !(foreign(owner, viewer) && gantt.length === 0), `${name} agents`)
+          assert.ok(html.includes('data-view="details"'), `${name} details`)
+        }
+      }
+    }
+  }
+  assert.equal(ownerBadge(undefined), '')
+  const bad = ownerBadge('<b>"x')
+  assert.ok(!bad.includes('<b>') && bad.includes('&lt;b&gt;') && bad.includes('<span class="initial">&lt;</span>') && /src="https:\/\/avatars\.githubusercontent\.com\/%3Cb%3E%22x\?s=40"/.test(bad))
 })
 
 test('drawCharts writes a chart body only when its html changed; a body with no entry is never written', () => {
