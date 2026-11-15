@@ -1,7 +1,7 @@
 # CW-317: Remove retired-thread forwarding
 
 **Status:** Shipped
-**Shipped:** in PR #336, as specified (it also removed the leftover forwarding sentences in `continuation.md`, `SKILL.md`, `project-manager/reference.md` and `rotation.md`)
+**Shipped:** in PR #336, as specified
 **Ticket:** [#317](https://github.com/collective-wisdom-org/collective-wisdom/issues/317)
 **Follows:** [CW-316](2026-11-14-cw-316-reset-session-in-place-design.md), the in-place reset (PR #333)
 
@@ -83,3 +83,4 @@ The PR description repeats this table.
 - **A child now refuses a spec approval from any thread but the one in its task**, instead of walking a chain. A queued approval stored before a resume in a new thread would hit this; the user then approves again in the current thread. No such queued approval exists today.
 - **`retiredThreads` leaves `TOP`**, so `prune` cleans it from state instead of the build editing the live state file.
 - **`docs/compatibility.md` G26 is marked retired** rather than kept open, since its test setup can no longer occur.
+- **Leftover forwarding sentences also removed** in `continuation.md`, `chief-of-staff/SKILL.md`, `project-manager/reference.md` and `rotation.md`, found in review. They followed the spec's intent.
