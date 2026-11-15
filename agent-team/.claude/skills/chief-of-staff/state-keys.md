@@ -30,7 +30,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
 
 ## Notes file
 
-`.agent-team/chief-notes.md` is not state. It holds what the Chief of Staff carries across turns that no key covers: a plan or test the user asked for, where it is in it, what it said it would do later. Written as the plan goes and deleted when it ends (SKILL.md § Working set); never a rule, policy or approval.
+`.agent-team/chief-notes.md` is not state. It holds what the Chief of Staff carries across turns that no key covers: a plan or test the user asked for, where it is in it, what it said it would do later. Written as the plan goes and deleted when it ends (session.md § Working set); never a rule, policy or approval.
 
 ## State keys
 
