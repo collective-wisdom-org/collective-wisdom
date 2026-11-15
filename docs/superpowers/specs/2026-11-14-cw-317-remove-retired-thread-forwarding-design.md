@@ -1,6 +1,7 @@
 # CW-317: Remove retired-thread forwarding
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #336, as specified
 **Ticket:** [#317](https://github.com/collective-wisdom-org/collective-wisdom/issues/317)
 **Follows:** [CW-316](2026-11-14-cw-316-reset-session-in-place-design.md), the in-place reset (PR #333)
 
