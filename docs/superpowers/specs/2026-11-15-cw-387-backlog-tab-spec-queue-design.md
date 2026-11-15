@@ -1,6 +1,7 @@
 # CW-387: Move the dashboard Backlog to its own tab and show a spec queue under Up next
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #407, with differences: [as-built](../as-built/2026-11-15-cw-387-backlog-tab-spec-queue.md)
 **Ticket:** [#387](https://github.com/collective-wisdom-org/collective-wisdom/issues/387)
 **Related:** #369 (collapsible headers, merged), #370 (row cards), #371 (same page), #388 (tab count pills). Builds on #349 (Backlog paging) and #350 (Done tab).
 
