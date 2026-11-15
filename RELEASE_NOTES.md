@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 keep dashboard ticket titles current (CW-348) (#379)
+
+Merged 2026-11-15 5:16 am UTC.
+
+In a GitHub-issues repo the dashboard now shows a ticket's current issue title, so a ticket whose title you rewrite after it starts updates on the dashboard within about a minute. Nothing to do on your side.
+
 ## 2026-11-15 keep the reviews when only the docs check changed the head (CW-362) (#377)
 
 Merged 2026-11-15 5:01 am UTC.
