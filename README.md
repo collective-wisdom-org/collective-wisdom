@@ -252,15 +252,15 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
   A ticket's copy button is a small icon right after its ticket number; it turns green once copied and red if the copy fails.
   Paste the link into T3.
 
-- The page has four tabs, Ship loop, Backlog, Done and Chief of Staff, and remembers the one you picked in the browser.
-- The Ship loop, Backlog and Done tab labels carry a count pill: Ship loop counts the Your turn, In progress and Up next tickets (Waiting to spec included, the Backlog left out), Backlog shows the Backlog's full count (the number on its heading, not the rows loaded), Done counts the merged list (at most 200).
+* The page has four tabs, Ship loop, Backlog, Done and Chief of Staff, and remembers the one you picked in the browser.
+* The Ship loop, Backlog and Done tab labels carry a count pill: Ship loop counts the Your turn, In progress and Up next tickets (Waiting to spec included, the Backlog left out), Backlog shows the Backlog's full count (the number on its heading, not the rows loaded), Done counts the merged list (at most 200).
   Each tab's accessible name carries the count too, for example `Done, 12`.
-- Ship loop is the page described above, except the Done list and the Backlog list, which have their own tabs.
-- The Chief of Staff tab shows a card for the Chief of Staff with its state (`running`, `idle` or `paused`) as a coloured dot and the state word, a thread copy button and the gantt of its current session, found through `chiefSessionId` or `chiefThreadId` in state.
-- Below it, a Project manager list shows the Backlog ranking and hygiene threads, newest first, ten to a page, each with its state, thread copy button, last update and an `Agents` button for its gantt.
+* Ship loop is the page described above, except the Done list and the Backlog list, which have their own tabs.
+* The Chief of Staff tab shows a card for the Chief of Staff with its state (`running`, `idle` or `paused`) as a coloured dot and the state word, a thread copy button and the gantt of its current session, found through `chiefSessionId` or `chiefThreadId` in state.
+* Below it, a Project manager list shows the Backlog ranking and hygiene threads, newest first, ten to a page, each with its state, thread copy button, last update and an `Agents` button for its gantt.
   Finished threads stay in the list; the dashboard keeps the newest 50 project manager threads in `.agent-team/gantt-history.json`, apart from the 500 ticket sessions.
   The list fills only with the updated agent-gantt mod, which writes the thread id and the opening heading of each session's first task prompt into its snapshot, so it stays empty until the mod is updated on the machine and a new ranking or hygiene thread runs.
-- All four tabs keep updating while you look at one.
+* All four tabs keep updating while you look at one.
   A session in the root checkout never shows on the Ship loop tab, and a worktree session never shows on the Chief of Staff tab.
 
 The dashboard also keeps backups of `.agent-team/spend.json`, `gantt-history.json` and `state.json`.

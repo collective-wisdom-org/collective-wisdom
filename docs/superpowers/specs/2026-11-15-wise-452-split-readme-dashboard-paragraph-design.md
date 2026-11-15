@@ -55,7 +55,7 @@ The backups text is a short procedure, so it stays one paragraph with one senten
 
 ### 4. Pure restructure
 
-`git diff --word-diff origin/main -- README.md` shows only added `-` bullet markers. No other word changes. Anything that looks wrong in the text (for example `; Below that comes` with a capital B) stays as it is.
+`git diff --word-diff origin/main -- README.md` shows only added list markers (`-`, and `*` for the tab list so it renders as its own list, not a continuation of the feature list). No other word changes. Anything that looks wrong in the text (for example `; Below that comes` with a capital B) stays as it is.
 
 The build splits the text as it is on `main` when the build starts. If a dashboard PR merges first, the split includes its words.
 
