@@ -167,14 +167,16 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 <div class="tabs" role="tablist" aria-label="Dashboard">
 <button type="button" role="tab" id="tab-ship" data-tab="ship" aria-selected="true" aria-controls="panel-ship" tabindex="0">Ship loop</button>
 <button type="button" role="tab" id="tab-cos" data-tab="cos" aria-selected="false" aria-controls="panel-cos" tabindex="-1">Chief of Staff</button>
+<button type="button" role="tab" id="tab-done" data-tab="done" aria-selected="false" aria-controls="panel-done" tabindex="-1">Done</button>
 </div>
 <div id="panel-ship" role="tabpanel" aria-labelledby="tab-ship">
 <div id="status"><p class="quiet">Loading</p></div>
-<h2>Done</h2>
-<div id="merged"><p class="quiet">Loading</p></div>
 </div>
 <div id="panel-cos" role="tabpanel" aria-labelledby="tab-cos" hidden>
 <div id="cos"><p class="quiet">Loading</p></div>
+</div>
+<div id="panel-done" role="tabpanel" aria-labelledby="tab-done" hidden>
+<div id="merged"><p class="quiet">Loading</p></div>
 </div>
 </main>
 <script type="module" src="/app.js"></script>

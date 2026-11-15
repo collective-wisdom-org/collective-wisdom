@@ -439,8 +439,8 @@ export function renderChief(api, page = 0, open = new Set(), size = 10) {
   return { html: `${card}<h2>Project manager</h2>${pm.html}`, page: pm.page }
 }
 
-/** The tab to open from the saved value: `cos`, else `ship` for anything unknown or missing. */
-export const tabFromStorage = (value) => (value === 'cos' ? 'cos' : 'ship')
+/** The tab to open from the saved value: `cos` or `done`, else `ship` for anything unknown or missing. */
+export const tabFromStorage = (value) => (value === 'cos' || value === 'done' ? value : 'ship')
 
 const duration = (ms) => {
   const s = Math.round(ms / 1000)
