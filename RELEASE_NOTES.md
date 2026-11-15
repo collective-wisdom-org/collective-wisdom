@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 remove retired-thread forwarding (CW-317) (#336)
+
+Merged 2026-11-15 00:21 UTC.
+
+The Chief of Staff no longer forwards notices from retired threads, and a child accepts a spec approval only from the Chief of Staff thread named in its task. Nothing to do: no thread has retired since the in-place reset.
+
 ## 2026-11-15 link dashboard tickets and the backlog for Linear and Jira (CW-334) (#335)
 
 Merged 2026-11-15 00:16 UTC.
