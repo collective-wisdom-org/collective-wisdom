@@ -1,6 +1,7 @@
 # WISE-421: Send the prefilled command automatically when Approve is clicked on the dashboard
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #422, as specified
 **Ticket:** [#421](https://github.com/collective-wisdom-org/collective-wisdom/issues/421)
 
 ## Goal
