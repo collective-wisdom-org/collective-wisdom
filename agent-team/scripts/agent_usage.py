@@ -62,6 +62,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import app_root  # noqa: E402
+from clock12 import clock12  # noqa: E402
 import project_config  # noqa: E402
 import user_config  # noqa: E402
 
@@ -618,7 +619,7 @@ def main():
 
     cols = ("spec", "build", "merge", "implementer", "review")
     print(
-        f"Window {args.since:%Y-%m-%d %H:%M}Z to {args.until:%Y-%m-%d %H:%M}Z (API-equivalent $)\n"
+        f"Window {args.since:%Y-%m-%d} {clock12(args.since)} UTC to {args.until:%Y-%m-%d} {clock12(args.until)} UTC (API-equivalent $)\n"
     )
     print(f"{'thread':46}" + "".join(f"{c:>12}" for c in cols) + f"{'total':>10}")
     sums = defaultdict(float)

@@ -186,3 +186,10 @@ def test_top_gantt_plugin_version_must_be_dotted_integers(value, ok):
     ops = [{"op": "top", "set": {"ganttPluginVersion": value}}]
     with pytest.raises(cos_state.Reject, match="ganttPluginVersion needs") if not ok else contextlib.nullcontext():
         assert cos_state.apply_ops({}, ops)[0]["ganttPluginVersion"] == value
+
+
+def test_show_time_today_is_12_hour_without_a_space_and_other_days_stay_iso():
+    now = cos_state.datetime.now(cos_state.timezone.utc).replace(hour=14, minute=5, second=0, microsecond=0)
+    assert cos_state.t(now.strftime("%Y-%m-%dT%H:%M:%SZ")) == "2:05pm"
+    assert cos_state.t(OLD) == OLD
+    assert cos_state.t(None) == "-"
