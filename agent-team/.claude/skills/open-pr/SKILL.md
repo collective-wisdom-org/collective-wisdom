@@ -131,7 +131,7 @@ Act only on review comments whose author login is the login `user.md` maps to th
 
 ### Conflict resolution
 
-A child that gets the relay `the PR conflicts with <target>` before its first `MERGE READY` treats it as Primary loop step 1 (merge, resolve, push, go on with the loop) and posts no `reviews stand` note.
+The relay `the PR conflicts with <target>` before the first `MERGE READY` is Primary loop step 1 (merge, resolve, push, go on with the loop); post no `reviews stand` note.
 
 For a PR that conflicts with the merge target branch (`<target>`) after `MERGE READY`: the Chief of Staff's relay `the PR conflicts with <target>` starts this run. It uses the merge slot (setting `off`) or the build slot (setting `on`). Conflicts found before the first `MERGE READY` stay in step 1 of the Primary loop.
 
