@@ -1,7 +1,8 @@
 # WISE-455: Send dashboard Approve through t3 thread send and settle who the send is recorded as
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#455](https://github.com/collective-wisdom-org/collective-wisdom/issues/455)
+**Shipped:** in PR #457, as specified
 
 ## Goal
 
