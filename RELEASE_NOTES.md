@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 remove since HH:MM from dashboard ticket cards (CW-357) (#367)
+
+Merged 2026-11-15 3:45 am UTC.
+
+The dashboard no longer shows "since 9:05 am" on ticket cards or rows. Cards that wait on you still show the waiting counter.
+
 ## 2026-11-15 make dashboard section dividers more prominent (CW-360) (#366)
 
 Merged 2026-11-15 3:34 am UTC.
