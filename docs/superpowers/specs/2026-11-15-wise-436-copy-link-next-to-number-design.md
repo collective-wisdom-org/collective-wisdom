@@ -17,7 +17,7 @@ Facts from main at `8c018e1`, `agent-team/scripts/dashboard/page/`.
 - `index.html`: `.head:has(> .id)` is a grid, `minmax(0, max-content) auto 1fr`. `.head .id` and `.owner` both span `1 / -1` in row 1, `.owner` with `justify-self: end`. The title and the button auto-place into row 2, columns 1 and 2, so the button follows the title.
 - Because `.owner` shares the full-width row 1 and the title's column can grow to the card's full width, a long title runs to the card's right edge, right under the avatar (seen on a WISE-424 Done card).
 - The action link labels come from `ACTIONS` in `app.js` (lines 117 and 118): `['awaiting-merge', ['Open PR', 'prUrl']]` and `['awaiting-build', ['Open spec', 'specUrl']]`. Every other place the dashboard uses those labels:
-  - `app.js` line 370, the `ticketRow` doc comment (`the \`Open PR\` or \`Open spec\` link`).
+  - `app.js` line 370, the `ticketRow` doc comment (the `Open PR` or `Open spec` link).
   - `app.test.js` lines 136, 137 (the action table) and 145 (the rendered `>Open PR</a>` match).
   - `README.md` line 187, twice: "one link (`Open PR` or `Open spec`)" and "it is also the `Open spec` button".
   - Nothing else in `agent-team/`, `mods/`, `AGENTS.md` or `docs/agents/` uses them. Older specs under `docs/superpowers/` mention them as history and stay as written.
