@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from test_agent_usage import context_store
+from test_cos_idle_check import make_store
 
 SPEC = importlib.util.spec_from_file_location(
     "cos_rotation_check", Path(__file__).with_name("cos_rotation_check.py")
@@ -201,6 +203,46 @@ def test_hook_blocks_only_the_chief_once(monkeypatch, capsys, tmp_path, hook_in,
         d = json.loads(out)
         assert d["decision"] == "block" and blocks in d["reason"]
         assert d["reason"].endswith("Thread rotation")
+
+
+SEEN = "2026-11-02T04:30:00Z"
+LATE_STATE = {**STATE, "tickets": {"WISE-1": {"stage": "build", "childThreadId": "c1", "lastSeenAt": SEEN}}}
+WAIT = [("mcp__t3-code__t3_background_wait", {"content": json.dumps({"matched": ["bg1"]})})]
+JUST_NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@pytest.mark.parametrize(
+    "runs, asks, tools, extra, hook_in, kw, want",
+    [
+        ([("completed", "2026-11-02T18:12:00Z")], [], [], {}, {}, {}, "late-child: WISE-1 completed 6:12 pm UTC; read each per chief-of-staff SKILL.md § Child path"),
+        ([("failed", "2026-11-02T18:12:00Z")], [], [], {}, {}, {}, "WISE-1 failed 6:12 pm UTC"),
+        ([("running", None)], [("pending", "2026-11-02T18:20:00Z")], [], {}, {}, {}, "WISE-1 question 6:20 pm UTC"),
+        ([("running", None)], [("resolved", "2026-11-02T18:20:00Z")], [], {}, {}, {}, None),
+        ([("completed", "2026-11-02T04:20:00Z")], [("pending", "2026-11-02T04:25:00Z")], [], {}, {}, {}, None),  # already read
+        ([("completed", JUST_NOW)], [], WAIT, {}, {}, {}, None),  # waiting on its own command
+        ([("completed", "2026-11-02T18:12:00Z")], [], [], {"paused": True}, {}, {}, None),
+        ([("completed", "2026-11-02T18:12:00Z")], [], [], {}, {"stop_hook_active": True}, {}, None),
+        ([("completed", "2026-11-02T18:12:00Z")], [], [], {}, {}, {"db": "missing"}, None),
+        ([("completed", "2026-11-02T18:12:00Z")], [], [], {}, {}, {"db": "no_requests_table"}, None),
+        ([("completed", "2026-11-02T18:12:00Z")], [], [], {}, {}, {"context": 230_000}, "rotate: size 230k"),  # rotation first, then the late line
+    ],
+)
+def test_hook_sends_the_chief_back_to_read_a_late_child(monkeypatch, capsys, tmp_path, runs, asks, tools, extra, hook_in, kw, want):
+    db = tmp_path / "statev2.sqlite"
+    make_store(db, [], runs, tools)
+    con = sqlite3.connect(db)
+    if kw.get("db") != "no_requests_table":
+        con.execute("CREATE TABLE orchestration_v2_projection_runtime_requests (thread_id, status, created_at)")
+        con.executemany("INSERT INTO orchestration_v2_projection_runtime_requests VALUES ('c1', ?, ?)", asks)
+    con.commit()
+    con.close()
+    monkeypatch.setenv("COS_T3_DB", str(tmp_path / "none.sqlite" if kw.get("db") == "missing" else db))
+    out = run_hook(monkeypatch, capsys, tmp_path, {"session_id": "S1", **hook_in}, {**LATE_STATE, **extra}, context=kw.get("context", 90_000))
+    if want is None:
+        assert out == ""
+    else:
+        reason = json.loads(out)["reason"]
+        assert want in reason and (not kw.get("context") or reason.index(want) < reason.index("late-child:"))
 
 
 CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "completed", "loop_count": 0}

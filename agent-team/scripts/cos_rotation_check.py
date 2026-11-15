@@ -32,9 +32,13 @@ read from the Cursor run store: the latest turn's input tokens divided by its mo
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on any line that does not start with "ok" ("rotate:", "finish:") or exit 2. It reads Cursor's stop payload (conversation_id equals
 chiefSessionId, loop_count 0, status completed), reading the size from the run store (silent when the store cannot be read and the mode is none), and answers {"followup_message": reason}.
+After the rotation line it also sends the turn back with "late-child: <ticket> <completed|failed|interrupted|cancelled|question> <time> UTC; ...;
+read each per chief-of-staff SKILL.md § Child path" for each active child that finished or asked a question after its `lastSeenAt`
+(cos_idle_check.py late_children, reading the T3 store at $COS_T3_DB or the default). With a rotation line the reason is both, rotation first.
+Silent on that line while `paused`, `reset` or `takeover` is set. Plain mode never prints it.
 It never writes and any error exits 0 silently.
-COS_STATE_FILE, COS_PROJECTS_DIR and COS_CURSOR_PROJECTS_DIR override the state file, the Claude Code transcripts
-directory and the Cursor projects directory (~/.cursor/projects).
+COS_STATE_FILE, COS_PROJECTS_DIR, COS_CURSOR_PROJECTS_DIR and COS_T3_DB override the state file, the Claude Code transcripts
+directory, the Cursor projects directory (~/.cursor/projects) and the T3 store.
 """
 
 import argparse
@@ -352,11 +356,17 @@ def run_hook(path):
         try:
             line = check(state, sid=sid, cursor=cursor)[0]
         except Unreadable as e:
-            if cursor and mode_for(state)[0] == "none":
-                return 0  # nothing to reset on this provider: don't wake the Chief over a store it can't read
-            line = f"rotation-check: cannot read {e}"
-        if not line.startswith("ok"):
-            reason = f"{line}; run chief-of-staff/rotation.md § Thread rotation"
+            line = "ok" if cursor and mode_for(state)[0] == "none" else f"rotation-check: cannot read {e}"
+            # nothing to reset on this provider: don't wake the Chief over a store it can't read
+        reasons = [] if line.startswith("ok") else [f"{line}; run chief-of-staff/rotation.md § Thread rotation"]
+        if not (state.get("paused") or state.get("reset") or state.get("takeover")):
+            db = os.environ.get("COS_T3_DB")
+            idle = load_module("cos_idle_check")
+            late = idle.late_children(state, Path(db) if db else idle.DEFAULT_DB)
+            if late:
+                reasons.append(f"late-child: {'; '.join(late)}; read each per chief-of-staff SKILL.md § Child path")
+        if reasons:
+            reason = "; ".join(reasons)
             answer = {"followup_message": reason} if cursor else {"decision": "block", "reason": reason}
             print(json.dumps(answer, ensure_ascii=False))
     except Exception:
