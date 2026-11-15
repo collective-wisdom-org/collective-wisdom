@@ -34,11 +34,11 @@ details.group > summary > h3 { display:inline; margin:0; }
 .band > summary + .group > summary { margin-top:var(--s2); }
 summary { cursor:pointer; list-style:none; }
 summary::-webkit-details-marker { display:none; }
-summary::after { content:""; display:inline-block; width:.4em; height:.4em; margin-left:.55em; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); vertical-align:.12em; transition:transform .15s; }
-details[open] > summary::after { transform:rotate(-135deg); vertical-align:-.05em; }
+summary::after { content:""; display:inline-block; width:.4em; height:.4em; margin-left:.55em; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-135deg); vertical-align:-.05em; transition:transform .15s; }
+details[open] > summary::after { transform:rotate(45deg); vertical-align:.12em; }
 summary.band-head::after { content:none; }
-summary.band-head > h2::after { content:""; display:inline-block; width:.4em; height:.4em; margin-left:.55em; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); vertical-align:.12em; transition:transform .15s; }
-details[open] > summary.band-head > h2::after { transform:rotate(-135deg); vertical-align:-.05em; }
+summary.band-head > h2::after { content:""; display:inline-block; width:.4em; height:.4em; margin-left:.55em; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-135deg); vertical-align:-.05em; transition:transform .15s; }
+details[open] > summary.band-head > h2::after { transform:rotate(45deg); vertical-align:.12em; }
 a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
 .quiet { color:var(--muted); margin:0; }
 #error { margin:0 0 var(--s4); padding:var(--s3) var(--s4); border-radius:10px; background:var(--red-tint); color:var(--red); font-size:var(--t-small); }
