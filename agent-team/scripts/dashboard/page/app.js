@@ -807,7 +807,7 @@ if (typeof document !== 'undefined') {
       return
     }
     const seg = target?.closest('button.seg')
-    if (seg) {
+    if (seg && !seg.disabled) {
       setPanel(seg, seg.getAttribute('aria-expanded') !== 'true')
       draw()
       return
