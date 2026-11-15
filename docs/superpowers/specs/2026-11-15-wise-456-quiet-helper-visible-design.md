@@ -1,7 +1,8 @@
 # WISE-456: Keep a quiet ticket helper in Writing tickets until its thread finishes
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#456](https://github.com/collective-wisdom-org/collective-wisdom/issues/456)
+**Shipped:** in PR #458, as specified
 
 ## Goal
 
