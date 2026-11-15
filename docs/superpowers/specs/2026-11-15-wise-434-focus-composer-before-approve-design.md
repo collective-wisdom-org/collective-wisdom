@@ -1,6 +1,7 @@
 # WISE-434: Focus the T3 composer before the dashboard presses Return on Approve
 
-**Status:** Approved
+**Status:** Shipped
+**Shipped:** in PR #450, with differences: [as-built](../as-built/2026-11-15-wise-434-focus-composer-before-approve.md)
 **Ticket:** [#434](https://github.com/collective-wisdom-org/collective-wisdom/issues/434)
 
 ## Goal
