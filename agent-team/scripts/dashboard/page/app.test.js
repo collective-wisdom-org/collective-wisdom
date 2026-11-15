@@ -76,21 +76,28 @@ test('group labels are plain words; an unknown name shows as it is; data-group k
   assert.match(html, /data-group="Queued to merge"[^>]*><summary><h3>Waiting to merge </)
 })
 
-test('the status sentence names the stage in plain words and ends with since a 12-hour time only when stageAt parses', () => {
-  const at = new Date(2026, 10, 14, 9, 5).toISOString()
+test('the status sentence names the stage in plain words with no time; a section stage draws no status line', () => {
   const cases = [
-    ['awaiting-merge', undefined, 'Waiting for your merge approval'],
-    ['awaiting-build', at, 'Spec is waiting for your approval'],
-    ['blocked', undefined, 'Blocked. Needs an answer from you'],
-    ['build', at, 'Building since 9:05 am'],
-    ['build', 'soon', 'Building'],
-    ['spec-queued', undefined, 'Waiting for a spec slot'],
-    ['some-new-stage', undefined, 'some new stage'],
+    ['awaiting-merge', 'Waiting for your merge approval'],
+    ['blocked', 'Blocked. Needs an answer from you'],
+    ['build', 'Building'],
+    ['spec-queued', 'Waiting for a spec slot'],
+    ['some-new-stage', 'some new stage'],
   ]
-  for (const [stage, stageAt, want] of cases) assert.equal(stageSentence(stage, stageAt), want, stage)
+  for (const [stage, want] of cases) assert.equal(stageSentence(stage), want, stage)
   const sentence = (r) => renderStatus(group([row(r)])).match(/<p class="status">([^<]*)</)?.[1]
-  assert.equal(sentence({ stageAt: at }), 'Building since 9:05 am')
+  assert.equal(sentence({ stage: 'build' }), undefined, 'the section already says it')
+  assert.equal(sentence({ stage: 'awaiting-merge' }), 'Waiting for your merge approval')
   assert.equal(sentence({ stage: '' }), undefined, 'no stage, no sentence')
+})
+
+test('no card or row shows since a time, in any group', () => {
+  const at = new Date(2026, 10, 14, 9, 5).toISOString()
+  const names = ['Awaiting merge approval', 'Awaiting build approval', 'Awaiting teammate review', 'Queued to merge', 'Speccing', 'Queued to build', 'Other', 'Todo', 'Building', 'Merging', 'Mystery']
+  for (const name of names) for (const stage of ['build', 'build-queued', 'awaiting-merge', 'blocked', 'mystery']) {
+    const html = renderStatus([{ name, count: 1, rows: [row({ stage, stageAt: at })] }])
+    assert.doesNotMatch(html, /since \d{1,2}:\d\d [ap]m/, `${name} ${stage}`)
+  }
 })
 
 test('risk shows the level word only, in its colour class; unreadable text shows as it is; empty shows nothing', () => {
@@ -484,7 +491,7 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
   assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
-  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="badge risk risk-low">Low<\/span> \u00b7 Waiting to build since 9:05 am<\/span>/)
+  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="badge risk risk-low">Low<\/span><\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
