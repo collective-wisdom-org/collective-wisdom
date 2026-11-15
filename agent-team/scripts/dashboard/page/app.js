@@ -322,8 +322,16 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
 </li>`
 }
 
-/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). */
-export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set()) {
+/** Page count and the clamped 0-based page `at` for a list of `length` rows; a non-number page is 0. */
+export function pageOf(length, page, size) {
+  const pages = Math.max(1, Math.ceil(length / size))
+  return { at: Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1), pages }
+}
+
+const BACKLOG_PAGE = 10
+
+/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `backlogPage` is the 0-based page of the Backlog group, drawn 10 rows at a time. */
+export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), backlogPage = 0) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   return BANDS.map((band) => {
     const mine = groups.filter((g) => band.has(g.name))
@@ -331,8 +339,15 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const flat = band.flat === true
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, slim: band.slim === true, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+        const paged = g.name === 'Backlog'
+        const { at, pages } = paged ? pageOf(g.rows.length, backlogPage, BACKLOG_PAGE) : { at: 0, pages: 1 }
+        const shown = paged ? g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE) : g.rows
+        const rows = shown.map((r) => ticket(r, { flat, slim: band.slim === true, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
+        const pager =
+          paged && pages > 1
+            ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
+            : ''
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
       })
       .join('\n')
     return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
@@ -362,8 +377,7 @@ const stamp = (ms) => {
 /** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
 export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
-  const pages = Math.ceil(list.length / size)
-  const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
+  const { at, pages } = pageOf(list.length, page, size)
   const rows = list
     .slice(at * size, (at + 1) * size)
     .map((e) => {
@@ -397,8 +411,7 @@ const stateBadge = (state) => `<span class="state state-${STATES.includes(state)
 
 /** One page of project manager thread rows with a pager. */
 function teamList(rows, page, size, open, empty) {
-  const pages = Math.max(1, Math.ceil(rows.length / size))
-  const at = Math.min(Math.max(0, Math.trunc(page) || 0), pages - 1)
+  const { at, pages } = pageOf(rows.length, page, size)
   const items = rows
     .slice(at * size, (at + 1) * size)
     .map((p) => {
@@ -657,6 +670,7 @@ if (typeof document !== 'undefined') {
   }
   let last = null
   let shownStatus = null
+  let backlogPage = 0
   const shownInfo = new Map()
   const shownMergedInfo = new Map()
   const draw = () => {
@@ -744,6 +758,21 @@ if (typeof document !== 'undefined') {
     ev.preventDefault()
     selectTab(tabs[to].dataset.tab, { focus: true })
   })
+  // The status is rebuilt only when it or the Backlog page changed (the page is clamped first, so a shrunk list shows its last page).
+  // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
+  const drawStatus = () => {
+    if (!last) return
+    backlogPage = pageOf(last.status.find((g) => g.name === 'Backlog')?.rows.length ?? 0, backlogPage, BACKLOG_PAGE).at
+    const json = JSON.stringify([last.status, backlogPage], (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
+    if (json === shownStatus) return
+    shownStatus = json
+    const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-ticket][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.ticket))
+    const open = opened('agents')
+    const info = opened('details')
+    shownInfo.clear()
+    document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed(), info, backlogPage)
+    document.getElementById('cta').innerHTML = renderBadges(last.status)
+  }
   const seen = versionWatch()
   const poll = async () => {
     const err = document.getElementById('error')
@@ -758,18 +787,7 @@ if (typeof document !== 'undefined') {
         return
       }
       err.textContent = [last.restartError, last.trackerError].filter(Boolean).join(' ')
-      // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
-      // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
-      const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
-      if (json !== shownStatus) {
-        shownStatus = json
-        const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-ticket][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.ticket))
-        const open = opened('agents')
-        const info = opened('details')
-        shownInfo.clear()
-        document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed(), info)
-        document.getElementById('cta').innerHTML = renderBadges(last.status)
-      }
+      drawStatus()
       draw()
       drawMerged()
       drawCos()
@@ -803,6 +821,13 @@ if (typeof document !== 'undefined') {
     const seg = target?.closest('button.seg')
     if (seg && !seg.disabled) {
       setPanel(seg, seg.getAttribute('aria-expanded') !== 'true')
+      draw()
+      return
+    }
+    const backlogPager = target?.closest('button[data-backlog-page]')
+    if (backlogPager) {
+      backlogPage = Number(backlogPager.dataset.backlogPage)
+      drawStatus()
       draw()
       return
     }
