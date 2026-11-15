@@ -1,7 +1,8 @@
 # WISE-424: Show who owns a dashboard ticket and hide Agents on tickets built by someone else
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#424](https://github.com/collective-wisdom-org/collective-wisdom/issues/424)
+**Shipped:** in PR #PRN, with differences: [as-built](../as-built/2026-11-15-wise-424-ticket-owner-avatar-as-built.md)
 
 ## Goal
 
