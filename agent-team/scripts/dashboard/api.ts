@@ -1,4 +1,4 @@
-import { groupTickets } from './groups.ts'
+import { GROUP_ORDER, groupTickets } from './groups.ts'
 import type { MergedEntry } from './merged.ts'
 import { specUrlOf } from './details.ts'
 import type { Detail, Found } from './details.ts'
@@ -12,7 +12,7 @@ export type Session = { sessionId: string; cwd: string; updatedAt: number; stale
 export type TeamRole = 'ranking' | 'hygiene'
 type TeamState = 'running' | 'idle' | 'paused'
 type PmRow = { sessionId: string; role: TeamRole; state: 'running' | 'finished'; threadLink?: string; gantt: Session[] }
-type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; stageAt?: string; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][] }
+type StatusRow = { id: string; title: string; risk: string; next: string; stage: string; stageAt?: string; stale?: true; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][] }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
@@ -251,6 +251,7 @@ export function ledgerSessions(input: { snapshots: unknown[]; worktrees: Worktre
   return out
 }
 
+const SPEC_QUEUE = 'Waiting to spec'
 const QUEUED = ['merge-queued', 'build-queued', 'spec-queued']
 
 /** Rows of queued stages keep their places; the others go newest update first, rows with no time last. The sort is stable. */
@@ -292,6 +293,38 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       return out
     }), updated),
   }))
+  // Todo and Backlog come from the tracker; a ticket in state or in the merged list shows there only.
+  const shown = new Set([...Object.keys(tickets), ...merged.map((e) => e.id)])
+  const listRow = (b: BacklogItem): StatusRow => {
+    const row: StatusRow = { id: b.id, title: b.title, risk: '', next: '', stage: '' }
+    const issueUrl = links?.issue(b.id)
+    if (issueUrl) row.issueUrl = issueUrl
+    return row
+  }
+  // A list read from the saved file carries a read time; one over an hour old is stale.
+  const readAtOf = (items: BacklogItem[]): Pick<Api['status'][number], 'readAt' | 'stale'> => {
+    const readAt = items[0].readAt
+    return readAt === undefined ? {} : { readAt, ...(now - readAt > LIST_STALE_MS ? { stale: true as const } : {}) }
+  }
+  // Todo tickets wait to be specced after the spec-queued ones, in the order cos_todo.py tries them: priority, then oldest first (no date last), then tracker order (the sort is stable).
+  const todo = backlog
+    .filter((b) => b.state === 'Todo' && !shown.has(b.id))
+    .sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 4) - (b.priority ? PRIORITY_RANK[b.priority] : 4) || (a.createdAt ?? Infinity) - (b.createdAt ?? Infinity) || 0)
+  if (todo.length) {
+    const extra = readAtOf(todo)
+    const rows = todo.map((b) => ({ ...listRow(b), ...(extra.stale ? { stale: true as const } : {}) }))
+    const queue = status.find((g) => g.name === SPEC_QUEUE)
+    if (queue) {
+      queue.rows.push(...rows)
+      queue.count = queue.rows.length
+      Object.assign(queue, extra)
+    } else {
+      // Where groupTickets would put it: after the last group that comes before it in the status layout.
+      const before = GROUP_ORDER.slice(0, GROUP_ORDER.indexOf(SPEC_QUEUE))
+      const at = status.findLastIndex((g) => before.includes(g.name)) + 1
+      status.splice(at, 0, { name: SPEC_QUEUE, count: rows.length, rows, ...extra })
+    }
+  }
   const link = (id: string | null) => (environmentId && id ? `<t3-thread://v2/${environmentId}/${id}>` : undefined)
   const isRunning = (i: TeamItem) => i.open && (i.cursor === true || now - i.session.updatedAt <= RUNNING_MS)
   const team = teamItems(snapshots, state, now, prefix)
@@ -306,26 +339,13 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       return row
     })
   if (writing.length) status.push({ name: 'Writing tickets', count: writing.length, rows: writing })
-  // Todo and Backlog come from the tracker; a ticket in state or in the merged list shows there only.
-  const shown = new Set([...Object.keys(tickets), ...merged.map((e) => e.id)])
-  for (const name of ['Todo', 'Backlog'] as const) {
-    let items = backlog.filter((b) => b.state === name && !shown.has(b.id))
-    // Backlog is sorted by priority, then newest first (no date last), then tracker order (sort is stable); the page pages it.
-    if (name === 'Backlog') items = [...items].sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 4) - (b.priority ? PRIORITY_RANK[b.priority] : 4) || (b.createdAt ?? -Infinity) - (a.createdAt ?? -Infinity) || 0)
-    const rows = items.map((b): StatusRow => {
-      const row: StatusRow = { id: b.id, title: b.title, risk: '', next: '', stage: '' }
-      const issueUrl = links?.issue(b.id)
-      if (issueUrl) row.issueUrl = issueUrl
-      return row
-    })
-    if (!rows.length) continue
-    const group: Api['status'][number] = { name, count: items.length, rows }
-    if (name === 'Backlog' && links?.backlog) group.moreUrl = links.backlog
-    const readAt = items[0].readAt // only a list read from the saved file has one
-    if (readAt !== undefined) {
-      group.readAt = readAt
-      if (now - readAt > LIST_STALE_MS) group.stale = true
-    }
+  // Backlog is sorted by priority, then newest first (no date last), then tracker order (the sort is stable); the page pages it.
+  const queued = backlog
+    .filter((b) => b.state === 'Backlog' && !shown.has(b.id))
+    .sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 4) - (b.priority ? PRIORITY_RANK[b.priority] : 4) || (b.createdAt ?? -Infinity) - (a.createdAt ?? -Infinity) || 0)
+  if (queued.length) {
+    const group: Api['status'][number] = { name: 'Backlog', count: queued.length, rows: queued.map(listRow), ...readAtOf(queued) }
+    if (links?.backlog) group.moreUrl = links.backlog
     status.push(group)
   }
   const cleaned = snapshots.map((s) => cleanSnapshot(s, now)).filter((s): s is NonNullable<typeof s> => s !== null)
