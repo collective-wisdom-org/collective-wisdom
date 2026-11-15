@@ -787,8 +787,6 @@ if (typeof document !== 'undefined') {
         return
       }
       err.textContent = [last.restartError, last.trackerError].filter(Boolean).join(' ')
-      // The status is rebuilt only when it changed, so a copy label, a selection or a click is not lost.
-      // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
       drawStatus()
       draw()
       drawMerged()
