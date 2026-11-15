@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 put the ticket number first and spec and PR links on every dashboard row (CW-354) (#372)
+
+Merged 2026-11-15 3:54 am UTC.
+
+On the dashboard, each ticket row now starts with its ticket number and shows its Spec and PR links on the row, so you no longer open Details to reach them. Nothing to do.
+
 ## 2026-11-15 remove since HH:MM from dashboard ticket cards (CW-357) (#367)
 
 Merged 2026-11-15 3:45 am UTC.
