@@ -1,6 +1,7 @@
 # CW-395: Make dashboard cards stand out a little more
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #400, as specified
 **Ticket:** [#395](https://github.com/collective-wisdom-org/collective-wisdom/issues/395)
 
 ## Goal
