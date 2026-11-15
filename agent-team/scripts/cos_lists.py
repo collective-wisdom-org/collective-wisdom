@@ -10,6 +10,9 @@ stdin is the `list-tickets` result as the tracker adapter returns it: a JSON lis
 rename, and writes nothing when .agent-team is not a real folder or the file is not a regular file.
 Prints `lists: saved <kind> <n>` and exits 0. Exit 2 with `lists: cannot <what>` when stdin is not one of those shapes or
 the write fails; the caller goes on. cos_todo.py calls save() on its first pass.
+remove(ids) drops the entries with those ticket ids (read as identifier, then id, then key) from both kinds and keeps
+each kind's `at`. It writes nothing when the file is absent or no entry matches. cos_state.py apply calls it for each
+ticket a start, merged or drop op names, so a ticket that left Todo does not stay on the dashboard.
 """
 
 import argparse
@@ -52,12 +55,8 @@ def regular(path):
         return True
 
 
-def save(kind, tickets, file=None):
-    """Replace one kind in the file. `tickets` is the stdin text or an already parsed list. Raises Cannot."""
-    if kind not in KINDS:
-        raise Cannot(f"save {kind}")
-    items = entries(tickets) if isinstance(tickets, str) else list(tickets)[:MAX]
-    path = Path(file) if file else DEFAULT_FILE
+def update(path, change):
+    """Read the file, let change(held) edit it and say whether to write, and write it through a temp file. Raises Cannot."""
     try:
         if not stat.S_ISDIR(os.lstat(path.parent).st_mode) or not regular(path):
             raise Cannot("write: not a regular file or folder")
@@ -66,7 +65,8 @@ def save(kind, tickets, file=None):
         except (OSError, ValueError):
             held = {}
         held = held if isinstance(held, dict) else {}
-        held[kind] = {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "list": items}
+        if not change(held):
+            return
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)  # never through a planted link
@@ -77,7 +77,40 @@ def save(kind, tickets, file=None):
             tmp.unlink(missing_ok=True)
     except OSError as e:
         raise Cannot(f"write: {e.strerror or e}")
+
+
+def save(kind, tickets, file=None):
+    """Replace one kind in the file. `tickets` is the stdin text or an already parsed list. Raises Cannot."""
+    if kind not in KINDS:
+        raise Cannot(f"save {kind}")
+    items = entries(tickets) if isinstance(tickets, str) else list(tickets)[:MAX]
+
+    def change(held):
+        held[kind] = {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "list": items}
+        return True
+
+    update(Path(file) if file else DEFAULT_FILE, change)
     return len(items)
+
+
+def remove(ids, file=None):
+    """Drop the entries whose id is in `ids` from every kind, keeping each kind's `at`. Raises Cannot."""
+    ids = set(ids)
+    path = Path(file) if file else DEFAULT_FILE
+
+    def change(held):
+        hit = False
+        for kind in KINDS:
+            block = held.get(kind)
+            if not isinstance(block, dict) or not isinstance(block.get("list"), list):
+                continue
+            kept = [e for e in block["list"] if not (isinstance(e, dict) and (e.get("identifier") or e.get("id") or e.get("key")) in ids)]
+            if len(kept) != len(block["list"]):
+                block["list"], hit = kept, True
+        return hit
+
+    if path.exists():
+        update(path, change)
 
 
 class Parser(argparse.ArgumentParser):
