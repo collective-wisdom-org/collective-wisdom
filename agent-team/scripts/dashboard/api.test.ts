@@ -15,6 +15,18 @@ const build = (o: Partial<Parameters<typeof buildApi>[0]> = {}) =>
   buildApi({ state: null, snapshots: [], repo: GH, titles: {}, environmentId: 'env', now: NOW, ...o })
 const firstRow = (o: Partial<Parameters<typeof buildApi>[0]>) => build(o).status[0].rows[0] as any
 
+test('a build row links its open PR until state has pr, and state wins', () => {
+  const cases: [string, Record<string, unknown>, Record<string, number>, string | undefined][] = [
+    ['no PR anywhere', { pr: null }, {}, undefined],
+    ['open PR', { pr: null }, { 'CW-1': 7 }, 'https://github.com/o/r/pull/7'],
+    ['same number', { pr: 7 }, { 'CW-1': 7 }, 'https://github.com/o/r/pull/7'],
+    ['state only', { pr: 7 }, {}, 'https://github.com/o/r/pull/7'],
+    ['state wins', { pr: 7 }, { 'CW-1': 9 }, 'https://github.com/o/r/pull/7'],
+    ['other ticket', { pr: null }, { 'CW-2': 7 }, undefined],
+  ]
+  for (const [name, extra, openPrs, want] of cases) assert.equal(firstRow({ state: stateOf('CW-1', extra), openPrs }).prUrl, want, name)
+})
+
 test('whitelist: free text and relay never reach the api', () => {
   const state = stateOf('CW-1', { pendingRelay: 'my words', note: 'free text' })
   const json = JSON.stringify(build({ state }))
