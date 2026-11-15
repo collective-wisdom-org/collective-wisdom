@@ -1,6 +1,7 @@
 # CW-362: Keep the code and security reviews when only the docs check changed the head
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #377, with differences: [as-built](../as-built/2026-11-14-cw-362-docs-check-keeps-reviews.md)
 **Ticket:** [#362](https://github.com/collective-wisdom-org/collective-wisdom/issues/362)
 
 ## Goal
