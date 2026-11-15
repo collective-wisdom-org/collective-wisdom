@@ -419,7 +419,7 @@ test('every row starts with its ticket number; Spec and PR sit in the meta line 
   assert.doesNotMatch(renders[0]({ title: '' }), /class="title"/)
 })
 
-test('a merged row has a closed Details section filled only when open; it shows the links line and the PR text', () => {
+test('a merged row has a closed Details section filled only when open; it shows the PR text and no links', () => {
   const e = { id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/9', issueUrl: 'https://x.test/issues/9', specUrl: 'https://x.test/blob/s.md', mergedAt: 0, detail: { kind: 'changes', sections: [{ name: 'Summary', text: 'Did **it**' }] } }
   const closed = renderMerged([e], 0).html
   assert.match(closed, /data-view="details" id="seg-merged-CW-9-details" aria-expanded="false"/)

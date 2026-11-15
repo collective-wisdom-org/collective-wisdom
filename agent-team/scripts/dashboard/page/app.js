@@ -287,8 +287,8 @@ export const summaryLine = (gantt, now) => {
 
 /**
  * One ticket as a card (`li.ticket`) or a flat row (`li.row`).
- * A card is the title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
- * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show no risk, Spec or PR.
+ * A card is the ticket number and title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
+ * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show no risk badge.
  * Every row starts with its ticket number, then the title, and carries `Spec` and `PR` links in its meta line when it has them. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, slim, attn, group, open, info }) {
