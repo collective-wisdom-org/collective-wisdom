@@ -1,6 +1,7 @@
 # CW-380: Set the Chief of Staff thread title to "<PREFIX> - Chief of Staff" every time it starts
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #399, as specified
 **Ticket:** [#380](https://github.com/collective-wisdom-org/collective-wisdom/issues/380)
 
 ## Goal
