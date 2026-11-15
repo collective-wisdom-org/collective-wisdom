@@ -16,7 +16,7 @@ Spec: `docs/superpowers/specs/2026-11-14-cw-370-every-row-a-card-design.md`. Fil
 
 ## Task 3: test (`app.test.js`)
 
-- One table-driven test: Your turn, In progress, Up next, Not started (`renderStatus`), Done (`renderMerged`) and project manager (`renderChief`) rows are `li.ticket` in `ul.cards`; no `class="row"` or `class="rows"`; blocked Up next row has `ticket compact blocked`; Your turn row has `ticket attn`.
+- One table-driven test: Your turn, In progress, Up next, Not started (`renderStatus`), Done (`renderMerged`) and project manager (`renderChief`) rows are `li.ticket` in `ul.cards`; no `class="row"` or `class="rows"`; blocked Up next row has `ticket blocked`; Your turn row has `ticket attn`.
 - Update the pager test that counts `<li class="row">`.
 
 ## Verify

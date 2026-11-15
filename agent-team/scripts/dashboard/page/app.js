@@ -293,9 +293,9 @@ export const summaryLine = (gantt, now) => {
 }
 
 /**
- * One ticket as a card (`li.ticket`) or a flat row (`li.row`).
+ * One ticket as a card (`li.ticket`). Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
  * A card is the title (with the copy icon), a meta line, the status sentence, the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
- * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show the id only.
+ * A compact card is the title and one footer with the control and the meta line; a blocked flat row is laid out as a full card so it can say why and offer its action. `slim` rows show the id only.
  * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, slim, attn, group, open, info }) {
@@ -312,7 +312,7 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   ])
   const summary = summaryLine(r.gantt, Date.now())
   const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
-  const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${blocked && flat ? ' blocked' : ''}`
+  const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}`
   const head = `<div class="head"><span class="title">${esc(r.title || r.id)}</span>${copyButton(r.threadLink)}</div>`
   if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
   const status = r.stage ? stageSentence(r.stage, r.stageAt) : ''
@@ -339,7 +339,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const sections = mine
       .map((g) => {
         const rows = g.rows.map((r) => ticket(r, { flat, slim: band.slim === true, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="cards">${rows}</ul>${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
       })
       .join('\n')
     return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
@@ -366,7 +366,7 @@ const stamp = (ms) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
 
-/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
+/** One page of the merged list as compact cards plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
 export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const pages = Math.ceil(list.length / size)
@@ -384,7 +384,7 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
       ])
       const view = viewOf(e.id, open, info)
       const sw = panelSwitch('merged', e.id, { gantt: e.gantt, view, details: view === 'details' ? renderDetails(e, Date.now()) : '' })
-      return `<li class="row">
+      return `<li class="ticket compact">
   <div class="head"><span class="title">${esc(e.title || e.id)}</span></div>
   <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}
 </li>`
@@ -394,7 +394,7 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
     pages > 1
       ? `<nav class="pager"><button type="button" data-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
       : ''
-  return { html: `<ul class="rows">${rows}</ul>${pager}`, page: at }
+  return { html: `<ul class="cards">${rows}</ul>${pager}`, page: at }
 }
 
 const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene']])
@@ -411,7 +411,7 @@ function teamList(rows, page, size, open, empty) {
     .map((p) => {
       const updated = list(p.gantt)[0]?.updatedAt
       const sw = panelSwitch('pm', p.sessionId, { gantt: list(p.gantt), view: open.has(p.sessionId) ? 'agents' : '' })
-      return `<li class="row">
+      return `<li class="ticket compact">
   <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span>${copyButton(p.threadLink)}</div>
   <div class="foot">${sw.control}<span class="meta">${stateBadge(p.state)}${typeof updated === 'number' ? ` \u00b7 ${esc(`updated ${dayWords(updated, Date.now())} ${clock(updated)}`)}` : ''}</span></div>${sw.panels}
 </li>`
@@ -421,7 +421,7 @@ function teamList(rows, page, size, open, empty) {
     pages > 1
       ? `<nav class="pager"><button type="button" data-pm-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-pm-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
       : ''
-  return { html: rows.length ? `<ul class="rows">${items}</ul>${pager}` : `<p class="quiet">${empty}</p>`, page: at }
+  return { html: rows.length ? `<ul class="cards">${items}</ul>${pager}` : `<p class="quiet">${empty}</p>`, page: at }
 }
 
 /** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */

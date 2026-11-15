@@ -72,9 +72,7 @@ p.more { margin:var(--s2) 0 0; font-size:var(--t-small); }
 .panel { margin-top:var(--s2); padding-top:var(--s3); border-top:1px solid var(--line); }
 .panel .info-body, .panel .gantt { margin-top:0; }
 @media (max-width: 29.99rem) { .seg { height:2.25rem; } .foot .summary, .foot .meta { flex:1 1 100%; } }
-ul.rows > li.row { display:flex; flex-direction:column; gap:var(--s1); padding:var(--s3) 0; border-top:1px solid var(--line); }
-ul.rows > li.row:first-child { border-top:0; }
-ul.rows > li.row.blocked { margin:var(--s2) 0; padding:var(--s3) var(--s4); border-top:0; background:var(--red-tint); box-shadow:inset 3px 0 0 var(--red); border-radius:12px; }
+.ticket.blocked { background:var(--red-tint); box-shadow:inset 3px 0 0 var(--red), 0 1px 2px var(--shadow); }
 li.blocked .status { color:var(--red); }
 .badge { display:inline-block; max-width:100%; padding:0 var(--s2); border-radius:999px; font-size:var(--t-small); line-height:1.6; background:var(--soft); color:var(--muted); }
 .badge.pass { color:var(--green); }
@@ -97,7 +95,7 @@ button.copy-icon[data-state="failed"] { color:var(--red); }
 .state::before { content:""; display:inline-block; width:.5em; height:.5em; margin-right:.4em; border-radius:50%; background:currentColor; vertical-align:.05em; }
 .state-running { color:var(--green); }
 .state-paused { color:var(--attn); }
-.cos-card .meta, li.row .head + .meta { margin-top:0; }
+.cos-card .meta { margin-top:0; }
 .pager { display:flex; flex-wrap:wrap; align-items:center; gap:var(--s2) var(--s3); margin-top:var(--s4); color:var(--muted); font-size:var(--t-small); }
 .info-body { display:flex; flex-direction:column; gap:var(--s3); margin-top:var(--s3); color:var(--fg); font-size:var(--t-small); }
 .info-links { margin:0; }
