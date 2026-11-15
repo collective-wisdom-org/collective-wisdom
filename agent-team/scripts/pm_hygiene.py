@@ -112,7 +112,7 @@ def ticket_id(t):
     """`ABC-N` from the Linear shape's `id`, or from a GitHub issue's `number`; None when neither fits."""
     tid = t.get("id")
     if tid is None and type(t.get("number")) is int:
-        tid = f"{project_config.prefix()}-{t['number']}"
+        tid = project_config.ticket_id(t["number"])
     return tid if isinstance(tid, str) and cos_state.ID.match(tid) else None
 
 
@@ -199,14 +199,13 @@ def fill(state, text):
 
 def ticket_of(pr):
     """The ticket id a PR belongs to (abc-N in its branch, or (ABC-N) in its title), or None."""
-    prefix = project_config.prefix()
     branch = pr.get("headRefName")
-    m = isinstance(branch, str) and re.search(rf"(?<![a-z0-9]){re.escape(prefix.lower())}-(\d+)(?!\d)", branch.lower())
+    m = isinstance(branch, str) and re.search(project_config.branch_ticket_re(), branch.lower())
     if not m:
         title = pr.get("title")
-        m = isinstance(title, str) and re.search(rf"\(({re.escape(prefix)}-\d+)\)", title)
-        return m.group(1) if m else None
-    return f"{prefix}-{int(m.group(1))}"
+        m = isinstance(title, str) and re.search(rf"\(({project_config.ticket_re().pattern})\)", title)
+        return project_config.ticket_id(int(m.group(1).rsplit("-", 1)[1])) if m else None
+    return project_config.ticket_id(int(m.group(2)))
 
 
 def drift(state, text, since):

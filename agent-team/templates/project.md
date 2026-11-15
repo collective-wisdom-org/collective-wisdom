@@ -13,6 +13,7 @@ Scripts read the first backticked token in each Value cell. Keep the backticks a
 | Tracker scope (`<TEAM>`) | <Linear team name, the GitHub repo, or the Jira project key> |
 | Linear team name (Linear only) | <team name> (key `<PREFIX>`, <https://linear.app/<workspace>/team/<PREFIX>/overview>) |
 | Issue identifier prefix (`<PREFIX>`) | `<PREFIX>` |
+| Retired issue prefixes (GitHub tracker only) | `none`. After a prefix rename on the GitHub tracker, one backticked list of `PREFIX<N` pairs, oldest first (for example `OLD<406`): issues numbered below N keep the old prefix, later ones use the current one. On Linear and Jira a key change renames every issue in the tracker, so keep `none` |
 | Linear project (Linear only) | <project name, or none (the team is the scope)> |
 | Approver | <name>. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |

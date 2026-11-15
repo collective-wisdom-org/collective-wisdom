@@ -83,9 +83,54 @@ def chief_thread_title():
     return f"{prefix()} - Chief of Staff"
 
 
+def retired_prefixes(rows=None):
+    """The `Retired issue prefixes` row as ((prefix, below), ...), oldest first. Empty when unset.
+
+    One backticked token of comma-separated `PREFIX<N` pairs: issues numbered below N keep PREFIX. A missing row, `none`
+    or an empty cell is (). A row that is set but bad (bad prefix, the current prefix, a repeat, numbers that do not rise)
+    raises SystemExit, so a script never guesses an id.
+    """
+    v = value("Retired issue prefixes") if rows is None else value("Retired issue prefixes", rows)
+    if v is None or v.lower() == "none":
+        return ()
+    current = value("Issue identifier prefix") if rows is None else value("Issue identifier prefix", rows)
+    pairs = []
+    for part in v.split(","):
+        m = re.fullmatch(r"([A-Z][A-Z0-9]*)<([0-9]+)", part.strip())
+        if not m or m[1] == current or m[1] in [p for p, _ in pairs] or (pairs and int(m[2]) <= pairs[-1][1]):
+            raise SystemExit(f"project.md: 'Retired issue prefixes' row has no usable `PREFIX<N` list, got `{v}`")
+        pairs.append((m[1], int(m[2])))
+    return tuple(pairs)
+
+
+def prefixes():
+    """The current prefix, then the retired ones, oldest first."""
+    return (prefix(), *(p for p, _ in retired_prefixes()))
+
+
+def ticket_id(number):
+    """The id of issue `number`: the first retired pair whose cutover is above it gives its prefix, else the current one."""
+    return f"{next((p for p, below in retired_prefixes() if number < below), prefix())}-{number}"
+
+
+def _alternation(names):
+    return "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
+
+
 def ticket_re(anchored=False):
-    body = re.escape(prefix()) + r"-\d+"
+    body = f"(?:{_alternation(prefixes())})-\\d+"
     return re.compile(f"^{body}$" if anchored else body)
+
+
+def ticket_number(tid):
+    """The issue number of an id with any known prefix, or None."""
+    m = ticket_re(anchored=True).match(tid) if isinstance(tid, str) else None
+    return int(tid.rsplit("-", 1)[1]) if m else None
+
+
+def branch_ticket_re():
+    """Regex source for a ticket branch: `<heads>(<lower-case prefixes>)-(\\d+)`. Group 1 is the prefix, group 2 the number."""
+    return f"{branch_heads_re()}({_alternation(p.lower() for p in prefixes())})-(\\d+)"
 
 
 def repo():
