@@ -65,16 +65,13 @@ const STAGE_SENTENCES = new Map([
   ['build', 'Building'],
   ['build-queued', 'Waiting for a build slot'],
 ])
-/** ` since HH:MM` when `stageAt` parses, else nothing. */
-const since = (stageAt) => {
-  const at = stageAt ? Date.parse(stageAt) : NaN
-  return Number.isNaN(at) ? '' : ` since ${clock(at)}`
-}
-/** One plain sentence for where a ticket stands, ending ` since HH:MM` when `stageAt` parses (not for an `awaiting-*` stage, whose card counts the wait instead); an unknown stage shows its slug with spaces. */
-export const stageSentence = (stage, stageAt) => {
+/** One plain sentence for where a ticket stands; an unknown stage shows its slug with spaces. */
+export const stageSentence = (stage) => {
   const s = String(stage ?? '')
-  return `${STAGE_SENTENCES.get(s) ?? stageWords(s)}${s.startsWith('awaiting-') ? '' : since(stageAt)}`
+  return STAGE_SENTENCES.get(s) ?? stageWords(s)
 }
+/** Stages whose card sits under a section that already names them, so the card draws no status line. */
+const SECTION_STAGES = new Set(['build', 'build-queued', 'spec', 'spec-queued', 'merge', 'merge-queued'])
 
 /** `waiting 3h 16m`: the time since `stageAt`, rounded down, two units at most (`<1m`, `42m`, `3h 16m`, `3d 4h`); empty when `stageAt` is missing or does not parse. */
 export function waitText(stageAt, now) {
@@ -294,7 +291,7 @@ export const summaryLine = (gantt, now) => {
 
 /**
  * One ticket as a card (`li.ticket`) or a flat row (`li.row`).
- * A card is the title (with the copy icon), a meta line, the status sentence, the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
+ * A card is the title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
  * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show the id only.
  * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
@@ -303,7 +300,7 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   const risk = slim ? null : riskText(r.risk)
   const action = actionFor(r)
   const compact = flat && !blocked
-  const phrase = compact && !slim && r.stage ? (group === 'Other' ? stageSentence(r.stage, r.stageAt) : `${groupLabel(group)}${since(r.stageAt)}`) : ''
+  const phrase = compact && !slim && r.stage ? (group === 'Other' ? stageSentence(r.stage) : '') : ''
   const meta = metaLine([
     `<span class="id">${r.helper ? 'Ticket helper' : link(r.issueUrl, r.id)}</span>`,
     risk && (risk.level ? `<span class="badge risk risk-${risk.level}">${esc(risk.text)}</span>` : `<span class="risk-none">${esc(risk.text)}</span>`),
@@ -315,7 +312,7 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${blocked && flat ? ' blocked' : ''}`
   const head = `<div class="head"><span class="title">${esc(r.title || r.id)}</span>${copyButton(r.threadLink)}</div>`
   if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
-  const status = r.stage ? stageSentence(r.stage, r.stageAt) : ''
+  const status = r.stage && !SECTION_STAGES.has(r.stage) ? stageSentence(r.stage) : ''
   const waiting = String(r.stage).startsWith('awaiting-')
   const wait = waiting ? waitText(r.stageAt, Date.now()) : ''
   const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(r.next)}</p>` : ''
