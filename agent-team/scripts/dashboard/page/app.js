@@ -69,8 +69,23 @@ const since = (stageAt) => {
   const at = stageAt ? Date.parse(stageAt) : NaN
   return Number.isNaN(at) ? '' : ` since ${clock(at)}`
 }
-/** One plain sentence for where a ticket stands, ending ` since HH:MM` when `stageAt` parses; an unknown stage shows its slug with spaces. */
-export const stageSentence = (stage, stageAt) => `${STAGE_SENTENCES.get(String(stage ?? '')) ?? stageWords(String(stage ?? ''))}${since(stageAt)}`
+/** One plain sentence for where a ticket stands, ending ` since HH:MM` when `stageAt` parses (not for an `awaiting-*` stage, whose card counts the wait instead); an unknown stage shows its slug with spaces. */
+export const stageSentence = (stage, stageAt) => {
+  const s = String(stage ?? '')
+  return `${STAGE_SENTENCES.get(s) ?? stageWords(s)}${s.startsWith('awaiting-') ? '' : since(stageAt)}`
+}
+
+/** `waiting 3h 16m`: the time since `stageAt`, rounded down, two units at most (`<1m`, `42m`, `3h 16m`, `3d 4h`); empty when `stageAt` is missing or does not parse. */
+export function waitText(stageAt, now) {
+  const at = stageAt ? Date.parse(stageAt) : NaN
+  if (Number.isNaN(at)) return ''
+  const m = Math.max(0, Math.floor((now - at) / 60_000))
+  const units = (big, bigUnit, rest, restUnit) => `${big}${bigUnit}${rest ? ` ${rest}${restUnit}` : ''}`
+  if (m < 1) return 'waiting <1m'
+  if (m < 60) return `waiting ${m}m`
+  if (m < 1440) return `waiting ${units(Math.floor(m / 60), 'h', m % 60, 'm')}`
+  return `waiting ${units(Math.floor(m / 1440), 'd', Math.floor(m / 60) % 24, 'h')}`
+}
 
 /** `today`, `yesterday` or `YYYY-MM-DD` for a local date; empty for a time that is not a number. */
 export function dayWords(ms, now) {
@@ -248,7 +263,24 @@ export function renderDetails(r, now) {
 const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"/></svg>'
 
 const copyButton = (l) => (l ? `<button type="button" class="copy-icon" data-copy="${esc(l)}" aria-label="Copy thread link" title="Copy thread link">${COPY_ICON}</button>` : '')
-const chartToggle = (attr, id, gantt, open) => (gantt && taskCount(gantt) ? `<details class="chart" data-${attr}="${esc(id)}"${open ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(gantt))}</span></summary><div class="chart-body" data-${attr}="${esc(id)}"></div></details>` : '')
+const viewOf = (id, open, info) => (open.has(id) ? 'agents' : info.has(id) ? 'details' : '')
+
+/**
+ * The Agents and Details control of one row and the panels it opens. `scope` is `ticket`, `merged` or `pm`; `view` is `agents`, `details` or `` (closed).
+ * `details` is the Details body html, `null` for a disabled Details segment, `false` for none. Agents is disabled (`Agents 0`) with no panel when the Gantt has no tasks.
+ * One panel is open at most; a view whose segment is disabled comes back closed.
+ */
+function panelSwitch(scope, id, { gantt, view = '', details = false }) {
+  const n = gantt ? taskCount(gantt) : 0
+  const attr = `data-${scope}="${esc(id)}"`
+  const segs = [{ v: 'agents', label: `Agents <span class="pill">${n}</span>`, body: n ? `<div class="chart-body" ${attr}></div>` : null, off: 'No agent sessions recorded' }]
+  if (details !== false) segs.push({ v: 'details', label: 'Details', body: details === null ? null : `<div class="info-body" ${attr}>${details}</div>`, off: 'No ticket yet' })
+  const shown = segs.find((s) => s.v === view && s.body !== null)?.v
+  const key = (s) => esc(`${scope}-${id}-${s.v}`)
+  const buttons = segs.map((s) => `<button type="button" class="seg" ${attr} data-view="${s.v}" id="seg-${key(s)}" aria-expanded="${s.v === shown}"${s.body === null ? ` disabled title="${s.off}"` : ` aria-controls="pan-${key(s)}"`}>${s.label}</button>`)
+  const panels = segs.filter((s) => s.body !== null).map((s) => `<div class="panel" id="pan-${key(s)}" role="region" aria-labelledby="seg-${key(s)}"${s.v === shown ? '' : ' hidden'}>${s.body}</div>`)
+  return { control: `<div class="switch" role="group" aria-label="${esc(id)} panels">${buttons.join('')}</div>`, panels: panels.join('') }
+}
 const prSpan = (url) => (isHttp(url) ? `<span class="pr">${link(url, 'PR')}</span>` : '')
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
@@ -261,9 +293,9 @@ export const summaryLine = (gantt, now) => {
 
 /**
  * One ticket as a card (`li.ticket`) or a flat row (`li.row`).
- * A card is the title (with the copy icon), a meta line, the status sentence, the agent text, an action when it needs the user and a footer with the summary and the Agents and Details toggles.
- * A row is the title and one meta line that carries the toggles; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show the id only.
- * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and no Details.
+ * A card is the title (with the copy icon), a meta line, the status sentence, the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
+ * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show the id only.
+ * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, slim, attn, group, open, info }) {
   const blocked = r.stage === 'blocked'
@@ -278,22 +310,25 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
     phrase && esc(phrase),
   ])
   const summary = summaryLine(r.gantt, Date.now())
-  const toggles = `${chartToggle('ticket', r.id, r.gantt, open.has(r.id))}${r.helper ? '' : `<details class="info" data-ticket="${esc(r.id)}"${info.has(r.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-ticket="${esc(r.id)}">${renderDetails(r, Date.now())}</div></details>`}`
+  const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
   const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${blocked && flat ? ' blocked' : ''}`
   const head = `<div class="head"><span class="title">${esc(r.title || r.id)}</span>${copyButton(r.threadLink)}</div>`
-  if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot"><span class="meta">${meta}</span>${toggles}</div>\n</li>`
+  if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
   const status = r.stage ? stageSentence(r.stage, r.stageAt) : ''
+  const waiting = String(r.stage).startsWith('awaiting-')
+  const wait = waiting ? waitText(r.stageAt, Date.now()) : ''
+  const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(r.next)}</p>` : ''
   return `<li class="${cls}">
   ${head}
   <div class="meta">${meta}</div>
   ${status ? `<p class="status">${esc(status)}</p>` : ''}
-  ${r.next ? `<p class="next">${esc(r.next)}</p>` : ''}
+  ${note}
   ${action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : ''}
-  <div class="foot">${summary ? `<span class="summary" data-ticket="${esc(r.id)}">${esc(summary)}</span>` : ''}${toggles}</div>
+  <div class="foot">${sw.control}${summary ? `<span class="summary" data-ticket="${esc(r.id)}">${esc(summary)}</span>` : ''}</div>${sw.panels}
 </li>`
 }
 
-/** `open` holds the ids of tickets whose `Agents` chart is open, `info` those whose `Details` is open. */
+/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). */
 export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set()) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   return BANDS.map((band) => {
@@ -330,7 +365,7 @@ const stamp = (ms) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
 
-/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged charts to keep open, `info` those of Details sections (whose body is filled here only when open, else by the shell). */
+/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
 export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const pages = Math.ceil(list.length / size)
@@ -346,9 +381,11 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
         e.spend && esc(`${tokens(e.spend.tokens)} tokens`),
         prSpan(e.prUrl),
       ])
+      const view = viewOf(e.id, open, info)
+      const sw = panelSwitch('merged', e.id, { gantt: e.gantt, view, details: view === 'details' ? renderDetails(e, Date.now()) : '' })
       return `<li class="row">
   <div class="head"><span class="title">${esc(e.title || e.id)}</span></div>
-  <div class="foot"><span class="meta">${meta}</span>${chartToggle('merged', e.id, e.gantt, open.has(e.id))}<details class="info" data-merged="${esc(e.id)}"${info.has(e.id) ? ' open' : ''}><summary>Details</summary><div class="info-body" data-merged="${esc(e.id)}">${info.has(e.id) ? renderDetails(e, Date.now()) : ''}</div></details></div>
+  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}
 </li>`
     })
     .join('\n')
@@ -372,11 +409,10 @@ function teamList(rows, page, size, open, empty) {
     .slice(at * size, (at + 1) * size)
     .map((p) => {
       const updated = list(p.gantt)[0]?.updatedAt
-      const id = esc(p.sessionId)
+      const sw = panelSwitch('pm', p.sessionId, { gantt: list(p.gantt), view: open.has(p.sessionId) ? 'agents' : '' })
       return `<li class="row">
   <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span>${copyButton(p.threadLink)}</div>
-  <div class="meta">${stateBadge(p.state)}${typeof updated === 'number' ? ` \u00b7 ${esc(`updated ${dayWords(updated, Date.now())} ${clock(updated)}`)}` : ''}</div>
-  <details class="chart" data-pm="${id}"${open.has(p.sessionId) ? ' open' : ''}><summary>Agents <span class="pill">${esc(taskCount(list(p.gantt)))}</span></summary><div class="chart-body" data-pm="${id}"></div></details>
+  <div class="foot">${sw.control}<span class="meta">${stateBadge(p.state)}${typeof updated === 'number' ? ` \u00b7 ${esc(`updated ${dayWords(updated, Date.now())} ${clock(updated)}`)}` : ''}</span></div>${sw.panels}
 </li>`
     })
     .join('\n')
@@ -652,6 +688,11 @@ if (typeof document !== 'undefined') {
       const text = summaryLine(rows.get(span.dataset.ticket)?.gantt, now)
       if (text && span.textContent !== text) span.textContent = text
     }
+    // The waiting counter counts up from stageAt; write it only when the text changed (once a minute).
+    for (const t of document.querySelectorAll('.wait[data-ticket] time')) {
+      const text = waitText(t.getAttribute('datetime'), now)
+      if (text && t.textContent !== text) t.textContent = text
+    }
     fill('.info-body[data-merged]', new Map(last.merged.map((e) => [e.id, e])), shownMergedInfo)
   }
   // The merged list is redrawn only when its html changed (compared with every chart and Details closed, so opening one is not a change), so a poll keeps the page and any selection.
@@ -663,9 +704,9 @@ if (typeof document !== 'undefined') {
     mergedPage = r.page
     if (r.html !== shownMerged) {
       shownMerged = r.html
-      const opened = (selector) => new Set([...document.querySelectorAll(selector)].map((d) => d.dataset.merged))
+      const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-merged][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.merged))
       shownMergedInfo.clear()
-      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('details.chart[data-merged][open]'), opened('details.info[data-merged][open]')).html
+      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('agents'), opened('details')).html
       draw()
     }
   }
@@ -678,7 +719,7 @@ if (typeof document !== 'undefined') {
     pmPage = r.page
     if (r.html === shownCos) return
     shownCos = r.html
-    const opened = new Set([...document.querySelectorAll('details.chart[data-pm][open]')].map((d) => d.dataset.pm))
+    const opened = new Set([...document.querySelectorAll('.seg[data-pm][data-view="agents"][aria-expanded="true"]')].map((d) => d.dataset.pm))
     document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened).html
     draw()
   }
@@ -728,8 +769,9 @@ if (typeof document !== 'undefined') {
       const json = JSON.stringify(last.status, (k, v) => (k === 'gantt' ? [v.map((s) => s.sessionId), taskCount(v)] : v))
       if (json !== shownStatus) {
         shownStatus = json
-        const open = new Set([...document.querySelectorAll('details.chart[data-ticket][open]')].map((d) => d.dataset.ticket))
-        const info = new Set([...document.querySelectorAll('details.info[data-ticket][open]')].map((d) => d.dataset.ticket))
+        const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-ticket][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.ticket))
+        const open = opened('agents')
+        const info = opened('details')
         shownInfo.clear()
         document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed(), info)
         document.getElementById('cta').innerHTML = renderBadges(last.status)
@@ -741,11 +783,33 @@ if (typeof document !== 'undefined') {
       err.textContent = `Could not refresh: ${e.message}`
     }
   }
+  // Opens or closes one segment's panel in place and closes the row's other one, so nothing is rebuilt.
+  const setPanel = (seg, on) => {
+    for (const s of seg.closest('.switch').querySelectorAll('.seg')) {
+      const mine = on && s === seg
+      s.setAttribute('aria-expanded', String(mine))
+      const panel = document.getElementById(s.getAttribute('aria-controls') ?? '')
+      if (panel) panel.hidden = !mine
+    }
+  }
+  document.addEventListener('keydown', (ev) => {
+    const host = ev.key === 'Escape' && ev.target instanceof Element ? ev.target.closest('.seg, .panel') : null
+    const seg = host?.matches('.seg') ? host : host && document.getElementById(host.getAttribute('aria-labelledby'))
+    if (!seg || seg.getAttribute('aria-expanded') !== 'true') return
+    setPanel(seg, false)
+    seg.focus()
+  })
   document.addEventListener('click', (ev) => {
     const target = ev.target instanceof Element ? ev.target : null
     const tab = target?.closest('button[data-tab]')
     if (tab) {
       selectTab(tab.dataset.tab)
+      return
+    }
+    const seg = target?.closest('button.seg')
+    if (seg && !seg.disabled) {
+      setPanel(seg, seg.getAttribute('aria-expanded') !== 'true')
+      draw()
       return
     }
     const pmPager = target?.closest('button[data-pm-page]')
@@ -790,7 +854,6 @@ if (typeof document !== 'undefined') {
     'toggle',
     (ev) => {
       const d = ev.target
-      if (d instanceof Element && d.matches('details.info')) draw()
       if (!(d instanceof Element) || !d.matches('details.group')) return
       const names = readCollapsed()
       if (d.open) names.delete(d.dataset.group)
