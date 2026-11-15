@@ -1,6 +1,7 @@
 # CW-371: Count every subagent in the dashboard Agents button
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #393, as specified
 **Ticket:** [#371](https://github.com/collective-wisdom-org/collective-wisdom/issues/371)
 **Runs beside:** CW-370 (in progress), which edits the same row markup and keeps the footer's Agents control. This change stays inside `panelSwitch`, `summaryLine` and the count helpers, so whoever builds second has a small rebase.
 
