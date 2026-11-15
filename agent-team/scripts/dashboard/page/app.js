@@ -76,13 +76,17 @@ const SECTION_STAGES = new Set(['build', 'build-queued', 'spec', 'spec-queued', 
 /** `waiting 3h 16m`: the time since `stageAt`, rounded down, two units at most (`<1m`, `42m`, `3h 16m`, `3d 4h`); empty when `stageAt` is missing or does not parse. */
 export function waitText(stageAt, now) {
   const at = stageAt ? Date.parse(stageAt) : NaN
-  if (Number.isNaN(at)) return ''
+  return Number.isNaN(at) ? '' : `waiting ${ageWords(at, now)}`
+}
+
+/** The time since `at` (ms), in the words of `waitText`: `<1m`, `42m`, `3h 16m`, `3d 4h`. */
+function ageWords(at, now) {
   const m = Math.max(0, Math.floor((now - at) / 60_000))
   const units = (big, bigUnit, rest, restUnit) => `${big}${bigUnit}${rest ? ` ${rest}${restUnit}` : ''}`
-  if (m < 1) return 'waiting <1m'
-  if (m < 60) return `waiting ${m}m`
-  if (m < 1440) return `waiting ${units(Math.floor(m / 60), 'h', m % 60, 'm')}`
-  return `waiting ${units(Math.floor(m / 1440), 'd', Math.floor(m / 60) % 24, 'h')}`
+  if (m < 1) return '<1m'
+  if (m < 60) return `${m}m`
+  if (m < 1440) return units(Math.floor(m / 60), 'h', m % 60, 'm')
+  return units(Math.floor(m / 1440), 'd', Math.floor(m / 60) % 24, 'h')
 }
 
 /** `today`, `yesterday` or `YYYY-MM-DD` for a local date; empty for a time that is not a number. */
@@ -347,7 +351,10 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
           paged && pages > 1
             ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
             : ''
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+        // A saved Todo or Backlog list read from the tracker over an hour ago says how old it is and greys its rows.
+        const stale = g.stale === true && Number.isFinite(g.readAt)
+        const age = stale ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
       })
       .join('\n')
     return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`

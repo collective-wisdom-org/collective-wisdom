@@ -691,6 +691,14 @@ test('an awaiting card counts the wait instead of showing the status line; a bui
   assert.doesNotMatch(build, /class="wait"/)
 })
 
+test('a stale group says how old its list is and greys its rows; a fresh one or one with no readAt draws nothing', () => {
+  const now = Date.now()
+  const html = (g) => renderStatus([{ name: 'Todo', count: 1, rows: [row({ id: 'CW-8', risk: '', next: '', stage: '' })], ...g }])
+  const stale = html({ readAt: now - (3 * 60 + 16) * 60_000 - 5_000, stale: true })
+  assert.match(stale, /<details class="group stale"[^>]*>.*<\/summary><p class="read-age">Read from the tracker 3h 16m ago<\/p><ul/)
+  for (const g of [{ readAt: now - 600_000 }, {}]) assert.ok(!/read-age|group stale/.test(html(g)), JSON.stringify(g))
+})
+
 test('clock: local 12-hour time with am/pm', () => {
   const cases = [
     [0, 0, '12:00 am'],
