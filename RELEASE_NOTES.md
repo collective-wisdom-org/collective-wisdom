@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 resolve a conflict instead of waiting for CI that cannot start (WISE-439) (#454)
+
+Merged 2026-11-15 7:37 pm UTC.
+
+A child whose PR conflicts with `main` now merges `main` and carries on instead of waiting ten minutes for CI that cannot start, and the Chief of Staff sends it back to resolve the conflict if it stops. Nothing to do on your side.
+
 ## 2026-11-15 split the README dashboard paragraphs into one sentence per line (WISE-452) (#453)
 
 Merged 2026-11-15 7:25 pm UTC.
