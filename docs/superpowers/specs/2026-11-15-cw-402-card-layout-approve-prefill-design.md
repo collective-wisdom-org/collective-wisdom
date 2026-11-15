@@ -1,6 +1,7 @@
 # CW-402: One layout for every dashboard card, and an approve button that prefills the command
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #412, as specified
 **Ticket:** [#402](https://github.com/collective-wisdom-org/collective-wisdom/issues/402)
 
 ## Goal
