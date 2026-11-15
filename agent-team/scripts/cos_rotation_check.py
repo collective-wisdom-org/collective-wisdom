@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does the Chief of Staff session need a reset? One line: "ok ..." or "rotate: <reason>; mode <mode>".
+"""Does the Chief of Staff session need a reset? One line: "ok ...", "rotate: <reason>; mode <mode>" or "finish: take over unfinished ...".
 
 Usage:
     ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover]   # the model's call, every working turn
@@ -22,13 +22,15 @@ The plugin trigger reads only mods/agent-gantt/.claude-plugin/plugin.json of the
 is newer than ganttPluginVersion in state (gantt_plugin.py's compare; an equal or older clone does not fire). It works like the skill change (merge target branch, quiet turn; otherwise
 "ok (plugin change waits: <why>)"); a skill change on the same turn wins the line. It is off when ganttPluginVersion is null or
 not dot-separated integers, when the clone's version does not read, and on mode none.
+A `takeover` marker in state (a take over or resume pass that has not finished) comes right after the paused hold and prints
+"finish: take over unfinished since <N>m; mode <take-over|resume>", ahead of the reset hold and the triggers.
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
 read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
 ("ok (no reset on cursor; size unknown)" while the conversation has no usage yet).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
-{"decision": "block", "reason": ...} on "rotate:" or exit 2. It reads Cursor's stop payload (conversation_id equals
+{"decision": "block", "reason": ...} on any line that does not start with "ok" ("rotate:", "finish:") or exit 2. It reads Cursor's stop payload (conversation_id equals
 chiefSessionId, loop_count 0, status completed), reading the size from the run store (silent when the store cannot be read and the mode is none), and answers {"followup_message": reason}.
 It never writes and any error exits 0 silently.
 COS_STATE_FILE, COS_PROJECTS_DIR and COS_CURSOR_PROJECTS_DIR override the state file, the Claude Code transcripts
@@ -159,6 +161,11 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP, plugin=None):
     mode, provider = mode_for(state)
     if state.get("paused"):
         return "ok (held: paused)"
+    take = state.get("takeover")
+    if isinstance(take, dict):  # a take over (or resume) pass started and never finished
+        age = minutes_since(take.get("startedAt"), now)
+        mode = take.get("mode") if take.get("mode") in ("take-over", "resume") else "?"
+        return f"finish: take over unfinished since {'?' if age is None else age}m; mode {mode}"
     marker, stale = state.get("reset"), ""
     if isinstance(marker, dict):  # a reset started and never confirmed by a take over
         age = minutes_since(marker.get("startedAt"), now)
