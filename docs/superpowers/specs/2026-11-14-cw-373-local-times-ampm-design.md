@@ -1,6 +1,7 @@
 # CW-373: Show every dashboard time in local time, am/pm, with no timezone
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #392, as specified
 **Ticket:** [#373](https://github.com/collective-wisdom-org/collective-wisdom/issues/373)
 
 ## Goal
