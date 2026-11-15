@@ -394,10 +394,10 @@ export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, op
 /** The sum of the group `count`s that fall in `band`; a count that is not a number is 0. */
 const bandSum = (groups, band) => groups.filter((g) => band.has(g.name)).reduce((n, g) => n + (Number(g.count) || 0), 0)
 
-/** Ticket counts for the tab labels: `ship` sums group `count` over the Your turn, In progress and Up next bands, `done` is the merged list length. */
+/** Ticket counts for the tab labels: `ship` sums group `count` over the Your turn, In progress and Up next bands, `done` is the merged list length, `backlog` is the Backlog group's `count` (0 when missing or not a number). */
 export function tabCounts(status, merged) {
   const groups = Array.isArray(status) ? status : []
-  return { ship: BANDS.slice(0, 3).reduce((n, band) => n + bandSum(groups, band), 0), done: Array.isArray(merged) ? merged.length : 0 }
+  return { ship: BANDS.slice(0, 3).reduce((n, band) => n + bandSum(groups, band), 0), done: Array.isArray(merged) ? merged.length : 0, backlog: bandSum(groups, new Set([BACKLOG])) }
 }
 
 /** The header: one sentence counting the bands (the Backlog is not counted). A blocked ticket (stage `blocked`) is counted apart from the waiting ones. */
@@ -846,8 +846,8 @@ if (typeof document !== 'undefined') {
     document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
-  // The Ship loop and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.
-  const TAB_LABELS = { ship: 'Ship loop', done: 'Done' }
+  // The Ship loop, Backlog and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.
+  const TAB_LABELS = { ship: 'Ship loop', done: 'Done', backlog: 'Backlog' }
   const drawTabCounts = () => {
     if (!last) return
     const counts = tabCounts(last.status, last.merged)
