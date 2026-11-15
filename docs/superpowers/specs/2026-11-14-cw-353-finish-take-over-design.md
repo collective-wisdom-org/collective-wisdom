@@ -48,7 +48,7 @@ In `cos_tick.py`, every look plan except `start` checks `takeover` before the pr
 
 When the rotation check prints `finish:`, the tick prints the follow line, or the hook sends the turn back:
 
-1. Rerun the pass from step 1 in the mode `takeover` names (`take-over`: the four steps; `resume`: resume mode). The rerun skips the pass's own `takeover` op, so `startedAt` stays the original.
+1. Rerun the pass from step 1 in the mode `takeover` names (`take-over`: the four steps; `resume`: resume mode). The rerun skips the pass's own `takeover` op, so `startedAt` stays the original. If the interrupted pass's `gantt-plugin:` line is still in the thread, step 4 uses it, because the rerun would print `current` for a plugin the first pass already updated.
 2. In `take-over` mode: with `reset` set, go straight to step 2's reset-message search, skipping its plain `take over` branch (the newest message is the one that interrupted). With `reset` null and `lastResetAt` at or after `takeover.startedAt`, step 2 ran: skip it. With `reset` null and no such `lastResetAt`, run step 2 whole.
 3. Then handle the message that woke this turn as SKILL.md § Turn start says, including its own tick. Steps 3 and 4 are safe to rerun (the tick's rerun rule: each send and start is saved before the next line).
 

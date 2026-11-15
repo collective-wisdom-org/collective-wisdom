@@ -11,7 +11,7 @@ Read this for a state edit that SKILL.md § State file doesn't cover, or an `unk
   "paused": false, "chiefThreadId": "…", "chiefSessionId": "…",
   "chiefProvider": {"threadId": "…", "provider": "<provider id>"},
   "takeoverContext": {"threadId": "…", "tokens": 76000}, "skillCommit": "<40-char sha>", "ganttPluginVersion": "0.1.12",
-  "reset": null, "lastResetAt": null, "lastRelayAt": null,
+  "reset": null, "takeover": null, "lastResetAt": null, "lastRelayAt": null,
   "rateLimitedAt": null, "wakeTaskId": null, "wakeAt": null,
   "merged": {"<PREFIX>-190": {"pr": 178, "at": "2026-11-02T09:30:00Z"}},
   "tickets": {"<PREFIX>-210": {
