@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show times in 12-hour am/pm (CW-359) (#364)
+
+Merged 2026-11-15 03:31 UTC.
+
+Times on the dashboard, in the agent-gantt pane and in the agent scripts' text output now show as 12-hour am/pm, like `2:05 pm`. Script times stay in UTC, and the idle check, usage window and release-note times say so. Nothing to do.
+
 ## 2026-11-15 give ensure-labels the color and description of each team label (CW-276) (#363)
 
 Merged 2026-11-15 03:14 UTC.
