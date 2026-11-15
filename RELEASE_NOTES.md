@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 Mark todo presses Send from the dashboard (WISE-429) (#444)
+
+Merged 2026-11-15 6:40 pm UTC.
+
+On the dashboard, Mark todo on a Backlog card now sends `mark N todo` to the Chief of Staff thread with one click, the same way Approve does and with the same one-time macOS permission. If it can't press Send, the error line says `Mark todo not sent` and why, and the draft stays for you to send.
+
 ## 2026-11-15 refresh dashboard Backlog when a ticket helper files a ticket (WISE-431) (#433)
 
 Merged 2026-11-15 6:29 pm UTC.
