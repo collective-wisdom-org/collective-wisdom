@@ -69,15 +69,15 @@ Post the summary as its own message:
 ```
 No Hands ended: <reason>.
 Ran <h m>, <N> tickets started, $<X> of $<C>.
-Merged: <PREFIX>-210 (#181, $14), …
-Open: <PREFIX>-212 (building, cancelled by the stop), …
+Merged: <PREFIX>-210: Example feature (#181, $14); …
+Open: <PREFIX>-212: Background jobs (building, cancelled by the stop); …
 Waiting on you:
-- <PREFIX>-213 merge: touches <hands-path file | migration | flag: …>. "approve 213" or "changes 213: …"
-- <PREFIX>-214 blocked: <the BLOCKED: line>
+- <PREFIX>-213: Search page, merge: touches <hands-path file | migration | flag: …>. "approve 213" or "changes 213: …"
+- <PREFIX>-214: Billing page, blocked: <the BLOCKED: line>
 Say "resume" to go on without No Hands, or "no hands" for a new run.
 ```
 
-Drop a line that is empty. Write the last line only when you set `paused`. A run that has ended stays ended: `resume` never starts a run (kill-switch.md § Resume), and only the user's next `no hands` does.
+Titles for the merged tickets (they have left state) come from one `list-tickets` call (label `agent`, state Done, updated since the run's `startedAt`, fields `id, title`); open and waiting ones come from state (report-format.md § Report format). Drop a line that is empty. Write the last line only when you set `paused`. A run that has ended stays ended: `resume` never starts a run (kill-switch.md § Resume), and only the user's next `no hands` does.
 
 ## While a run is active
 

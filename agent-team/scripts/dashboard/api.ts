@@ -16,7 +16,7 @@ type StatusRow = { id: string; title: string; risk: string; next: string; stage:
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
-  status: { name: string; count: number; rows: StatusRow[]; moreUrl?: string }[]
+  status: { name: string; count: number; rows: StatusRow[]; moreUrl?: string; readAt?: number; stale?: true }[]
   merged: MergedEntry[]
   chief: { state: TeamState; threadLink?: string; gantt?: Session[] }
   pm: PmRow[]
@@ -36,6 +36,7 @@ const THREAD_MAX = 200
 const HEADING_MAX = 40
 const REQUEST_MAX = 80
 const HELPER = 'TICKET HELPER'
+const LIST_STALE_MS = 3600 * 1000 // a saved Todo or Backlog list older than this is called stale
 const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
 const HEADINGS: Record<string, TeamRole | 'helper'> = { 'BACKLOG RANKING': 'ranking', 'PROJECT MANAGER HYGIENE': 'hygiene', [HELPER]: 'helper' }
 
@@ -271,7 +272,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     count: g.rows.length,
     rows: newestFirst(g.rows.map((r) => {
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
-      const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }
+      const out: StatusRow = { id: r.id, title: titles[r.id] || r.title || '', risk: r.risk, next: r.next, stage: str(t.stage) }
       if (r.stageAt) out.stageAt = r.stageAt
       const issueUrl = links?.issue(r.id)
       if (issueUrl) out.issueUrl = issueUrl
@@ -320,6 +321,11 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     if (!rows.length) continue
     const group: Api['status'][number] = { name, count: items.length, rows }
     if (name === 'Backlog' && links?.backlog) group.moreUrl = links.backlog
+    const readAt = items[0].readAt // only a list read from the saved file has one
+    if (readAt !== undefined) {
+      group.readAt = readAt
+      if (now - readAt > LIST_STALE_MS) group.stale = true
+    }
     status.push(group)
   }
   const cleaned = snapshots.map((s) => cleanSnapshot(s, now)).filter((s): s is NonNullable<typeof s> => s !== null)

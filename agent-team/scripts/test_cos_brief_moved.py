@@ -6,6 +6,7 @@ OID = "a" * 40
 OLD = "c" * 40
 NOTE = f"Head moved to {OID} by merging main; PR diff unchanged since {OLD}. Reviews from {OLD} stand."
 DOCS = f"Head moved to {OID}; PR diff changed only in docs files since {OLD}: ['README.md']. Reviews from {OLD} stand."
+LIVING = f"Head moved to {OID} by the docs check fix commit; PR diff changed only in living docs since {OLD}: ['AGENTS.md']. Reviews from {OLD} stand."
 
 
 @pytest.mark.parametrize(
@@ -13,6 +14,7 @@ DOCS = f"Head moved to {OID}; PR diff changed only in docs files since {OLD}: ['
     [
         (NOTE, "head moved by merging "),
         (DOCS, "head moved by docs-file changes only since ccccccc; reviews stand https://x/n"),
+        (LIVING, "head moved by the docs check fix commit since ccccccc; reviews stand https://x/n"),
         (f"Head moved to {'b' * 40}; PR diff changed only in docs files since {OLD}: []. Reviews from {OLD} stand.", None),
     ],
 )

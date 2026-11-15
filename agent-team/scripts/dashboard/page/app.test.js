@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, pageOf, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -504,7 +504,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const todo = { name: 'Todo', count: 1, rows: [row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
-  const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
+  const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
   const card = part('progress')
   assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
@@ -604,7 +604,7 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   const last = renderChief(api, 99)
   assert.equal(last.page, 1)
   assert.equal([...last.html.matchAll(/<li class="row">/g)].length, 2)
-  assert.deepEqual(['cos', 'ship', null, undefined, 'x', 'COS', 5].map(tabFromStorage), ['cos', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
+  assert.deepEqual(['cos', 'done', 'ship', null, undefined, 'x', 'COS', 'DONE', 5].map(tabFromStorage), ['cos', 'done', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
   const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
   const drawn = []
   drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
@@ -634,6 +634,18 @@ test('renderGantt ends with a CI wait row of the merged spans and leaves the Tot
   assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
   assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
   assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
+  const two = [sess({ rows: [task({ segments: [[T, T + 2 * MIN], [T + 10 * MIN, T + 12 * MIN]], end: T + 12 * MIN })] })]
+  const bars = [
+    ['a CI span in a gap sits between the working bars on the combined axis', two, [[T + 4 * MIN, T + 6 * MIN]], [[0, 33.33], [66.67, 33.33]], [[33.33, 33.33]]],
+    ['an open CI span ends at the right edge', sessions, [[T + 3 * MIN, null]], [[0, 10.53]], [[10.53, 89.47]]],
+  ]
+  for (const [name, s, ci, work, wait] of bars) {
+    const [row, , ciWait] = view(renderGantt(s, now, ci))
+    assert.deepEqual([row.bars, ciWait.bars], [work, wait], name)
+    assert.ok(!renderGantt(s, now, ci).includes('class="bar running"'), name)
+    assert.deepEqual(view(renderGantt(s, now, ci))[1], view(renderGantt(s, now))[1], name)
+  }
+  assert.equal(renderGantt(two, now, []), renderGantt(two, now), 'no CI spans, same chart as before')
   assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m"/)
 })
 
@@ -693,6 +705,14 @@ test('an awaiting card counts the wait instead of showing the status line; a bui
   assert.doesNotMatch(build, /class="wait"/)
 })
 
+test('a stale group says how old its list is and greys its rows; a fresh one or one with no readAt draws nothing', () => {
+  const now = Date.now()
+  const html = (g) => renderStatus([{ name: 'Todo', count: 1, rows: [row({ id: 'CW-8', risk: '', next: '', stage: '' })], ...g }])
+  const stale = html({ readAt: now - (3 * 60 + 16) * 60_000 - 5_000, stale: true })
+  assert.match(stale, /<details class="group stale"[^>]*>.*<\/summary><p class="read-age">Read from the tracker 3h 16m ago<\/p><ul/)
+  for (const g of [{ readAt: now - 600_000 }, {}]) assert.ok(!/read-age|group stale/.test(html(g)), JSON.stringify(g))
+})
+
 test('clock: local 12-hour time with am/pm', () => {
   const cases = [
     [0, 0, '12:00 am'],
@@ -729,4 +749,22 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
     assert.match(html, text ? /<\/nav><p class="more"><a href="https:\/\/x\.test\/b"/ : /<\/ul><p class="more"><a href="https:\/\/x\.test\/b"/, label)
   }
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
+})
+
+test('top-level bands draw open unless their band key is collapsed, and leave their sub-sections alone', () => {
+  const groups = [{ name: 'Awaiting merge approval', count: 1, rows: [row()] }, { name: 'Building', count: 1, rows: [row({ id: 'CW-2' })] }]
+  const head = (html, slug) => html.match(new RegExp(`<details class="band band-${slug}"[^>]*>`))[0]
+  const api = { chief: {}, pm: [] }
+  const cases = [
+    ['status, none collapsed', () => renderStatus(groups), 'needs', true],
+    ['status, Your turn collapsed', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'needs', false],
+    ['status, other band stays open', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'progress', true],
+    ['status, a group name collapses no band', () => renderStatus(groups, new Set(), new Set(['Building'])), 'progress', true],
+    ['chief, none collapsed', () => renderChief(api).html, 'pm', true],
+    ['chief, pm collapsed', () => renderChief(api, 0, new Set(), 10, new Set([bandKey('pm')])).html, 'pm', false],
+  ]
+  for (const [name, html, slug, open] of cases) assert.equal(head(html(), slug).endsWith(' open>'), open, name)
+  // A collapsed band leaves its sub-sections' own state alone.
+  const inside = renderStatus(groups, new Set(), new Set([bandKey('needs')])).match(/<details class="group needs-merge" data-group="Awaiting merge approval"[^>]*>/)[0]
+  assert.ok(inside.endsWith(' open>'))
 })

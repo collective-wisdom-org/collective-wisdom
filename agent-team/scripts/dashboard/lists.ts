@@ -33,8 +33,9 @@ function createdOf(x: unknown): number | null {
   return Number.isNaN(t) ? null : t
 }
 
-/** The items of one saved list, or `undefined` when the value is not `{ list: [...] }`. An entry with no id of this prefix, or an id already taken, is dropped. */
+/** The items of one saved list, or `undefined` when the value is not `{ list: [...] }`. Each item carries the list's `at` as `readAt` (ms) when it parses. An entry with no id of this prefix, or an id already taken, is dropped. */
 function parseList(value: unknown, state: BacklogItem['state'], prefix: string): BacklogItem[] | undefined {
+  const readAt = isObj(value) ? createdOf(value.at) : null
   if (!isObj(value) || !Array.isArray(value.list)) return undefined
   const idRe = new RegExp(`^${prefix}-\\d+$`)
   const seen = new Set<string>()
@@ -46,7 +47,7 @@ function parseList(value: unknown, state: BacklogItem['state'], prefix: string):
     seen.add(id)
     const fields = isObj(e.fields) ? e.fields : {}
     const title = typeof e.title === 'string' ? e.title : typeof fields.summary === 'string' ? fields.summary : ''
-    items.push({ id, title: title.replace(BAD, ' ').trim().slice(0, 200), state, priority: priorityOf(e, fields), createdAt: createdOf(e.createdAt ?? fields.created) })
+    items.push({ id, title: title.replace(BAD, ' ').trim().slice(0, 200), state, priority: priorityOf(e, fields), createdAt: createdOf(e.createdAt ?? fields.created), ...(readAt === null ? {} : { readAt }) })
   }
   return items
 }

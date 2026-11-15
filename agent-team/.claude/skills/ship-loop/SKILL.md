@@ -81,7 +81,7 @@ End-of-phase handoff: report **code review complete** and proceed to phase 4. No
 
 A docs-only or small diff skips or merges this review per `open-pr` § Review scope. In the **same session**, run the security review comment loop until **Done when** in `security-review`, including a **Verdict: PASS** security review comment on the PR. Post each security review comment on the PR with `~/.collective-wisdom/scripts/gh.sh pr comment <N> --body-file <path>` before you say anything about it in the thread, and keep the comment URL it prints.
 
-After the security PASS, run the docs check once per **open-pr** § Docs check. Before `MERGE READY`, after `wait-for-ci.sh` passes, run `~/.collective-wisdom/scripts/review_gate.py <N>` and act on its last line. `pass`: `MERGE READY` with the printed URLs and `Head:` set to the printed head. `note`: post the printed note (the line before it) with `~/.collective-wisdom/scripts/gh.sh pr comment` as the builder, then run it again; `merge_pr.py` looks for the note. `rerun <code|security|both>`: run the named review on the current head and post its result first, then run it again. `ci`: follow `open-pr` § CI review mode. Exit 2: run it once more, then `BLOCKED:`. A head that moved by a conflict resolution follows `open-pr` § Conflict resolution: with `Review after conflict resolution` `off` it carries the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` and `merge_pr.py` accepts it, and with `on` both reviews run on the resolved head.
+After the security PASS, run the docs check once per **open-pr** § Docs check. Before `MERGE READY`, after `wait-for-ci.sh` passes, run `~/.collective-wisdom/scripts/review_gate.py <N>` and act on its last line. `pass`: `MERGE READY` with the printed URLs and `Head:` set to the printed head. `note` (also for the docs check's living-docs-only fix commit): post the printed note (the line before it) with `~/.collective-wisdom/scripts/gh.sh pr comment` as the builder, then run it again; `merge_pr.py` looks for the note. `rerun <code|security|both>`: run the named review on the current head and post its result first, then run it again. `ci`: follow `open-pr` § CI review mode. Exit 2: run it once more, then `BLOCKED:`. A head that moved by a conflict resolution follows `open-pr` § Conflict resolution: with `Review after conflict resolution` `off` it carries the note `Head moved to <head> by resolving conflicts with <target>; reviews from <reviewed> stand.` and `merge_pr.py` accepts it, and with `on` both reviews run on the resolved head.
 
 End-of-phase handoff: stop with a final message whose last block is `MERGE READY`, in this order. The Chief of Staff (or, in a hand run, the user) checks it against the PR, so the head SHA and both links must be current. Wait for a merge approval before phase 5.
 
@@ -98,7 +98,7 @@ Differs from spec: <bullets, or "nothing">
 Reviews found and fixed:
 - <finding> → <fix>
 Docs checked: <files changed, or "nothing stale">
-Left open or deferred: <bullets with ticket IDs, or "nothing">
+Left open or deferred: <bullets with tickets as <PREFIX>-N: short title, or "nothing">
 Migrations: <file names and revision numbers, or "none">
 After deploy: <what users see change, or "nothing visible">
 Proof: <PR URL>#proof
@@ -138,6 +138,8 @@ Usually nothing is left: the spec's `**Shipped:**` line, any as-built and the re
 ## Run endings
 
 A run ends only with a marker: `BUILD READY`, `MERGE READY`, `BLOCKED:` or `MERGED #N`. Anything else is a progress note; keep going.
+
+Any ticket ID in a `BUILD READY`, `MERGE READY` or `BLOCKED:` message is written `<PREFIX>-N: <short title>` (the ID alone only if the title can't be read), with the title cleaned as in `chief-of-staff/report-format.md` § Report format (no marker words). The markers themselves don't change.
 
 - While CI, a review subagent or any background command is pending, keep the run going and wait on it. Start a background command with the tool's background option, never `&`, and call `t3_background_wait` with its task ID right after. Run subagents in the foreground (`run_in_background: false`).
 - After `t3_background_wait`, ending your turn is fine and is not a run ending: you are woken when the command exits. Write no closing message: T3 shows the run as `completed`, and the Chief of Staff tells a waiting child from a stalled one by that call (it reads only the last 10 items), so make the wait one of the last few tool calls before ending the turn.

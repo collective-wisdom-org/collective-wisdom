@@ -180,6 +180,49 @@ def test_top_skill_commit_must_be_a_full_sha(value, ok):
         assert cos_state.apply_ops({}, ops)[0]["skillCommit"] == value
 
 
+START_ABC1 = {"op": "start", "ticket": "ABC-1", "firstTaskId": "t", "childThreadId": "c", "parentThreadId": "p", "status": "s", "title": "T"}
+HAS_ABC1 = {"tickets": {"ABC-1": {"stage": "build", "status": "s"}}, "merged": {}}
+
+
+@pytest.mark.parametrize(
+    "state, op, lists, gone_and_kept",
+    [
+        # start, merged and drop take the ticket out of both saved lists and leave each list's `at` alone
+        ({"tickets": {}, "merged": {}}, START_ABC1, "file", True),
+        (HAS_ABC1, {"op": "merged", "ticket": "ABC-1", "pr": 5}, "file", True),
+        (HAS_ABC1, {"op": "drop", "ticket": "ABC-1"}, "file", True),
+        # a repeat merged prints unchanged and still clears a stale entry
+        ({"tickets": {}, "merged": {"ABC-1": {"pr": 5, "at": "2999-01-01T00:00:00Z"}}}, {"op": "merged", "ticket": "ABC-1", "pr": 5}, "file", True),
+        # a missing lists file or a link in its place never changes the result
+        (HAS_ABC1, {"op": "drop", "ticket": "ABC-1"}, "missing", False),
+        (HAS_ABC1, {"op": "drop", "ticket": "ABC-1"}, "link", False),
+    ],
+)
+def test_state_ops_remove_the_ticket_from_the_saved_lists(tmp_path, capsys, state, op, lists, gone_and_kept):
+    import json
+
+    def block(*ids):
+        return {"at": OLD, "list": [{"identifier": i} for i in ids]}
+
+    held = {"todo": block("ABC-1", "ABC-2"), "backlog": block("ABC-3", "ABC-1")}
+    (tmp_path / "state.json").write_text(json.dumps(state))
+    target = tmp_path / ("target.json" if lists == "link" else "tracker-lists.json")
+    if lists != "missing":
+        target.write_text(json.dumps(held))
+    if lists == "link":
+        (tmp_path / "tracker-lists.json").symlink_to(target)
+    code = cos_state.apply_file(tmp_path / "state.json", [op])
+    assert code == 0
+    assert capsys.readouterr().out.split("\n")[0] in ("saved", "unchanged")
+    if lists == "missing":
+        assert not target.exists()
+    elif gone_and_kept:
+        got = json.loads(target.read_text())
+        assert got == {"todo": block("ABC-2"), "backlog": block("ABC-3")}
+    else:
+        assert json.loads(target.read_text()) == held
+
+
 # takeover is null, or {startedAt with a zone, not in the future; mode take-over|resume} and nothing else
 @pytest.mark.parametrize(
     "value, ok",

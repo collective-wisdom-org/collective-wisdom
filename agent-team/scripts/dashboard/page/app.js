@@ -35,6 +35,8 @@ const BANDS = [
   { name: 'Up next', slug: 'queued', flat: true, has: (n) => QUEUED.includes(n) },
   { name: 'Not started', slug: 'not-started', flat: true, slim: true, has: (n) => NOT_STARTED.includes(n) },
 ]
+/** The saved-collapsed key of a top-level section. The colon keeps it apart from every API group name. */
+export const bandKey = (slug) => `band:${slug}`
 const GROUP_CLASS = new Map([['Awaiting merge approval', ' needs-merge'], ['Awaiting build approval', ' needs-build']])
 const STAGE_WORDS = new Map([['blocked', 'blocked'], ['spec-queued', 'spec queued']])
 
@@ -76,13 +78,17 @@ const SECTION_STAGES = new Set(['build', 'build-queued', 'spec', 'spec-queued', 
 /** `waiting 3h 16m`: the time since `stageAt`, rounded down, two units at most (`<1m`, `42m`, `3h 16m`, `3d 4h`); empty when `stageAt` is missing or does not parse. */
 export function waitText(stageAt, now) {
   const at = stageAt ? Date.parse(stageAt) : NaN
-  if (Number.isNaN(at)) return ''
+  return Number.isNaN(at) ? '' : `waiting ${ageWords(at, now)}`
+}
+
+/** The time since `at` (ms), in the words of `waitText`: `<1m`, `42m`, `3h 16m`, `3d 4h`. */
+function ageWords(at, now) {
   const m = Math.max(0, Math.floor((now - at) / 60_000))
   const units = (big, bigUnit, rest, restUnit) => `${big}${bigUnit}${rest ? ` ${rest}${restUnit}` : ''}`
-  if (m < 1) return 'waiting <1m'
-  if (m < 60) return `waiting ${m}m`
-  if (m < 1440) return `waiting ${units(Math.floor(m / 60), 'h', m % 60, 'm')}`
-  return `waiting ${units(Math.floor(m / 1440), 'd', Math.floor(m / 60) % 24, 'h')}`
+  if (m < 1) return '<1m'
+  if (m < 60) return `${m}m`
+  if (m < 1440) return units(Math.floor(m / 60), 'h', m % 60, 'm')
+  return units(Math.floor(m / 1440), 'd', Math.floor(m / 60) % 24, 'h')
 }
 
 /** `today`, `yesterday` or `YYYY-MM-DD` for a local date; empty for a time that is not a number. */
@@ -347,10 +353,14 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
           paged && pages > 1
             ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
             : ''
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary><ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+        // A saved Todo or Backlog list read from the tracker over an hour ago says how old it is and greys its rows.
+        const stale = g.stale === true && Number.isFinite(g.readAt)
+        const age = stale ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="${flat ? 'rows' : 'cards'}">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
       })
       .join('\n')
-    return `<section class="band band-${band.slug}"><h2>${band.name}</h2>${sections}</section>`
+    const key = bandKey(band.slug)
+    return `<details class="band band-${band.slug}" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>${band.name}</h2></summary>${sections}</details>`
   }).join('\n')
 }
 
@@ -431,16 +441,17 @@ function teamList(rows, page, size, open, empty) {
 }
 
 /** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
-export function renderChief(api, page = 0, open = new Set(), size = 10) {
+export function renderChief(api, page = 0, open = new Set(), size = 10, collapsed = new Set()) {
   const chief = api?.chief ?? {}
   const body = list(chief.gantt).length > 0 ? '<div class="chart-body" data-chief></div>' : '<p class="quiet">No Chief of Staff session in the last 24 hours.</p>'
   const card = `<section class="cos-card"><div class="head"><span class="title">Chief of Staff</span>${copyButton(chief.threadLink)}</div><div class="meta">${stateBadge(chief.state ?? 'idle')}</div>${body}</section>`
   const pm = teamList(list(api?.pm), page, size, open, 'No project manager threads yet.')
-  return { html: `${card}<h2>Project manager</h2>${pm.html}`, page: pm.page }
+  const key = bandKey('pm')
+  return { html: `${card}<details class="band band-pm" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>Project manager</h2></summary>${pm.html}</details>`, page: pm.page }
 }
 
-/** The tab to open from the saved value: `cos`, else `ship` for anything unknown or missing. */
-export const tabFromStorage = (value) => (value === 'cos' ? 'cos' : 'ship')
+/** The tab to open from the saved value: `cos` or `done`, else `ship` for anything unknown or missing. */
+export const tabFromStorage = (value) => (value === 'cos' || value === 'done' ? value : 'ship')
 
 const duration = (ms) => {
   const s = Math.round(ms / 1000)
@@ -509,16 +520,28 @@ const rowTitle = ({ r, s, clockNow }) => {
   return [r.name, meta.join(' · '), s.cwd].join('\n')
 }
 
-/** The `CI wait` row: the merged length of the PR's CI spans [start, end|null], an open end running to `now`. Empty when there are no spans. */
-function ciRow(ci, now) {
-  const spans = (Array.isArray(ci) ? ci : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0])).map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
+/** The PR's CI spans [start, end, open] with an open end running to `now`; bad entries are dropped. */
+const ciSpansOf = (ci, now) =>
+  (Array.isArray(ci) ? ci : [])
+    .filter((p) => Array.isArray(p) && Number.isFinite(p[0]))
+    .map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
+
+/** The `CI wait` row: the merged length of the CI spans, one blue bar per merged span (`place(a, b)` gives its left and width in percent). Empty when there are no spans. */
+function ciRow(spans, place) {
   if (spans.length === 0) return ''
   const merged = union(spans)
   const open = merged.some((p) => p[2])
   const last = Math.max(...spans.map((p) => p[1]))
   const range = `${clock(Math.min(...spans.map((p) => p[0])))} to ${open ? 'now, running' : clock(last)}`
   const title = esc(`CI wait\n${spans.length} ${spans.length === 1 ? 'commit' : 'commits'} ran CI · ${range}`)
-  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
+  const bars = merged
+    .map(([a, b, o]) => {
+      const { left, width } = place(a, b)
+      const tip = esc(`CI wait\n${o ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
+      return `<span class="bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+    })
+    .join('')
+  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="track">${bars}</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
 }
 
 const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
@@ -534,14 +557,15 @@ export function renderGantt(sessions, now, ci) {
   if (!sessions || sessions.length === 0) return '<p class="quiet">No sessions yet</p>'
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return '<p class="quiet">No tasks yet</p>'
-  const wait = ciRow(ci, now)
-  // The axis is active time: the union of every working span, so a time maps to the active ms before it and gaps take no width.
+  const ciSpans = ciSpansOf(ci, now)
+  // The axis is active time: the union of every working span and CI span, so a time maps to the axis ms before it and gaps with neither take no width. The total counts working spans only.
   const active = activeSpans(items)
   const total = active.reduce((n, [a, b]) => n + (b - a), 0)
-  const scale = Math.max(1, total)
+  const axis = ciSpans.length ? union([...active, ...ciSpans]) : active
+  const scale = Math.max(1, axis.reduce((n, [a, b]) => n + (b - a), 0))
   const pos = (t) => {
     let before = 0
-    for (const [a, b] of active) {
+    for (const [a, b] of axis) {
       if (t >= b) before += b - a
       else {
         if (t > a) before += t - a
@@ -550,11 +574,15 @@ export function renderGantt(sessions, now, ci) {
     }
     return before
   }
+  const place = (a, b) => {
+    const left = Math.min(99, (pos(a) / scale) * 100)
+    return { left, width: Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100)) }
+  }
+  const wait = ciRow(ciSpans, place)
   const bars = (row, spans) =>
     union(spans)
       .map(([a, b, open]) => {
-        const left = Math.min(99, (pos(a) / scale) * 100)
-        const width = Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100))
+        const { left, width } = place(a, b)
         const running = open && !row.s.stale
         const range = running ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`
         const meta = [range, running ? '' : duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
@@ -723,12 +751,13 @@ if (typeof document !== 'undefined') {
   let shownCos = null
   const drawCos = () => {
     if (!last) return
-    const r = renderChief(last, pmPage, new Set())
+    const collapsed = readCollapsed()
+    const r = renderChief(last, pmPage, new Set(), 10, collapsed)
     pmPage = r.page
     if (r.html === shownCos) return
     shownCos = r.html
     const opened = new Set([...document.querySelectorAll('.seg[data-pm][data-view="agents"][aria-expanded="true"]')].map((d) => d.dataset.pm))
-    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened).html
+    document.getElementById('cos').innerHTML = renderChief(last, pmPage, opened, 10, collapsed).html
     draw()
   }
   const TAB_KEY = 'dashboard-tab'
@@ -873,10 +902,11 @@ if (typeof document !== 'undefined') {
     'toggle',
     (ev) => {
       const d = ev.target
-      if (!(d instanceof Element) || !d.matches('details.group')) return
+      if (!(d instanceof Element) || !d.matches('details.group, details[data-band]')) return
+      const key = d.dataset.group ?? d.dataset.band
       const names = readCollapsed()
-      if (d.open) names.delete(d.dataset.group)
-      else names.add(d.dataset.group)
+      if (d.open) names.delete(key)
+      else names.add(key)
       writeCollapsed(names)
     },
     true,
