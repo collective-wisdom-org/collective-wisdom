@@ -1,7 +1,7 @@
 # WISE-423: Send the Approve command from the dashboard with a Return keypress to T3 Code
 
 **Status:** Shipped
-**Shipped:** in PR #425, as specified
+**Shipped:** in PR #425, with differences: [as-built](../as-built/2026-11-15-wise-423-approve-keypress.md)
 **Ticket:** [#423](https://github.com/collective-wisdom-org/collective-wisdom/issues/423)
 
 ## Goal
