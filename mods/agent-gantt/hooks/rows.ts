@@ -1,4 +1,5 @@
 import type { AgentRecord, Prices, Segment, Tokens } from '../types/index.d.ts'
+import { TICKET_HELPER } from './timeline.ts'
 
 export type Row = {
   id: string
@@ -207,4 +208,10 @@ export function buildRows(
   })
   for (const k of top) if (!placed(k)) agentRow(k, 1)
   return rows
+}
+
+/** `rows` with `ticket` added to each task row named exactly `Ticket helper`. An empty or null ticket, and any other row, come back unchanged. */
+export function withHelperTicket(rows: Row[], ticket: string | null): Row[] {
+  if (!ticket) return rows
+  return rows.map(r => (r.kind === 'task' && r.name === TICKET_HELPER ? { ...r, name: `${TICKET_HELPER} ${ticket}` } : r))
 }

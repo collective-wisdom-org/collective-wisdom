@@ -114,6 +114,11 @@ test('a TICKET HELPER gets its request and the ticket it filed from the run stor
     const snap = JSON.parse(cursorSnapshot(state, base, 1, null))
     assert.deepEqual([snap.ticket, snap.request], want, name)
   }
+  // The task row is named Ticket helper until the ticket is known, then Ticket helper <ticket>
+  const started = applyEvent(emptyState(), prompt(helper('Add dark mode')), 10)
+  const taskRow = (s: typeof started) => JSON.parse(cursorSnapshot(s, base, 1, null)).rows.find((r: { kind: string }) => r.kind === 'task').name
+  assert.equal(taskRow(started), 'Ticket helper')
+  assert.equal(taskRow(withFiledTicket(started, [done('CW-7: Fix it')])), 'Ticket helper CW-7')
   // The request is the first prompt's and never changes
   const later = applyEvent(applyEvent(emptyState(), prompt(helper('first')), 10), prompt(helper('second')), 20)
   assert.equal(later.request, 'first')

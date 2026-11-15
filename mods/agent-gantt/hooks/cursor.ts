@@ -1,6 +1,6 @@
 // Cursor hook events mapped onto the mod's records and the dashboard's snapshot. Pure, so the rules are testable without Cursor.
 import type { AgentRecord, Prices, Tokens } from '../types/index.d.ts'
-import { buildRows, MAIN } from './rows.ts'
+import { buildRows, MAIN, withHelperTicket } from './rows.ts'
 import { buildSnapshot, pickFiledTicket, pickHeading, pickRequest } from './snapshot.ts'
 import { beginTask, closeSegment, openSegment, taskName } from './timeline.ts'
 
@@ -147,10 +147,10 @@ function withRuns(records: AgentRecord[], runs: CursorRun[]): AgentRecord[] {
 /** The JSON text the local dashboard reads for this conversation. With the run store read (`state.runs`) and a price table, rows carry the runs' tokens and cost and `total` is the sum of the row costs (null when a row has none); else rows have 0 tokens, no cost and the snapshot no total. */
 export function cursorSnapshot(state: CursorState, p: CursorPayload, now: number, threadId: string | null, prices: Prices | null = null): string {
   const runs = state.runs ?? null
-  const rows = buildRows(runs === null ? state.records : withRuns(state.records, runs), [], runs === null ? null : prices, 'Cursor').map(row => ({
+  const rows = withHelperTicket(buildRows(runs === null ? state.records : withRuns(state.records, runs), [], runs === null ? null : prices, 'Cursor').map(row => ({
     ...row,
     model: shortModel(row.kind === 'task' ? (state.taskModels[row.id.match(/^main:task:(\d+)$/)?.[1] ?? ''] ?? state.model) : state.subagentModels[row.id]),
-  }))
+  })), state.ticket)
   const total = runs === null || rows.some(r => r.cost === null) ? null : rows.reduce((sum, r) => sum + (r.cost ?? 0), 0)
   const cwd = cursorCwd(p) ?? state.records.find(r => r.id === MAIN)?.cwd ?? ''
   return buildSnapshot({ sessionId: sessionKey(p) ?? '', cwd, updatedAt: now, total, rows, threadId, heading: state.heading.value, ticket: state.ticket, request: state.request })

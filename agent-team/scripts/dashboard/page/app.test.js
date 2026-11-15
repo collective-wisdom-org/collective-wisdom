@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, pageOf, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -143,12 +143,12 @@ test('dayWords says today, yesterday or the date', () => {
   for (const [ms, want] of cases) assert.equal(dayWords(ms, now), want, String(ms))
 })
 
-test('a card footer summarises the agents, time and cost from the gantt; nothing without one', () => {
+test('a card footer summarises the time and cost from the gantt; nothing without one', () => {
   const sessions = [sess({ rows: [task({ cost: 1, segments: [[T, T + 2 * MIN]] }), sub({ cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] })] })]
-  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { agents: 2, ms: 3 * MIN, cost: 1.5 })
+  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { ms: 3 * MIN, cost: 1.5 })
   assert.equal(ganttSummary([], T), null)
   const foot = (gantt) => renderStatus(group([row({ gantt })])).match(/<span class="summary"[^>]*>([^<]*)</)?.[1]
-  assert.equal(foot(sessions), '2 agents \u00b7 3m 00s \u00b7 $1.50')
+  assert.equal(foot(sessions), '3m 00s \u00b7 $1.50')
   assert.equal(foot(undefined), undefined)
   assert.equal(ganttSummary([sess({ rows: [task({ cost: null })] })], T + 10 * MIN).cost, null)
   // A running session's summary moves with the clock; the span carries the ticket id so the page can refresh it between rebuilds.
@@ -286,9 +286,9 @@ test('a card with sessions gets a closed Agents segment that reopens when its id
   assert.match(html(new Set(['CW-1'])), /data-view="agents" id="seg-ticket-CW-1-agents" aria-expanded="true"/)
   assert.match(html(new Set(['CW-1'])), /<div class="panel" id="pan-ticket-CW-1-agents" role="region" aria-labelledby="seg-ticket-CW-1-agents"><div class="chart-body" data-ticket="CW-1">/)
   assert.equal(html().match(/class="chart-body"/g).length, 1)
-  // The pill counts tasks across sessions, not sessions; an older snapshot's session row beside task rows is not one.
+  // The pill counts tasks and subagents across sessions, not sessions; an older snapshot's session row beside task rows is not one.
   const rows = [grow({ kind: 'session' }), grow({ kind: 'task', depth: 1 }), grow({ kind: 'agent', depth: 2 }), grow({ kind: 'task', depth: 1 })]
-  assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">3<\/span>/)
+  assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">4<\/span>/)
 })
 
 test('each ticket has a closed Details section that lists what is known, escaped, and reopens from the info set', () => {
@@ -448,7 +448,7 @@ test('status sections draw open unless collapsed; a closed one keeps its heading
 
 test('merged list pages by ten, clamps the page, disables the pager ends and escapes text', () => {
   const list = Array.from({ length: 25 }, (_, i) => ({ id: `CW-${i + 1}`, title: `t${i + 1}`, prUrl: `https://x.test/pull/${i + 1}`, mergedAt: new Date(2026, 0, 2, 3, 4).getTime() }))
-  const cards = (html) => (html.match(/<li class="row">/g) ?? []).length
+  const cards = (html) => (html.match(/<li class="ticket compact">/g) ?? []).length
   const cases = [
     [0, 0, 10, 'Page 1 of 3', /data-page="-1" disabled/],
     [1, 1, 10, 'Page 2 of 3', /data-page="0">Newer[\s\S]*data-page="2">Older/],
@@ -488,9 +488,9 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.deepEqual(bandsOf(renderStatus(names)), ['Your turn', 'Spec ready to build', 'Ready to merge', 'In progress', 'Building', 'Mystery', 'Writing the spec', 'Up next', 'Waiting to build'])
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
   const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
-  assert.match(other, /class="row blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
-  assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
-  assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
+  assert.match(other, /class="ticket blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
+  assert.equal((other.match(/class="ticket blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
+  assert.match(other, /class="ticket blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
   assert.match(queued, /<span class="meta"><span class="badge risk risk-low">Low<\/span><\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
@@ -504,7 +504,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const todo = { name: 'Todo', count: 1, rows: [row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
-  const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
+  const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
   const card = part('progress')
   assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
@@ -516,8 +516,8 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   assert.ok(!html.includes('<img'))
   const idle = part('not-started')
   assert.ok(idle.indexOf('data-group="Todo"') >= 0 && idle.indexOf('data-group="Todo"') < idle.indexOf('data-group="Backlog"'), 'api order kept: Todo then Backlog')
-  assert.equal([...idle.matchAll(/<li class="row">/g)].length, 2)
-  assert.ok(!idle.includes('<li class="ticket"') && !/risk|since/.test(idle))
+  assert.equal([...idle.matchAll(/<li class="ticket compact">/g)].length, 2)
+  assert.ok(!/risk|since/.test(idle))
   assert.match(idle, /href="https:\/\/x\.test\/issues\/7"/)
   assert.match(idle, /data-ticket="CW-8"/)
   assert.ok(html.indexOf('band-queued') < html.indexOf('band-not-started'), 'Not started follows Queued')
@@ -533,6 +533,20 @@ test('merged row with sessions has a closed Agents segment that stays open when 
   for (const none of [html([]), html()]) {
     assert.match(none, /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="false" disabled title="No agent sessions recorded">Agents <span class="pill">0<\/span>/)
     assert.doesNotMatch(none, /class="chart-body"|pan-merged-CW-1-agents/)
+  }
+})
+
+test('the Agents pill counts every task and subagent on every row type; an empty gantt is a disabled Agents 0', () => {
+  const g = [sess({ rows: [task({}), sub({}), sub({}), task({}), grow({ kind: 'agent', depth: 2 })] })]
+  const pm = (gantt) => renderChief({ chief: {}, pm: [{ sessionId: 'M', role: 'ranking', state: 'idle', gantt }] }, 0, new Set()).html
+  const cases = [
+    ['card', (gantt) => renderStatus(group([row({ gantt })]))],
+    ['merged', (gantt) => renderMerged([{ id: 'M', title: 't', mergedAt: 0, gantt }], 0, 10).html],
+    ['project manager', pm],
+  ]
+  for (const [name, render] of cases) {
+    assert.match(render(g), /Agents <span class="pill">5<\/span>/, name)
+    assert.match(render([]), /disabled[^>]*>Agents <span class="pill">0<\/span>/, name)
   }
 })
 
@@ -568,6 +582,25 @@ test('versionWatch asks for a reload only when a later version differs from the 
   }
 })
 
+test('every row in every section is a li.ticket card in ul.cards; no row or rows class is left', () => {
+  const g = (name, o = {}) => ({ name, count: 1, rows: [row({ id: `${name}-1`, stage: 'build', ...o })] })
+  const merged = [{ id: 'CW-9', title: 'm', mergedAt: T }]
+  const pm = { chief: { state: 'idle' }, pm: [{ sessionId: 's1', role: 'ranking', state: 'finished', gantt: [] }] }
+  const cases = [
+    ['Your turn', renderStatus([g('Awaiting merge approval')]), 'ticket attn'],
+    ['In progress', renderStatus([g('Building')]), 'ticket'],
+    ['Up next', renderStatus([g('Queued to build')]), 'ticket compact'],
+    ['blocked Up next', renderStatus([g('Other', { stage: 'blocked' })]), 'ticket blocked'],
+    ['Not started', renderStatus([g('Todo')]), 'ticket compact'],
+    ['Done', renderMerged(merged, 0).html, 'ticket compact'],
+    ['project manager', renderChief(pm, 0).html, 'ticket compact'],
+  ]
+  for (const [name, html, cls] of cases) {
+    assert.match(html, new RegExp(`<ul class="cards"><li class="${cls}">`), name)
+    assert.ok(!/class="rows?"|<li class="row/.test(html), `${name}: no row class`)
+  }
+})
+
 test('the Chief of Staff tab renders the card, the empty list, escaped role rows and a pager; an unknown saved tab opens Ship loop', () => {
   const empty = renderChief({ chief: { state: 'idle' }, pm: [] }).html
   assert.match(empty, /No Chief of Staff session in the last 24 hours\./)
@@ -585,11 +618,11 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   assert.match(first.html, /Hygiene/)
   assert.ok(!first.html.includes('<img'))
   assert.match(first.html, /data-pm="&lt;img[^"]*" data-view="agents" id="[^"]*" aria-expanded="true"/)
-  assert.equal([...first.html.matchAll(/<li class="row">/g)].length, 10)
+  assert.equal([...first.html.matchAll(/<li class="ticket compact">/g)].length, 10)
   assert.match(first.html, /Page 1 of 2/)
   const last = renderChief(api, 99)
   assert.equal(last.page, 1)
-  assert.equal([...last.html.matchAll(/<li class="row">/g)].length, 2)
+  assert.equal([...last.html.matchAll(/<li class="ticket compact">/g)].length, 2)
   assert.deepEqual(['cos', 'done', 'ship', null, undefined, 'x', 'COS', 'DONE', 5].map(tabFromStorage), ['cos', 'done', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
   const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
   const drawn = []
@@ -605,34 +638,48 @@ test('a group with an http(s) moreUrl ends with an escaped Full backlog link ins
   for (const bad of ['javascript:alert(1)', '//x.test/issues', undefined]) assert.ok(!html(bad).includes('Full backlog'), String(bad))
 })
 
-test('renderGantt ends with a CI wait row of the merged spans and leaves the Total row alone', () => {
-  const sessions = [sess({ rows: [task({ segments: [[T, T + 2 * MIN]], end: T + 2 * MIN })] })]
-  const now = T + 20 * MIN
-  const spans = [[T + 3 * MIN, T + 8 * MIN], [T + 6 * MIN, T + 10 * MIN]]
-  const last = (html) => view(html).at(-1)
+test('ciOwner gives each CI span to the task that last finished a working span before it', () => {
+  const item = (...spans) => ({ spans: spans.map(([a, b, open = false]) => [T + a * MIN, T + b * MIN, open]), s: {} })
+  const A = item([0, 2])
+  const B = item([5, 9, true])
+  const C = item([3, 4])
   const cases = [
-    ['overlap counts once', renderGantt(sessions, now, spans), 'CI wait', '7m 00s'],
-    ['an open span runs to now and looks running', renderGantt(sessions, now, [[T + 3 * MIN, null]]), 'CI wait', '17m 00s'],
-    ['no spans, no row', renderGantt(sessions, now, []), 'Total', '2m 00s'],
+    ['the gap after A ends, before B starts', [A, item([6, 8])], [3, 4], 0],
+    ['starts while B runs: B has no finished span, A owns it', [A, B], [6, 8], 0],
+    ['still running: the task that finished last before it', [A, C], [7, null], 1],
+    ['before any task finished: the earliest task', [A, C], [1, 2], 0],
+    ['a tie goes to the earlier task', [item([0, 2]), item([1, 2])], [3, 4], 0],
+    ['a later finish beats an earlier one', [item([0, 4]), item([1, 2])], [5, 6], 0],
   ]
-  for (const [name, html, rowName, dur] of cases) assert.deepEqual([last(html)?.name, last(html)?.dur], [rowName, dur], name)
-  const withWait = view(renderGantt(sessions, now, spans))
-  assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
-  assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
-  assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
-  const two = [sess({ rows: [task({ segments: [[T, T + 2 * MIN], [T + 10 * MIN, T + 12 * MIN]], end: T + 12 * MIN })] })]
-  const bars = [
-    ['a CI span in a gap sits between the working bars on the combined axis', two, [[T + 4 * MIN, T + 6 * MIN]], [[0, 33.33], [66.67, 33.33]], [[33.33, 33.33]]],
-    ['an open CI span ends at the right edge', sessions, [[T + 3 * MIN, null]], [[0, 10.53]], [[10.53, 89.47]]],
-  ]
-  for (const [name, s, ci, work, wait] of bars) {
-    const [row, , ciWait] = view(renderGantt(s, now, ci))
-    assert.deepEqual([row.bars, ciWait.bars], [work, wait], name)
-    assert.ok(!renderGantt(s, now, ci).includes('class="bar running"'), name)
-    assert.deepEqual(view(renderGantt(s, now, ci))[1], view(renderGantt(s, now))[1], name)
+  for (const [name, items, [a, b], want] of cases) {
+    assert.deepEqual(ciOwner(items, [[T + a * MIN, b === null ? T + 20 * MIN : T + b * MIN, b === null]]), [want], name)
   }
-  assert.equal(renderGantt(two, now, []), renderGantt(two, now), 'no CI spans, same chart as before')
-  assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m"/)
+})
+
+test('renderGantt draws each CI wait bar on its task row and leaves durations, costs and the Total alone', () => {
+  const now = T + 30 * MIN
+  const sessions = [
+    sess({
+      rows: [
+        task({ name: 'first', cost: 1, segments: [[T, T + 2 * MIN]], end: T + 2 * MIN }),
+        task({ name: 'second', cost: 2, start: T + 10 * MIN, segments: [[T + 10 * MIN, T + 12 * MIN]], end: T + 12 * MIN }),
+      ],
+    }),
+  ]
+  // Both spans start after "first" ended and before "second" started; the second overlaps the first and is open.
+  const ci = [[T + 3 * MIN, T + 6 * MIN], [T + 5 * MIN, null]]
+  const withCi = renderGantt(sessions, now, ci)
+  const rows = view(withCi)
+  assert.deepEqual(rows.map((r) => r.name), ['first', 'second', 'Total'])
+  assert.deepEqual(rows.map((r) => [r.dur, r.cost]), view(renderGantt(sessions, now)).map((r) => [r.dur, r.cost]))
+  // Axis: 2m of first + 27m of merged CI (3m to 30m, second's work lies inside it) = 29m. The CI bar sits on first's track only, before its work bar so work stays on top.
+  assert.deepEqual(rows[0].bars, [[6.9, 93.1], [0, 6.9]])
+  assert.deepEqual(rows[1].bars, [[31.03, 6.9]])
+  assert.equal([...withCi.matchAll(/class="bar ci"/g)].length, 1)
+  assert.ok(!withCi.includes('class="bar running"'))
+  assert.ok(!withCi.includes('CI wait</span>'))
+  assert.match(withCi, /title="CI wait\n\d\d?:\d\d [ap]m, running · 27m 00s"/)
+  assert.equal(renderGantt(sessions, now, []), renderGantt(sessions, now), 'no CI spans, same chart as before')
 })
 
 test('waitText counts up from stageAt, rounded down, two units at most', () => {
@@ -735,4 +782,53 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
     assert.match(html, text ? /<\/nav><p class="more"><a href="https:\/\/x\.test\/b"/ : /<\/ul><p class="more"><a href="https:\/\/x\.test\/b"/, label)
   }
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
+})
+
+test('top-level bands draw open unless their band key is collapsed, and leave their sub-sections alone', () => {
+  const groups = [{ name: 'Awaiting merge approval', count: 1, rows: [row()] }, { name: 'Building', count: 1, rows: [row({ id: 'CW-2' })] }]
+  const head = (html, slug) => html.match(new RegExp(`<details class="band band-${slug}"[^>]*>`))[0]
+  const api = { chief: {}, pm: [] }
+  const cases = [
+    ['status, none collapsed', () => renderStatus(groups), 'needs', true],
+    ['status, Your turn collapsed', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'needs', false],
+    ['status, other band stays open', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'progress', true],
+    ['status, a group name collapses no band', () => renderStatus(groups, new Set(), new Set(['Building'])), 'progress', true],
+    ['chief, none collapsed', () => renderChief(api).html, 'pm', true],
+    ['chief, pm collapsed', () => renderChief(api, 0, new Set(), 10, new Set([bandKey('pm')])).html, 'pm', false],
+  ]
+  for (const [name, html, slug, open] of cases) assert.equal(head(html(), slug).endsWith(' open>'), open, name)
+  // A collapsed band leaves its sub-sections' own state alone.
+  const inside = renderStatus(groups, new Set(), new Set([bandKey('needs')])).match(/<details class="group needs-merge" data-group="Awaiting merge approval"[^>]*>/)[0]
+  assert.ok(inside.endsWith(' open>'))
+})
+
+test('localTimes: UTC times in status text become local am/pm with no zone; anything else stays', () => {
+  const was = process.env.TZ
+  process.env.TZ = 'America/Toronto'
+  try {
+    const now = Date.UTC(2026, 10, 14, 12, 0)
+    const cases = [
+      ['build since 3:55am UTC: child building', 'build since 10:55 pm: child building'],
+      ['since 2:05pm UTC', 'since 9:05 am'],
+      ['12:00am UTC', '7:00 pm'],
+      ['12:00pm UTC', '7:00 am'],
+      ['at 14:05', 'at 9:05 am'],
+      ['2026-11-02T09:30:00Z', '2026-11-02T09:30:00Z'],
+      ['took 10:30:00', 'took 10:30:00'],
+      ['at 25:00', 'at 25:00'],
+      ['no time here', 'no time here'],
+    ]
+    for (const [text, want] of cases) assert.equal(localTimes(text, now), want, text)
+  } finally {
+    if (was === undefined) delete process.env.TZ
+    else process.env.TZ = was
+  }
+})
+
+test('a card and its Details show status times in local time with no UTC', () => {
+  const html = renderStatus(group([row({ next: 'build since 3:55am UTC: x', risk: 'low, ran at 3:53am' })]))
+  assert.match(html, /<p class="next">build since \d\d?:\d\d [ap]m: x<\/p>/)
+  assert.match(html, /<dt>Next<\/dt><dd>build since \d\d?:\d\d [ap]m: x<\/dd>/)
+  assert.match(html, /<dt>Risk<\/dt><dd>low, ran at \d\d?:\d\d [ap]m<\/dd>/)
+  assert.doesNotMatch(html, /UTC/)
 })
