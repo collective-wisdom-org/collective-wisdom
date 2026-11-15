@@ -14,7 +14,7 @@ After a `/compact`, the part of `chief-of-staff/SKILL.md` that comes back holds 
 Facts from `main` at `10f93a1` (after CW-317, #336, merged).
 
 - `SKILL.md` is 40,110 bytes. Sections in order, with sizes: frontmatter and intro 4,029; When to read a reference file 2,597; Tools 2,634; Working set 1,641; Models 497; Lanes 1,410; State file 2,538; Tick 11,573 (its plan-line table alone 6,408); Child path 7,332; Lean turns 2,662; Guardrails 3,181. The core named below is about 23,500 bytes today without the trigger table.
-- In the CW-315 run the compacted skill was cut at byte 20,908, mid-sentence in the plan-line table (`Cleanup line, \`Child read script u`), then `[... skill content truncated for compaction; use Read on the skill path ...]`. That fits Claude Code keeping the first 5,000 tokens or so of each skill it re-attaches after a compaction.
+- In the CW-315 run the compacted skill was cut at about byte 20,900 of the compacted text (about 20,600 counted in the file), mid-sentence in the plan-line table (`Cleanup line, \`Child read script u`), then `[... skill content truncated for compaction; use Read on the skill path ...]`. That fits Claude Code keeping the first 5,000 tokens or so of each skill it re-attaches after a compaction.
 - The re-read line the ticket asks for is already there: line 21, added by CW-316, says to read `SKILL.md` in full (and `.agent-team/chief-notes.md`) when the text does not end with "End of chief-of-staff SKILL.md."
 - `SKILL.md` § Models repeats what `models.md` § Models already says (role from `cos_models.py`, exit 1 means `BLOCKED: no <role> routing`, never fall back).
 - `test_section_pointers.py` fails when a `§` pointer names a heading that is gone, so every pointer to a moved section must follow it.
@@ -24,7 +24,7 @@ Facts from `main` at `10f93a1` (after CW-317, #336, merged).
 
 ### 1. The budget
 
-The **core** is everything from the top of `SKILL.md` to the end of § Guardrails. It must fit in **18,000 bytes**, about 86% of the 20,908 bytes that survived in the CW-315 run, leaving room for text that tokenizes worse than the sample and for later edits.
+The **core** is everything from the top of `SKILL.md` to the end of § Guardrails. It must fit in **18,000 bytes**, about 86% of the roughly 20,900 bytes that survived in the CW-315 run (the offset is approximate, since the compacted text is not byte for byte the file), leaving room for text that tokenizes worse than the sample and for later edits.
 
 A test in `agent-team/scripts/test_agent_files.py` holds it there: in the chief-of-staff `SKILL.md`, the headings `## Tick`, `## Child path` and `## Guardrails` appear in that order, and the byte offset of the first `## ` heading after `## Guardrails` (or the end-of-file line) is at most 18,000. The failure message names the size and says to move detail into a reference file, not to raise the limit.
 
@@ -72,7 +72,7 @@ Every pointer to a moved section follows it: `SKILL.md § Tools`, `§ Working se
 
 ## Calls I made
 
-- The budget is 18,000 bytes, not tokens. Bytes need no tokenizer in CI; 18,000 is about 86% of the 20,908 bytes that survived.
+- The budget is 18,000 bytes, not tokens. Bytes need no tokenizer in CI; 18,000 is under the roughly 20,900 bytes that survived, whichever way the offset is counted.
 - The test checks where the core ends, not the size of the whole file. The whole file stays around 35 KB; only the core has to survive a compaction.
 - The trigger table, the wake list and "Not run through the tick" move below the core, into a new § Turn start in `SKILL.md`, not into a reference file. They are read on every turn, and a turn picks its trigger before it can be compacted.
 - The "When to read a reference file" table moves below the core too. Plan lines and § Child path name the file they need, so a cut table costs a mid-turn chief nothing.

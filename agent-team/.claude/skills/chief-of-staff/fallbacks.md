@@ -12,4 +12,4 @@ Exit 2 (`cos_idle_check: …`): `t3_thread_read` per ticket in `spec`, `build` o
 
 ## Wait check
 
-On exit 2, instead: `t3_thread_read` with `view: activity`, `afterPosition: max(0, itemCount - 10)`, `limit: 10`, `runLimit: 1`, `maxCharsPerItem: 1500`, passed on stdin (quoted heredoc) to `… cos_idle_check.py --wait <PREFIX>-N` (exit 2 again: read once more, and pass `2twice` if still 2).
+When the stuck check's `cos_idle_check.py --wait <PREFIX>-N --store <childThreadId>` exits 2, instead: `t3_thread_read` with `view: activity`, `afterPosition: max(0, itemCount - 10)`, `limit: 10`, `runLimit: 1`, `maxCharsPerItem: 1500`, passed on stdin (quoted heredoc) to `… cos_idle_check.py --wait <PREFIX>-N` (exit 2 again: read once more, and pass `2twice` as the `--wait` value of `cos_restart.py` if still 2).
