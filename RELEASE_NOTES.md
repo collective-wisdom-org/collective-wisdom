@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 make dashboard section headers stand out (CW-346) (#352)
+
+Merged 2026-11-15 02:33 UTC.
+
+The dashboard's section headers (Your turn, In progress, Up next, Not started, Done) are now larger and have a line under them, so each section is easier to find while scrolling. The "Project manager" heading on the Chief of Staff tab shares the new look.
+
 ## 2026-11-15 one Agents and Details control and a waiting counter on the dashboard (CW-345) (#351)
 
 Merged 2026-11-15 02:27 UTC.
