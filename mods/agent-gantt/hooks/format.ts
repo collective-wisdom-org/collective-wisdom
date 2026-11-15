@@ -2,10 +2,10 @@
 
 const two = (n: number) => String(n).padStart(2, '0')
 
-/** Local HH:MM. */
+/** Local 12-hour time: 9:05 am, 12:00 pm. */
 export const clock = (ms: number) => {
   const d = new Date(ms)
-  return `${two(d.getHours())}:${two(d.getMinutes())}`
+  return `${d.getHours() % 12 || 12}:${two(d.getMinutes())} ${d.getHours() < 12 ? 'am' : 'pm'}`
 }
 
 /** 950, 12.3k, 1.2M. */

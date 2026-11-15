@@ -365,3 +365,54 @@ def test_cursor_agent(tmp_path, capsys, monkeypatch, agent, extra, want):
         return
     agent_usage.main()
     assert json.loads(capsys.readouterr().out) == {"runs": want[0], "results": want[1]}
+
+
+def context_store(proj, aid, turns, events=True):
+    """A Cursor index.db with run_events. turns are (turn number, usage or None, call_id prefixes): each call is logged
+    twice (running, completed) as the real store does, after a non-call event."""
+    store = proj / "sdk-agent-store" / aid
+    store.mkdir(parents=True)
+    db = sqlite3.connect(store / "index.db")
+    db.execute("create table agents (agent_id, workspace_ref)")
+    db.execute("create table runs (run_id, agent_id, turn_number, model, usage_json, started_at, created_at)")
+    db.execute("create table run_events (run_id, payload_json)")
+    db.execute("insert into agents values (?, '/none')", (aid,))
+    for t, usage, calls in turns:
+        ts = T0 if t == 1 else T1
+        db.execute("insert into runs values (?, ?, ?, null, ?, ?, ?)", (f"run-{t}", aid, t, usage and json.dumps(usage), ts, ts))
+        msgs = [{"type": "assistant"}] + [{"type": "tool_call", "call_id": f"{c}\nfc_x_{i}"} for c in calls for i in (0, 1)]
+        for m in msgs:
+            db.execute("insert into run_events values (?, ?)", (f"run-{t}", json.dumps({"message": m})))
+    if not events:
+        db.execute("drop table run_events")
+    db.commit()
+    db.close()
+
+
+# "call-u1-0" and "call-u1-1" are parallel calls of one request.
+@pytest.mark.parametrize(
+    "agent, turns, extra, want",
+    [
+        ("agent-1", [(1, {"inputTokens": 28_000}, [])], None, 28_000),  # no tool calls: one request, the prompt itself
+        ("agent-1", [(1, {"inputTokens": 90_000}, ["call-u1-0", "call-u1-1"])], None, 45_000),  # 2 requests: sum // 2
+        ("agent-1", [(1, {"inputTokens": 10_000}, []), (2, {"inputTokens": 50_000}, [])], None, 50_000),  # latest turn wins
+        ("agent-1", [(1, {"inputTokens": 20_000}, []), (2, None, ["call-u1-0"])], None, 20_000),  # a running or cancelled turn has no usage
+        ("agent-1", [(1, None, [])], None, None),  # no usage yet
+        ("agent-1", [(1, {"inputTokens": 5}, [])], "no run_events", LookupError),
+        ("agent-1", [(1, 5, [])], None, LookupError),  # usage that is not a record
+        ("agent-9", [(1, {"inputTokens": 5}, [])], None, LookupError),  # no store has the agent
+        ("agent-9", [(1, {"inputTokens": 5}, [])], "bad store", LookupError),  # an unreadable store might hold it
+    ],
+)
+def test_cursor_context(tmp_path, agent, turns, extra, want):
+    proj = tmp_path / "proj"
+    context_store(proj, "agent-1", turns, events=extra != "no run_events")
+    if extra == "bad store":
+        (proj / "sdk-agent-store" / "bad").mkdir()
+        (proj / "sdk-agent-store" / "bad" / "index.db").write_text("not a database")
+    if want is LookupError:
+        with pytest.raises(LookupError):
+            agent_usage.cursor_context(tmp_path, agent)
+    else:
+        got = agent_usage.cursor_context(tmp_path, agent)
+        assert got is None if want is None else got == (want, agent_usage.parse_ts(T0))

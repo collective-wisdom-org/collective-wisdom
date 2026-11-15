@@ -16,15 +16,20 @@ provider missing from it, or a missing chiefProvider, is none). On none the chec
 "ok (no reset on <provider>; context=<N>k)" or "ok (no reset on <provider>; size unknown)". A stored skillCommit that is not a full sha acts like null and prints
 "ok; skillCommit is not a full sha; set skillCommit <sha>" where the null line would. Holds: paused, and a
 `reset` marker in state younger than 10 minutes ("ok (held: reset)"); an older marker does not hold and a trigger
-then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset" or
-"rotate: skill changed aaaaaaa..bbbbbbb; mode reset".
+then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset",
+"rotate: skill changed aaaaaaa..bbbbbbb; mode reset" or "rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode reset".
+The plugin trigger reads only mods/agent-gantt/.claude-plugin/plugin.json of the clone (never runs claude) and fires when its version
+is newer than ganttPluginVersion in state (gantt_plugin.py's compare; an equal or older clone does not fire). It works like the skill change (merge target branch, quiet turn; otherwise
+"ok (plugin change waits: <why>)"); a skill change on the same turn wins the line. It is off when ganttPluginVersion is null or
+not dot-separated integers, when the clone's version does not read, and on mode none.
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
-2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size
-trigger is off (no context size on Cursor).
+2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
+read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
+("ok (no reset on cursor; size unknown)" while the conversation has no usage yet).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on "rotate:" or exit 2. It reads Cursor's stop payload (conversation_id equals
-chiefSessionId, loop_count 0, status completed), with the size trigger off, and answers {"followup_message": reason}.
+chiefSessionId, loop_count 0, status completed), reading the size from the run store (silent when the store cannot be read and the mode is none), and answers {"followup_message": reason}.
 It never writes and any error exits 0 silently.
 COS_STATE_FILE, COS_PROJECTS_DIR and COS_CURSOR_PROJECTS_DIR override the state file, the Claude Code transcripts
 directory and the Cursor projects directory (~/.cursor/projects).
@@ -46,6 +51,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from gantt_plugin import older, parse  # noqa: E402
 
 HERE = Path(__file__).absolute().parent
 # The clone's agent-team/ folder, through any ~/.collective-wisdom link. SKILL_PATHS and their history live here, not in the app.
@@ -75,6 +81,7 @@ RESET_HOLD_MIN = 10
 # Reset mode per provider (T3's providerInstanceId, as chiefProvider.provider in state holds it): reset, reset-scheduled,
 # compact or none. A provider missing here is none. Change together with docs/compatibility.md's "Context reset (rotation check)" row.
 RESET_MODES = {"claudeAgent": "reset"}
+PLUGIN_JSON = "mods/agent-gantt/.claude-plugin/plugin.json"
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",
     ".claude/skills/project-manager",
@@ -128,6 +135,15 @@ def quiet_wait(state, now):
     return None
 
 
+def plugin_version():
+    """The agent-gantt version in the clone's mod, or None when the file or its version does not read. A file read only."""
+    try:
+        v = json.loads((TEAM.parent / PLUGIN_JSON).read_text()).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if parse(v) is not None else None
+
+
 def mode_for(state):
     """(reset mode, provider) from state's chiefProvider.provider; a missing or malformed one is ("none", "unknown")."""
     cp = state.get("chiefProvider")
@@ -137,8 +153,9 @@ def mode_for(state):
     return RESET_MODES.get(p, "none"), p
 
 
-def decide(state, context, now, commit, branch, cap=SIZE_CAP):
-    """The one line. now is a datetime; context is a token count, or None when the size is unknown (Cursor)."""
+def decide(state, context, now, commit, branch, cap=SIZE_CAP, plugin=None):
+    """The one line. now is a datetime; context is a token count, or None when the size is unknown (Cursor).
+    plugin is the clone's agent-gantt version, or None when it does not read."""
     mode, provider = mode_for(state)
     if state.get("paused"):
         return "ok (held: paused)"
@@ -158,11 +175,20 @@ def decide(state, context, now, commit, branch, cap=SIZE_CAP):
             return set_line
         return f"ok (no reset on {provider}; " + ("size unknown)" if context is None else f"context={k(context)})")
     waits = None
-    if branch == project_config.target_branch() and old and commit != old:
-        why = quiet_wait(state, now)
-        if not why:
-            return f"rotate: skill changed {old[:7]}..{commit[:7]}; mode {mode}{stale}"
-        waits = f"ok (skill change waits: {why})"
+    if branch == project_config.target_branch():
+        stored = state.get("ganttPluginVersion")
+        have, want = parse(stored), parse(plugin)
+        plugin_new = have is not None and want is not None and older(have, want)
+        if (old and commit != old) or plugin_new:
+            why = quiet_wait(state, now)
+            if old and commit != old:
+                if not why:
+                    return f"rotate: skill changed {old[:7]}..{commit[:7]}; mode {mode}{stale}"
+                waits = f"ok (skill change waits: {why})"
+            elif not why:
+                return f"rotate: agent-gantt plugin {stored} -> {plugin}; mode {mode}{stale}"
+            else:
+                waits = f"ok (plugin change waits: {why})"
     note = None
     if context is not None and context >= cap:
         tk = state.get("takeoverContext")
@@ -219,8 +245,15 @@ def branch():
     return git("branch", "--show-current")
 
 
-def read_context(sid=None):
-    """(tokens, start time) of session sid, or of $CLAUDE_CODE_SESSION_ID."""
+def read_context(sid=None, cursor=False):
+    """(tokens, start time) of session sid, or of $CLAUDE_CODE_SESSION_ID. cursor: sid is a Cursor conversation id,
+    read from its run store; (None, None) when it has no usage yet."""
+    if cursor:
+        projects = Path(os.environ.get("COS_CURSOR_PROJECTS_DIR") or Path.home() / ".cursor" / "projects")
+        try:
+            return load_module("agent_usage").cursor_context(projects, sid if sid.startswith("agent-") else f"agent-{sid}") or (None, None)
+        except LookupError:
+            raise Unreadable("context")
     projects = Path(os.environ.get("COS_PROJECTS_DIR") or Path.home() / ".claude" / "projects")
     try:
         with contextlib.redirect_stderr(io.StringIO()), mock.patch.dict(
@@ -274,9 +307,9 @@ def save_top(path, **keys):
         return False
 
 
-def check(state, record=False, sid=None, sized=True):
-    """(line, takeoverContext to save or None). Raises Unreadable. sized=False: no context size (Cursor)."""
-    context = read_context(sid)[0] if sized else None
+def check(state, record=False, sid=None, cursor=False):
+    """(line, takeoverContext to save or None). Raises Unreadable. cursor: sid is a Cursor conversation id."""
+    context = read_context(sid, cursor)[0]
     tk = None
     if record and context is not None and state.get("chiefThreadId"):
         tk = {"threadId": state["chiefThreadId"], "tokens": context}
@@ -286,7 +319,7 @@ def check(state, record=False, sid=None, sized=True):
         project_config.target_branch()
     except SystemExit:
         raise Unreadable("the Merge target branch row of project.md")
-    line = decide(state, context, now, skill_commit(), branch())
+    line = decide(state, context, now, skill_commit(), branch(), plugin=plugin_version())
     return (f"{line}; take-over context={k(context)}" if record and context is not None else line), tk
 
 
@@ -310,8 +343,10 @@ def run_hook(path):
         if not sid or (bare(sid) != bare(mine) if cursor else sid != mine) or skip:
             return 0
         try:
-            line = check(state, sid=sid, sized=not cursor)[0]
+            line = check(state, sid=sid, cursor=cursor)[0]
         except Unreadable as e:
+            if cursor and mode_for(state)[0] == "none":
+                return 0  # nothing to reset on this provider: don't wake the Chief over a store it can't read
             line = f"rotation-check: cannot read {e}"
         if not line.startswith("ok"):
             reason = f"{line}; run chief-of-staff/rotation.md § Thread rotation"
@@ -341,7 +376,7 @@ def main(argv=None):
         sid = sid or cursor_id
         if sid and sid != state.get("chiefSessionId"):
             save_top(path, chiefSessionId=sid)
-        line, tk = check(state, record=args.record_takeover, sized=not cursor_id)
+        line, tk = check(state, record=args.record_takeover, sid=sid, cursor=bool(cursor_id))
     except Unreadable as e:
         print(f"rotation-check: cannot read {e}")
         return 2
