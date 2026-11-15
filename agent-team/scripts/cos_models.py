@@ -27,7 +27,7 @@ Why, per role (models.md has the full text):
     build: works from an approved spec; merge stays on this model, so no second switch.
     implementer, documenter, compacter: routine edits and checks on the cheaper tier.
     code-review, security-review: a missed bug costs more than the review.
-Cursor routes only to Auto (auto-smart): intelligence where Claude Code uses Opus, balanced elsewhere.
+Cursor routes every role to default Auto (`default`, no options); its subagents inherit the parent's model.
 """
 
 import json
@@ -63,8 +63,7 @@ def _claude(model, effort):
     return {"model": f"claude-{model}-5-5", "options": {"effort": effort}}
 
 
-def _auto(optimize_for):
-    return {"model": "auto-smart", "options": {"optimize_for": optimize_for}}
+AUTO = {"model": "default"}
 
 
 # MODELS[provider][role] holds the lines to print: "target" and "modelSelection" (dicts) or "pinned" (a string).
@@ -80,13 +79,9 @@ MODELS = {
     "cursor": {
         **_routes(
             "cursor",
-            {"chief": _auto("balanced"), "helper": _auto("intelligence"), "pm": _auto("balanced"),
-             "spec": _auto("intelligence"), "build": _auto("balanced")},
+            {"chief": AUTO, "helper": AUTO, "pm": AUTO, "spec": AUTO, "build": AUTO},
         ),
-        **_pins(
-            ".cursor",
-            {r: f"auto-smart[optimize_for={'intelligence' if 'review' in r else 'balanced'}]" for r in AGENT_FILES},
-        ),
+        **_pins(".cursor", {r: "inherit" for r in AGENT_FILES}),
     },
 }
 

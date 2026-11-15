@@ -12,8 +12,8 @@ def claude(model, effort, key="providerInstanceId"):
     return f'{{"{key}":"claudeAgent","model":"claude-{model}-5-5","options":{{"effort":"{effort}"}}}}'
 
 
-def auto(optimize_for, key="providerInstanceId"):
-    return f'{{"{key}":"cursor","model":"auto-smart","options":{{"optimize_for":"{optimize_for}"}}}}'
+def auto(key="providerInstanceId"):
+    return f'{{"{key}":"cursor","model":"default"}}'
 
 
 def pins(provider_dir, models):
@@ -27,14 +27,14 @@ SHEET = [
     ("claudeAgent", "pm", ["target: " + claude("sonnet", "medium")]),
     ("claudeAgent", "spec", ["target: " + claude("opus", "medium")]),
     ("claudeAgent", "build", ["target: " + claude("sonnet", "high"), "modelSelection: " + claude("sonnet", "high", "instanceId")]),
-    ("cursor", "chief", ["modelSelection: " + auto("balanced", "instanceId")]),
-    ("cursor", "ticket-helper", ["target: " + auto("intelligence")]),
-    ("cursor", "pm", ["target: " + auto("balanced")]),
-    ("cursor", "spec", ["target: " + auto("intelligence")]),
-    ("cursor", "build", ["target: " + auto("balanced"), "modelSelection: " + auto("balanced", "instanceId")]),
+    ("cursor", "chief", ["modelSelection: " + auto("instanceId")]),
+    ("cursor", "ticket-helper", ["target: " + auto()]),
+    ("cursor", "pm", ["target: " + auto()]),
+    ("cursor", "spec", ["target: " + auto()]),
+    ("cursor", "build", ["target: " + auto(), "modelSelection: " + auto("instanceId")]),
 ]
 SHEET += [("claudeAgent", r, [p]) for r, p in zip(["implementer", "documenter", "compacter", "code-review", "security-review"], pins(".claude", ["sonnet"] * 3 + ["opus"] * 2))]
-SHEET += [("cursor", r, [p]) for r, p in zip(["implementer", "documenter", "compacter", "code-review", "security-review"], pins(".cursor", [f"auto-smart[optimize_for={o}]" for o in ["balanced"] * 3 + ["intelligence"] * 2]))]
+SHEET += [("cursor", r, [p]) for r, p in zip(["implementer", "documenter", "compacter", "code-review", "security-review"], pins(".cursor", ["inherit"] * 5))]
 SHEET += [("codex", "spec", ["cos_models: no spec routing for codex"]), ("nope", "implementer", ["cos_models: no implementer routing for nope"])]
 
 

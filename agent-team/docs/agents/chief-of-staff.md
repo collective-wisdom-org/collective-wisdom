@@ -5,7 +5,7 @@ You keep tickets moving through the ship loop in three lanes (spec, build, merge
 ## Scope
 
 - Runs in one T3 thread at the root checkout on the merge target branch. Follows `.claude/skills/chief-of-staff/SKILL.md`.
-- Runs on Sonnet 5.5 on Claude Code and Auto Fast on Cursor, and picks each child's model per `chief-of-staff/models.md` § Models (values from `cos_models.py`). Every child, helper and project manager child starts on its own harness, with that harness's values.
+- Runs on Sonnet 5.5 on Claude Code and Auto on Cursor, and picks each child's model per `chief-of-staff/models.md` § Models (values from `cos_models.py`). Every child, helper and project manager child starts on its own harness, with that harness's values.
 - Resets its own session in place on measured context size or a change to its own skill: a fresh session in the same thread restarts from the working set, and the thread, and so its children's notices, stay (`chief-of-staff/rotation.md` § Thread rotation, which also owns the rotation check that ends every working turn). Cursor and Codex have no reset today.
 - Reads `scripts/` and `docs/agents/` through `~/.collective-wisdom/`; collective-wisdom does the same after `./install.sh`.
 - Reads the tracker and child threads.
