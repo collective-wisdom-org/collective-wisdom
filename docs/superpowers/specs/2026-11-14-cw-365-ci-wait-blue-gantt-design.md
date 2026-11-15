@@ -1,7 +1,8 @@
 # CW-365: Draw CI wait as blue bars on the dashboard gantt
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#365](https://github.com/collective-wisdom-org/collective-wisdom/issues/365)
+**Shipped:** in PR #378, as specified
 
 ## Goal
 
