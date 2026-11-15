@@ -12,8 +12,12 @@ const GROUPS: { name: string; stages: string[] }[] = [
   { name: 'Awaiting build approval', stages: ['awaiting-build'] },
   { name: 'Building', stages: ['build'] },
   { name: 'Queued to build', stages: ['build-queued'] },
-  { name: 'Other', stages: ['spec-queued', 'blocked'] },
+  { name: 'Waiting to spec', stages: ['spec-queued'] },
+  { name: 'Other', stages: ['blocked'] },
 ]
+
+/** The group names in the order of the status layout. */
+export const GROUP_ORDER = GROUPS.map((g) => g.name)
 
 const NO_RISK = 'not rated yet'
 
