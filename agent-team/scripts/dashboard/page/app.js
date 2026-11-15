@@ -326,6 +326,10 @@ export function promptLink(chiefLink, text) {
   return m ? `t3code://threads/${m[1]}/${m[2]}?prompt=${encodeURIComponent(text)}` : null
 }
 
+/** Approve's press works only in these conditions today (WISE-445). Drop this when T3 focuses the message box itself. */
+const PRESS_TIP = 'Works best with the dashboard open in an external browser (not T3\'s browser pane) and the T3 message box clicked first.'
+const CHANGES_TIP = 'Opens most reliably from the dashboard in an external browser (not T3\'s browser pane).'
+
 /** The Approve and Changes controls: a link that opens the Chief of Staff thread with the command typed in, or, with no thread link, a button that copies the command. */
 function approveControls(r, chiefLink) {
   return [['approve', 'Approve'], ['changes', 'Changes']]
@@ -334,14 +338,14 @@ function approveControls(r, chiefLink) {
       if (text === null) return ''
       const href = promptLink(chiefLink, text)
       const press = kind === 'approve' && href
-      const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
+      const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ` and presses Send for you. If it can't, press Send. ${PRESS_TIP}` : `. ${kind === 'changes' ? `Add what to change, then press Send. ${CHANGES_TIP}` : 'Press Send to approve.'}`}`
       return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text)}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
 }
 
 const PRESS_MESSAGES = {
-  'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.`,
+  'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Open the dashboard in an external browser (not T3\'s browser pane), click the T3 message box, then try ${action} again, or press Send in the Chief of Staff thread.`,
   permission: (action) => `${action} not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.`,
   busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
@@ -355,7 +359,7 @@ export function pressAction(command) {
 export function pressMessage(answer, repeat = false, action = 'Approve') {
   if (answer?.sent === true || (answer?.reason === 'busy' && repeat)) return ''
   const line = typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : null
-  return line ? line(action) : `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.`
+  return line ? line(action) : `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread yourself.`
 }
 
 /** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */

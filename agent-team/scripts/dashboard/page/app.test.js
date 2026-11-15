@@ -932,6 +932,9 @@ test('every card is a top row, an optional middle row and a bottom row; the meta
   }
 })
 
+const PRESS_TIP = 'Works best with the dashboard open in an external browser (not T3\'s browser pane) and the T3 message box clicked first.'
+const CHANGES_TIP = 'Opens most reliably from the dashboard in an external browser (not T3\'s browser pane).'
+
 test('Approve and Changes show only on a card waiting for approval; they open the Chief of Staff thread with the command typed in, or copy it with no thread', () => {
   const cases = [
     [{ id: 'CW-402', stage: 'awaiting-merge' }, 'approve 402', 'changes 402: '],
@@ -945,7 +948,7 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
     const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
-    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ` and presses Send for you. If it can't, press Send. ${PRESS_TIP}`, ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, `. Add what to change, then press Send. ${CHANGES_TIP}`)}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
 })
@@ -988,11 +991,11 @@ test('each Backlog card has a Mark todo control after the switch and before the 
 test('pressMessage: one line per reason for each control, none when sent or a repeat click was busy', () => {
   const tail = ' Press Send in the Chief of Staff thread.'
   for (const action of ['Approve', 'Mark todo']) {
-    const generic = `${action} not sent: the dashboard could not press Return.${tail}`
+    const generic = `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread yourself.`
     const cases = [
       [{ sent: true }, ''],
       [{ sent: false, reason: 'busy' }, `${action} not sent: another one-click send was still running.${tail}`],
-      [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front.${tail}`],
+      [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front. Open the dashboard in an external browser (not T3's browser pane), click the T3 message box, then try ${action} again, or press Send in the Chief of Staff thread.`],
       [{ sent: false, reason: 'permission' }, new RegExp(`^${action} not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \\(or the app that started the dashboard\\)`)],
       [{ sent: false, reason: 'error' }, generic],
       [{ sent: false, reason: 'toString' }, generic],
