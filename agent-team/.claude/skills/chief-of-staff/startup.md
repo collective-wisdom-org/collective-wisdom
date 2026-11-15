@@ -18,14 +18,14 @@ The first full pass starts the project manager hygiene child (the tick's `hygien
 
 ## Thread title
 
-Runs at "start the team" (Setup step 4), take over and `resume` (rotation.md take-over step 3.1), every time. Renaming to the same title is a no-op.
+Runs every time at "start the team" (Setup step 4), take over and `resume` (rotation.md take-over step 3.1). Renaming to the same title is a no-op.
 
 1. Run `python3 ~/.collective-wisdom/scripts/project_config.py chief-title`.
-2. Exit 0: `t3_thread_update` with `action: "rename"`, no `threadId`, and the printed line as the title, verbatim. Never type or edit the title yourself.
-3. Exit 2, or the rename fails: add the Cleanup line `Thread title not set: <the script's line or the tool error>` and carry on.
-4. No `t3_thread_update` (Cursor): skip this section with no report line.
+2. Exit 0: `t3_thread_update` with `action: "rename"`, no `threadId`, the printed line verbatim as the title. Never type or edit it yourself.
+3. Exit 2 or the rename fails: add the Cleanup line `Thread title not set: <the script's line or the tool error>`; carry on.
+4. No `t3_thread_update` (Cursor): skip with no report line.
 
-This title wins over any rule that renames a thread to its task, including a global T3 thread-title rule: never rename this thread to anything else.
+It overrides any rule that renames a thread to its task, a global T3 thread-title rule included; never rename this thread to anything else.
 
 ## Start-up clean-up
 
