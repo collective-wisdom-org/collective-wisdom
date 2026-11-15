@@ -1,4 +1,4 @@
-import { headsPattern } from './titles.ts'
+import { headsPattern, idForNumber, prefixesPattern } from './titles.ts'
 import type { MergedConfig } from './merged.ts'
 
 type Run = (args: string[]) => Promise<string>
@@ -6,7 +6,7 @@ type Run = (args: string[]) => Promise<string>
 const REFRESH_MS = 60_000
 
 /** Turns `gh pr list --json number,headRefName` output into the open PR number by ticket id. Two PRs for one ticket: the higher number wins. */
-export function parseOpen(json: string, cfg: Pick<MergedConfig, 'prefix' | 'heads'>): Record<string, number> | null {
+export function parseOpen(json: string, cfg: Pick<MergedConfig, 'prefix' | 'retired' | 'heads'>): Record<string, number> | null {
   let data: unknown
   try {
     data = JSON.parse(json)
@@ -14,15 +14,15 @@ export function parseOpen(json: string, cfg: Pick<MergedConfig, 'prefix' | 'head
     return null
   }
   if (!Array.isArray(data)) return null
-  const { prefix, heads = ['feat/'] } = cfg
-  const byBranch = new RegExp(`^${headsPattern(heads)}${prefix.toLowerCase()}-(\\d+)(?:-|$)`)
+  const { prefix, retired = [], heads = ['feat/'] } = cfg
+  const byBranch = new RegExp(`^${headsPattern(heads)}${prefixesPattern(prefix, retired, true)}-(\\d+)(?:-|$)`)
   const out: Record<string, number> = {}
   for (const p of data) {
     if (typeof p !== 'object' || p === null) continue
     const { number, headRefName } = p as Record<string, unknown>
     const n = typeof headRefName === 'string' ? headRefName.match(byBranch)?.[1] : undefined
     if (!n || !Number.isInteger(number) || (number as number) < 1) continue
-    const id = `${prefix}-${n}`
+    const id = idForNumber(Number(n), prefix, retired)
     if (!(id in out) || (number as number) > out[id]) out[id] = number as number
   }
   return out

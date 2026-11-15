@@ -6,7 +6,7 @@ How each operation in [README.md](README.md) runs on GitHub Issues. Every call g
 
 ## Conventions
 
-- **Ticket ID.** `<PREFIX>-N`, where N is the issue number and the prefix is the `Issue identifier prefix` row (for example `GH`). Issue and PR numbers share one counter, so `GH-N` never matches a PR number. Below, `N` is the number.
+- **Ticket ID.** `<PREFIX>-N`, where N is the issue number and the prefix is the `Issue identifier prefix` row (for example `GH`); an issue numbered below an entry of the `Retired issue prefixes` row (`PREFIX<N`) keeps that entry's prefix. Issue and PR numbers share one counter, so `GH-N` never matches a PR number. Below, `N` is the number.
 - **States.** Labels `status:todo`, `status:in-progress`, `status:in-review`. An open issue with no `status:` label is Backlog; there is no `status:backlog` label, so nothing creates or applies one. Closed as completed is Done. Closed as not planned is Canceled.
 - **Two `status:` labels on one issue.** Readers take the furthest-along label as the state. `set-state` removes every other `status:` label in the same edit.
 - **Priority.** Labels `priority:urgent`, `priority:high`, `priority:medium`, `priority:low`. No `priority:` label means no priority.

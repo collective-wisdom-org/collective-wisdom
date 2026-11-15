@@ -3,7 +3,8 @@ import type { MergedEntry } from './merged.ts'
 import { specUrlOf } from './details.ts'
 import type { Detail, Found } from './details.ts'
 import type { BacklogItem, Priority } from './backlog.ts'
-import { headsPattern } from './titles.ts'
+import { headsPattern, idForNumber, prefixesPattern } from './titles.ts'
+import type { Retired } from './titles.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
 
 export type SnapshotRow = { id: string; depth: number; name: string; repo: string; start: number; end: number | null; tokens: number; cost: number | null; kind: 'session' | 'task' | 'agent'; segments: [number, number | null][]; model: string | null; harness: string | null }
@@ -185,11 +186,11 @@ function cleanWith(s: unknown, now: number, keep: (cwd: string) => boolean): { s
 export const cleanSnapshot = (s: unknown, now: number): Session | null => cleanWith(s, now, isWorktree)?.session ?? null
 
 /** Like cleanSnapshot, but for a session outside any worktree (the root checkout), with its thread id, heading, the ticket a helper filed (kept only as `<prefix>-N`) and its request line. */
-export function cleanTeamSnapshot(s: unknown, now: number, prefix: string | null = null): { session: Session; open: boolean; cursor: boolean } | null {
+export function cleanTeamSnapshot(s: unknown, now: number, prefix: string | null = null, retired: Retired = []): { session: Session; open: boolean; cursor: boolean } | null {
   const got = cleanWith(s, now, (cwd) => !isWorktree(cwd))
   if (!got || !isObj(s)) return null
   const heading = typeof s.heading === 'string' && s.heading.length <= HEADING_MAX ? s.heading : null
-  const ticket = prefix && typeof s.ticket === 'string' && new RegExp(`^${prefix}-\\d+$`).test(s.ticket) ? s.ticket : null
+  const ticket = prefix && typeof s.ticket === 'string' && new RegExp(`^${prefixesPattern(prefix, retired)}-\\d+$`).test(s.ticket) ? s.ticket : null
   const request = typeof s.request === 'string' && s.request.length <= REQUEST_MAX ? s.request : null
   return { open: got.open, cursor: got.cursor, session: { ...got.session, threadId: cleanThreadId(s.threadId), heading, ticket, request } }
 }
@@ -203,10 +204,10 @@ export function teamRole(session: Session, state: unknown): 'chief' | 'helper' |
 
 type TeamItem = { role: 'chief' | 'helper' | TeamRole; session: Session; open: boolean; cursor?: boolean }
 
-function teamItems(snapshots: unknown[], state: unknown, now: number, prefix: string | null = null): TeamItem[] {
+function teamItems(snapshots: unknown[], state: unknown, now: number, prefix: string | null = null, retired: Retired = []): TeamItem[] {
   const out: TeamItem[] = []
   for (const raw of snapshots) {
-    const got = cleanTeamSnapshot(raw, now, prefix)
+    const got = cleanTeamSnapshot(raw, now, prefix, retired)
     const role = got && teamRole(got.session, state)
     if (got && role) out.push({ role, ...got })
   }
@@ -219,7 +220,7 @@ export function teamSessions(input: { snapshots: unknown[]; state: unknown; now:
 }
 
 /** The ticket a snapshot belongs to: its worktree's branch, matched by state `branch`, else by `<head><prefix>-N-` for a head in `heads`. With `onBoard` only those tickets count; with null any ticket id from the branch does. */
-function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, unknown>, onBoard: Set<string> | null, prefix: string | null, heads: string[] = ['feat/']): string | null {
+function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, unknown>, onBoard: Set<string> | null, prefix: string | null, heads: string[] = ['feat/'], retired: Retired = []): string | null {
   let best: Worktree | null = null
   for (const w of worktrees) {
     if ((cwd === w.path || cwd.startsWith(w.path.replace(/\/+$/, '') + '/')) && (!best || w.path.length > best.path.length)) best = w
@@ -229,22 +230,22 @@ function ticketOf(cwd: string, worktrees: Worktree[], tickets: Record<string, un
     const t = tickets[id]
     if (isObj(t) && t.branch === best.branch) return id
   }
-  const n = prefix ? best.branch.match(new RegExp(`^${headsPattern(heads)}${prefix.toLowerCase()}-(\\d+)(?:-|$)`))?.[1] : undefined
-  const id = n ? `${prefix}-${n}` : null
+  const n = prefix ? best.branch.match(new RegExp(`^${headsPattern(heads)}${prefixesPattern(prefix, retired, true)}-(\\d+)(?:-|$)`))?.[1] : undefined
+  const id = prefix && n ? idForNumber(Number(n), prefix, retired) : null
   return id && (!onBoard || onBoard.has(id)) ? id : null
 }
 
 /** The sessions that belong to a ticket for the spend ledger: worktree sessions by branch, and root checkout ticket helper sessions by the ticket they filed. Unlike the charts, the ticket need not be on the board. */
-export function ledgerSessions(input: { snapshots: unknown[]; worktrees: Worktree[]; state: unknown; prefix: string | null; heads?: string[]; now: number }): { ticket: string; session: Session }[] {
-  const { snapshots, worktrees, state, prefix, heads, now } = input
+export function ledgerSessions(input: { snapshots: unknown[]; worktrees: Worktree[]; state: unknown; prefix: string | null; retired?: Retired; heads?: string[]; now: number }): { ticket: string; session: Session }[] {
+  const { snapshots, worktrees, state, prefix, retired = [], heads, now } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   const out: { ticket: string; session: Session }[] = []
   for (const raw of snapshots) {
     const session = cleanSnapshot(raw, now)
-    const ticket = session && ticketOf(session.cwd, worktrees, tickets, null, prefix, heads)
+    const ticket = session && ticketOf(session.cwd, worktrees, tickets, null, prefix, heads, retired)
     if (session && ticket) out.push({ ticket, session })
     else if (!session) {
-      const helper = cleanTeamSnapshot(raw, now, prefix)?.session
+      const helper = cleanTeamSnapshot(raw, now, prefix, retired)?.session
       if (helper?.heading === HELPER && helper.ticket) out.push({ ticket: helper.ticket, session: helper })
     }
   }
@@ -260,8 +261,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], openPrs = {}, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; retired?: Retired; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, retired = [], heads, merged = [], openPrs = {}, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   // Without `links`, the GitHub links come from `repo`.
   const links = input.links !== undefined ? input.links : repo?.isGithubIssues ? githubLinks(repo.url) : null
@@ -330,7 +331,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
   }
   const link = (id: string | null) => (environmentId && id ? `<t3-thread://v2/${environmentId}/${id}>` : undefined)
   const isRunning = (i: TeamItem) => i.open && (i.cursor === true || now - i.session.updatedAt <= RUNNING_MS)
-  const team = teamItems(snapshots, state, now, prefix)
+  const team = teamItems(snapshots, state, now, prefix, retired)
   // A running helper that has filed no ticket yet is a placeholder row; a finished one shows nowhere.
   const writing = team
     .filter((i) => i.role === 'helper' && !i.session.ticket && i.session.sessionId && isRunning(i))
@@ -355,7 +356,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
   const rowById = new Map(status.flatMap((g) => g.rows).map((r) => [r.id, r]))
   const onBoard = new Set(rowById.keys())
   for (const s of cleaned) {
-    const row = rowById.get(ticketOf(s.cwd, worktrees, tickets, onBoard, prefix, heads) ?? '')
+    const row = rowById.get(ticketOf(s.cwd, worktrees, tickets, onBoard, prefix, heads, retired) ?? '')
     if (row) (row.gantt ??= []).push(s)
   }
   // A helper's session joins every ticket row it filed: live copies from the snapshots, finished ones from the history, the live copy winning.

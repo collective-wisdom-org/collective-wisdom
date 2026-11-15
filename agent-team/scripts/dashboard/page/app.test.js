@@ -282,7 +282,7 @@ test('the engine total shows as a note only when it differs from the row sum by 
 })
 
 test('a note says some rows were priced before the CW-220 fix when any drawn session lacks pricing 2', () => {
-  const note = /priced before the CW-220 rate fix and keep their old costs/
+  const note = /priced before the token rate fix and keep their old costs/
   const html = (...pricing) => renderGantt(pricing.map((p, i) => sess({ sessionId: `s${i}`, pricing: p, total: null, rows: [task({ cost: 1 })] })), T + 10 * MIN)
   assert.doesNotMatch(html(2, 2), note)
   for (const p of [[2, undefined], [null]]) assert.match(html(...p), note)

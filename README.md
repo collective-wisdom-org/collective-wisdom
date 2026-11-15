@@ -30,7 +30,7 @@ This repo runs its own Chief of Staff the way an app does: from the machine inst
 - Run `./install.sh` from the root checkout once (see Install on a machine). Then run the Chief of Staff from the root checkout on `main`, like in an app.
 - Sessions here, worktrees included, run the root checkout's skills and scripts. A branch's change to a skill or script is live only after it merges and the root checkout fast-forwards.
 - Tests run `agent-team/scripts` by path, so a branch's own scripts are tested.
-- `docs/agents/project.md` is real and local to this repo (tracker `github`, prefix `CW`). It is never shipped; an app starts its own from `agent-team/templates/project.md`.
+- `docs/agents/project.md` is real and local to this repo (tracker `github`, prefix `WISE`, and `CW` for tickets numbered below 414). It is never shipped; an app starts its own from `agent-team/templates/project.md`.
 - Edit shared files under `agent-team/`.
 - A permission a tool saves to `.claude/settings.json` is this repo's own file. Commit it only if everyone working here should get it; put personal permissions in `.claude/settings.local.json` (gitignored).
 

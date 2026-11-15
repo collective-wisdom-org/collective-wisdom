@@ -1,3 +1,4 @@
+import { idForNumber } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
 type Run = (args: string[]) => Promise<string>
@@ -60,7 +61,7 @@ export function createBacklog(opts: { run: Run; now?: () => number }) {
         const created = typeof createdAt === 'string' ? Date.parse(createdAt) : NaN
         const login = author?.login
         if (!state || typeof login !== 'string' || !LOGIN.test(login) || !(await isTeam(login, c.slug))) continue
-        next.push({ id: `${c.prefix}-${number}`, title: (typeof title === 'string' ? title : '').replace(BAD, ' ').trim().slice(0, 200), state, priority, createdAt: Number.isNaN(created) ? null : created })
+        next.push({ id: idForNumber(number, c.prefix, c.retired), title: (typeof title === 'string' ? title : '').replace(BAD, ' ').trim().slice(0, 200), state, priority, createdAt: Number.isNaN(created) ? null : created })
       }
       items = next
       error = null

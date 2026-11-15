@@ -1,11 +1,12 @@
-import type { TitleConfig } from './titles.ts'
+import { idForNumber } from './titles.ts'
+import type { Retired, TitleConfig } from './titles.ts'
 
 type Run = (args: string[]) => Promise<string>
 
 const REFRESH_MS = 60_000
 
 /** Turns `gh issue list --json number,updatedAt` output into `<prefix>-<number>` to epoch ms. Bad entries are dropped; bad JSON gives `{}`. */
-export function parseUpdated(out: string, prefix: string): Record<string, number> {
+export function parseUpdated(out: string, prefix: string, retired: Retired = []): Record<string, number> {
   let data: unknown
   try {
     data = JSON.parse(out)
@@ -18,7 +19,7 @@ export function parseUpdated(out: string, prefix: string): Record<string, number
     if (typeof e !== 'object' || e === null) continue
     const { number, updatedAt } = e as Record<string, unknown>
     const time = typeof updatedAt === 'string' ? Date.parse(updatedAt) : NaN
-    if (Number.isInteger(number) && Number.isFinite(time)) map[`${prefix}-${number}`] = time
+    if (Number.isInteger(number) && Number.isFinite(time)) map[idForNumber(number as number, prefix, retired)] = time
   }
   return map
 }
@@ -34,7 +35,7 @@ export function createUpdated(opts: { run: Run; now?: () => number }) {
     try {
       const out = await opts.run(['issue', 'list', '--repo', cfg.slug, '--state', 'all', '--limit', '100', '--search', 'sort:updated-desc', '--json', 'number,updatedAt'])
       const data: unknown = JSON.parse(out)
-      if (Array.isArray(data)) map = parseUpdated(out, cfg.prefix)
+      if (Array.isArray(data)) map = parseUpdated(out, cfg.prefix, cfg.retired)
     } catch {}
     reading = null
   }

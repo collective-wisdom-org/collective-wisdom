@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createTrackerLists } from './lists.ts'
-import { buildApi, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject, trackerLinksFromProject } from './api.ts'
+import { parseMerged } from './merged.ts'
+import { idForNumber, retiredFromProject } from './titles.ts'
+import { buildApi, cleanTeamSnapshot, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject, trackerLinksFromProject } from './api.ts'
 import { applyEvent, cursorSnapshot, emptyState } from '../../../mods/agent-gantt/hooks/cursor.ts'
 
 const NOW = 1_800_000_000_000
@@ -540,4 +542,33 @@ test('a saved Todo or Backlog list over an hour old is stale and carries its rea
   }
   const gh = build({ backlog: [{ id: 'CW-2', title: 'x', state: 'Todo', priority: null, createdAt: null }] }).status[0]
   assert.deepEqual([gh.readAt, gh.stale], [undefined, undefined], 'the GitHub path has neither')
+})
+
+test('a retired prefix: issues below the cutover keep it, in ids, branches, title suffixes and saved lists; a bad row gives none', () => {
+  const row = (v: string) => `| Issue identifier prefix | \`ZZ\` |\n| Retired issue prefixes | ${v} |\n`
+  const rows: [string, string, { prefix: string; below: number }[]][] = [
+    ['a pair', row('`YY<10`. Earlier prefixes, no more ticks'), [{ prefix: 'YY', below: 10 }]],
+    ['text before the token', row('Earlier: `YY<10`'), [{ prefix: 'YY', below: 10 }]],
+    ['two pairs', row('`XX<5,YY<10`'), [{ prefix: 'XX', below: 5 }, { prefix: 'YY', below: 10 }]],
+    ['none', row('`none`'), []],
+    ['no row', '| Issue identifier prefix | `ZZ` |\n', []],
+    ['not a pair', row('`YY<x`'), []],
+    ['the current prefix', row('`ZZ<10`'), []],
+    ['falling numbers', row('`XX<10,YY<5`'), []],
+    ['a repeat', row('`YY<5,YY<10`'), []],
+  ]
+  for (const [name, text, want] of rows) assert.deepEqual(retiredFromProject(text), want, name)
+
+  const retired = retiredFromProject(row('`YY<10`'))
+  assert.deepEqual([5, 9, 10, 12].map((n) => idForNumber(n, 'ZZ', retired)), ['YY-5', 'YY-9', 'ZZ-10', 'ZZ-12'])
+  const pr = (headRefName: string, title: string) => ({ number: 1, title, headRefName, mergedAt: '2026-01-01T00:00:00Z', url: 'https://github.com/o/r/pull/1' })
+  const merged = parseMerged(JSON.stringify([pr('feat/yy-5-x', 'feat: a'), pr('odd', 'feat: b (YY-5)'), pr('feat/zz-12-x', 'feat: c'), pr('odd', 'feat: d (ZZ-12)'), pr('feat/xx-3', 'e')]), { prefix: 'ZZ', retired, slug: 'o/r', issueUrls: true })!
+  assert.deepEqual(merged.map((e) => [e.id, e.title]), [['YY-5', 'feat: a'], ['YY-5', 'feat: b'], ['ZZ-12', 'feat: c'], ['ZZ-12', 'feat: d']])
+  const helper = (ticket: string) => cleanTeamSnapshot({ sessionId: 's', cwd: '/Users/me/repo', updatedAt: NOW, total: 1, rows: [], ticket }, NOW, 'ZZ', retired)?.session.ticket
+  assert.deepEqual(['YY-5', 'ZZ-12', 'XX-3'].map(helper), ['YY-5', 'ZZ-12', null])
+  const ledger = (branch: string) => ledgerSessions({ snapshots: [{ sessionId: 's', cwd: '/r/.worktrees/w', updatedAt: NOW, total: 1, rows: [] }], worktrees: [{ path: '/r/.worktrees/w', branch }], state: null, prefix: 'ZZ', retired, now: NOW }).map((m) => m.ticket)
+  assert.deepEqual([ledger('feat/yy-5-x'), ledger('feat/zz-12-x'), ledger('feat/yy-12-x')], [['YY-5'], ['ZZ-12'], ['ZZ-12']])
+  const lists = createTrackerLists({ read: () => JSON.stringify({ todo: { at: 'x', list: [{ id: 'YY-5', title: 'a' }, { id: 'ZZ-12', title: 'b' }, { id: 'XX-3', title: 'c' }] } }) })
+  lists.want('ZZ', true, retired)
+  assert.deepEqual(lists.get().map((i) => i.id), ['YY-5', 'ZZ-12'])
 })

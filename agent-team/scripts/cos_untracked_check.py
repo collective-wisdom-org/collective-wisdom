@@ -114,13 +114,13 @@ def trusted(item, logins):
 
 def prs_by_ticket(prs):
     """{ticket: lowest PR number} for open PRs whose branch starts with a ticket's branch prefix (any head)."""
-    head = f"{project_config.branch_heads_re()}{re.escape(project_config.prefix().lower())}"
+    branch = project_config.branch_ticket_re()
     found = {}
     for pr in prs:
         name = pr.get("headRefName")
-        m = isinstance(name, str) and BRANCH.fullmatch(name) and re.match(rf"{head}-(\d+)-", name)
+        m = isinstance(name, str) and BRANCH.fullmatch(name) and re.match(rf"{branch}-", name)
         if m:
-            tid = f"{project_config.prefix()}-{int(m.group(1))}"
+            tid = project_config.ticket_id(int(m.group(2)))
             found[tid] = min(pr["number"], found.get(tid, pr["number"]))
     return found
 
@@ -143,6 +143,7 @@ def run(state_file, prs_file=None, issues_file=None, login=None):
 def _run(state_file, prs_file, issues_file, login):
     state = load_state(state_file)
     known = set(state["tickets"]) | set(state.get("merged", {}))
+    known_numbers = {project_config.ticket_number(t) for t in known} - {None}
     logins = trusted_logins(login)
     raw_prs = load_list(
         prs_file, "PR list", "pr", "list", "--state", "open", "--limit", "50",
@@ -156,7 +157,7 @@ def _run(state_file, prs_file, issues_file, login):
         )
         pr_of = prs_by_ticket([p for p in raw_prs if trusted(p, logins)])
         for issue in issues:
-            tid = f"{project_config.prefix()}-{issue['number']}"
+            tid = project_config.ticket_id(issue["number"])
             names = label_names(issue)
             word = next((STATUS[n] for n in ("status:in-review", "status:in-progress") if n in names), None)
             if trusted(issue, logins) and "agent-skip" not in names and (word or tid in pr_of):
@@ -165,7 +166,7 @@ def _run(state_file, prs_file, issues_file, login):
         mine = [p for p in raw_prs if trusted(p, logins)]
         found = {tid: (None, n) for tid, n in prs_by_ticket(mine).items()}
     hits = sorted(
-        ((t, *v) for t, v in found.items() if t not in known and TICKET.fullmatch(t)),
+        ((t, *v) for t, v in found.items() if t not in known and TICKET.fullmatch(t) and project_config.ticket_number(t) not in known_numbers),
         key=lambda h: int(h[0].rsplit("-", 1)[1]),
     )
     lines = [" ".join(["untracked", t, *([w] if w else []), *([f"#{n}"] if n else [])]) for t, w, n in hits]

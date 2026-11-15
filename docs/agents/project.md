@@ -13,7 +13,8 @@ Scripts read the first backticked token in each Value cell, so keep the backtick
 | Product name | collective-wisdom: the shared agent team (skills, scripts, role docs) and the `install.sh` that installs it for the machine |
 | Tracker (`linear`, `github` or `jira`) | `github` |
 | Tracker scope (`<TEAM>`) | `collective-wisdom-org/collective-wisdom` |
-| Issue identifier prefix (`<PREFIX>`) | `CW` |
+| Issue identifier prefix (`<PREFIX>`) | `WISE` |
+| Retired issue prefixes | `CW<414`. Earlier prefixes and the issue number where each one stopped: issues numbered below 414 keep CW-N, later ones use the current prefix. none when the prefix never changed |
 | Approver | David. Approves specs and merges only |
 | Approval risk tolerance (`strict`, `balanced` or `permissive`) | `strict`. Which approvals the team takes without asking: `strict` none, `balanced` Low risk only, `permissive` Low and Medium. High always waits for you |
 | Review after conflict resolution (`off` or `on`) | `off`. Whether a conflict resolution is reviewed again before it can merge. `off`: reviews from before the resolution stand, and a merge you already approved goes ahead on the resolved head without asking again. `on`: code and security review run on the resolved head, and you approve it again |
@@ -27,7 +28,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: `~/.colle
 
 | Key | Value |
 |---|---|
-| Branch pattern | `{feat,infra}/<prefix>-N-short-title` (`<prefix>` is `cw`, the issue prefix in lower case; the first head is the default for a new branch) |
+| Branch pattern | `{feat,infra}/<prefix>-N-short-title` (`<prefix>` is `wise`, the issue prefix in lower case; the first head is the default for a new branch) |
 | Merge target branch | `main`. The branch every PR merges into. The root checkout stays on it. Unset means `main` |
 | Repo (`<owner>/<repo>`) | `collective-wisdom-org/collective-wisdom` (<https://github.com/collective-wisdom-org/collective-wisdom>) |
 | GitHub CLI | `~/.collective-wisdom/scripts/gh.sh` only, never bare `gh`. Setup: `~/.collective-wisdom/docs/agents/github-auth.md` |
@@ -53,7 +54,7 @@ Tickets are GitHub issues in the `Repo` below. Operations and adapter: `~/.colle
 Skills and the Chief of Staff restate these in every child task.
 
 - The root checkout stays on the merge target branch (`main`). Branch work happens in a worktree: `.worktrees/<short-name>/`, or the one T3 Code created under `~/.t3/worktrees/`.
-- Never push to the merge target branch (`main`); push only the ticket's own `feat/cw-N-*` or `infra/cw-N-*` branch.
+- Never push to the merge target branch (`main`); push only the ticket's own `feat/wise-N-*` or `infra/wise-N-*` branch (`feat/cw-N-*` or `infra/cw-N-*` for tickets numbered below the cutover).
 - Exception: the publish step in `~/.collective-wisdom/scripts/merge_pr.py` writes `RELEASE_NOTES.md` on the `release-notes` branch through the GitHub API after a merge. No agent, skill or other script writes that branch, by push or by API.
 - Never commit `.env`, API keys or tokens.
 - Run `./install.sh` once on the machine. Edit shared files under `agent-team/`. This repo has no root links, and `docs/agents/project.md` is its only file under `docs/agents/`.

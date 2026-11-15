@@ -523,7 +523,11 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
 
 def ticket_id(s):
     if not re.fullmatch(r"[A-Za-z]+-[0-9]+", s):
-        raise argparse.ArgumentTypeError(f"{s!r} is not like CW-57")
+        try:
+            example = project_config.prefix()
+        except SystemExit:
+            example = "<PREFIX>"
+        raise argparse.ArgumentTypeError(f"{s!r} is not a ticket id like {example}-57")
     return s
 
 

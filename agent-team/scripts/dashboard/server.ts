@@ -7,7 +7,8 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { buildApi, ledgerSessions, parseWorktrees, repoUrlFromProject, teamSessions, trackerLinksFromProject } from './api.ts'
 import type { TrackerLinks, Worktree } from './api.ts'
-import { createTitles, ghRunner, headsFromProject, prefixFromProject, slugFromUrl } from './titles.ts'
+import { createTitles, ghRunner, headsFromProject, prefixFromProject, retiredFromProject, slugFromUrl } from './titles.ts'
+import type { Retired } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 import { createUpdated } from './updated.ts'
 import { createBacklog } from './backlog.ts'
@@ -297,7 +298,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
       const snapshots = readSnapshots()
       const state = readState()
       const now = Date.now()
-      matched = ledgerSessions({ snapshots, worktrees, state, prefix: text === undefined ? null : prefixFromProject(text), heads: text === undefined ? undefined : headsFromProject(text), now })
+      matched = ledgerSessions({ snapshots, worktrees, state, prefix: text === undefined ? null : prefixFromProject(text), retired: text === undefined ? undefined : retiredFromProject(text), heads: text === undefined ? undefined : headsFromProject(text), now })
       team = teamSessions({ snapshots, state, now })
     } catch {}
     try {
@@ -334,6 +335,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     let mergedCfg: MergedConfig | null = null
     let required: string[] | null = null
     let prefix: string | null = null
+    let retired: Retired = []
     let heads: string[] | undefined
     try {
       const text = projectText()
@@ -341,13 +343,14 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
         repo = repoUrlFromProject(text)
         links = trackerLinksFromProject(text)
         prefix = prefixFromProject(text)
+        retired = retiredFromProject(text, prefix)
         heads = headsFromProject(text)
         const rows = requiredFromProject(text)
         required = rows.none ? null : rows.names
         const slug = repo ? slugFromUrl(repo.url) : null
         if (prefix && slug && repo) {
-          mergedCfg = { prefix, slug, issueUrls: repo.isGithubIssues, issueUrl: links?.issue, heads }
-          if (repo.isGithubIssues) titleCfg = { prefix, slug }
+          mergedCfg = { prefix, retired, slug, issueUrls: repo.isGithubIssues, issueUrl: links?.issue, heads }
+          if (repo.isGithubIssues) titleCfg = { prefix, retired, slug }
         }
       }
     } catch {}
@@ -378,11 +381,11 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     // Linear and Jira are not reachable from here; the Chief of Staff saves their Todo and Backlog lists in a file.
     // The file's change stamp is read on every tracker: on GitHub a new one reads the issues again now.
     const fromFile = repo !== null && !repo.isGithubIssues && prefix !== null
-    trackerLists.want(prefix, fromFile)
+    trackerLists.want(prefix, fromFile, retired)
     backlog.want(titleCfg, trackerLists.changed())
     trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, heads, merged: mergedAll, openPrs: openPrs.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
   }
 
   const server: Server = createServer({ requireHostHeader: false }, (req, res) => {
