@@ -612,6 +612,18 @@ test('renderGantt ends with a CI wait row of the merged spans and leaves the Tot
   assert.deepEqual(withWait.map((r) => r.name), ['agent', 'Total', 'CI wait'])
   assert.deepEqual(withWait[1], view(renderGantt(sessions, now))[1])
   assert.match(last(renderGantt(sessions, now, [[T, null]])).cls, /running/)
+  const two = [sess({ rows: [task({ segments: [[T, T + 2 * MIN], [T + 10 * MIN, T + 12 * MIN]], end: T + 12 * MIN })] })]
+  const bars = [
+    ['a CI span in a gap sits between the working bars on the combined axis', two, [[T + 4 * MIN, T + 6 * MIN]], [[0, 33.33], [66.67, 33.33]], [[33.33, 33.33]]],
+    ['an open CI span ends at the right edge', sessions, [[T + 3 * MIN, null]], [[0, 10.53]], [[10.53, 89.47]]],
+  ]
+  for (const [name, s, ci, work, wait] of bars) {
+    const [row, , ciWait] = view(renderGantt(s, now, ci))
+    assert.deepEqual([row.bars, ciWait.bars], [work, wait], name)
+    assert.ok(!renderGantt(s, now, ci).includes('class="bar running"'), name)
+    assert.deepEqual(view(renderGantt(s, now, ci))[1], view(renderGantt(s, now))[1], name)
+  }
+  assert.equal(renderGantt(two, now, []), renderGantt(two, now), 'no CI spans, same chart as before')
   assert.match(renderGantt(sessions, now, spans), /title="CI wait\n2 commits ran CI · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m"/)
 })
 
