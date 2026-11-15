@@ -1,6 +1,7 @@
 # CW-347: Show a ticket on the dashboard Todo list as soon as the Chief of Staff marks it Todo
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #356, as specified
 **Ticket:** [#347](https://github.com/collective-wisdom-org/collective-wisdom/issues/347)
 **Related:** [#345](https://github.com/collective-wisdom-org/collective-wisdom/issues/345) (building on `dashboard/page/app.js` now; this ticket changes one line there)
 
