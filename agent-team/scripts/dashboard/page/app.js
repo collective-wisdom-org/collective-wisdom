@@ -7,9 +7,10 @@ const isHttp = (u) => typeof u === 'string' && /^https?:\/\//i.test(u)
 const link = (url, label) => (isHttp(url) ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : esc(label))
 
 const two = (n) => String(n).padStart(2, '0')
-const clock = (ms) => {
+/** Local 12-hour time: 9:05 am, 12:00 pm. */
+export const clock = (ms) => {
   const d = new Date(ms)
-  return `${two(d.getHours())}:${two(d.getMinutes())}`
+  return `${d.getHours() % 12 || 12}:${two(d.getMinutes())} ${d.getHours() < 12 ? 'am' : 'pm'}`
 }
 const tokens = (n) => (n >= 999_950 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(1)}k` : String(n))
 const dollars = (c) => (c === null || c === undefined ? '–' : `$${c.toFixed(2)}`)

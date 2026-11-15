@@ -121,23 +121,23 @@ def file(n, day):
             {"cw-1.md": file(1, "2026-11-04"), "cw-2.md": file(2, "2026-11-04")},
             {"cw-1.md": "2026-11-04T09:00:00+00:00", "cw-2.md": "2026-11-04T08:00:00+00:00"},
             [],
-            ["## 2026-11-04 CW-1: f1", "Merged 2026-11-04 09:00 UTC.", "## 2026-11-04 CW-2: f2", "Merged 2026-11-04 08:00 UTC."],
+            ["## 2026-11-04 CW-1: f1", "Merged 2026-11-04 9:00 am UTC.", "## 2026-11-04 CW-2: f2", "Merged 2026-11-04 8:00 am UTC."],
         ),
         (  # PR and file note on one day, ordered by time; the file's merge day wins over its heading day
             {"cw-1.md": file(1, "2026-11-03")},
             {"cw-1.md": "2026-11-04T09:00:00+00:00"},
             [pr(5, "fix: a", NOTE, "2026-11-04T10:15:00Z"), pr(6, "fix: b", NOTE, "2026-11-04T08:59:00Z")],
             [
-                "## 2026-11-04 a (#5)", "Merged 2026-11-04 10:15 UTC.",
-                "## 2026-11-03 CW-1: f1", "Merged 2026-11-04 09:00 UTC.",
-                "## 2026-11-04 b (#6)", "Merged 2026-11-04 08:59 UTC.",
+                "## 2026-11-04 a (#5)", "Merged 2026-11-04 10:15 am UTC.",
+                "## 2026-11-03 CW-1: f1", "Merged 2026-11-04 9:00 am UTC.",
+                "## 2026-11-04 b (#6)", "Merged 2026-11-04 8:59 am UTC.",
             ],
         ),
         (  # a file note without a merge time comes after timed notes of its day, with no Merged line
             {"cw-1.md": file(1, "2026-11-04"), "cw-2.md": file(2, "2026-11-04")},
             {"cw-1.md": "2026-11-04T01:00:00+00:00"},
             [pr(5, "fix: a", NOTE, "2026-11-04T00:30:00Z")],
-            ["## 2026-11-04 CW-1: f1", "Merged 2026-11-04 01:00 UTC.", "## 2026-11-04 a (#5)", "Merged 2026-11-04 00:30 UTC.", "## 2026-11-04 CW-2: f2"],
+            ["## 2026-11-04 CW-1: f1", "Merged 2026-11-04 1:00 am UTC.", "## 2026-11-04 a (#5)", "Merged 2026-11-04 12:30 am UTC.", "## 2026-11-04 CW-2: f2"],
         ),
     ],
 )

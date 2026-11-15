@@ -78,6 +78,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+from clock12 import clock12  # noqa: E402
 import project_config  # noqa: E402
 
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
@@ -560,11 +561,11 @@ def apply_file(path, ops):
 
 
 def t(s):
-    """HH:MM for a time on today's UTC date, the full string otherwise, - for none."""
+    """H:MMam/pm for a time on today's UTC date (no space: show prints key=value pairs), the full string otherwise, - for none."""
     if not s:
         return "-"
     d = parse(s)
-    return d.astimezone(timezone.utc).strftime("%H:%M") if d and d.date() == datetime.now(timezone.utc).date() else s
+    return clock12(d.astimezone(timezone.utc)).replace(" ", "") if d and d.date() == datetime.now(timezone.utc).date() else s
 
 
 def v(x):
