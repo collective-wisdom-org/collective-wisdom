@@ -144,3 +144,28 @@ def test_build_lane_by_review_mode(monkeypatch, capsys, tmp_path, rows, rollup, 
     code, out = run(monkeypatch, capsys, tmp_path, {"tickets": {"ABC-1": {"stage": "build"}}}, [pr])
     assert want in out[0]
     assert code == {"ready": 1, "building": 0, "cos_ready_check:": 2}[want.split()[0]]
+
+
+SUCCESS = [{"__typename": "CheckRun", "name": "t", "status": "COMPLETED", "conclusion": "SUCCESS"}]
+
+
+@pytest.mark.parametrize(
+    "extra, info, want, flagged",
+    [
+        ({"mergeable": "CONFLICTING", "statusCheckRollup": []}, {}, "conflict ABC-1 #5 head a1b2c3d", True),
+        ({"mergeStateStatus": "DIRTY"}, {}, "conflict ABC-1 #5 head a1b2c3d", True),  # no rollup field, DIRTY alone
+        ({"mergeable": "CONFLICTING", "mergeStateStatus": "DIRTY", "comments": PASS_BOTH}, {}, "conflict ABC-1", True),  # reviews do not matter
+        ({"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN", "statusCheckRollup": []}, {}, "building ABC-1 #5 (code review", False),
+        ({"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN", "statusCheckRollup": []}, {}, "building ABC-1 #5 (code review", False),
+        ({"mergeable": "CONFLICTING", "mergeStateStatus": "DIRTY", "statusCheckRollup": SUCCESS}, {}, "building ABC-1 #5 (code review", False),
+        ({"mergeable": "CONFLICTING", "statusCheckRollup": []}, {"conflictHead": HEAD}, "building ABC-1 #5 (conflict relayed)", False),
+        ({"mergeable": "CONFLICTING", "statusCheckRollup": []}, {"conflictHead": OLD}, "conflict ABC-1 #5 head a1b2c3d", True),  # an older head
+    ],
+)
+def test_conflict_with_no_checks_is_flagged_once_per_head(monkeypatch, capsys, tmp_path, extra, info, want, flagged):
+    state = {"tickets": {"ABC-1": {"stage": "build", **info}}}
+    pr = {"number": 5, "headRefName": "feat/abc-1-a", "headRefOid": HEAD, "comments": [], **extra}
+    code, out = run(monkeypatch, capsys, tmp_path, state, [pr])
+    assert want in out[0]
+    assert out[-1] == f"ready-check: 1 checked, {int(flagged)} may have reported"
+    assert code == int(flagged)

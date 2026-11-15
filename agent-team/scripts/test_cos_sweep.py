@@ -28,6 +28,9 @@ UNTRACKED_PR = {"number": 9, "headRefName": "feat/abc-3-x", "author": {"login": 
     [
         # ready and under an old parent: listed once, both reasons
         ({"ABC-1": {**BUILD, "parentThreadId": "OLD"}}, OPEN_READY, "read in full: ABC-1 (ready, old-parent); merged: none", [], 1),
+        # a conflicting PR with no checks is listed with its own reason
+        ({"ABC-1": {**BUILD, "parentThreadId": "ME"}}, [{**OPEN_READY[0], "comments": [], "mergeable": "CONFLICTING", "statusCheckRollup": []}],
+         "read in full: ABC-1 (conflict); merged: none", ["conflict ABC-1 #5"], 1),
         # ready under this thread: the ready check alone lists it
         ({"ABC-1": {**BUILD, "parentThreadId": "ME"}}, OPEN_READY, "read in full: ABC-1 (ready); merged: none", ["ready ABC-1 #5"], 1),
         # just merged: written to state first, so no longer a child to read
