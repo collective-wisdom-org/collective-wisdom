@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -904,4 +904,26 @@ test('promptLink turns a dashboard thread link into a T3 prompt link and refuses
     ['<t3-thread://v2/en"v/th>', null],
   ]
   for (const [link, want] of cases) assert.equal(promptLink(link, 'a b&c'), want, String(link))
+})
+
+test('each Backlog card has a Mark todo control after the switch and before the meta line, a link to the Chief of Staff thread or a copy button; no other tab has one', () => {
+  const link = '<t3-thread://v2/e/t>'
+  const cases = [
+    ['WISE-419', 'mark 419 todo'],
+    ['CW-7', 'mark 7 todo'],
+    ['helper:x', null],
+  ]
+  for (const [id, cmd] of cases) {
+    assert.equal(todoCommand({ id }), cmd, id)
+    const backlog = (chief) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row({ id })] }], new Set(), 0, new Set(), new Set(), chief)
+    const foot = (html) => html.match(/<div class="foot">([\s\S]*?)<span class="meta">/)[1]
+    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}">Mark todo</a>`
+    const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Mark todo</button>`
+    for (const [chief, want] of [[link, withLink], [undefined, copy], ['t3-thread://v2/e/t', copy]]) {
+      const f = foot(backlog(chief))
+      assert.ok(want ? f.endsWith(want) && f.length > want.length : !f.includes('todo'), `${id} ${chief}`)
+    }
+    const groups = ['Todo', 'Building', 'Awaiting merge approval'].map((name) => ({ name, count: 1, rows: [row({ id })] }))
+    assert.doesNotMatch(renderStatus(groups, new Set(), new Set(), new Set(), link), /class="todo"/, id)
+  }
 })

@@ -328,13 +328,27 @@ function approveControls(r, chiefLink) {
     .join('')
 }
 
+/** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */
+export function todoCommand(r) {
+  const n = /-(\d+)$/.exec(String(r?.id))?.[1]
+  return n ? `mark ${n} todo` : null
+}
+
+/** The Mark todo control: a link that opens the Chief of Staff thread with the command typed in, or, with no usable thread link, a button that copies it; empty with no ticket number. */
+function todoControl(r, chiefLink) {
+  const text = todoCommand(r)
+  if (text === null) return ''
+  const href = promptLink(chiefLink, text)
+  return href ? `<a class="todo" href="${esc(href)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
+}
+
 /**
  * One ticket as a card (`li.ticket`), the same three rows for every card. Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
  * Top row: the ticket number, the title and the thread copy button. Middle row (only when it has something): the `Open PR` or `Open spec` link and the Approve and Changes controls.
- * Bottom row: the Agents and Details control, then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
+ * Bottom row: the Agents and Details control, the Mark todo control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
  * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
-function ticket(r, { flat, attn, group, open, info, chiefLink }) {
+function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false }) {
   const blocked = r.stage === 'blocked'
   const risk = riskText(r.risk)
   const action = actionFor(r)
@@ -352,7 +366,7 @@ function ticket(r, { flat, attn, group, open, info, chiefLink }) {
   const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
   const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink, { thread: true }))
   const actions = (action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : '') + approveControls(r, chiefLink)
-  return `<li class="${cls}">\n  ${head}\n  ${actions ? `<div class="actions">${actions}</div>\n  ` : ''}<div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
+  return `<li class="${cls}">\n  ${head}\n  ${actions ? `<div class="actions">${actions}</div>\n  ` : ''}<div class="foot">${sw.control}${markTodo ? todoControl(r, chiefLink) : ''}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
 }
 
 /** Page count and the clamped 0-based page `at` for a list of `length` rows; a non-number page is 0. */
@@ -385,12 +399,12 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
   return html || '<p class="quiet">No state yet</p>'
 }
 
-/** The Backlog tab: the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; `backlogPage` is the 0-based page; `open` and `info` are as in `renderStatus`. */
-export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set()) {
+/** The Backlog tab: the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each card gets a Mark todo control. */
+export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '') {
   const g = list(groups).find((x) => x.name === BACKLOG)
   if (!g) return '<p class="quiet">Nothing in the Backlog</p>'
   const { at, pages } = pageOf(g.rows.length, backlogPage, BACKLOG_PAGE)
-  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info })).join('\n')
+  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info, chiefLink, markTodo: true })).join('\n')
   const pager =
     pages > 1
       ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
@@ -886,7 +900,7 @@ if (typeof document !== 'undefined') {
     shownInfo.clear()
     const collapsed = readCollapsed()
     document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info, last.chief?.threadLink)
-    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info)
+    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info, last.chief?.threadLink)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
   // The Ship loop, Backlog and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.
