@@ -1,5 +1,17 @@
 # Release notes
 
+## 2026-11-15 Approve on the dashboard presses Send in T3 Code (WISE-423) (#425)
+
+Merged 2026-11-15 5:15 pm UTC.
+
+Approve on the dashboard now presses Send in T3 Code for you when T3 Code is in front, so one click sends `approve N`. The first time, macOS asks you to let T3 Code (or the app that started the dashboard) control System Events, and you turn on Accessibility for it in System Settings; if that isn't allowed or T3 isn't in front, the draft stays and the dashboard says why.
+
+## 2026-11-15 say on the dashboard Approve and Changes links that Send is still needed (WISE-421) (#422)
+
+Merged 2026-11-15 4:48 pm UTC.
+
+The dashboard's Approve and Changes buttons still open the Chief of Staff thread with the command typed in; T3 Code does not let a link send it. Their tooltips now say you press Send.
+
 ## 2026-11-15 Mark todo button on Backlog cards (WISE-419) (#420)
 
 Merged 2026-11-15 4:47 pm UTC.
