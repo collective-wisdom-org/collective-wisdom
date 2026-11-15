@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -448,7 +448,7 @@ test('status sections draw open unless collapsed; a closed one keeps its heading
 
 test('merged list pages by ten, clamps the page, disables the pager ends and escapes text', () => {
   const list = Array.from({ length: 25 }, (_, i) => ({ id: `CW-${i + 1}`, title: `t${i + 1}`, prUrl: `https://x.test/pull/${i + 1}`, mergedAt: new Date(2026, 0, 2, 3, 4).getTime() }))
-  const cards = (html) => (html.match(/<li class="row">/g) ?? []).length
+  const cards = (html) => (html.match(/<li class="ticket compact">/g) ?? []).length
   const cases = [
     [0, 0, 10, 'Page 1 of 3', /data-page="-1" disabled/],
     [1, 1, 10, 'Page 2 of 3', /data-page="0">Newer[\s\S]*data-page="2">Older/],
@@ -488,9 +488,9 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.deepEqual(bandsOf(renderStatus(names)), ['Your turn', 'Spec ready to build', 'Ready to merge', 'In progress', 'Building', 'Mystery', 'Writing the spec', 'Up next', 'Waiting to build'])
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
   const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
-  assert.match(other, /class="row blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
-  assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
-  assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
+  assert.match(other, /class="ticket blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
+  assert.equal((other.match(/class="ticket blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
+  assert.match(other, /class="ticket blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
   assert.match(queued, /<span class="meta"><span class="badge risk risk-low">Low<\/span><\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
@@ -504,7 +504,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const todo = { name: 'Todo', count: 1, rows: [row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
-  const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
+  const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
   const card = part('progress')
   assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
@@ -516,8 +516,8 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   assert.ok(!html.includes('<img'))
   const idle = part('not-started')
   assert.ok(idle.indexOf('data-group="Todo"') >= 0 && idle.indexOf('data-group="Todo"') < idle.indexOf('data-group="Backlog"'), 'api order kept: Todo then Backlog')
-  assert.equal([...idle.matchAll(/<li class="row">/g)].length, 2)
-  assert.ok(!idle.includes('<li class="ticket"') && !/risk|since/.test(idle))
+  assert.equal([...idle.matchAll(/<li class="ticket compact">/g)].length, 2)
+  assert.ok(!/risk|since/.test(idle))
   assert.match(idle, /href="https:\/\/x\.test\/issues\/7"/)
   assert.match(idle, /data-ticket="CW-8"/)
   assert.ok(html.indexOf('band-queued') < html.indexOf('band-not-started'), 'Not started follows Queued')
@@ -568,6 +568,25 @@ test('versionWatch asks for a reload only when a later version differs from the 
   }
 })
 
+test('every row in every section is a li.ticket card in ul.cards; no row or rows class is left', () => {
+  const g = (name, o = {}) => ({ name, count: 1, rows: [row({ id: `${name}-1`, stage: 'build', ...o })] })
+  const merged = [{ id: 'CW-9', title: 'm', mergedAt: T }]
+  const pm = { chief: { state: 'idle' }, pm: [{ sessionId: 's1', role: 'ranking', state: 'finished', gantt: [] }] }
+  const cases = [
+    ['Your turn', renderStatus([g('Awaiting merge approval')]), 'ticket attn'],
+    ['In progress', renderStatus([g('Building')]), 'ticket'],
+    ['Up next', renderStatus([g('Queued to build')]), 'ticket compact'],
+    ['blocked Up next', renderStatus([g('Other', { stage: 'blocked' })]), 'ticket blocked'],
+    ['Not started', renderStatus([g('Todo')]), 'ticket compact'],
+    ['Done', renderMerged(merged, 0).html, 'ticket compact'],
+    ['project manager', renderChief(pm, 0).html, 'ticket compact'],
+  ]
+  for (const [name, html, cls] of cases) {
+    assert.match(html, new RegExp(`<ul class="cards"><li class="${cls}">`), name)
+    assert.ok(!/class="rows?"|<li class="row/.test(html), `${name}: no row class`)
+  }
+})
+
 test('the Chief of Staff tab renders the card, the empty list, escaped role rows and a pager; an unknown saved tab opens Ship loop', () => {
   const empty = renderChief({ chief: { state: 'idle' }, pm: [] }).html
   assert.match(empty, /No Chief of Staff session in the last 24 hours\./)
@@ -585,11 +604,11 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   assert.match(first.html, /Hygiene/)
   assert.ok(!first.html.includes('<img'))
   assert.match(first.html, /data-pm="&lt;img[^"]*" data-view="agents" id="[^"]*" aria-expanded="true"/)
-  assert.equal([...first.html.matchAll(/<li class="row">/g)].length, 10)
+  assert.equal([...first.html.matchAll(/<li class="ticket compact">/g)].length, 10)
   assert.match(first.html, /Page 1 of 2/)
   const last = renderChief(api, 99)
   assert.equal(last.page, 1)
-  assert.equal([...last.html.matchAll(/<li class="row">/g)].length, 2)
+  assert.equal([...last.html.matchAll(/<li class="ticket compact">/g)].length, 2)
   assert.deepEqual(['cos', 'done', 'ship', null, undefined, 'x', 'COS', 'DONE', 5].map(tabFromStorage), ['cos', 'done', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
   const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
   const drawn = []
@@ -705,6 +724,14 @@ test('an awaiting card counts the wait instead of showing the status line; a bui
   assert.doesNotMatch(build, /class="wait"/)
 })
 
+test('a stale group says how old its list is and greys its rows; a fresh one or one with no readAt draws nothing', () => {
+  const now = Date.now()
+  const html = (g) => renderStatus([{ name: 'Todo', count: 1, rows: [row({ id: 'CW-8', risk: '', next: '', stage: '' })], ...g }])
+  const stale = html({ readAt: now - (3 * 60 + 16) * 60_000 - 5_000, stale: true })
+  assert.match(stale, /<details class="group stale"[^>]*>.*<\/summary><p class="read-age">Read from the tracker 3h 16m ago<\/p><ul/)
+  for (const g of [{ readAt: now - 600_000 }, {}]) assert.ok(!/read-age|group stale/.test(html(g)), JSON.stringify(g))
+})
+
 test('clock: local 12-hour time with am/pm', () => {
   const cases = [
     [0, 0, '12:00 am'],
@@ -741,4 +768,53 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
     assert.match(html, text ? /<\/nav><p class="more"><a href="https:\/\/x\.test\/b"/ : /<\/ul><p class="more"><a href="https:\/\/x\.test\/b"/, label)
   }
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
+})
+
+test('top-level bands draw open unless their band key is collapsed, and leave their sub-sections alone', () => {
+  const groups = [{ name: 'Awaiting merge approval', count: 1, rows: [row()] }, { name: 'Building', count: 1, rows: [row({ id: 'CW-2' })] }]
+  const head = (html, slug) => html.match(new RegExp(`<details class="band band-${slug}"[^>]*>`))[0]
+  const api = { chief: {}, pm: [] }
+  const cases = [
+    ['status, none collapsed', () => renderStatus(groups), 'needs', true],
+    ['status, Your turn collapsed', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'needs', false],
+    ['status, other band stays open', () => renderStatus(groups, new Set(), new Set([bandKey('needs')])), 'progress', true],
+    ['status, a group name collapses no band', () => renderStatus(groups, new Set(), new Set(['Building'])), 'progress', true],
+    ['chief, none collapsed', () => renderChief(api).html, 'pm', true],
+    ['chief, pm collapsed', () => renderChief(api, 0, new Set(), 10, new Set([bandKey('pm')])).html, 'pm', false],
+  ]
+  for (const [name, html, slug, open] of cases) assert.equal(head(html(), slug).endsWith(' open>'), open, name)
+  // A collapsed band leaves its sub-sections' own state alone.
+  const inside = renderStatus(groups, new Set(), new Set([bandKey('needs')])).match(/<details class="group needs-merge" data-group="Awaiting merge approval"[^>]*>/)[0]
+  assert.ok(inside.endsWith(' open>'))
+})
+
+test('localTimes: UTC times in status text become local am/pm with no zone; anything else stays', () => {
+  const was = process.env.TZ
+  process.env.TZ = 'America/Toronto'
+  try {
+    const now = Date.UTC(2026, 10, 14, 12, 0)
+    const cases = [
+      ['build since 3:55am UTC: child building', 'build since 10:55 pm: child building'],
+      ['since 2:05pm UTC', 'since 9:05 am'],
+      ['12:00am UTC', '7:00 pm'],
+      ['12:00pm UTC', '7:00 am'],
+      ['at 14:05', 'at 9:05 am'],
+      ['2026-11-02T09:30:00Z', '2026-11-02T09:30:00Z'],
+      ['took 10:30:00', 'took 10:30:00'],
+      ['at 25:00', 'at 25:00'],
+      ['no time here', 'no time here'],
+    ]
+    for (const [text, want] of cases) assert.equal(localTimes(text, now), want, text)
+  } finally {
+    if (was === undefined) delete process.env.TZ
+    else process.env.TZ = was
+  }
+})
+
+test('a card and its Details show status times in local time with no UTC', () => {
+  const html = renderStatus(group([row({ next: 'build since 3:55am UTC: x', risk: 'low, ran at 3:53am' })]))
+  assert.match(html, /<p class="next">build since \d\d?:\d\d [ap]m: x<\/p>/)
+  assert.match(html, /<dt>Next<\/dt><dd>build since \d\d?:\d\d [ap]m: x<\/dd>/)
+  assert.match(html, /<dt>Risk<\/dt><dd>low, ran at \d\d?:\d\d [ap]m<\/dd>/)
+  assert.doesNotMatch(html, /UTC/)
 })

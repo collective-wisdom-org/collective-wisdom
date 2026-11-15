@@ -13,7 +13,9 @@ show prints the working set (a few lines plus one status line per ticket). get p
 one ticket (or the pm block) as JSON. apply reads a JSON list of operations on stdin and
 applies all of them or none: it prints "unchanged", or "saved" and one line per changed
 ticket, and writes through a temp file, fsync and os.replace under a flock on state.lock
-next to the file. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
+next to the file. After either result, a start, merged or drop op also removes its ticket from the saved Todo and
+Backlog lists (tracker-lists.json next to the file, through cos_lists.remove) so the dashboard stops showing it; that
+never changes the output or the exit code. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
@@ -81,6 +83,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 from app_root import root  # noqa: E402
+import cos_lists  # noqa: E402
 from clock12 import clock12  # noqa: E402
 import project_config  # noqa: E402
 
@@ -562,6 +565,12 @@ def apply_file(path, ops):
             save(path, new)
             print("\n".join(["saved", *lines]))
         print("\n".join(notes), end="\n" if notes else "")
+    try:  # the ticket left Todo or Backlog; a failure here never changes the result
+        ids = [o["ticket"] for o in ops if isinstance(o, dict) and o.get("op") in ("start", "merged", "drop")]
+        if ids:
+            cos_lists.remove(ids, path.with_name("tracker-lists.json"))
+    except Exception:
+        pass
     return 0
 
 

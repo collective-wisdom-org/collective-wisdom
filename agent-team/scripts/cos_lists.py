@@ -13,6 +13,9 @@ keeps the stamp. Writes through a temp file and a rename, and writes nothing whe
 file is not a regular file.
 Prints `lists: saved <kind> <n>` (`lists: saved changed` for `changed`) and exits 0. Exit 2 with `lists: cannot <what>`
 when stdin is not one of those shapes or the write fails; the caller goes on. cos_todo.py calls save() on its first pass.
+remove(ids) drops the entries with those ticket ids (read as identifier, then id, then key) from both kinds and keeps
+each kind's `at`. It writes nothing when the file is absent or no entry matches. cos_state.py apply calls it for each
+ticket a start, merged or drop op names, so a ticket that left Todo does not stay on the dashboard.
 """
 
 import argparse
@@ -65,7 +68,7 @@ def stamp_ms():
 
 
 def update(file, change):
-    """Run change(held) on the file's top-level object and write it back. Raises Cannot. No lock: two writers at the same moment can drop one key."""
+    """Run change(held) on the file's top-level object and write it back, unless it returns False. Raises Cannot. No lock: two writers at the same moment can drop one key."""
     path = Path(file) if file else DEFAULT_FILE
     try:
         if not stat.S_ISDIR(os.lstat(path.parent).st_mode) or not regular(path):
@@ -75,7 +78,8 @@ def update(file, change):
         except (OSError, ValueError):
             held = {}
         held = held if isinstance(held, dict) else {}
-        change(held)
+        if change(held) is False:
+            return
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)  # never through a planted link
@@ -95,6 +99,25 @@ def save(kind, tickets, file=None):
     items = entries(tickets) if isinstance(tickets, str) else list(tickets)[:MAX]
     update(file, lambda held: held.__setitem__(kind, {"at": stamp(), "list": items}))
     return len(items)
+
+
+def remove(ids, file=None):
+    """Drop the entries whose id is in `ids` from every kind, keeping each kind's `at` and the `changed` stamp. Raises Cannot."""
+    ids = set(ids)
+
+    def change(held):
+        hit = False
+        for kind in KINDS:
+            block = held.get(kind)
+            if not isinstance(block, dict) or not isinstance(block.get("list"), list):
+                continue
+            kept = [e for e in block["list"] if not (isinstance(e, dict) and (e.get("identifier") or e.get("id") or e.get("key")) in ids)]
+            if len(kept) != len(block["list"]):
+                block["list"], hit = kept, True
+        return hit
+
+    if (Path(file) if file else DEFAULT_FILE).exists():
+        update(file, change)
 
 
 def mark_changed(file=None):
