@@ -12,7 +12,7 @@ python3 ~/.collective-wisdom/scripts/cos_rotation_check.py
 
 Only a run-started notice skips it (no tool calls). A Stop hook (`~/.claude/settings.json`, and `~/.cursor/hooks.json` on Cursor) runs the same script and sends the turn back on `rotate:` and on `finish:`. Cursor and Codex have mode `none` in `RESET_MODES`: no `rotate:` there, so no size trigger and no skill-change reset.
 
-It prints one line and exits 0: `rotate: <reason>; mode <reset|reset-scheduled|compact>` (plus `; reset never confirmed` when the `reset` marker is 10 or more minutes old), `finish: take over unfinished since <N>m; mode <take-over|resume>` while `takeover` is set in state (ahead of the `reset` hold and every trigger; § Finish take over), or `ok ...` (`ok (no reset on <provider>; context=<N>k)` for mode `none`). Table (`SIZE_CAP`, `QUIET_RELAY_MIN`, `QUIET_RESET_MIN`, `RESET_HOLD_MIN` live in the script; change both together. `RESET_MODES` goes with the Context reset row of `docs/compatibility.md`):
+It prints one line and exits 0: `rotate: <reason>; mode <reset|reset-scheduled|compact>` (plus `; reset never confirmed` when the `reset` marker is 10 or more minutes old), `finish: take over unfinished since <N>m; mode <take-over|resume>` while `takeover` is set in state (ahead of the `reset` hold and every trigger; see "Finish take over" below), or `ok ...` (`ok (no reset on <provider>; context=<N>k)` for mode `none`). Table (`SIZE_CAP`, `QUIET_RELAY_MIN`, `QUIET_RESET_MIN`, `RESET_HOLD_MIN` live in the script; change both together. `RESET_MODES` goes with the Context reset row of `docs/compatibility.md`):
 
 | Trigger | Threshold |
 |---|---|
