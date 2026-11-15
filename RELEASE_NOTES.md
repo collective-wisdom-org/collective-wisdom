@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-15 finish the Chief of Staff take-over pass when a message interrupts it (CW-353) (#368)
+
+Merged 2026-11-15 4:16 am UTC.
+
+If a message reaches the Chief of Staff in the middle of a take over, it now finishes the take over first, then answers. You don't need to do anything.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-15 paginate the dashboard Backlog (CW-349) (#374)
 
 Merged 2026-11-15 4:15 am UTC.
