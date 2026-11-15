@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, groupLabel, stageSentence, riskText, dayWords, actionFor, ganttSummary, summaryLine, renderMarkdown, renderStatus, renderGantt, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -36,23 +36,114 @@ test('empty inputs show quiet lines', () => {
   assert.match(renderGantt([], 0), /No sessions yet/)
 })
 
-test('header badges count the three groups, hide empty alerts and use the singular for one', () => {
-  const g = (merge, build, queue) =>
-    [['Awaiting merge approval', merge], ['Awaiting build approval', build], ['Queued to build', queue]]
-      .filter(([, count]) => count !== undefined)
-      .map(([name, count]) => ({ name, count, rows: [] }))
-  const text = (html) => [...html.matchAll(/<span class="(badge[^"]*)">([^<]*)<\/span>/g)].map((m) => `${m[1]}|${m[2]}`)
-  const none = 'badge quiet|No tickets in the build queue'
+test('the header is one sentence: Your turn first in the attention colour, zero counts left out, blocked apart from waiting, Not started not counted', () => {
+  const g = (name, count, rows = []) => ({ name, count, rows })
+  const text = (groups) => renderBadges(groups).replace(/<[^>]+>/g, '')
+  const blockedRow = { id: 'A', stage: 'blocked' }
   const cases = [
-    [g(0, 0, 0), [none]],
-    [g(undefined, undefined, undefined), [none]],
-    [g(1, 1, 1), ['badge cta-high|1 thread awaiting merge approval', 'badge cta-medium|1 thread awaiting build approval', 'badge quiet|1 ticket in the build queue']],
-    [g(3, 2, 5), ['badge cta-high|3 threads awaiting merge approval', 'badge cta-medium|2 threads awaiting build approval', 'badge quiet|5 tickets in the build queue']],
-    [g(undefined, 2, undefined), ['badge cta-medium|2 threads awaiting build approval', none]],
+    [[], 'Nothing needs you'],
+    [[g('Awaiting merge approval', 0), g('Building', 0)], 'Nothing needs you'],
+    [[g('Awaiting merge approval', 1)], '1 needs you'],
+    [[g('Awaiting merge approval', 1), g('Awaiting build approval', 1), g('Building', 3), g('Speccing', 0)], '2 need you \u00b7 3 in progress'],
+    [[g('Queued to build', 2), g('Other', 2, [blockedRow, { id: 'B', stage: 'spec-queued' }]), g('Todo', 5), g('Backlog', 9)], 'Nothing needs you \u00b7 3 waiting \u00b7 1 blocked'],
+    [[g('Building', 2), g('Other', 1, [blockedRow])], 'Nothing needs you \u00b7 2 in progress \u00b7 1 blocked'],
   ]
-  for (const [groups, want] of cases) assert.deepEqual(text(renderBadges(groups)), want)
+  for (const [groups, want] of cases) assert.equal(text(groups), want)
+  assert.match(renderBadges([g('Awaiting merge approval', 2), g('Other', 1, [blockedRow])]), /<span class="hs-need">2 need you<\/span>.*<span class="hs-blocked">1 blocked<\/span>/)
   assert.equal(renderBadges(undefined), '')
   assert.equal(renderBadges(null), '')
+})
+
+test('group labels are plain words; an unknown name shows as it is; data-group keeps the api name', () => {
+  const cases = [
+    ['Awaiting merge approval', 'Ready to merge'],
+    ['Awaiting build approval', 'Spec ready to build'],
+    ['Awaiting teammate review', 'In review'],
+    ['Merging', 'Merging'],
+    ['Queued to merge', 'Waiting to merge'],
+    ['Speccing', 'Writing the spec'],
+    ['Building', 'Building'],
+    ['Queued to build', 'Waiting to build'],
+    ['Other', 'Blocked or waiting'],
+    ['Writing tickets', 'Writing tickets'],
+    ['Todo', 'To do'],
+    ['Backlog', 'Backlog'],
+    ['Mystery', 'Mystery'],
+  ]
+  for (const [name, want] of cases) assert.equal(groupLabel(name), want, name)
+  const html = renderStatus([{ name: 'Todo', count: 1, rows: [row()] }, { name: 'Queued to merge', count: 1, rows: [row()] }])
+  assert.match(html, /data-group="Todo"[^>]*><summary><h3>To do </)
+  assert.match(html, /data-group="Queued to merge"[^>]*><summary><h3>Waiting to merge </)
+})
+
+test('the status sentence names the stage in plain words and ends with since HH:MM only when stageAt parses', () => {
+  const at = new Date(2026, 10, 14, 9, 5).toISOString()
+  const cases = [
+    ['awaiting-merge', undefined, 'Waiting for your merge approval'],
+    ['awaiting-build', at, 'Spec is waiting for your approval since 09:05'],
+    ['blocked', undefined, 'Blocked. Needs an answer from you'],
+    ['build', at, 'Building since 09:05'],
+    ['build', 'soon', 'Building'],
+    ['spec-queued', undefined, 'Waiting for a spec slot'],
+    ['some-new-stage', undefined, 'some new stage'],
+  ]
+  for (const [stage, stageAt, want] of cases) assert.equal(stageSentence(stage, stageAt), want, stage)
+  const sentence = (r) => renderStatus(group([row(r)])).match(/<p class="status">([^<]*)</)?.[1]
+  assert.equal(sentence({ stageAt: at }), 'Building since 09:05')
+  assert.equal(sentence({ stage: '' }), undefined, 'no stage, no sentence')
+})
+
+test('risk shows the level word only, in its colour class; unreadable text shows as it is; empty shows nothing', () => {
+  const cases = [
+    ['low', { text: 'Low risk', level: 'low' }],
+    ['Medium: touches the api', { text: 'Medium risk', level: 'medium' }],
+    [' HIGH - migrations', { text: 'High risk', level: 'high' }],
+    ['not rated yet', { text: 'not rated yet', level: '' }],
+    ['', null],
+    [undefined, null],
+  ]
+  for (const [input, want] of cases) assert.deepEqual(riskText(input), want, String(input))
+  const meta = (risk) => renderStatus(group([row({ risk })])).match(/<div class="meta">([\s\S]*?)<\/div>/)[1]
+  assert.match(meta('medium: <i>x</i>'), /<span class="risk-medium">Medium risk<\/span>/)
+  assert.match(meta('not <b>rated</b>'), /<span class="risk-none">not &lt;b&gt;rated&lt;\/b&gt;<\/span>/)
+  assert.doesNotMatch(meta(''), /risk/)
+})
+
+test('an action sits under the status sentence only for a stage that needs the user and an http(s) url', () => {
+  const urls = { prUrl: 'https://x.test/pull/2', specUrl: 'https://x.test/blob/s.md', issueUrl: 'https://x.test/issues/1' }
+  const cases = [
+    [{ stage: 'awaiting-merge' }, { label: 'Open PR', url: urls.prUrl }],
+    [{ stage: 'awaiting-build' }, { label: 'Open spec', url: urls.specUrl }],
+    [{ stage: 'blocked' }, { label: 'Open issue', url: urls.issueUrl }],
+    [{ stage: 'build' }, null],
+    [{ stage: 'awaiting-merge', prUrl: 'javascript:alert(1)' }, null],
+    [{ stage: 'awaiting-build', specUrl: undefined }, null],
+  ]
+  for (const [r, want] of cases) assert.deepEqual(actionFor({ ...urls, ...r }), want, JSON.stringify(r))
+  const html = renderStatus([{ name: 'Awaiting merge approval', count: 1, rows: [row({ ...urls, stage: 'awaiting-merge' })] }])
+  assert.match(html, /<p class="status">Waiting for your merge approval<\/p>[\s\S]*<a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>Open PR<\/a>/)
+  assert.doesNotMatch(renderStatus(group([row(urls)])), /class="action"/)
+})
+
+test('dayWords says today, yesterday or the date', () => {
+  const now = new Date(2026, 10, 14, 15, 0).getTime()
+  const at = (d, h = 9) => new Date(2026, 10, d, h, 0).getTime()
+  const cases = [[at(14, 0), 'today'], [at(13, 23), 'yesterday'], [at(7), '2026-11-07'], [new Date(2025, 11, 31, 12).getTime(), '2025-12-31'], [NaN, ''], [undefined, '']]
+  for (const [ms, want] of cases) assert.equal(dayWords(ms, now), want, String(ms))
+})
+
+test('a card footer summarises the agents, time and cost from the gantt; nothing without one', () => {
+  const sessions = [sess({ rows: [task({ cost: 1, segments: [[T, T + 2 * MIN]] }), sub({ cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] })] })]
+  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { agents: 2, ms: 3 * MIN, cost: 1.5 })
+  assert.equal(ganttSummary([], T), null)
+  const foot = (gantt) => renderStatus(group([row({ gantt })])).match(/<span class="summary"[^>]*>([^<]*)</)?.[1]
+  assert.equal(foot(sessions), '2 agents \u00b7 3m 00s \u00b7 $1.50')
+  assert.equal(foot(undefined), undefined)
+  assert.equal(ganttSummary([sess({ rows: [task({ cost: null })] })], T + 10 * MIN).cost, null)
+  // A running session's summary moves with the clock; the span carries the ticket id so the page can refresh it between rebuilds.
+  const running = [sess({ rows: [task({ end: null, segments: [[T, null]] })] })]
+  assert.notEqual(summaryLine(running, T + 5 * MIN), summaryLine(running, T + 6 * MIN))
+  assert.match(renderStatus(group([row({ gantt: running })])), /<span class="summary" data-ticket="CW-1">/)
 })
 
 const T = Date.UTC(2026, 10, 7, 12, 0, 0)
@@ -297,21 +388,19 @@ test('hostile markdown comes out inert: no tag, no event attribute, no link that
   assert.match(renderMarkdown('[x](https://a.test/"onmouseover="alert(1))'), /href="https:\/\/a\.test\/&quot;onmouseover=&quot;alert\(1"/)
 })
 
-test('a Spec link sits right before PR on a card, a flat row and a merged row; it is left out without an http(s) url', () => {
-  const sub = (html) => html.match(/<div class="sub">([\s\S]*?)<\/div>/)[1]
-  const anchors = (html) => [...sub(html).matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[2]}=${m[1]}`)
-  const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
+test('the meta line links the id and PR; the Spec link sits in Details and is left out without an http(s) url', () => {
+  const e = { id: 'CW-1', title: 't', issueUrl: 'https://x.test/issues/1', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
+  const queued = (specUrl) => renderStatus([{ name: 'Queued to build', count: 1, rows: [row({ ...e, specUrl })] }])
   const renders = {
-    card: (specUrl) => renderStatus(group([row({ prUrl: 'https://x.test/pull/1', specUrl })])),
-    row: (specUrl) => renderStatus([{ name: 'Queued to build', count: 1, rows: [row({ prUrl: 'https://x.test/pull/1', specUrl })] }]),
-    merged: (specUrl) => renderMerged([{ ...e, specUrl }], 0).html,
+    card: (specUrl) => renderStatus(group([row({ ...e, specUrl })])),
+    row: queued,
+    merged: (specUrl) => renderMerged([{ ...e, specUrl }], 0, 10, new Set(), new Set(['CW-1'])).html,
   }
+  const anchors = (html) => [...html.match(/class="meta">([\s\S]*?)(?:<details|<\/div>)/)[1].matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[2]}=${m[1]}`)
   for (const [name, render] of Object.entries(renders)) {
-    assert.deepEqual(anchors(render('https://x.test/blob/a.md')), ['Spec=https://x.test/blob/a.md', 'PR=https://x.test/pull/1'], name)
-    for (const bad of [undefined, 'javascript:alert(1)']) {
-      assert.deepEqual(anchors(render(bad)), ['PR=https://x.test/pull/1'], name)
-      assert.ok(!render(bad).includes('class="spec"'), name)
-    }
+    assert.deepEqual(anchors(render('https://x.test/blob/a.md')), ['CW-1=https://x.test/issues/1', 'PR=https://x.test/pull/1'], name)
+    assert.match(render('https://x.test/blob/a.md'), /<p class="info-links">[^]*>Spec<\/a>/, name)
+    for (const bad of [undefined, 'javascript:alert(1)']) assert.doesNotMatch(render(bad), />Spec</, name)
   }
 })
 
@@ -368,32 +457,26 @@ test('merged list pages by ten, clamps the page, disables the pager ends and esc
 test('merged row shows spend only when the entry has it', () => {
   const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
   const html = (spend) => renderMerged([{ ...e, ...(spend ? { spend } : {}) }], 0).html
-  assert.doesNotMatch(html(), /cost|tokens/)
-  assert.match(html({ cost: 0.4166, tokens: 955168 }), /<span class="num cost">\$0\.42<\/span><span class="meta">955\.2k tokens<\/span>/)
+  assert.doesNotMatch(html(), /\$|tokens/)
+  assert.match(html({ cost: 0.4166, tokens: 955168 }), / \u00b7 \$0\.42 \u00b7 955\.2k tokens/)
   const none = html({ cost: null, tokens: 12 })
   assert.match(none, /12 tokens/)
-  assert.doesNotMatch(none, /cost|\$|–/)
+  assert.doesNotMatch(none, /\$|–/)
 })
 
 test('groups sort into bands, keep api order inside a band', () => {
   const g = (name, rows = [row({ id: `${name}-1`, stage: 'build' })]) => ({ name, count: rows.length, rows })
   const bandsOf = (html) => [...html.matchAll(/<h2>([^<]+)<\/h2>|<h3>([^<]+?) <span/g)].map((m) => m[1] ?? m[2])
   const names = [g('Building'), g('Mystery'), g('Awaiting build approval'), g('Queued to build'), g('Awaiting merge approval'), g('Speccing')]
-  assert.deepEqual(bandsOf(renderStatus(names)), ['Needs you', 'Awaiting build approval', 'Awaiting merge approval', 'In progress', 'Building', 'Mystery', 'Speccing', 'Queued', 'Queued to build'])
+  assert.deepEqual(bandsOf(renderStatus(names)), ['Your turn', 'Spec ready to build', 'Ready to merge', 'In progress', 'Building', 'Mystery', 'Writing the spec', 'Up next', 'Waiting to build'])
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
-  const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
-  assert.match(other, /class="row blocked"[\s\S]*>blocked<[\s\S]*>spec queued</)
-  assert.equal((other.match(/badge stage/g) ?? []).length, 3, 'a stage badge on every row with a stage, in every group')
+  const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
+  assert.match(other, /class="row blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
+  assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
+  assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
+  const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
+  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="risk-low">Low risk<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
-})
-
-test('a card shows its stage and since HH:MM, never the status text; no usable stageAt means no since', () => {
-  const stageAt = new Date(2026, 10, 14, 9, 5).toISOString()
-  for (const [extra, want] of [[{ stageAt }, 'build since 09:05'], [{}, 'build'], [{ stageAt: 'soon' }, 'build']]) {
-    const html = renderStatus(group([row({ next: 'status words', ...extra })]))
-    assert.equal(html.match(/<span class="badge stage">([^<]*)</)[1], want)
-    assert.doesNotMatch(html.replace(/<details class="info"[\s\S]*?<\/details>/, ''), /status words/)
-  }
 })
 
 test('a running ticket helper is a placeholder card, and Todo and Backlog are flat rows under Not started', () => {
@@ -406,7 +489,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
   const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
   const card = part('progress')
-  assert.match(card, /<span class="id">Ticket helper<\/span> <span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
+  assert.match(card, /<span class="title">&lt;img src=x onerror=1&gt;<\/span>[\s\S]*<span class="id">Ticket helper<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(card, /<details class="chart" data-ticket="helper:&lt;img[^>]*>/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
@@ -414,9 +497,9 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
   assert.ok(!html.includes('<img'))
   const idle = part('not-started')
-  assert.ok(idle.indexOf('>Todo ') < idle.indexOf('>Backlog '), 'api order kept: Todo then Backlog')
+  assert.ok(idle.indexOf('data-group="Todo"') >= 0 && idle.indexOf('data-group="Todo"') < idle.indexOf('data-group="Backlog"'), 'api order kept: Todo then Backlog')
   assert.equal([...idle.matchAll(/<li class="row">/g)].length, 2)
-  assert.ok(!idle.includes('<li class="ticket"') && !idle.includes('badge risk'))
+  assert.ok(!idle.includes('<li class="ticket"') && !/risk|since/.test(idle))
   assert.match(idle, /href="https:\/\/x\.test\/issues\/7"/)
   assert.match(idle, /data-ticket="CW-8"/)
   assert.ok(html.indexOf('band-queued') < html.indexOf('band-not-started'), 'Not started follows Queued')
