@@ -1,6 +1,7 @@
 # CW-276: Give ensure-labels the color and description of each team label
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #363, as specified
 **Ticket:** [#276](https://github.com/collective-wisdom-org/collective-wisdom/issues/276)
 **Related:** #256
 
