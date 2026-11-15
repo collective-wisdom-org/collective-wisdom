@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show ticket counts in the dashboard Ship loop and Done tab labels (CW-388) (#408)
+
+Merged 2026-11-15 7:21 am UTC.
+
+The dashboard's Ship loop and Done tabs now show how many tickets they hold. Nothing to do.
+
 ## 2026-11-15 stamp status-line and approval-comment times from the clock (CW-385) (#403)
 
 Merged 2026-11-15 7:11 am UTC.
