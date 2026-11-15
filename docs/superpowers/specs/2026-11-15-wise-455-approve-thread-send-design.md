@@ -2,7 +2,7 @@
 
 **Status:** Shipped
 **Ticket:** [#455](https://github.com/collective-wisdom-org/collective-wisdom/issues/455)
-**Shipped:** in PR #457, as specified
+**Shipped:** in PR #457, with differences: [as-built](../as-built/2026-11-15-wise-455-approve-thread-send-as-built.md)
 
 ## Goal
 
