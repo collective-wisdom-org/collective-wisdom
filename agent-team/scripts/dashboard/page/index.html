@@ -47,11 +47,14 @@ ul.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%
 .ticket { min-width:0; background:var(--card); border-radius:12px; padding:var(--s4); display:flex; flex-direction:column; gap:var(--s1); box-shadow:0 1px 2px var(--shadow); }
 .ticket.attn { background:linear-gradient(var(--attn-tint), var(--attn-tint)), var(--card); box-shadow:inset 3px 0 0 var(--attn), 0 1px 2px var(--shadow); }
 .head { display:flex; align-items:flex-start; gap:var(--s1); }
+.head .id { flex:none; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1.35; }
+.head .id a { color:var(--muted); } .head .id a:hover { color:var(--fg); }
 .head .title { flex:0 1 auto; min-width:0; }
 .head .copy-icon { margin-top:-.1rem; }
 .title { font-weight:600; line-height:1.35; }
 .meta { color:var(--muted); font-size:var(--t-small); min-width:0; }
 .meta a { color:var(--muted); } .meta a:hover { color:var(--fg); }
+.meta:empty { display:none; }
 .badge.risk-low { background:var(--green-tint); color:var(--green); font-weight:600; }
 .badge.risk-medium { background:var(--yellow-tint); color:var(--yellow); font-weight:600; }
 .badge.risk-high { background:var(--red-tint); color:var(--red); font-weight:600; }

@@ -315,7 +315,7 @@ test('each ticket has a closed Details section that lists what is known, escaped
   assert.equal(got.length, 7)
   assert.match(got[6][1], /^\d{4}-\d\d-\d\d \d\d:\d\d \(stale\)$/)
   const links = section(html, 'CW-1').match(/<p class="info-links">([\s\S]*?)<\/p>/)[1]
-  assert.equal(links.replace(/<a href="([^"]*)"[^>]*>/g, '[$1]').replace(/<\/a>/g, ''), '[https://x.test/issues/1]Issue #1 \u00b7 [https://x.test/pull/2]PR #2 \u00b7 <code>t3-thread://v2/env/&lt;th&gt;</code>')
+  assert.equal(links, '<code>t3-thread://v2/env/&lt;th&gt;</code>')
   assert.ok(!section(html, 'CW-1').includes('<i>') && !section(html, 'CW-1').includes('<th>'))
 
   const none = section(html, 'CW-2')
@@ -395,20 +395,21 @@ test('hostile markdown comes out inert: no tag, no event attribute, no link that
   assert.match(renderMarkdown('[x](https://a.test/"onmouseover="alert(1))'), /href="https:\/\/a\.test\/&quot;onmouseover=&quot;alert\(1"/)
 })
 
-test('the meta line links the id and PR; the Spec link sits in Details and is left out without an http(s) url', () => {
-  const e = { id: 'CW-1', title: 't', issueUrl: 'https://x.test/issues/1', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
-  const queued = (specUrl) => renderStatus([{ name: 'Queued to build', count: 1, rows: [row({ ...e, specUrl })] }])
-  const renders = {
-    card: (specUrl) => renderStatus(group([row({ ...e, specUrl })])),
-    row: queued,
-    merged: (specUrl) => renderMerged([{ ...e, specUrl }], 0, 10, new Set(), new Set(['CW-1'])).html,
+test('every row starts with its ticket number; Spec and PR sit in the meta line only for http(s) urls; Details repeats none of them', () => {
+  const base = { id: 'CW-1', title: 't', issueUrl: 'https://x.test/issues/1', mergedAt: 0 }
+  const live = (name, r) => renderStatus([{ name, count: 1, rows: [row({ ...base, ...r })] }])
+  const renders = [(r) => live('Building', r), (r) => live('Queued to build', r), (r) => live('Other', { stage: 'blocked', ...r }), (r) => renderMerged([{ ...base, ...r }], 0, 10, new Set(), new Set(['CW-1'])).html]
+  const [spec, pr, bad] = ['https://x.test/blob/a.md', 'https://x.test/pull/1', 'javascript:alert(1)']
+  for (const [specUrl, prUrl, want] of [[spec, pr, ['Spec', 'PR']], [spec, undefined, ['Spec']], [undefined, pr, ['PR']], [bad, bad, []]]) {
+    for (const [i, render] of renders.entries()) {
+      const html = render({ specUrl, prUrl })
+      assert.match(html, /<div class="head"><span class="id"><a href="https:\/\/x\.test\/issues\/1"[^>]*>CW-1<\/a><\/span><span class="title">t<\/span>/, i)
+      assert.deepEqual([...html.match(/class="meta">([^]*?)<\/div>/)[1].matchAll(/<a [^>]*>([^<]*)<\/a>/g)].map((m) => m[1]), want, `${i} ${specUrl} ${prUrl}`)
+      for (const [, href] of html.matchAll(/href="([^"]*)"/g)) assert.match(href, /^https?:\/\//, i)
+      assert.doesNotMatch(html.match(/<p class="info-links">[^]*?<\/p>/)?.[0] ?? '', /<a /, i)
+    }
   }
-  const anchors = (html) => [...html.match(/class="meta">([\s\S]*?)(?:<details|<\/div>)/)[1].matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[2]}=${m[1]}`)
-  for (const [name, render] of Object.entries(renders)) {
-    assert.deepEqual(anchors(render('https://x.test/blob/a.md')), ['CW-1=https://x.test/issues/1', 'PR=https://x.test/pull/1'], name)
-    assert.match(render('https://x.test/blob/a.md'), /<p class="info-links">[^]*>Spec<\/a>/, name)
-    for (const bad of [undefined, 'javascript:alert(1)']) assert.doesNotMatch(render(bad), />Spec</, name)
-  }
+  assert.doesNotMatch(renders[0]({ title: '' }), /class="title"/)
 })
 
 test('a merged row has a closed Details section filled only when open; it shows the links line and the PR text', () => {
@@ -419,7 +420,7 @@ test('a merged row has a closed Details section filled only when open; it shows 
   const open = renderMerged([e], 0, 10, new Set(), new Set(['CW-9'])).html
   assert.match(open, /data-view="details" id="seg-merged-CW-9-details" aria-expanded="true"/)
   assert.doesNotMatch(open, /id="pan-merged-CW-9-details"[^>]* hidden>/)
-  assert.match(open, /<p class="info-links">[^]*Issue #9[^]*Spec[^]*PR #9[^]*<\/p>/)
+  assert.doesNotMatch(open, /info-links/)
   assert.match(open, /<p>Did <strong>it<\/strong><\/p>/)
 })
 
@@ -484,7 +485,7 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
   assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
-  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="badge risk risk-low">Low<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
+  assert.match(queued, /<span class="meta"><span class="badge risk risk-low">Low<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
@@ -498,7 +499,7 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
   const part = (name) => html.split(`<section class="band band-${name}">`)[1]?.split('</section>')[0] ?? ''
   const card = part('progress')
-  assert.match(card, /<span class="title">&lt;img src=x onerror=1&gt;<\/span>[\s\S]*<span class="id">Ticket helper<\/span>/)
+  assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
