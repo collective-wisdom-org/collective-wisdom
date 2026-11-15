@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 find a merge soon after a merge relay, even when the finish notice is lost (CW-386) (#405)
+
+Merged 2026-11-15 7:01 am UTC.
+
+When the Chief of Staff relays a merge approval, it now watches the PR itself, so a merge is noticed within about a minute even if the child's finish notice never arrives. Nothing to do.
+
 ## 2026-11-15 title the Chief of Staff thread <PREFIX> - Chief of Staff (CW-380) (#399)
 
 Merged 2026-11-15 6:51 am UTC.
