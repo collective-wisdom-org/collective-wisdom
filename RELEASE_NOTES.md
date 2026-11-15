@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 name a ticket helper row after the ticket it filed (CW-375) (#398)
+
+Merged 2026-11-15 6:24 am UTC.
+
+A ticket helper's row in the Agents panel now shows the ticket it filed, not a ticket that was only mentioned in its instructions. Before it files one, the row reads `Ticket helper`. Update the agent-gantt mod to get this.
+
 ## 2026-11-15 draw each CI wait bar on its task row (CW-382) (#397)
 
 Merged 2026-11-15 6:22 am UTC.
