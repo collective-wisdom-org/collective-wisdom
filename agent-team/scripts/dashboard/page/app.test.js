@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -26,7 +26,8 @@ test('only http(s) urls become links; a missing prUrl has no PR anchor', () => {
 test('threadLink becomes a copy button carrying the exact link', () => {
   const link = '<t3-thread://v2/env/th"1>'
   const html = renderStatus(group([row({ threadLink: link })]))
-  assert.match(html, /<div class="head">.*<button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" title="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect/)
+  // The button follows the ticket number and comes before the title.
+  assert.match(html, /<div class="head"><span class="id">.*?<\/span><button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" title="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect.*?<\/button><span class="title">/)
   assert.ok(!html.includes('>Copy thread link<'))
   assert.ok(!renderStatus(group([row()])).includes('copy-icon'))
 })
@@ -133,8 +134,8 @@ test('risk shows the level word only, in its colour class; unreadable text shows
 test('an action sits in the middle row only for a stage that needs the user and an http(s) url', () => {
   const urls = { prUrl: 'https://x.test/pull/2', specUrl: 'https://x.test/blob/s.md', issueUrl: 'https://x.test/issues/1' }
   const cases = [
-    [{ stage: 'awaiting-merge' }, { label: 'Open PR', url: urls.prUrl }],
-    [{ stage: 'awaiting-build' }, { label: 'Open spec', url: urls.specUrl }],
+    [{ stage: 'awaiting-merge' }, { label: 'View PR', url: urls.prUrl }],
+    [{ stage: 'awaiting-build' }, { label: 'View spec', url: urls.specUrl }],
     [{ stage: 'blocked' }, null],
     [{ stage: 'build' }, null],
     [{ stage: 'awaiting-merge', prUrl: 'javascript:alert(1)' }, null],
@@ -142,7 +143,7 @@ test('an action sits in the middle row only for a stage that needs the user and 
   ]
   for (const [r, want] of cases) assert.deepEqual(actionFor({ ...urls, ...r }), want, JSON.stringify(r))
   const html = renderStatus([{ name: 'Awaiting merge approval', count: 1, rows: [row({ ...urls, stage: 'awaiting-merge' })] }])
-  assert.match(html, /<div class="actions"><a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>Open PR<\/a>/)
+  assert.match(html, /<div class="actions"><a class="action" href="https:\/\/x\.test\/pull\/2"[^>]*>View PR<\/a>/)
   assert.doesNotMatch(renderStatus(group([row(urls)])), /class="action"/)
 })
 
@@ -505,7 +506,7 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
-test('a running ticket helper is a placeholder card; a Todo row shows only under Waiting to spec; the Backlog is not on the Ship loop tab and there is no Not started band', () => {
+test('a running ticket helper is a placeholder card on the Backlog tab; a Todo row shows only under Waiting to spec; the Backlog is not on the Ship loop tab and there is no Not started band', () => {
   const hostile = '<img src=x onerror=1>'
   const link = '<t3-thread://v2/env/th1>'
   const mine = sess({ rows: [task({ segments: [[T, T + MIN]] })] })
@@ -514,14 +515,14 @@ test('a running ticket helper is a placeholder card; a Todo row shows only under
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
   const html = renderStatus([...group([row()]), writing, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }, spec, backlog])
   const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
-  const card = part('progress')
-  assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
+  assert.ok(!part('progress').includes('Ticket helper'), 'no helper card on the Ship loop tab')
+  const card = renderBacklog([...group([row()]), writing, backlog])
+  assert.match(card, /<span class="id">Ticket helper<\/span><button[^>]*>.*?<\/button><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
   assert.match(card, /data-copy="&lt;t3-thread:\/\/v2\/env\/th1&gt;"/)
   assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
   assert.ok(!/<a |class="info-body"/.test(placeholder), 'no link or Details panel on the placeholder')
   assert.match(placeholder, /data-view="details"[^>]* disabled title="No ticket yet"/)
-  assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
   assert.ok(!html.includes('<img'))
   const next = part('queued')
   assert.ok(next.indexOf('data-group="Queued to build"') < next.indexOf('data-group="Waiting to spec"'), 'Waiting to spec follows Queued to build')
@@ -529,7 +530,7 @@ test('a running ticket helper is a placeholder card; a Todo row shows only under
   assert.equal([...waiting.matchAll(/<li class="ticket compact">/g)].length, 2, 'spec-queued and Todo rows are compact cards')
   assert.ok(!waiting.includes('<li class="ticket">') && !/risk|since/.test(waiting.split('<li class="ticket compact">')[2]))
   assert.match(waiting, /href="https:\/\/x\.test\/issues\/7"/)
-  assert.deepEqual([html.includes('band-not-started'), html.includes('Not started'), html.includes('data-group="Backlog"'), html.includes('CW-8')], [false, false, false, false])
+  assert.deepEqual([html.includes('band-not-started'), html.includes('Not started'), html.includes('data-group="Backlog"'), html.includes('CW-8'), html.includes('Writing tickets')], [false, false, false, false, false])
   assert.equal(renderStatus([spec]).includes('No state yet'), false)
   assert.equal(renderStatus([backlog]), '<p class="quiet">No state yet</p>')
 })
@@ -804,6 +805,33 @@ test('clock: local 12-hour time with am/pm', () => {
   for (const [h, m, want] of cases) assert.equal(clock(new Date(2026, 0, 2, h, m).getTime()), want)
 })
 
+test('Writing tickets is a Backlog tab section: not on the Ship loop tab or in its counts, first on the Backlog tab, unpaged, no Mark todo, alone with the empty line when there is no Backlog', () => {
+  const helpers = { name: 'Writing tickets', count: 2, rows: [row({ id: 'helper:a', helper: true }), row({ id: 'helper:b', helper: true })] }
+  const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8' })] }
+  const building = { name: 'Building', count: 1, rows: [row({ id: 'CW-9' })] }
+  const ids = (html) => [...html.matchAll(/<span class="id">([^<]*)</g)].map((m) => m[1])
+  const cases = [
+    // [groups, Ship loop ids, Backlog tab group order, Backlog tab ids, Mark todo buttons, counts, header]
+    [[building, helpers, backlog], ['CW-9'], ['Writing tickets', 'Backlog'], ['Ticket helper', 'Ticket helper', 'CW-8'], 1, { ship: 1, done: 0, backlog: 1 }, 'Nothing needs you \u00b7 1 in progress'],
+    [[building, helpers], ['CW-9'], ['Writing tickets'], ['Ticket helper', 'Ticket helper'], 0, { ship: 1, done: 0, backlog: 0 }, 'Nothing needs you \u00b7 1 in progress'],
+    [[helpers], [], ['Writing tickets'], ['Ticket helper', 'Ticket helper'], 0, { ship: 0, done: 0, backlog: 0 }, 'Nothing needs you'],
+  ]
+  for (const [groups, ship, order, tab, todo, counts, header] of cases) {
+    const label = order.join('+')
+    assert.deepEqual(ids(renderStatus(groups)), ship, label)
+    assert.ok(!renderStatus(groups).includes('Writing tickets'), label)
+    const html = renderBacklog(groups)
+    assert.deepEqual([...html.matchAll(/data-group="([^"]*)"/g)].map((m) => m[1]), order, label)
+    assert.deepEqual(ids(html), tab, label)
+    assert.equal((html.match(/class="todo/g) ?? []).length, todo, label)
+    assert.equal(html.includes('Nothing in the Backlog'), !order.includes('Backlog'), label)
+    assert.deepEqual(tabCounts(groups, []), counts, label)
+    assert.equal(renderBadges(groups).replace(/<[^>]+>/g, ''), header, label)
+  }
+  assert.match(renderBacklog([helpers, backlog], new Set(['Writing tickets'])), /data-group="Writing tickets">/, 'collapsible')
+  assert.ok(!renderBacklog([{ ...helpers, rows: Array.from({ length: 12 }, (_, i) => row({ id: `helper:${i}`, helper: true })) }]).includes('data-backlog-page'), 'unpaged')
+})
+
 test('renderBacklog draws the Backlog group 10 rows of its page, clamps the page, and shows the pager only past one page; no group says so', () => {
   const ids = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => `CW-${from + i}`)
   // [rows, page, drawn ids, "Page X of Y" or null, disabled button, data-backlog-page of Previous and Next]
@@ -894,7 +922,8 @@ test('every card is a top row, an optional middle row and a bottom row; the meta
     ['Writing tickets', { stage: '', helper: true }, false, 'Low \u00b7 2m 00s \u00b7 $1.00'],
   ]
   for (const [name, r, middle, meta] of cases) {
-    const html = renderStatus([{ name, count: 1, rows: [row({ ...urls, ...r })] }]).split('</li>')[0]
+    const draw = name === 'Writing tickets' ? renderBacklog : renderStatus
+    const html = draw([{ name, count: 1, rows: [row({ ...urls, ...r })] }]).split('</li>')[0]
     const [head, actions, foot] = ['class="head"', 'class="actions"', 'class="foot"'].map((k) => html.indexOf(k))
     assert.ok(head > 0 && foot > head && (actions === -1 ? !middle : middle && actions > head && actions < foot), name)
     assert.equal(html.match(/<span class="meta">([\s\S]*?)<\/span><\/div>/)[1].replace(/<[^>]+>/g, ''), meta, name)
@@ -915,7 +944,7 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
     const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
-    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve.slice(8)}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you. If it can\'t, press Send.', ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
 })
@@ -943,7 +972,8 @@ test('each Backlog card has a Mark todo control after the switch and before the 
     assert.equal(todoCommand({ id }), cmd, id)
     const backlog = (chief) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row({ id })] }], new Set(), 0, new Set(), new Set(), chief)
     const foot = (html) => html.match(/<div class="foot">([\s\S]*?)<span class="meta">/)[1]
-    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}">Mark todo</a>`
+    const tip = `Opens the Chief of Staff thread with "${cmd}" typed in and presses Send for you. If it can't, press Send.`
+    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" title="${esc(tip)}" data-return="${cmd}">Mark todo</a>`
     const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Mark todo</button>`
     for (const [chief, want] of [[link, withLink], [undefined, copy], ['t3-thread://v2/e/t', copy]]) {
       const f = foot(backlog(chief))
@@ -954,21 +984,29 @@ test('each Backlog card has a Mark todo control after the switch and before the 
   }
 })
 
-test('pressMessage: one line per reason, none when sent or a repeat click was busy', () => {
-  const generic = 'Approve not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.'
-  const cases = [
-    [{ sent: true }, ''],
-    [{ sent: false, reason: 'busy' }, /^Approve not sent: another Approve was still being sent/],
-    [{ sent: false, reason: 'not-frontmost' }, 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.'],
-    [{ sent: false, reason: 'permission' }, /^Approve not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \(or the app that started the dashboard\)/],
-    [{ sent: false, reason: 'error' }, generic],
-    [{ sent: false, reason: 'toString' }, generic],
-    [{ sent: false }, generic],
-    [null, generic],
-  ]
-  for (const [answer, want] of cases) {
-    if (want instanceof RegExp) assert.match(pressMessage(answer), want)
-    else assert.equal(pressMessage(answer), want, JSON.stringify(answer))
+test('pressMessage: one line per reason for each control, none when sent or a repeat click was busy', () => {
+  const tail = ' Press Send in the Chief of Staff thread.'
+  for (const action of ['Approve', 'Mark todo']) {
+    const generic = `${action} not sent: the dashboard could not press Return.${tail}`
+    const cases = [
+      [{ sent: true }, ''],
+      [{ sent: false, reason: 'busy' }, `${action} not sent: another one-click send was still running.${tail}`],
+      [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front.${tail}`],
+      [{ sent: false, reason: 'permission' }, new RegExp(`^${action} not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \\(or the app that started the dashboard\\)`)],
+      [{ sent: false, reason: 'error' }, generic],
+      [{ sent: false, reason: 'toString' }, generic],
+      [{ sent: false }, generic],
+      [null, generic],
+    ]
+    for (const [answer, want] of cases) {
+      if (want instanceof RegExp) assert.match(pressMessage(answer, false, action), want)
+      else assert.equal(pressMessage(answer, false, action), want, `${action} ${JSON.stringify(answer)}`)
+    }
+    assert.equal(pressMessage({ sent: false, reason: 'busy' }, true, action), '')
   }
-  assert.equal(pressMessage({ sent: false, reason: 'busy' }, true), '')
+  assert.match(pressMessage({ sent: false, reason: 'busy' }), /^Approve not sent:/)
+})
+
+test('pressAction names the control from the command', () => {
+  for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Mark todo']]) assert.equal(pressAction(command), want, command)
 })

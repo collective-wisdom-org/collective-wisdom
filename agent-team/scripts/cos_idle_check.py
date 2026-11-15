@@ -40,9 +40,16 @@ is `full ABC-N unread`. It prints the same lines and exit codes as above, with t
 Exit 2 and "cos_idle_check: schema changed" when the store or a table is not as expected.
 --wait ABC-N --store <childThreadId> does the wait check on the store instead of stdin: the thread's
 newest run and its last 10 `dynamic_tool` items go through the same rules.
+
+late_children(state, db, now=None) is for cos_rotation_check.py's Stop hook, not the command line. It lists
+each active ticket whose child finished (newest run completed, failed, interrupted or cancelled) or asked a
+pending question after `lastSeenAt`, as "<ticket> <status|question> <h:mm am/pm> UTC". A completed run that
+ended in a matched t3_background_wait is left out. It never raises: any store error returns [].
 """
 
 import argparse
+import contextlib
+import io
 import json
 import re
 import sqlite3
@@ -331,6 +338,73 @@ def wait_read_from_store(db, thread):
         return {"recentRuns": [{"runId": run[0], "status": run[1], "completedAt": run[2]}], "items": items}
 
     return json.dumps(store_rows(db, work))
+
+
+FINISHED = ("completed", "failed", "interrupted", "cancelled")
+
+
+def late_children(state, db, now=None):
+    """Entries for active children that finished or asked a question since `lastSeenAt`; [] on any error."""
+    now = now or datetime.now(timezone.utc)
+    try:
+        tickets = {
+            t: info
+            for t, info in sorted(state["tickets"].items())
+            if isinstance(info, dict) and info.get("stage") in ACTIVE and isinstance(info.get("childThreadId"), str)
+        }
+
+        def work(con):
+            got = {}
+            for t, info in tickets.items():
+                thread = info["childThreadId"]
+                run = con.execute(
+                    "SELECT status, completed_at FROM orchestration_v2_projection_runs "
+                    "WHERE thread_id = ? ORDER BY ordinal DESC LIMIT 1",
+                    (thread,),
+                ).fetchone()
+                asks = con.execute(
+                    "SELECT created_at FROM orchestration_v2_projection_runtime_requests "
+                    "WHERE thread_id = ? AND status = 'pending'",
+                    (thread,),
+                ).fetchall()
+                got[t] = (run, [a[0] for a in asks])
+            return got
+
+        with contextlib.redirect_stdout(io.StringIO()):  # store_rows prints on a bad store
+            got = store_rows(db, work)
+            out = []
+            for t, (run, asks) in got.items():
+                try:
+                    seen = parse_ts(tickets[t]["lastSeenAt"])
+                except (KeyError, AttributeError, ValueError, TypeError):
+                    seen = datetime.min.replace(tzinfo=timezone.utc)
+                entry = None
+                if run and run[0] in FINISHED:
+                    try:
+                        ended = parse_ts(run[1])
+                    except (AttributeError, ValueError, TypeError):
+                        ended = None
+                    if ended and ended > seen:
+                        waiting = run[0] == "completed" and check_wait(
+                            t, wait_read_from_store(db, tickets[t]["childThreadId"]), now
+                        )[0] == 0
+                        if not waiting:
+                            entry = f"{t} {run[0]} {hhmm(ended)}"
+                if entry is None:
+                    times = []
+                    for a in asks:
+                        try:
+                            times.append(parse_ts(a))
+                        except (AttributeError, ValueError, TypeError):
+                            pass
+                    new = [x for x in times if x > seen]
+                    if new:
+                        entry = f"{t} question {hhmm(max(new))}"
+                if entry:
+                    out.append(entry)
+            return out
+    except (Exception, SystemExit):
+        return []
 
 
 def main():
