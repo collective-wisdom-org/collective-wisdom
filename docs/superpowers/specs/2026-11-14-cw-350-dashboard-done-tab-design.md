@@ -44,7 +44,7 @@ Facts from `main` at `6e85821`.
 - **The `Done` heading goes.** The ticket asks to remove the heading and list from Ship loop; I don't repeat it inside the new panel, since the selected tab already names it and the Chief of Staff panel has no heading either.
 - **Exact match for the saved value.** `done` opens the Done tab, `DONE` does not, matching how `cos` works today.
 - **README updated in this PR.** The two README sentences that place the Done list under the cards and say "two tabs" would be wrong after the change, so they change here rather than in the docs check.
-- **No test for the markup.** The tab order and the move are static HTML, and `selectTab` and the key handler are untouched DOM code. I will check them by hand in the browser instead of adding a DOM test, per `AGENTS.md` § Testing.
+- **No test for the markup.** The tab order and the move are static HTML, and `selectTab` and the key handler are untouched DOM code. I added no DOM test, per `AGENTS.md` § Testing.
 - **Rebase risk.** #345 and #346 also edit `index.html` and `app.js`. This change is a few lines in the tablist and panels, so I will rebase on `main` before building and resolve any overlap then.
 
 ## Touches
