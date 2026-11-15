@@ -108,4 +108,4 @@ Read by the documenter subagent ([documenter.md](~/.collective-wisdom/docs/agent
 
 ## Models
 
-Defaults live in the `chief-of-staff` skill, section Models. They are defaults, not repo rules; change them by ticket and PR.
+Defaults live in `chief-of-staff/models.md` § Models, with the values in `cos_models.py`. They are defaults, not repo rules; change them by ticket and PR.
