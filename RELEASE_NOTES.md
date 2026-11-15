@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 one dashboard card layout and an approve button that prefills the command (CW-402) (#412)
+
+Merged 2026-11-15 8:01 am UTC.
+
+Dashboard cards all share one layout now, and a card waiting for your approval has Approve and Changes buttons that put `approve N` or `changes N: ` in the Chief of Staff thread's input so you only press Send (they copy the command when the dashboard has no Chief of Staff thread). The status and waiting lines and the `Open issue` link are gone from cards.
+
 ## 2026-11-15 color-code Gantt bars by category with a legend (CW-401) (#410)
 
 Merged 2026-11-15 7:43 am UTC.
