@@ -1,7 +1,8 @@
 # WISE-419: A Mark todo button on Backlog cards
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#419](https://github.com/collective-wisdom-org/collective-wisdom/issues/419)
+**Shipped:** in PR #420, as specified
 
 ## Goal
 
