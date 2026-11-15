@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 count every subagent in the dashboard Agents button (CW-371) (#393)
+
+Merged 2026-11-15 6:19 am UTC.
+
+The dashboard `Agents` button now shows how many agents ran on a ticket, subagents included, and the card summary shows only the time and cost. Nothing to do.
+
 ## 2026-11-15 flip the dashboard collapse chevrons (CW-390) (#396)
 
 Merged 2026-11-15 6:06 am UTC.
