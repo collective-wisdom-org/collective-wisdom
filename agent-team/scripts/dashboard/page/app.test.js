@@ -95,16 +95,20 @@ test('the status sentence names the stage in plain words and ends with since HH:
 
 test('risk shows the level word only, in its colour class; unreadable text shows as it is; empty shows nothing', () => {
   const cases = [
-    ['low', { text: 'Low risk', level: 'low' }],
-    ['Medium: touches the api', { text: 'Medium risk', level: 'medium' }],
-    [' HIGH - migrations', { text: 'High risk', level: 'high' }],
+    ['low', { text: 'Low', level: 'low' }],
+    ['Medium: touches the api', { text: 'Medium', level: 'medium' }],
+    [' HIGH - migrations', { text: 'High', level: 'high' }],
     ['not rated yet', { text: 'not rated yet', level: '' }],
     ['', null],
     [undefined, null],
   ]
   for (const [input, want] of cases) assert.deepEqual(riskText(input), want, String(input))
   const meta = (risk) => renderStatus(group([row({ risk })])).match(/<div class="meta">([\s\S]*?)<\/div>/)[1]
-  assert.match(meta('medium: <i>x</i>'), /<span class="risk-medium">Medium risk<\/span>/)
+  for (const [input, level, word] of [['low', 'low', 'Low'], ['medium: <i>x</i>', 'medium', 'Medium'], ['HIGH - migrations', 'high', 'High']]) {
+    const m = meta(input)
+    assert.ok(m.includes(`<span class="badge risk risk-${level}">${word}</span>`), input)
+    assert.doesNotMatch(m, /risk-none|<i>|migrations|Low risk|Medium risk|High risk/)
+  }
   assert.match(meta('not <b>rated</b>'), /<span class="risk-none">not &lt;b&gt;rated&lt;\/b&gt;<\/span>/)
   assert.doesNotMatch(meta(''), /risk/)
 })
@@ -475,7 +479,7 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.equal((other.match(/class="row blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
   assert.match(other, /class="row blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
-  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="risk-low">Low risk<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
+  assert.match(queued, /<span class="meta"><span class="id">CW-1<\/span> \u00b7 <span class="badge risk risk-low">Low<\/span> \u00b7 Waiting to build since 09:05<\/span>/)
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 

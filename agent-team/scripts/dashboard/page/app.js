@@ -16,12 +16,12 @@ const dollars = (c) => (c === null || c === undefined ? '–' : `$${c.toFixed(2)
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-/** The level word of a risk text in the level's colour class, `{ text: 'Low risk', level: 'low' }`. Text with no readable level comes back as it is with an empty level; an empty risk comes back as null. */
+/** The level word of a risk text, `{ text: 'Low', level: 'low' }`, shown as a pill badge in the level's colour. Text with no readable level comes back as it is with an empty level; an empty risk comes back as null. */
 export function riskText(risk) {
   const raw = String(risk ?? '').trim()
   if (!raw) return null
   const w = /^[a-z]+/.exec(raw.toLowerCase())
-  return w && ['low', 'medium', 'high'].includes(w[0]) ? { text: `${w[0][0].toUpperCase()}${w[0].slice(1)} risk`, level: w[0] } : { text: raw, level: '' }
+  return w && ['low', 'medium', 'high'].includes(w[0]) ? { text: `${w[0][0].toUpperCase()}${w[0].slice(1)}`, level: w[0] } : { text: raw, level: '' }
 }
 
 // Bands are a page-side order over the /api groups. A group name the page does not know goes to In progress.
@@ -273,7 +273,7 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   const phrase = compact && !slim && r.stage ? (group === 'Other' ? stageSentence(r.stage, r.stageAt) : `${groupLabel(group)}${since(r.stageAt)}`) : ''
   const meta = metaLine([
     `<span class="id">${r.helper ? 'Ticket helper' : link(r.issueUrl, r.id)}</span>`,
-    risk && `<span class="${risk.level ? `risk-${risk.level}` : 'risk-none'}">${esc(risk.text)}</span>`,
+    risk && (risk.level ? `<span class="badge risk risk-${risk.level}">${esc(risk.text)}</span>` : `<span class="risk-none">${esc(risk.text)}</span>`),
     r.helper ? '' : prSpan(r.prUrl),
     phrase && esc(phrase),
   ])
