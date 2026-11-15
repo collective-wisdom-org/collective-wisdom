@@ -210,6 +210,8 @@ ObjC.bindFunction('AXUIElementCopyAttributeValue', ['int', ['id', 'id', 'id*']])
 ObjC.bindFunction('AXUIElementCreateApplication', ['id', ['int']])
 ObjC.bindFunction('CFCopyDescription', ['id', ['id']])
 ObjC.bindFunction('AXIsProcessTrusted', ['bool', []])
+ObjC.bindFunction('AXUIElementCreateSystemWide', ['id', []])
+ObjC.bindFunction('AXUIElementCopyElementAtPosition', ['int', ['id', 'double', 'double', 'id*']])
 function attr(el, name) {
   const ref = Ref()
   return $.AXUIElementCopyAttributeValue(el, $(name), ref) === 0 ? ref[0] : null
@@ -223,7 +225,13 @@ function click(el) {
   const p = attr(el, 'AXPosition'), s = attr(el, 'AXSize')
   const at = p && pair(p, 'x', 'y'), size = s && pair(s, 'w', 'h')
   if (!at || !size || size[0] < 1 || size[1] < 1) return false
-  const pt = $.CGPointMake(at[0] + size[0] / 2, at[1] + size[1] / 2)
+  const x = at[0] + size[0] / 2, y = at[1] + size[1] / 2
+  const hit = Ref()
+  if ($.AXUIElementCopyElementAtPosition($.AXUIElementCreateSystemWide(), x, y, hit) !== 0) return false
+  let up = hit[0], onComposer = false
+  for (let i = 0; i < 40 && up !== null && !onComposer; i++) { onComposer = isComposer(up); up = attr(up, 'AXParent') }
+  if (!onComposer) return false
+  const pt = $.CGPointMake(x, y)
   const home = $.CGEventGetLocation($.CGEventCreate($()))
   for (const t of [$.kCGEventLeftMouseDown, $.kCGEventLeftMouseUp]) $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent($(), t, pt, $.kCGMouseButtonLeft))
   $.CGWarpMouseCursorPosition(home)
@@ -235,6 +243,9 @@ function isComposer(el) {
 function frontId() {
   const f = $.NSWorkspace.sharedWorkspace.frontmostApplication
   return f ? str(f.bundleIdentifier) : ''
+}
+function isFront(app) {
+  return ObjC.unwrap(attr(app, 'AXFrontmost')) === true
 }
 function run() {
   if (!$.AXIsProcessTrusted()) return 'permission'
@@ -262,7 +273,7 @@ function run() {
     }
     if (!ok) return 'no-focus'
   }
-  if (frontId() !== 'com.t3tools.t3code') return 'not-frontmost'
+  if (!isFront(app)) return 'not-frontmost'
   Application('System Events').keyCode(36)
   return 'sent'
 }`
