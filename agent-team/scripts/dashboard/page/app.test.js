@@ -583,6 +583,8 @@ test('owner avatar on every card type; Agents is left out only for a foreign own
   assert.equal(ownerBadge(undefined), '')
   const bad = ownerBadge('<b>"x')
   assert.ok(!bad.includes('<b>') && bad.includes('&lt;b&gt;') && bad.includes('<span class="initial">&lt;</span>') && /src="https:\/\/avatars\.githubusercontent\.com\/%3Cb%3E%22x\?s=40"/.test(bad))
+  assert.ok(!bad.includes('class="login"'))
+  assert.ok(bad.includes('title="&lt;b&gt;&quot;x"') && bad.includes('aria-label="&lt;b&gt;&quot;x"'))
 })
 
 test('drawCharts writes a chart body only when its html changed; a body with no entry is never written', () => {
