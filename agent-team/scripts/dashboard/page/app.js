@@ -45,13 +45,13 @@ export function riskText(risk) {
 
 // Bands are a page-side order over the /api groups. A group name the page does not know goes to In progress.
 const NEEDS_YOU = ['Awaiting merge approval', 'Awaiting build approval']
-const QUEUED = ['Queued to merge', 'Queued to build', 'Other']
-const NOT_STARTED = ['Todo', 'Backlog']
+const QUEUED = ['Queued to merge', 'Queued to build', 'Waiting to spec', 'Other']
+// The Backlog group is drawn on its own tab by renderBacklog, in no band of the Ship loop tab.
+const BACKLOG = 'Backlog'
 const BANDS = [
   { name: 'Your turn', slug: 'needs', has: (n) => NEEDS_YOU.includes(n) },
-  { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) && !NOT_STARTED.includes(n) },
+  { name: 'In progress', slug: 'progress', has: (n) => !NEEDS_YOU.includes(n) && !QUEUED.includes(n) && n !== BACKLOG },
   { name: 'Up next', slug: 'queued', flat: true, has: (n) => QUEUED.includes(n) },
-  { name: 'Not started', slug: 'not-started', flat: true, slim: true, has: (n) => NOT_STARTED.includes(n) },
 ]
 /** The saved-collapsed key of a top-level section. The colon keeps it apart from every API group name. */
 export const bandKey = (slug) => `band:${slug}`
@@ -68,7 +68,6 @@ const GROUP_LABELS = new Map([
   ['Speccing', 'Writing the spec'],
   ['Queued to build', 'Waiting to build'],
   ['Other', 'Blocked or waiting'],
-  ['Todo', 'To do'],
 ])
 /** The label shown for an API group name; an unknown name is returned as it is (the caller escapes it). `data-group` keeps the API name. */
 export const groupLabel = (name) => GROUP_LABELS.get(name) ?? name
@@ -312,15 +311,15 @@ export const summaryLine = (gantt, now) => {
 /**
  * One ticket as a card (`li.ticket`). Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
  * A card is the ticket number and title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
- * A compact card is the title and one footer with the control and the meta line; a blocked flat row is laid out as a full card so it can say why and offer its action. `slim` rows show no risk badge.
+ * A compact card is the title and one footer with the control and the meta line; a blocked flat row is laid out as a full card so it can say why and offer its action. A row from the tracker's Todo list has no stage or risk, and carries `stale` when that list is old, which greys it.
  * Every card starts with its ticket number, then the title, and carries `Spec` and `PR` links in its meta line when it has them. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
-function ticket(r, { flat, slim, attn, group, open, info }) {
+function ticket(r, { flat, attn, group, open, info }) {
   const blocked = r.stage === 'blocked'
-  const risk = slim ? null : riskText(r.risk)
+  const risk = riskText(r.risk)
   const action = actionFor(r)
   const compact = flat && !blocked
-  const phrase = compact && !slim && r.stage ? (group === 'Other' ? stageSentence(r.stage) : '') : ''
+  const phrase = compact && r.stage ? (group === 'Waiting to spec' ? stageSentence(r.stage) : '') : ''
   const meta = metaLine([
     risk && (risk.level ? `<span class="badge risk risk-${risk.level}">${esc(risk.text)}</span>` : `<span class="risk-none">${esc(risk.text)}</span>`),
     r.helper ? '' : specSpan(r.specUrl),
@@ -329,7 +328,7 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   ])
   const summary = summaryLine(r.gantt, Date.now())
   const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
-  const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}`
+  const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
   const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink))
   if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
   const status = r.stage && !SECTION_STAGES.has(r.stage) ? stageSentence(r.stage) : ''
@@ -354,32 +353,42 @@ export function pageOf(length, page, size) {
 
 const BACKLOG_PAGE = 10
 
-/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `backlogPage` is the 0-based page of the Backlog group, drawn 10 rows at a time. */
-export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), backlogPage = 0) {
+/** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). The Backlog group is not drawn here; `renderBacklog` draws it on its own tab. */
+export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set()) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
-  return BANDS.map((band) => {
+  const html = BANDS.map((band) => {
     const mine = groups.filter((g) => band.has(g.name))
     if (mine.length === 0) return ''
     const flat = band.flat === true
     const sections = mine
       .map((g) => {
-        const paged = g.name === 'Backlog'
-        const { at, pages } = paged ? pageOf(g.rows.length, backlogPage, BACKLOG_PAGE) : { at: 0, pages: 1 }
-        const shown = paged ? g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE) : g.rows
-        const rows = shown.map((r) => ticket(r, { flat, slim: band.slim === true, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
-        const pager =
-          paged && pages > 1
-            ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
-            : ''
-        // A saved Todo or Backlog list read from the tracker over an hour ago says how old it is and greys its rows.
-        const stale = g.stale === true && Number.isFinite(g.readAt)
-        const age = stale ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
+        // A Todo list read from the tracker over an hour ago says how old it is; its rows carry `stale` and grey themselves.
+        const age = g.stale === true && Number.isFinite(g.readAt) ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul></details>`
       })
       .join('\n')
     const key = bandKey(band.slug)
     return `<details class="band band-${band.slug}" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>${band.name}</h2></summary>${sections}</details>`
-  }).join('\n')
+  }).filter(Boolean).join('\n')
+  // Only the Backlog group, which has its own tab: nothing to draw here.
+  return html || '<p class="quiet">No state yet</p>'
+}
+
+/** The Backlog tab: the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; `backlogPage` is the 0-based page; `open` and `info` are as in `renderStatus`. */
+export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set()) {
+  const g = list(groups).find((x) => x.name === BACKLOG)
+  if (!g) return '<p class="quiet">Nothing in the Backlog</p>'
+  const { at, pages } = pageOf(g.rows.length, backlogPage, BACKLOG_PAGE)
+  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info })).join('\n')
+  const pager =
+    pages > 1
+      ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
+      : ''
+  // A saved Backlog list read from the tracker over an hour ago says how old it is and greys its rows.
+  const stale = g.stale === true && Number.isFinite(g.readAt)
+  const age = stale ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
+  return `<details class="group${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
 }
 
 /** The sum of the group `count`s that fall in `band`; a count that is not a number is 0. */
@@ -391,7 +400,7 @@ export function tabCounts(status, merged) {
   return { ship: BANDS.slice(0, 3).reduce((n, band) => n + bandSum(groups, band), 0), done: Array.isArray(merged) ? merged.length : 0 }
 }
 
-/** The header: one sentence counting the bands (Not started is not counted). A blocked ticket (stage `blocked`) is counted apart from the waiting ones. */
+/** The header: one sentence counting the bands (the Backlog is not counted). A blocked ticket (stage `blocked`) is counted apart from the waiting ones. */
 export function renderBadges(groups) {
   if (!Array.isArray(groups)) return ''
   const sum = (band) => bandSum(groups, band)
@@ -477,8 +486,8 @@ export function renderChief(api, page = 0, open = new Set(), size = 10, collapse
   return { html: `${card}<details class="band band-pm" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>Project manager</h2></summary>${pm.html}</details>`, page: pm.page }
 }
 
-/** The tab to open from the saved value: `cos` or `done`, else `ship` for anything unknown or missing. */
-export const tabFromStorage = (value) => (value === 'cos' || value === 'done' ? value : 'ship')
+/** The tab to open from the saved value: `cos`, `done` or `backlog`, else `ship` for anything unknown or missing. */
+export const tabFromStorage = (value) => (value === 'cos' || value === 'done' || value === 'backlog' ? value : 'ship')
 
 const duration = (ms) => {
   const s = Math.round(ms / 1000)
@@ -820,7 +829,7 @@ if (typeof document !== 'undefined') {
     ev.preventDefault()
     selectTab(tabs[to].dataset.tab, { focus: true })
   })
-  // The status is rebuilt only when it or the Backlog page changed (the page is clamped first, so a shrunk list shows its last page).
+  // The status and the Backlog tab are rebuilt only when the status or the Backlog page changed (the page is clamped first, so a shrunk list shows its last page).
   // Charts count by session id and task count (the pill), so new snapshot numbers alone do not rebuild the cards.
   const drawStatus = () => {
     if (!last) return
@@ -832,7 +841,9 @@ if (typeof document !== 'undefined') {
     const open = opened('agents')
     const info = opened('details')
     shownInfo.clear()
-    document.getElementById('status').innerHTML = renderStatus(last.status, open, readCollapsed(), info, backlogPage)
+    const collapsed = readCollapsed()
+    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info)
+    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
   // The Ship loop and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.

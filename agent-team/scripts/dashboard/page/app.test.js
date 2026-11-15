@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, bandKey, pageOf, renderGantt, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -36,7 +36,7 @@ test('empty inputs show quiet lines', () => {
   assert.match(renderGantt([], 0), /No sessions yet/)
 })
 
-test('the header is one sentence: Your turn first in the attention colour, zero counts left out, blocked apart from waiting, Not started not counted', () => {
+test('the header is one sentence: Your turn first in the attention colour, zero counts left out, blocked apart from waiting, the Backlog not counted', () => {
   const g = (name, count, rows = []) => ({ name, count, rows })
   const text = (groups) => renderBadges(groups).replace(/<[^>]+>/g, '')
   const blockedRow = { id: 'A', stage: 'blocked' }
@@ -45,7 +45,7 @@ test('the header is one sentence: Your turn first in the attention colour, zero 
     [[g('Awaiting merge approval', 0), g('Building', 0)], 'Nothing needs you'],
     [[g('Awaiting merge approval', 1)], '1 needs you'],
     [[g('Awaiting merge approval', 1), g('Awaiting build approval', 1), g('Building', 3), g('Speccing', 0)], '2 need you \u00b7 3 in progress'],
-    [[g('Queued to build', 2), g('Other', 2, [blockedRow, { id: 'B', stage: 'spec-queued' }]), g('Todo', 5), g('Backlog', 9)], 'Nothing needs you \u00b7 3 waiting \u00b7 1 blocked'],
+    [[g('Queued to build', 2), g('Waiting to spec', 4), g('Other', 1, [blockedRow]), g('Backlog', 9)], 'Nothing needs you \u00b7 6 waiting \u00b7 1 blocked'],
     [[g('Building', 2), g('Other', 1, [blockedRow])], 'Nothing needs you \u00b7 2 in progress \u00b7 1 blocked'],
   ]
   for (const [groups, want] of cases) assert.equal(text(groups), want)
@@ -54,11 +54,11 @@ test('the header is one sentence: Your turn first in the attention colour, zero 
   assert.equal(renderBadges(null), '')
 })
 
-test('tab counts sum the Your turn, In progress and Up next groups and count the merged list', () => {
+test('tab counts sum the Your turn, In progress and Up next groups (Waiting to spec in, Backlog out) and count the merged list', () => {
   const g = (name, count) => ({ name, count, rows: [] })
-  const status = [g('Awaiting merge approval', 2), g('Building', 3), g('Queued to build', 1), g('Other', undefined), g('Todo', 5), g('Backlog', 9)]
+  const status = [g('Awaiting merge approval', 2), g('Building', 3), g('Queued to build', 1), g('Other', undefined), g('Waiting to spec', 5), g('Backlog', 9)]
   const cases = [
-    [status, [1, 2, 3], { ship: 6, done: 3 }],
+    [status, [1, 2, 3], { ship: 11, done: 3 }],
     [[], [], { ship: 0, done: 0 }],
     [undefined, undefined, { ship: 0, done: 0 }],
   ]
@@ -77,13 +77,12 @@ test('group labels are plain words; an unknown name shows as it is; data-group k
     ['Queued to build', 'Waiting to build'],
     ['Other', 'Blocked or waiting'],
     ['Writing tickets', 'Writing tickets'],
-    ['Todo', 'To do'],
     ['Backlog', 'Backlog'],
     ['Mystery', 'Mystery'],
   ]
   for (const [name, want] of cases) assert.equal(groupLabel(name), want, name)
-  const html = renderStatus([{ name: 'Todo', count: 1, rows: [row()] }, { name: 'Queued to merge', count: 1, rows: [row()] }])
-  assert.match(html, /data-group="Todo"[^>]*><summary><h3>To do </)
+  const html = renderStatus([{ name: 'Waiting to spec', count: 1, rows: [row()] }, { name: 'Queued to merge', count: 1, rows: [row()] }])
+  assert.match(html, /data-group="Waiting to spec"[^>]*><summary><h3>Waiting to spec </)
   assert.match(html, /data-group="Queued to merge"[^>]*><summary><h3>Waiting to merge </)
 })
 
@@ -104,7 +103,7 @@ test('the status sentence names the stage in plain words with no time; a section
 
 test('no card or row shows since a time, in any group', () => {
   const at = new Date(2026, 10, 14, 9, 5).toISOString()
-  const names = ['Awaiting merge approval', 'Awaiting build approval', 'Awaiting teammate review', 'Queued to merge', 'Speccing', 'Queued to build', 'Other', 'Todo', 'Building', 'Merging', 'Mystery']
+  const names = ['Awaiting merge approval', 'Awaiting build approval', 'Awaiting teammate review', 'Queued to merge', 'Speccing', 'Queued to build', 'Waiting to spec', 'Other', 'Building', 'Merging', 'Mystery']
   for (const name of names) for (const stage of ['build', 'build-queued', 'awaiting-merge', 'blocked', 'mystery']) {
     const html = renderStatus([{ name, count: 1, rows: [row({ stage, stageAt: at })] }])
     assert.doesNotMatch(html, /since \d{1,2}:\d\d [ap]m/, `${name} ${stage}`)
@@ -498,8 +497,8 @@ test('groups sort into bands, keep api order inside a band', () => {
   const names = [g('Building'), g('Mystery'), g('Awaiting build approval'), g('Queued to build'), g('Awaiting merge approval'), g('Speccing')]
   assert.deepEqual(bandsOf(renderStatus(names)), ['Your turn', 'Spec ready to build', 'Ready to merge', 'In progress', 'Building', 'Mystery', 'Writing the spec', 'Up next', 'Waiting to build'])
   assert.deepEqual(bandsOf(renderStatus([g('Merging')])), ['In progress', 'Merging'])
-  const other = renderStatus([g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' }), row({ id: 'B', stage: 'spec-queued' })]), g('Building')])
-  assert.match(other, /class="ticket blocked"[\s\S]*Blocked\. Needs an answer from you[\s\S]*Waiting for a spec slot/)
+  const other = renderStatus([g('Waiting to spec', [row({ id: 'B', stage: 'spec-queued' })]), g('Other', [row({ id: 'A', stage: 'blocked', next: 'Waiting on Dana' })]), g('Building')])
+  assert.match(other, /Waiting for a spec slot[\s\S]*class="ticket blocked"[\s\S]*Blocked\. Needs an answer from you/)
   assert.equal((other.match(/class="ticket blocked"/g) ?? []).length, 1, 'only the blocked row has the red edge')
   assert.match(other, /class="ticket blocked"[\s\S]*<p class="next">Waiting on Dana<\/p>/)
   const queued = renderStatus([g('Queued to build', [row({ stage: 'build-queued', stageAt: new Date(2026, 10, 14, 9, 5).toISOString(), risk: 'low' })])])
@@ -507,14 +506,14 @@ test('groups sort into bands, keep api order inside a band', () => {
   assert.match(renderStatus([g('Awaiting merge approval')]), /class="group needs-merge"/)
 })
 
-test('a running ticket helper is a placeholder card, and Todo and Backlog are flat rows under Not started', () => {
+test('a running ticket helper is a placeholder card; a Todo row shows only under Waiting to spec; the Backlog is not on the Ship loop tab and there is no Not started band', () => {
   const hostile = '<img src=x onerror=1>'
   const link = '<t3-thread://v2/env/th1>'
   const mine = sess({ rows: [task({ segments: [[T, T + MIN]] })] })
   const writing = { name: 'Writing tickets', count: 1, rows: [row({ id: `helper:${hostile}`, title: hostile, helper: true, risk: '', next: '', stage: '', threadLink: link, gantt: [mine] })] }
-  const todo = { name: 'Todo', count: 1, rows: [row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
+  const spec = { name: 'Waiting to spec', count: 2, rows: [row({ id: 'CW-6', stage: 'spec-queued' }), row({ id: 'CW-7', title: hostile, issueUrl: 'https://x.test/issues/7', risk: '', next: '', stage: '' })] }
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '', gantt: [mine] })] }
-  const html = renderStatus([...group([row()]), writing, todo, backlog, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }])
+  const html = renderStatus([...group([row()]), writing, { name: 'Queued to build', count: 1, rows: [row({ id: 'CW-9' })] }, spec, backlog])
   const part = (name) => html.split(`<details class="band band-${name}"`)[1]?.split('<details class="band ')[0] ?? ''
   const card = part('progress')
   assert.match(card, /<span class="id">Ticket helper<\/span><span class="title">&lt;img src=x onerror=1&gt;<\/span>/)
@@ -525,14 +524,15 @@ test('a running ticket helper is a placeholder card, and Todo and Backlog are fl
   assert.match(placeholder, /data-view="details"[^>]* disabled title="No ticket yet"/)
   assert.ok(card.indexOf('Building') < card.indexOf('Writing tickets'), 'api order kept')
   assert.ok(!html.includes('<img'))
-  const idle = part('not-started')
-  assert.ok(idle.indexOf('data-group="Todo"') >= 0 && idle.indexOf('data-group="Todo"') < idle.indexOf('data-group="Backlog"'), 'api order kept: Todo then Backlog')
-  assert.equal([...idle.matchAll(/<li class="ticket compact">/g)].length, 2)
-  assert.ok(!/risk|since/.test(idle))
-  assert.match(idle, /href="https:\/\/x\.test\/issues\/7"/)
-  assert.match(idle, /data-ticket="CW-8"/)
-  assert.ok(html.indexOf('band-queued') < html.indexOf('band-not-started'), 'Not started follows Queued')
-  assert.equal(renderStatus([todo]).includes('No state yet'), false)
+  const next = part('queued')
+  assert.ok(next.indexOf('data-group="Queued to build"') < next.indexOf('data-group="Waiting to spec"'), 'Waiting to spec follows Queued to build')
+  const waiting = next.split('data-group="Waiting to spec"')[1]
+  assert.equal([...waiting.matchAll(/<li class="ticket compact">/g)].length, 2, 'spec-queued and Todo rows are compact cards')
+  assert.ok(!waiting.includes('<li class="ticket">') && !/risk|since/.test(waiting.split('<li class="ticket compact">')[2]))
+  assert.match(waiting, /href="https:\/\/x\.test\/issues\/7"/)
+  assert.deepEqual([html.includes('band-not-started'), html.includes('Not started'), html.includes('data-group="Backlog"'), html.includes('CW-8')], [false, false, false, false])
+  assert.equal(renderStatus([spec]).includes('No state yet'), false)
+  assert.equal(renderStatus([backlog]), '<p class="quiet">No state yet</p>')
 })
 
 test('merged row with sessions has a closed Agents segment that stays open when its id is in the open set; one without has a disabled one', () => {
@@ -602,7 +602,8 @@ test('every row in every section is a li.ticket card in ul.cards; no row or rows
     ['In progress', renderStatus([g('Building')]), 'ticket'],
     ['Up next', renderStatus([g('Queued to build')]), 'ticket compact'],
     ['blocked Up next', renderStatus([g('Other', { stage: 'blocked' })]), 'ticket blocked'],
-    ['Not started', renderStatus([g('Todo')]), 'ticket compact'],
+    ['Waiting to spec', renderStatus([g('Waiting to spec', { stage: '' })]), 'ticket compact'],
+    ['Backlog tab', renderBacklog([g('Backlog', { stage: '' })]), 'ticket compact'],
     ['Done', renderMerged(merged, 0).html, 'ticket compact'],
     ['project manager', renderChief(pm, 0).html, 'ticket compact'],
   ]
@@ -634,7 +635,7 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
   const last = renderChief(api, 99)
   assert.equal(last.page, 1)
   assert.equal([...last.html.matchAll(/<li class="ticket compact">/g)].length, 2)
-  assert.deepEqual(['cos', 'done', 'ship', null, undefined, 'x', 'COS', 'DONE', 5].map(tabFromStorage), ['cos', 'done', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
+  assert.deepEqual(['cos', 'done', 'backlog', 'ship', null, undefined, 'x', 'COS', 'DONE', 5].map(tabFromStorage), ['cos', 'done', 'backlog', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship', 'ship'])
   const bodies = { 'data-chief': [{ dataset: {} }], 'data-pm': [{ dataset: { pm: 's2' } }, { dataset: { pm: 'gone' } }] }
   const drawn = []
   drawCharts({ querySelectorAll: (sel) => bodies[/data-[a-z]+/.exec(sel)?.[0]] ?? [] }, { status: [], merged: [], ...api }, T, (b, html) => drawn.push([b.dataset.pm ?? 'chief', html.includes('class="gantt"')]))
@@ -643,7 +644,7 @@ test('the Chief of Staff tab renders the card, the empty list, escaped role rows
 
 test('a group with an http(s) moreUrl ends with an escaped Full backlog link inside its section; any other moreUrl draws none', () => {
   const rows = [row({ id: 'CW-8', title: 'later', risk: '', next: '', stage: '' })]
-  const html = (moreUrl) => renderStatus([{ name: 'Backlog', count: 9, rows, moreUrl }])
+  const html = (moreUrl) => renderBacklog([{ name: 'Backlog', count: 9, rows, moreUrl }])
   const ok = html('https://x.test/o/r/issues?a=1&b="2"')
   assert.match(ok, /<\/ul><p class="more"><a href="https:\/\/x\.test\/o\/r\/issues\?a=1&amp;b=&quot;2&quot;" target="_blank" rel="noopener noreferrer">Full backlog<\/a><\/p><\/details>/)
   for (const bad of ['javascript:alert(1)', '//x.test/issues', undefined]) assert.ok(!html(bad).includes('Full backlog'), String(bad))
@@ -749,12 +750,19 @@ test('an awaiting card counts the wait instead of showing the status line; a bui
   assert.doesNotMatch(build, /class="wait"/)
 })
 
-test('a stale group says how old its list is and greys its rows; a fresh one or one with no readAt draws nothing', () => {
+test('a stale Todo list says how old it is and greys only its Todo rows; a stale Backlog greys its group; a fresh one or one with no readAt draws nothing', () => {
   const now = Date.now()
-  const html = (g) => renderStatus([{ name: 'Todo', count: 1, rows: [row({ id: 'CW-8', risk: '', next: '', stage: '' })], ...g }])
-  const stale = html({ readAt: now - (3 * 60 + 16) * 60_000 - 5_000, stale: true })
-  assert.match(stale, /<details class="group stale"[^>]*>.*<\/summary><p class="read-age">Read from the tracker 3h 16m ago<\/p><ul/)
-  for (const g of [{ readAt: now - 600_000 }, {}]) assert.ok(!/read-age|group stale/.test(html(g)), JSON.stringify(g))
+  const late = { readAt: now - (3 * 60 + 16) * 60_000 - 5_000, stale: true }
+  const todo = (o = {}) => row({ id: 'CW-8', risk: '', next: '', stage: '', ...o })
+  const spec = (g, rowStale) => renderStatus([{ name: 'Waiting to spec', count: 2, rows: [row({ id: 'CW-6', stage: 'spec-queued' }), todo(rowStale ? { stale: true } : {})], ...g }])
+  const stale = spec(late, true)
+  assert.match(stale, /<\/summary><p class="read-age">Read from the tracker 3h 16m ago<\/p><ul/)
+  assert.deepEqual([...stale.matchAll(/<li class="ticket compact( stale)?">/g)].map((m) => m[1] ?? ''), ['', ' stale'], 'only the Todo row is grey')
+  assert.ok(!stale.includes('group stale'), 'the group is not grey')
+  for (const g of [{ readAt: now - 600_000 }, {}]) assert.ok(!/read-age|stale/.test(spec(g, false)), JSON.stringify(g))
+  const backlog = (g) => renderBacklog([{ name: 'Backlog', count: 1, rows: [todo()], ...g }])
+  assert.match(backlog(late), /<details class="group stale"[^>]*>.*<\/summary><p class="read-age">Read from the tracker 3h 16m ago<\/p><ul/)
+  for (const g of [{ readAt: now - 600_000 }, {}]) assert.ok(!/read-age|group stale/.test(backlog(g)), JSON.stringify(g))
 })
 
 test('clock: local 12-hour time with am/pm', () => {
@@ -768,7 +776,7 @@ test('clock: local 12-hour time with am/pm', () => {
   for (const [h, m, want] of cases) assert.equal(clock(new Date(2026, 0, 2, h, m).getTime()), want)
 })
 
-test('the Backlog group draws 10 rows of its page, clamps the page, and shows the pager only past one page', () => {
+test('renderBacklog draws the Backlog group 10 rows of its page, clamps the page, and shows the pager only past one page; no group says so', () => {
   const ids = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => `CW-${from + i}`)
   // [rows, page, drawn ids, "Page X of Y" or null, disabled button, data-backlog-page of Previous and Next]
   const cases = [
@@ -782,7 +790,7 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
     [25, NaN, ids(1, 10), 'Page 1 of 3', 'Previous', [-1, 1]],
   ]
   for (const [n, page, drawn, text, disabled, targets] of cases) {
-    const html = renderStatus([{ name: 'Backlog', count: n, rows: ids(1, n).map((id) => row({ id })), moreUrl: 'https://x.test/b' }], new Set(), new Set(), new Set(), page)
+    const html = renderBacklog([{ name: 'Backlog', count: n, rows: ids(1, n).map((id) => row({ id })), moreUrl: 'https://x.test/b' }], new Set(), page)
     const label = `${n} rows, page ${page}`
     assert.deepEqual([...html.matchAll(/<span class="id">([^<]*)</g)].map((m) => m[1]), drawn, label)
     assert.equal(html.match(/<nav class="pager">[\s\S]*?<span>([^<]*)<\/span>/)?.[1] ?? null, text, label)
@@ -792,6 +800,9 @@ test('the Backlog group draws 10 rows of its page, clamps the page, and shows th
     // The Full backlog link stays, after the pager when there is one.
     assert.match(html, text ? /<\/nav><p class="more"><a href="https:\/\/x\.test\/b"/ : /<\/ul><p class="more"><a href="https:\/\/x\.test\/b"/, label)
   }
+  assert.match(renderBacklog([{ name: 'Building', count: 1, rows: [row()] }]), /^<p class="quiet">Nothing in the Backlog<\/p>$/)
+  assert.match(renderBacklog(undefined), /Nothing in the Backlog/)
+  assert.match(renderBacklog([{ name: 'Backlog', count: 1, rows: [row()] }], new Set(['Backlog'])), /data-group="Backlog">/, 'collapsed')
   assert.deepEqual([pageOf(0, 5, 10), pageOf(25, 2.9, 10), pageOf(25, 'x', 10)], [{ at: 0, pages: 1 }, { at: 2, pages: 3 }, { at: 0, pages: 3 }])
 })
 
