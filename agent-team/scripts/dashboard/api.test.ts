@@ -457,7 +457,6 @@ test('Todo tickets join Waiting to spec after the spec-queued rows, in priority 
   for (const [name, tickets, items, mergedIds, want] of cases) {
     const api = build({ state: tickets && { tickets }, backlog: items, merged: merged.filter((e) => mergedIds.includes(e.id)) })
     assert.deepEqual(api.status.map((g) => [g.name, g.count, g.rows.map((r) => r.id)]), want, name)
-    assert.ok(!api.status.some((g) => g.name === 'Todo'), name)
   }
   const row = build({ backlog: seq(['CW-2']) }).status[0].rows[0]
   assert.deepEqual(row, { id: 'CW-2', title: 'CW-2', issueUrl: 'https://github.com/o/r/issues/2', risk: '', next: '', stage: '' })

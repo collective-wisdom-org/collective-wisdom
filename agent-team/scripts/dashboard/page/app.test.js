@@ -517,7 +517,7 @@ test('a running ticket helper is a placeholder card; a Todo row shows only under
   assert.ok(next.indexOf('data-group="Queued to build"') < next.indexOf('data-group="Waiting to spec"'), 'Waiting to spec follows Queued to build')
   const waiting = next.split('data-group="Waiting to spec"')[1]
   assert.equal([...waiting.matchAll(/<li class="ticket compact">/g)].length, 2, 'spec-queued and Todo rows are compact cards')
-  assert.ok(!waiting.includes('<li class="ticket">') && !/risk|since/.test(waiting.split('CW-6')[1].split('CW-7')[1]))
+  assert.ok(!waiting.includes('<li class="ticket">') && !/risk|since/.test(waiting.split('<li class="ticket compact">')[2]))
   assert.match(waiting, /href="https:\/\/x\.test\/issues\/7"/)
   assert.deepEqual([html.includes('band-not-started'), html.includes('Not started'), html.includes('data-group="Backlog"'), html.includes('CW-8')], [false, false, false, false])
   assert.equal(renderStatus([spec]).includes('No state yet'), false)

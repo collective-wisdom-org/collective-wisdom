@@ -20,7 +20,7 @@ Spec: `docs/superpowers/specs/2026-11-15-cw-387-backlog-tab-spec-queue-design.md
 2. `renderStatus` no longer draws Backlog or its pager. New exported `renderBacklog(groups, collapsed, backlogPage)` draws the group as before, or `Nothing in the Backlog`. It takes optional `open` and `info` sets so a Backlog row keeps an open Agents panel.
 3. `ticket` adds `stale` to a row's class. The row phrase for a `spec-queued` row now keys on the Waiting to spec group.
 4. `tabFromStorage` accepts `backlog`. `drawStatus` writes `#status` and `#backlog` under the same clamp and changed check.
-5. `index.html`: the Backlog tab and panel; `li.row.stale` greys like a stale group; the Backlog group's top margin sits flush in the panel.
+5. `index.html`: the Backlog tab and panel; `li.ticket.stale` greys like a stale group; the Backlog group's top margin sits flush in the panel.
 
 ## Task 4: Chief of Staff docs and README
 
