@@ -15,7 +15,8 @@ const TEAM_ROLES = ['triage', 'write', 'maintain', 'admin']
 /** The page line for a failed read: the first line of the reason, control characters stripped, 120 characters. */
 function failure(e: unknown): string {
   const text = e instanceof Error ? e.message : String(e)
-  const line = text.split(/\r?\n/).map((l) => l.replace(BAD, ' ').trim()).find(Boolean) ?? 'unknown error'
+  // execFile puts `Command failed: <path and arguments>` first; the reason is the next line.
+  const line = text.split(/\r?\n/).map((l) => l.replace(BAD, ' ').trim()).find((l) => l && !l.startsWith('Command failed:')) ?? 'gh did not answer'
   return `Could not read Todo and Backlog from GitHub: ${line.slice(0, 120)}. Showing the last list read.`
 }
 

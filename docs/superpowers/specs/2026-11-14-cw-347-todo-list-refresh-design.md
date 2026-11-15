@@ -40,7 +40,7 @@ Every gap is under the 60 s refresh, so the refresh alone explains what the user
 
 One new row in `chief-of-staff/commands.md`, which is outside the size-limited core of `SKILL.md`:
 
-- **`mark N todo`, `move N to backlog`, or any other request to set a ticket to Todo or Backlog:** run `set-state`, then the dashboard refresh. On `linear` or `jira`, save both lists first: the Todo list with the same `list-tickets` call § Todo start makes (state Todo, fields `id, title, labels, priority, createdAt`) piped to `cos_lists.py todo`, and the Backlog list with the call in `project-manager/reference.md` step 4 piped to `cos_lists.py backlog`. Then, on every tracker, run `cos_lists.py changed`. A failed read or a `lists: cannot` line goes in the reply as `Dashboard not refreshed: <one line>`; the state change stands.
+- **`mark N todo`, `move N to backlog`, or any other request to set a ticket to Todo or Backlog:** run `set-state`, then the dashboard refresh. On `linear` or `jira`, save both lists first: the Todo list with the same `list-tickets` call § Todo start makes (state Todo, fields `id, title, labels, priority, createdAt`) piped to `cos_lists.py todo`, and the Backlog list with the call in `project-manager/reference.md` step 3 (Dashboard save, with its author filter) piped to `cos_lists.py backlog`. Then, on every tracker, run `cos_lists.py changed`. A failed read or a `lists: cannot` line goes in the reply as `Dashboard not refreshed: <one line>`; the state change stands.
 - The `cancel N` row gains "then the dashboard refresh (the mark-N row)".
 - `session.md`'s script list names `cos_lists.py changed`. `SKILL.md` is not touched.
 

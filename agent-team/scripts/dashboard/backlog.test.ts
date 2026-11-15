@@ -121,7 +121,7 @@ test('backlog: a new change stamp reads at once, one more read after a running o
   assert.equal(reads, 5, 'stamps during a read cost exactly one more read')
   assert.deepEqual(b.get().map((i) => i.id), ['CW-5'])
 
-  fail = new Error('HTTP 502\nsecond line')
+  fail = new Error('Command failed: /Users/x/gh.sh issue list --repo a/b\nHTTP 502\nsecond line')
   b.want(CFG, 'f')
   await b.idle()
   assert.equal(b.error(), 'Could not read Todo and Backlog from GitHub: HTTP 502. Showing the last list read.')
