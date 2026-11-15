@@ -47,7 +47,7 @@ A sentence longer than about 400 characters is broken at a comma, semicolon, col
 
 ### 2. Line 189 becomes a list of tabs
 
-Same treatment: one bullet each for the tab bar and its count pills, the Ship loop tab, the Chief of Staff tab, the Project manager list, and how the tabs refresh and which sessions show where. One sentence per line.
+Same treatment: one bullet each for the tab bar, its count pills, the Ship loop tab, the Chief of Staff tab, the Project manager list, and how the tabs refresh and which sessions show where. One sentence per line.
 
 ### 3. Line 191 keeps one paragraph
 
