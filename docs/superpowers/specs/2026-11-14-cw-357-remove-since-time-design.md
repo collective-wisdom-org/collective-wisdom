@@ -1,6 +1,7 @@
 # CW-357: Remove "since HH:MM" from dashboard ticket cards
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #367, as specified
 **Ticket:** [#357](https://github.com/collective-wisdom-org/collective-wisdom/issues/357)
 **Runs beside:** CW-354, CW-349 and CW-350, which also edit the dashboard page. This change keeps to the `since` text so a rebase stays small.
 
