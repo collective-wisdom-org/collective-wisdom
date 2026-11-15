@@ -15,11 +15,11 @@ Written after the fact: the sweep was a hand run asked for by the user, and this
 
 Facts from `main` at `3157d1e`.
 
-- The doc was last edited by CW-341 (#361) on 2026-11-14. About 55 PRs merged after it without touching it.
+- The doc was last edited by CW-341 (#361) on 2026-11-14. 36 PRs merged after it without touching it.
 - Cells that no longer match the code: the Cursor cells of Ticket helper in the gantt (CW-288 made the hook write `ticket` and `request`, and G21 still said it did not), Ship loop child threads (since CW-280 a Cursor Chief of Staff starts Cursor children, so the 2026-11-09 run with Claude Code children no longer backs the cell) and Context reset (CW-341 reads the size, CW-353 makes the hook send back an unfinished take over). In Matrix 2, the dashboard links row and G15 (CW-334 built Linear and Jira links) and the Todo and Backlog list row and G22 (CW-347, CW-355 and WISE-431 added save points).
 - Gaps resolved by merged work but still listed as open: G20 (CW-276), G21 (CW-288), G27 (CW-328). G23 was deleted by CW-299 with no line saying so.
 - Ticket lines that pointed nowhere: G1, G3 and G9 named "the follow-up for the Cursor trial run", which was never filed. G28 said `none yet` although #342 and #343 exist.
-- Features with no row: model routing per harness (CW-280), the No Hands run (a note only), the background waits (CI wait, merge wait from CW-386, run wait from CW-406), the Chief of Staff thread title (CW-380, skipped on Cursor), the dashboard ticket owner (WISE-424, WISE-428), the Mark todo button (WISE-419), the `Retired issue prefixes` row (CW-404, GitHub only) and the untrusted author check (GitHub adapter only).
+- Features with no row: model routing per harness (CW-280), the No Hands run (a note only), the background waits (CI wait, merge wait from CW-386, run wait from CW-406), the Chief of Staff thread title (CW-380, unchecked on Cursor), the dashboard ticket owner (WISE-424, WISE-428), the Mark todo button (WISE-419), the `Retired issue prefixes` row (CW-404, GitHub only) and the untrusted author check (GitHub adapter only).
 - No test reads the doc. The documenter's living docs list in `docs/agents/project.md` § Docs check does not name it, which is how it fell behind.
 
 ## Design
