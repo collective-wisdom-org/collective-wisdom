@@ -1,7 +1,8 @@
 # WISE-430: Writing tickets at the top of the Backlog tab, titled by the ticket
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#430](https://github.com/collective-wisdom-org/collective-wisdom/issues/430)
+**Shipped:** in PR #437, as specified
 
 ## Goal
 
