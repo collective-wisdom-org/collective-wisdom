@@ -992,6 +992,7 @@ test('pressMessage: one line per reason for each control, none when sent or a re
       [{ sent: true }, ''],
       [{ sent: false, reason: 'busy' }, `${action} not sent: another one-click send was still running.${tail}`],
       [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front.${tail}`],
+      [{ sent: false, reason: 'no-focus' }, `${action} not sent: the dashboard could not put the cursor in the T3 message box.${tail}`],
       [{ sent: false, reason: 'permission' }, new RegExp(`^${action} not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \\(or the app that started the dashboard\\)`)],
       [{ sent: false, reason: 'error' }, generic],
       [{ sent: false, reason: 'toString' }, generic],

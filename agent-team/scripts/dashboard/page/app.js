@@ -342,6 +342,7 @@ function approveControls(r, chiefLink) {
 
 const PRESS_MESSAGES = {
   'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.`,
+  'no-focus': (action) => `${action} not sent: the dashboard could not put the cursor in the T3 message box. Press Send in the Chief of Staff thread.`,
   permission: (action) => `${action} not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.`,
   busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
