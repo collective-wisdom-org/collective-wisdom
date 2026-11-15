@@ -515,23 +515,21 @@ const ciSpansOf = (ci, now) =>
     .filter((p) => Array.isArray(p) && Number.isFinite(p[0]))
     .map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
 
-/** The `CI wait` row: the merged length of the CI spans, one blue bar per merged span (`place(a, b)` gives its left and width in percent). Empty when there are no spans. */
-function ciRow(spans, place) {
-  if (spans.length === 0) return ''
-  const merged = union(spans)
-  const open = merged.some((p) => p[2])
-  const last = Math.max(...spans.map((p) => p[1]))
-  const range = `${clock(Math.min(...spans.map((p) => p[0])))} to ${open ? 'now, running' : clock(last)}`
-  const title = esc(`CI wait\n${spans.length} ${spans.length === 1 ? 'commit' : 'commits'} ran CI · ${range}`)
-  const bars = merged
-    .map(([a, b, o]) => {
-      const { left, width } = place(a, b)
-      const tip = esc(`CI wait\n${o ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
-      return `<span class="bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+/**
+ * For each CI span [start, end, open], the index in `items` of the top-level task that waited for it: the one whose latest finished working span ends at or before the span's start (ties to the earlier task, so the earliest index).
+ * Only a task's own spans count, not its subagents', and a span still running does not (a stale session's open span is closed at its last update, so it does). With no such task the earliest one (index 0) owns the span.
+ */
+export const ciOwner = (items, spans) =>
+  spans.map(([start]) => {
+    let owner = 0
+    let latest = -Infinity
+    items.forEach((i, n) => {
+      for (const [, end, open] of i.spans) {
+        if ((!open || i.s?.stale) && end <= start && end > latest) [owner, latest] = [n, end]
+      }
     })
-    .join('')
-  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="track">${bars}</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
-}
+    return owner
+  })
 
 const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
 
@@ -567,7 +565,16 @@ export function renderGantt(sessions, now, ci) {
     const left = Math.min(99, (pos(a) / scale) * 100)
     return { left, width: Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100)) }
   }
-  const wait = ciRow(ciSpans, place)
+  const owners = ciOwner(items, ciSpans)
+  // A task's CI wait: its CI spans merged, one blue bar each, after its working bars.
+  const ciBars = (n) =>
+    union(ciSpans.filter((_, k) => owners[k] === n))
+      .map(([a, b, open]) => {
+        const { left, width } = place(a, b)
+        const tip = esc(`CI wait\n${open ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
+        return `<span class="bar ci" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+      })
+      .join('')
   const bars = (row, spans) =>
     union(spans)
       .map(([a, b, open]) => {
@@ -580,14 +587,14 @@ export function renderGantt(sessions, now, ci) {
       })
       .join('')
   const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
-  const line = (row, spans, cost, depth) => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
+  const line = (row, spans, cost, depth, ci = '') => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
   <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
-  <span class="track">${bars(row, spans)}</span>
+  <span class="track">${bars(row, spans)}${ci}</span>
   <span class="num dur">${duration(length(spans))}</span>
   <span class="num cost">${dollars(cost)}</span>
 </div>`
-  const rows = items.map((i) => {
-    return [line(i, i.spans, itemCost(i), 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
+  const rows = items.map((i, n) => {
+    return [line(i, i.spans, itemCost(i), 0, ciBars(n)), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
   })
   const sum = ganttCost(items)
   const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null
@@ -600,7 +607,6 @@ export function renderGantt(sessions, now, ci) {
   return `<div class="gantt">
 ${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
-${wait}
 ${note}
 ${oldNote}
 </div>`
