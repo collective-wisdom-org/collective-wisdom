@@ -722,10 +722,9 @@ test('renderGantt draws each CI wait bar on its task row and leaves durations, c
 
 test('barCategory reads the start of a row name and falls back to other', () => {
   const cases = {
-    planning: ['Spec CW-385: Stamp approval-comment times', 'Ticket helper CW-345', 'Backlog ranking', 'approve 370', 'take over', 'CHIEF OF STAFF NOTICE: queue moved', 'Spec CW-1: Review the code'],
-    building: ['Build CW-310: Merge the docs', 'CW-385 build', 'build', 'Implement CW-306 plan', 'Build CW-339 task 1'],
-    review: ['Code review PR 397', 'Small-diff code and security review', 'Re-review fix commit', 'Fix CW-339 review findings', 'CW-339 changes on PR #352'],
-    docs: ['Docs check PR 397', 'Compact added agent text'],
+    planning: ['Spec CW-385: Stamp approval-comment times', 'Ticket helper CW-345', 'Backlog ranking', 'approve 370', 'take over', 'CHIEF OF STAFF NOTICE: queue moved', 'Spec CW-1: Review the code', 'WISE-438 changes', 'Spec WISE-438 changes'],
+    building: ['Build CW-310: Merge the docs', 'CW-385 build', 'build', 'Implement CW-306 plan', 'Build CW-339 task 1', 'Compact added agent text'],
+    review: ['Code review PR 397', 'Small-diff code and security review', 'Re-review fix commit', 'Fix CW-339 review findings', 'CW-339 changes on PR #352', 'Docs check PR 397'],
     merge: ['Merge CW-310: Build it', 'merge PR #389', 'CW-389 merge PR #389'],
     other: ['how many tokens', 'Delegated task node:delegated-task:command%3Amcp%3A602cbc46-', 'outside a task', 'main', 'task', undefined, null, 7],
   }
