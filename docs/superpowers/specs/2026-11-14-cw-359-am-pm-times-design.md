@@ -1,6 +1,7 @@
 # CW-359: Show times in 12-hour am/pm format everywhere
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #364, with differences: [as-built](../as-built/2026-11-14-cw-359-am-pm-times.md)
 **Ticket:** [#359](https://github.com/collective-wisdom-org/collective-wisdom/issues/359)
 
 ## Goal
