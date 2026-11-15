@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 update the agent-gantt plugin when install.sh finds an older version (CW-339) (#358)
+
+Merged 2026-11-15 03:06 UTC.
+
+`./install.sh` now updates the agent-gantt plugin when the clone has a newer version, and says to restart Claude Code. A running Chief of Staff updates it too, after a merge that bumps the mod, by resetting its own context. Nothing to do on your side.
+
 ## 2026-11-15 show a Todo or Backlog change on the dashboard right away (CW-347) (#356)
 
 Merged 2026-11-15 02:52 UTC.
