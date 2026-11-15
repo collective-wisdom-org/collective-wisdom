@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 focus the T3 composer before Approve presses Return (WISE-434) (#450)
+
+Merged 2026-11-15 7:15 pm UTC.
+
+Approve and Mark todo on the dashboard now click into the T3 message box first, so they send even when the cursor was somewhere else. If the message box can't be found, nothing is pressed and the page says so; press Send yourself.
+
 ## 2026-11-15 regroup Gantt bar categories, drop Docs and cleanup (WISE-438) (#451)
 
 Merged 2026-11-15 7:08 pm UTC.
