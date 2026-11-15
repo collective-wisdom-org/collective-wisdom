@@ -259,8 +259,8 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], openPrs = {}, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   // Without `links`, the GitHub links come from `repo`.
   const links = input.links !== undefined ? input.links : repo?.isGithubIssues ? githubLinks(repo.url) : null
@@ -276,7 +276,10 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       if (r.stageAt) out.stageAt = r.stageAt
       const issueUrl = links?.issue(r.id)
       if (issueUrl) out.issueUrl = issueUrl
-      if (repo && typeof t.pr === 'number' && Number.isInteger(t.pr)) out.prUrl = `${repo.url}/pull/${t.pr}`
+      // State `pr` (set at MERGE READY) wins; before that the open PR found by its branch gives the link.
+      const openPr = Object.hasOwn(openPrs, r.id) ? openPrs[r.id] : undefined
+      const prNum = typeof t.pr === 'number' && Number.isInteger(t.pr) ? t.pr : Number.isInteger(openPr) && openPr! > 0 ? openPr : undefined
+      if (repo && prNum !== undefined) out.prUrl = `${repo.url}/pull/${prNum}`
       if (environmentId && typeof t.childThreadId === 'string' && t.childThreadId)
         out.threadLink = `<t3-thread://v2/${environmentId}/${t.childThreadId}>`
       const specUrl = specUrlOf(repo?.url, t.specPath, t.specSha)
