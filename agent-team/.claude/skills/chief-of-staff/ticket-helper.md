@@ -6,16 +6,17 @@ Read on a new ticket, a ticket edit, "place / link these tickets", a change to h
 
 A one-shot thread that writes a ticket for the user so this thread reads no code and writes nothing to the tracker for it. It holds no lane slot, has no stage, and is not in state.
 
-1. `delegate_task` with `isolation: "shared"` (the root checkout on the merge target branch, read only), `mode: "async"`, `role: "general"`, `title: "Ticket: <3 to 6 words from the user's message>"`, `target` from `cos_models.py` for the `ticket-helper` role (models.md § Models), and the template below.
+1. `delegate_task` with `isolation: "shared"` (the root checkout on the merge target branch, read only), `mode: "async"`, `role: "general"`, `title: "Ticket: <3 to 6 words describing the ticket>"`, `target` from `cos_models.py` for the `ticket-helper` role (models.md § Models), and the template below.
 2. Save nothing to state. Don't call `task_status`.
 3. Reply `On it: [ticket helper](<link>).` using the thread's `link` from the `delegate_task` response as the URI.
 
-The `orchestrator_capabilities` rule in session.md § Tools still holds: call it only in the turn that makes this thread's first `delegate_task`, whether that is a child or a helper. One helper per message, even when it asks for several tickets. A helper run once reports once (SKILL.md § Tick, `helper-test`).
+The `orchestrator_capabilities` rule in session.md § Tools still holds: call it only in the turn that makes this thread's first `delegate_task`, whether that is a child or a helper. Write the `Writing ticket:` line yourself: describe the ticket, don't quote the message. One helper per message, even when it asks for several tickets. A helper run once reports once (SKILL.md § Tick, `helper-test`).
 
 ```
 TICKET HELPER. Chief of Staff thread: <this thread's id>[ Request from <sender thread id> item <item id>.]
 
 Run /write-ticket for the user's request below, then stop.
+Writing ticket: <ticket description, under 80 characters>
 
 You are not a ship-loop child. You have no ticket, branch, stage or slot.
 The ship-loop child rule in write-ticket doesn't apply to you.
