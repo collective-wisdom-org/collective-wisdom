@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 reorder the dashboard tabs and add a Backlog tab count (CW-411) (#417)
+
+Merged 2026-11-15 8:17 am UTC.
+
+The dashboard tab bar now reads Ship loop, Backlog, Done, Chief of Staff, and the Backlog tab shows how many tickets it holds. Nothing to do on your side.
+
 ## 2026-11-15 rename the ticket prefix from CW to WISE (CW-404) (#414)
 
 Merged 2026-11-15 8:14 am UTC.
