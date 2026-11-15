@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 stamp status-line and approval-comment times from the clock (CW-385) (#403)
+
+Merged 2026-11-15 7:11 am UTC.
+
+The Chief of Staff's status lines and approval comments now carry times read from the clock (for example `2026-11-15 5:16 am UTC`), so they can't be off by minutes. Nothing for you to do.
+
 ## 2026-11-15 find a merge soon after a merge relay, even when the finish notice is lost (CW-386) (#405)
 
 Merged 2026-11-15 7:01 am UTC.
