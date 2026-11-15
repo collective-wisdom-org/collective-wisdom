@@ -1,7 +1,8 @@
 # WISE-435: Send the Chief of Staff back to read a child that finished while it was mid-turn
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#435](https://github.com/collective-wisdom-org/collective-wisdom/issues/435)
+**Shipped:** in PR #449, as specified
 
 ## Goal
 
