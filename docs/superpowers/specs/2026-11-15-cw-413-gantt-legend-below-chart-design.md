@@ -1,7 +1,8 @@
 # CW-413: Move the dashboard Gantt legend below the chart and the ticket number above the title
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#413](https://github.com/collective-wisdom-org/collective-wisdom/issues/413)
+**Shipped:** in PR #418, as specified
 
 ## Goal
 
