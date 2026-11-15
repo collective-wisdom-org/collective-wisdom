@@ -21,7 +21,7 @@ now prints the current time as 2026-11-15 5:16 am UTC (--iso: 2026-11-15T05:16:0
 source of a clock time the Chief of Staff writes into a ticket comment.
 
 A status line takes its since time from the script: {since} in the text of a start, stage or set op becomes the ticket's
-stageAt as 2026-11-15 5:16 am UTC. A status with since followed by a digit before its first double quote (a hand-typed time) is rejected.
+stageAt as 2026-11-15 5:16 am UTC. A status with since followed by a digit before its first ": " (a hand-typed time) is rejected; text after it is left alone.
 
 Operations (each {"op": NAME, ...}):
     start     ticket, firstTaskId, childThreadId, parentThreadId, status, title; optional branch
@@ -190,10 +190,10 @@ HAND_TIME = re.compile(r"since\s*\d")
 
 
 def fill_status(text, stage_at):
-    """Replace {since} with the stageAt time; reject a hand-typed since time before the first quote (a quoted line is left alone)."""
+    """Replace {since} with the stageAt time; reject a hand-typed since time before the first ": " (the rest, a Risk: reason or a quoted line, is left alone)."""
     if not isinstance(text, str):
         return text
-    if HAND_TIME.search(text.split('"', 1)[0]):
+    if HAND_TIME.search(text.split(": ", 1)[0]):
         raise Reject("status: write since {since}, not a time; the script fills it from stageAt")
     return text.replace("{since}", stamp_text(stage_at or now()))
 

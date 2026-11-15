@@ -262,6 +262,7 @@ def test_top_gantt_plugin_version_must_be_dotted_integers(value, ok):
         ({**stage("awaiting-merge"), "status": "awaiting-merge since {since}: x"}, True),  # same stage: the current stageAt
         (set_(status="awaiting-merge since {since}: x"), True),
         (set_(status='blocked: "stuck since 5 days"'), True),  # quoted words are left alone
+        (set_(status="awaiting-merge since {since}: x. Risk: Low (unchanged since 2024)."), True),  # a Risk: reason is left alone
         ({**stage("build"), "status": "build since 5:20am: x"}, False),
         (set_(status="awaiting-merge since 14:05: x"), False),
     ],

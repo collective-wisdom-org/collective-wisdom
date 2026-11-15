@@ -1,7 +1,7 @@
 # CW-385: Stamp status-line times and approval-comment times from the clock
 
 **Status:** Shipped
-**Shipped:** in PR #403, as specified
+**Shipped:** in PR #403, with differences: [as-built](../as-built/2026-11-15-cw-385-clock-stamped-times.md)
 **Ticket:** [#385](https://github.com/collective-wisdom-org/collective-wisdom/issues/385)
 
 ## Goal
