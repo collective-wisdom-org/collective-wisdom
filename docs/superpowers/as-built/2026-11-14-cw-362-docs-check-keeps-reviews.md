@@ -11,3 +11,4 @@
 - `project_config.living_docs()` is new, built on a new `_committed_text`; the existing rows reader behaves as before. It has its own test table, which the spec did not list.
 - The `pr_diff_delta` tests use a real temporary git repo with an injected living-docs config, not a fake `run`.
 - `ship-loop` phase 4 says only that `note` also covers the docs check's living-docs-only fix commit, and points to `open-pr` for the conditions.
+- Added in review: the `living` rule also refuses a file the fix commit adds or deletes (present at one head and absent at the other). Editing in place passes, including a file the PR added earlier. The spec did not say this.
