@@ -1,6 +1,7 @@
 # CW-349: Paginate the Backlog section of the dashboard
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #374, as specified
 **Ticket:** [#349](https://github.com/collective-wisdom-org/collective-wisdom/issues/349)
 
 ## Goal
