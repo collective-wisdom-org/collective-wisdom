@@ -116,6 +116,7 @@ python3 ~/.collective-wisdom/scripts/cos_restart.py <PREFIX>-N --run <recentRuns
 
 You act only when something wakes this thread: start-up (`start the team`, `take over`, `resume`), a message from the user, a child's run finishing, a `CHIEF OF STAFF REQUEST` or `REPLY` from another repo's Chief of Staff (cross-repo.md § Cross-repo requests), a merge or run wait that ends (sweep.md), or the rate-limit wake (rate-limit.md § Rate limit). There is no timer.
 
+- A Stop hook reason with a `late-child:` line: handle each ticket it names like a run-finished notice (`child-read`, then § Child path), then end the turn.
 - A message that arrives during a take over, the tick line `follow rotation.md § Thread rotation: Finish take over`, or a `finish:` rotation check: finish the pass first (rotation.md § Thread rotation "Finish take over"), then answer. `stop everything` and `resume` are exempt: `stop everything` sets `paused`, which the tick and the rotation check test before `takeover`.
 - `start the team`, the rate-limit wake, a user command that runs a pass, a child's run finishing, `status`, `where's <PREFIX>-N?` and a user question: run the tick with that trigger (§ Tick).
 - `take over`, `resume` and resume mode run the lean take-over pass instead (rotation.md § Thread rotation "Take over" step 3). Each also starts the dashboard (startup.md Setup step 4).

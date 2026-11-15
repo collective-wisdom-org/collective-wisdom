@@ -490,6 +490,8 @@ test('pressResult maps the osascript output and errors', () => {
     ['sent\n', { sent: true }],
     ['not-frontmost\n', { sent: false, reason: 'not-frontmost' }],
     ['unsupported', { sent: false, reason: 'unsupported' }],
+    ['no-focus\n', { sent: false, reason: 'no-focus' }],
+    ['permission\n', { sent: false, reason: 'permission' }],
     ['', { sent: false, reason: 'error' }],
     [fail('execution error: Not authorized to send Apple events to System Events. (-1743)'), { sent: false, reason: 'permission' }],
     [fail('osascript is not allowed to send keystrokes. (1002)'), { sent: false, reason: 'permission' }],
