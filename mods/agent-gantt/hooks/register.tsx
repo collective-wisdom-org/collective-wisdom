@@ -168,9 +168,10 @@ async function writeSnapshot($: EngineInterface) {
     }
     const list = await read($, records)
     const earlier = earlierRows(previous, sessionId, list.find(r => r.id === MAIN)?.start ?? 0)
-    const rows = withHelperTicket([...earlier, ...buildRows(list, await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)], await read($, ticket))
+    const filed = (await read($, ticket)) || oldField(previous, sessionId, 'ticket')
+    const rows = withHelperTicket([...earlier, ...buildRows(list, await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)], filed)
     const total = (await $.session.usage()).cost?.usd ?? null
-    const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows, threadId: (await read($, thread)) || null, heading: (await read($, heading)).value ?? oldField(previous, sessionId, 'heading'), ticket: (await read($, ticket)) || oldField(previous, sessionId, 'ticket'), request: (await read($, request)) || oldField(previous, sessionId, 'request') })
+    const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows, threadId: (await read($, thread)) || null, heading: (await read($, heading)).value ?? oldField(previous, sessionId, 'heading'), ticket: filed, request: (await read($, request)) || oldField(previous, sessionId, 'request') })
     await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
   } catch {
     // the dashboard is optional: skip this write
