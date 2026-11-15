@@ -3,7 +3,7 @@ import type { Detail } from './details.ts'
 import { headsPattern } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
-export type MergedConfig = TitleConfig & { issueUrls: boolean; heads?: string[] }
+export type MergedConfig = TitleConfig & { issueUrls: boolean; issueUrl?: (id: string) => string | undefined; heads?: string[] }
 /** `number` is the PR number, kept for the server's detail reads and left out of the api. */
 export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; number?: number; specUrl?: string; detail?: Detail; spend?: { cost: number | null; tokens: number }; gantt?: Session[]; ci?: [number, number | null][] }
 type Run = (args: string[]) => Promise<string>
@@ -34,7 +34,8 @@ export function parseMerged(json: string, cfg: MergedConfig): MergedEntry[] | nu
     if (!n) continue
     const prUrl = typeof url === 'string' && url.startsWith(`https://github.com/${slug}/pull/`) ? url : `https://github.com/${slug}/pull/${number}`
     const entry: MergedEntry = { id: `${prefix}-${n}`, title: clean.replace(bySuffix, '').slice(0, 200), prUrl, mergedAt: time, number: number as number }
-    if (cfg.issueUrls) entry.issueUrl = `https://github.com/${slug}/issues/${n}`
+    const issueUrl = cfg.issueUrl ? cfg.issueUrl(entry.id) : cfg.issueUrls ? `https://github.com/${slug}/issues/${n}` : undefined
+    if (issueUrl) entry.issueUrl = issueUrl
     out.push(entry)
   }
   out.sort((a, b) => b.mergedAt - a.mergedAt || b.number! - a.number!)

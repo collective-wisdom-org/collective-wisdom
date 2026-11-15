@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createTrackerLists } from './lists.ts'
-import { buildApi, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject } from './api.ts'
+import { buildApi, ledgerSessions, teamSessions, parseWorktrees, repoUrlFromProject, trackerLinksFromProject } from './api.ts'
 import { applyEvent, cursorSnapshot, emptyState } from '../../../mods/agent-gantt/hooks/cursor.ts'
 
 const NOW = 1_800_000_000_000
@@ -157,6 +157,47 @@ test('repoUrlFromProject', () => {
   for (const [row, isGithubIssues] of cases) {
     assert.deepEqual(repoUrlFromProject(`${repo}\n${row}\n`), { url: 'https://github.com/o/r', isGithubIssues }, row)
   }
+})
+
+test('trackerLinksFromProject: ticket and backlog links per tracker; a missing, TODO or placeholder row gives none', () => {
+  const rows = (...r: string[]) => r.join('\n')
+  const repo = '| Repo (`<owner>/<repo>`) | `o/r` (<https://github.com/o/r>) |'
+  const jira = (site: string, key = '`ABC`') => rows('| Tracker (`linear`, `github` or `jira`) | `jira` |', `| Jira site | ${site} |`, `| Jira project key | ${key} |`)
+  const jql = encodeURIComponent('project = ABC AND statusCategory = "To Do" ORDER BY created DESC')
+  const lin = (team: string, prefix = '| Issue identifier prefix (`<PREFIX>`) | `ENG` |') => rows('| Tracker | `linear` |', `| Linear team name (Linear only) | ${team} |`, prefix)
+  const none = [undefined, undefined, null] as const
+  const cases: [string, string, string, readonly [string | undefined, string | undefined, string | null]][] = [
+    ['github, any prefix', rows('| Tracker | `github` |', repo), 'CW', ['https://github.com/o/r/issues/7', 'https://github.com/o/r/issues/7', 'https://github.com/o/r/issues']],
+    ['github without a repo link', '| Tracker | `github` |', 'CW', none],
+    ['jira', jira('`https://acme.atlassian.net/`'), 'ABC', ['https://acme.atlassian.net/browse/ABC-7', undefined, `https://acme.atlassian.net/issues/?jql=${jql}`]],
+    ['jira, link form of the site', jira('<https://acme.atlassian.net>'), 'ABC', ['https://acme.atlassian.net/browse/ABC-7', undefined, `https://acme.atlassian.net/issues/?jql=${jql}`]],
+    ['jira, key not upper case', jira('`https://acme.atlassian.net`', '`abc`'), 'ABC', none],
+    ['jira, TODO site', jira('`TODO(owner)`'), 'ABC', none],
+    ['jira, example site', jira('`https://example.atlassian.net`'), 'ABC', none],
+    ['jira, http site', jira('`http://acme.atlassian.net`'), 'ABC', none],
+    ['jira, key still TODO', jira('`https://acme.atlassian.net`', '`TODO(owner)`'), 'ABC', none],
+    ['jira, rows missing', '| Tracker | `jira` |', 'ABC', none],
+    ['linear, key from the link', lin('Eng (key `ENG`, <https://linear.app/acme/team/ENG/overview>)', ''), 'ENG', ['https://linear.app/acme/issue/ENG-7', undefined, 'https://linear.app/acme/team/ENG/backlog']],
+    ['linear, key from the prefix row', lin('Eng (<https://linear.app/acme/settings>)'), 'ENG', ['https://linear.app/acme/issue/ENG-7', undefined, 'https://linear.app/acme/team/ENG/backlog']],
+    ['linear, a missing tracker row means linear', rows('| Linear team name | <https://linear.app/acme/team/ENG/all> |'), 'ENG', ['https://linear.app/acme/issue/ENG-7', undefined, 'https://linear.app/acme/team/ENG/backlog']],
+    ['linear, team name only (as setup writes it)', lin('`Acme`'), 'ENG', none],
+    ['linear, template placeholder link', lin('<team name> (key `<PREFIX>`, <https://linear.app/<workspace>/team/<PREFIX>/overview>)'), 'ENG', none],
+    ['linear, odd workspace', lin('<https://linear.app/ac.me/team/ENG/overview>'), 'ENG', none],
+    ['linear, no row', '| Tracker | `linear` |', 'ENG', none],
+  ]
+  for (const [name, md, key, [issue, other, backlog]] of cases) {
+    const links = trackerLinksFromProject(md)
+    assert.deepEqual([links?.issue(`${key}-7`), links?.issue('ZZ-7'), links?.backlog ?? null], [issue, other, backlog], name)
+  }
+})
+
+test('buildApi with Jira links: a status row, a Backlog row and the Backlog group link to Jira', () => {
+  const links = trackerLinksFromProject('| Tracker | `jira` |\n| Jira site | `https://acme.atlassian.net` |\n| Jira project key | `ABC` |')
+  const item = (id: string) => ({ id, title: id, state: 'Backlog' as const, priority: null, createdAt: null })
+  const api = build({ state: stateOf('ABC-1'), links, repo: null, backlog: [item('ABC-2'), item('XYZ-3')] })
+  const rows = api.status.flatMap((g) => g.rows)
+  assert.deepEqual(rows.map((r) => [r.id, r.issueUrl]), [['ABC-1', 'https://acme.atlassian.net/browse/ABC-1'], ['ABC-2', 'https://acme.atlassian.net/browse/ABC-2'], ['XYZ-3', undefined]])
+  assert.match(api.status.at(-1)!.moreUrl!, /^https:\/\/acme\.atlassian\.net\/issues\/\?jql=project%20%3D%20ABC/)
 })
 
 test('snapshots join the card of their worktree branch; the rest are dropped', () => {
