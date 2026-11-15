@@ -112,7 +112,7 @@ Report line: `<PREFIX>-N stale: In Progress, nothing since <date>`.
 
 ## Backlog pick
 
-Run by `chief-of-staff` § Tick (`start-todo`) when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable. No pick while a No Hands run is draining or stopped (`no_hands.py check` says `drain` or `stop`, `chief-of-staff/no-hands.md`).
+Run by `chief-of-staff/readiness.md` § Todo start (`start-todo`) when a spec slot is free, nothing is `spec-queued` and Todo has nothing startable. No pick while a No Hands run is draining or stopped (`no_hands.py check` says `drain` or `stop`, `chief-of-staff/no-hands.md`).
 
 1. Take the next `ready` ticket in `pm.ranked`. `held` and `needs:` entries are skipped.
 2. `get-ticket` it with relations and fields `id, state, labels, relations, description`, and re-check whether it is held (§ Backlog ranking step 4; read the open-PR list at most once per turn). Skip it if it is no longer in Backlog, has `agent-skip`, has an open blocker, or is held. Remove it from `pm.ranked` either way; a held ticket is removed, not started.
