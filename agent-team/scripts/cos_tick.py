@@ -12,7 +12,7 @@ has startedAt and no endedAt) the act plan carries a `run ... no_hands.py check`
 cannot know its result, so on `drain` or `stop` the model prints no `start-todo` lines and sends nothing beyond what
 no-hands.md says. What the state alone shows, the tick does itself: with `noHands.drain` set it drops `start-todo`
 (queued sends still go) and reports `filling stopped: No Hands <reason>`. A `send <T> merge` to a ticket with no parentThreadId (no finish
-notice will come) is followed by `merge-wait <T>`. The look plan's child reads are `child-read <T> <child> afterPosition=<p>` lines (cos_child_read.py) and its idle check is the one `run … cos_idle_check.py --store [--skip T]` line, with no `idle-read` lines. Every look plan except `start` begins with the provider check: `chief-provider` when the state's `chiefProvider` is missing or names
+notice will come) is followed by `merge-wait <T>`. The look plan's child reads are `child-read <T> <child> afterPosition=<p>` lines (cos_child_read.py) and its idle check is the one `run … cos_idle_check.py --store [--skip T]` line, with no `idle-read` lines. Every look plan except `start` is the one line `follow rotation.md § Thread rotation: Finish take over` when the state's `takeover` is set (the act plan ignores it); else it begins with the provider check: `chief-provider` when the state's `chiefProvider` is missing or names
 another thread (read this thread's provider and save it; no mismatch lines then), else one
 `harness-mismatch <ticket> child=<provider> chief=<provider>` line per active or queued ticket whose `provider` is set and
 differs. A ticket with no `provider` gets no line. Output is numbered lines "N. <text>"; a `stop <reason>` line is the whole plan. Reads .agent-team/state.json (under the repo root unless
@@ -155,8 +155,10 @@ def provider_lines(state, thread):
 
 
 def look(state, thread, trigger):
-    if trigger.partition(":")[0] == "start":  # startup.md step 3 reads the provider itself
+    if trigger.partition(":")[0] == "start":  # startup.md step 3 reads the provider itself; resume mode sets and clears takeover
         return look_plan(state, thread, trigger)
+    if isinstance(state.get("takeover"), dict):  # an unfinished take over goes before everything, the provider check included
+        return ["follow rotation.md § Thread rotation: Finish take over"]
     return provider_lines(state, thread) + look_plan(state, thread, trigger)
 
 

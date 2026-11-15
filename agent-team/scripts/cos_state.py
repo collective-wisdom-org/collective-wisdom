@@ -58,6 +58,9 @@ reset is null, or the marker of a session reset in flight: {"id" (8 hex chars), 
 non-empty string), optional "mode" (reset, reset-scheduled or compact)}. lastResetAt is a time with a zone, or null. The top op
 rejects any other shape.
 
+takeover is null, or the marker of a take over (or resume) pass in progress: {"startedAt" (a time with a zone, not in the
+future), "mode" (take-over or resume)}. The top op rejects any other shape. show prints it as takeover=<mode> since <time>.
+
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
 """
@@ -81,7 +84,7 @@ import project_config  # noqa: E402
 DEFAULT_FILE = root() / ".agent-team" / "state.json"
 TOP = {
     "paused", "chiefThreadId", "chiefSessionId", "takeoverContext", "skillCommit",
-    "reset", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
+    "reset", "takeover", "lastResetAt", "lastRelayAt", "rateLimitedAt", "wakeTaskId", "wakeAt",
     "merged", "tickets", "pm", "observed", "noHands", "chiefProvider",
 }
 TICKET = {
@@ -337,6 +340,11 @@ def op_top(s, op):
             and marker.get("mode", "reset") in ("reset", "reset-scheduled", "compact")
         ):
             raise Reject("reset needs null, or an id (8 hex chars), a startedAt with a zone (not in the future) and a reason, and optionally a mode")
+    take = op["set"].get("takeover")
+    if take is not None and not (
+        isinstance(take, dict) and set(take) == {"startedAt", "mode"} and sane(take["startedAt"]) and take["mode"] in ("take-over", "resume")
+    ):
+        raise Reject("takeover needs null, or a startedAt with a zone (not in the future) and a mode (take-over or resume)")
     if op["set"].get("lastResetAt") is not None and not sane(op["set"]["lastResetAt"]):
         raise Reject("lastResetAt needs a time with a zone, not in the future, or null")
     sha = op["set"].get("skillCommit")
@@ -566,13 +574,17 @@ def v(x):
     return "-" if x in (None, "") else json.dumps(x, separators=(",", ":")) if isinstance(x, (dict, bool)) else x
 
 
+def takeover_text(x):
+    return f"{x.get('mode')} since {t(x.get('startedAt'))}" if isinstance(x, dict) else "-"
+
+
 def show(s):
     tk = s.get("tickets", {})
     by = lambda *stages: [(i, x) for i, x in tk.items() if x.get("stage") in stages]  # noqa: E731
     out = [
         f"chief={v(s.get('chiefThreadId'))} paused={v(s.get('paused'))} "
         f"rateLimitedAt={t(s.get('rateLimitedAt'))} wakeTaskId={v(s.get('wakeTaskId'))} "
-        f"wakeAt={t(s.get('wakeAt'))} reset={v(s.get('reset'))} "
+        f"wakeAt={t(s.get('wakeAt'))} reset={v(s.get('reset'))} takeover={takeover_text(s.get('takeover'))} "
         f"lastResetAt={t(s.get('lastResetAt'))} lastRelayAt={t(s.get('lastRelayAt'))} skillCommit={(s.get('skillCommit') or '-')[:7]} "
         f"chiefSessionId={v(s.get('chiefSessionId'))} takeoverContext={v(s.get('takeoverContext'))}",
         "counts " + " ".join(f"{n}={len(by(n))}" for n in ACTIVE)

@@ -45,6 +45,11 @@ INVALID = "ok; skillCommit is not a full sha; set skillCommit"
         ({"skillCommit": "8ddace1", **QUEUED}, -50_000, NEW, "main", INVALID),
         ({"skillCommit": "8ddace1"}, 0, NEW, "main", "rotate: size"),
         ({"paused": True}, 40_000, NEW, "main", "ok (held: paused)"),
+        # an unfinished take over comes after paused and ahead of the reset hold and every trigger; null is today's line
+        ({"takeover": {"startedAt": ago(7), "mode": "take-over"}}, -1_000, OLD, "main", "finish: take over unfinished since 7m; mode take-over"),
+        ({"takeover": {"startedAt": ago(2), "mode": "resume"}, "reset": {"id": "0a1b2c3d", "startedAt": ago(1)}}, 40_000, NEW, "main", "finish: take over unfinished since 2m; mode resume"),
+        ({"takeover": {"startedAt": ago(2), "mode": "take-over"}, "paused": True}, 40_000, NEW, "main", "ok (held: paused)"),
+        ({"takeover": None, "reset": {"id": "0a1b2c3d", "startedAt": ago(1)}}, 40_000, NEW, "main", "ok (held: reset)"),
         # a reset marker holds for 10 minutes; an older one does not and the trigger fires again
         ({"reset": {"id": "0a1b2c3d", "startedAt": ago(9)}}, 40_000, NEW, "main", "ok (held: reset)"),
         ({"reset": {"id": "0a1b2c3d", "startedAt": ago(10)}}, 40_000, OLD, "main", "rotate: size"),
@@ -129,6 +134,7 @@ STATE = {"chiefSessionId": "S1", "chiefThreadId": "T1", "skillCommit": OLD, "chi
     [
         ({"session_id": "S1", "stop_hook_active": False}, STATE, {}, "rotate: size 230k"),
         ({"session_id": "S1"}, STATE, {"readable": False}, "cannot read context"),
+        ({"session_id": "S1"}, {**STATE, "takeover": {"startedAt": "2020-01-01T00:00:00Z", "mode": "take-over"}}, {"context": 90_000}, "finish: take over unfinished"),
         ({"session_id": "S1"}, STATE, {"context": 90_000}, None),
         ({"session_id": "S2"}, STATE, {}, None),
         ({"session_id": "S1", "stop_hook_active": True}, STATE, {}, None),
