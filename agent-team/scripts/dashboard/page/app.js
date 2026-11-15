@@ -391,10 +391,19 @@ export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, op
   return `<details class="group${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
 }
 
+/** The sum of the group `count`s that fall in `band`; a count that is not a number is 0. */
+const bandSum = (groups, band) => groups.filter((g) => band.has(g.name)).reduce((n, g) => n + (Number(g.count) || 0), 0)
+
+/** Ticket counts for the tab labels: `ship` sums group `count` over the Your turn, In progress and Up next bands, `done` is the merged list length. */
+export function tabCounts(status, merged) {
+  const groups = Array.isArray(status) ? status : []
+  return { ship: BANDS.slice(0, 3).reduce((n, band) => n + bandSum(groups, band), 0), done: Array.isArray(merged) ? merged.length : 0 }
+}
+
 /** The header: one sentence counting the bands (the Backlog is not counted). A blocked ticket (stage `blocked`) is counted apart from the waiting ones. */
 export function renderBadges(groups) {
   if (!Array.isArray(groups)) return ''
-  const sum = (band) => groups.filter((g) => band.has(g.name)).reduce((n, g) => n + (Number(g.count) || 0), 0)
+  const sum = (band) => bandSum(groups, band)
   const [needs, progress, queued] = BANDS
   const blocked = groups.filter((g) => queued.has(g.name)).flatMap((g) => list(g.rows)).filter((r) => r.stage === 'blocked').length
   const need = sum(needs)
@@ -837,6 +846,18 @@ if (typeof document !== 'undefined') {
     document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
+  // The Ship loop and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.
+  const TAB_LABELS = { ship: 'Ship loop', done: 'Done' }
+  const drawTabCounts = () => {
+    if (!last) return
+    const counts = tabCounts(last.status, last.merged)
+    for (const pill of document.querySelectorAll('[data-count]')) {
+      const n = String(counts[pill.dataset.count] ?? 0)
+      if (pill.textContent !== n) pill.textContent = n
+      const label = `${TAB_LABELS[pill.dataset.count]}, ${n}`
+      if (pill.parentElement.getAttribute('aria-label') !== label) pill.parentElement.setAttribute('aria-label', label)
+    }
+  }
   const seen = versionWatch()
   const poll = async () => {
     const err = document.getElementById('error')
@@ -855,6 +876,7 @@ if (typeof document !== 'undefined') {
       draw()
       drawMerged()
       drawCos()
+      drawTabCounts()
     } catch (e) {
       err.textContent = `Could not refresh: ${e.message}`
     }

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, ciOwner, renderBadges, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, waitText, riskText, dayWords, actionFor, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -52,6 +52,17 @@ test('the header is one sentence: Your turn first in the attention colour, zero 
   assert.match(renderBadges([g('Awaiting merge approval', 2), g('Other', 1, [blockedRow])]), /<span class="hs-need">2 need you<\/span>.*<span class="hs-blocked">1 blocked<\/span>/)
   assert.equal(renderBadges(undefined), '')
   assert.equal(renderBadges(null), '')
+})
+
+test('tab counts sum the Your turn, In progress and Up next groups (Waiting to spec in, Backlog out) and count the merged list', () => {
+  const g = (name, count) => ({ name, count, rows: [] })
+  const status = [g('Awaiting merge approval', 2), g('Building', 3), g('Queued to build', 1), g('Other', undefined), g('Waiting to spec', 5), g('Backlog', 9)]
+  const cases = [
+    [status, [1, 2, 3], { ship: 11, done: 3 }],
+    [[], [], { ship: 0, done: 0 }],
+    [undefined, undefined, { ship: 0, done: 0 }],
+  ]
+  for (const [s, m, want] of cases) assert.deepEqual(tabCounts(s, m), want)
 })
 
 test('group labels are plain words; an unknown name shows as it is; data-group keeps the api name', () => {
