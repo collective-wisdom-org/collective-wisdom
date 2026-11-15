@@ -110,7 +110,7 @@ It runs once per PR, after the code and security reviews both PASS (or the docs-
    Rejected: <finding and why, one per line, or "none">
    ```
 
-4. Run `wait-for-ci.sh`, then `review_gate.py` (`ship-loop` phase 4) and act on its last line. Its `note` also covers a head moved by docs-file-only changes: post the note as printed. A `rerun` runs the named review(s) again; the docs check does not run again.
+4. Run `wait-for-ci.sh`, then `review_gate.py` (`ship-loop` phase 4) and act on its last line. Its `note` also covers a head moved by docs-file-only changes, and the docs check's own fix commit when it changes only living docs off the hands path: keep the commit subject exactly as step 2 gives it and push it as one commit on the reviewed head, with nothing else in it. Post the note as printed. A fix to a file on the hands path, or a commit that also changes anything else, gets `rerun`. A `rerun` runs the named review(s) again; the docs check does not run again.
 
 ## Feedback loop
 
