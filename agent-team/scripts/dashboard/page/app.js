@@ -332,7 +332,7 @@ function approveControls(r, chiefLink) {
 
 const PRESS_MESSAGES = {
   'not-frontmost': 'Approve not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.',
-  permission: 'Approve not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), then press Send in the Chief of Staff thread.',
+  permission: 'Approve not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.',
 }
 
 /** The line for the error area after Approve asked the server to press Return: empty when it was sent, or when a second click on the same ticket came inside the wait (`repeat`), else the reason in words. `answer` is the server's JSON, or null when the request failed. */
