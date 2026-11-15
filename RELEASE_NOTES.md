@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 show every dashboard row as a card (CW-370) (#389)
+
+Merged 2026-11-15 5:45 am UTC.
+
+The dashboard now shows every ticket row (Up next, Not started, Done and the project manager list) as a card, like Your turn and In progress, with no divider lines between rows.
+
 ## 2026-11-15 show a short title beside every ticket ID (CW-278) (#384)
 
 Merged 2026-11-15 5:41 am UTC.
