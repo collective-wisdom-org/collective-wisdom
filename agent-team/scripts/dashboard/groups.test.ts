@@ -12,6 +12,8 @@ const state = {
     'CW-5': { stage: 'blocked', status: 'Question open' },
     'CW-6': { stage: 'spec', status: 'Spec stage' },
     'CW-7': 'junk',
+    'CW-8': { stage: 'spec-queued', queuedAt: '2026-11-05T12:00:00Z' },
+    'CW-9': { stage: 'spec-queued', queuedAt: '2026-11-05T11:00:00Z' },
   },
 }
 
@@ -22,6 +24,7 @@ test('groupTickets', () => {
     ['Speccing', 1, ['CW-6']],
     ['Building', 1, ['CW-1']],
     ['Queued to build', 2, ['CW-3', 'CW-2']],
+    ['Waiting to spec', 2, ['CW-9', 'CW-8']],
     ['Other', 1, ['CW-5']],
   ])
   const row = (group: string, i: number) => groupTickets(state).find(g => g.name === group)?.rows[i]

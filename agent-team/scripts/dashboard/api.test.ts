@@ -57,7 +57,8 @@ test('rows sort newest update first; queued stages keep their places', () => {
     ['same time keeps state order', { 'CW-1': t('build'), 'CW-2': t('build') }, { 'CW-1': 4, 'CW-2': 4 }, 'Building', ['CW-1', 'CW-2']],
     ['queued to build unchanged', { 'CW-1': t('build-queued', 'a'), 'CW-2': t('build-queued', 'b') }, { 'CW-1': 1, 'CW-2': 9 }, 'Queued to build', ['CW-1', 'CW-2']],
     ['queued to merge unchanged', { 'CW-1': t('merge-queued', 'a'), 'CW-2': t('merge-queued', 'b') }, { 'CW-1': 1, 'CW-2': 9 }, 'Queued to merge', ['CW-1', 'CW-2']],
-    ['Other: spec-queued stay, blocked sort', { 'CW-1': t('blocked'), 'CW-2': t('spec-queued', 'a'), 'CW-3': t('blocked'), 'CW-4': t('spec-queued', 'b') }, { 'CW-1': 1, 'CW-2': 1, 'CW-3': 2, 'CW-4': 9 }, 'Other', ['CW-2', 'CW-4', 'CW-3', 'CW-1']],
+    ['Waiting to spec unchanged, Other sorts blocked', { 'CW-1': t('blocked'), 'CW-2': t('spec-queued', 'a'), 'CW-3': t('blocked'), 'CW-4': t('spec-queued', 'b') }, { 'CW-1': 1, 'CW-2': 1, 'CW-3': 2, 'CW-4': 9 }, 'Waiting to spec', ['CW-2', 'CW-4']],
+    ['Other: blocked sort', { 'CW-1': t('blocked'), 'CW-2': t('spec-queued', 'a'), 'CW-3': t('blocked') }, { 'CW-1': 1, 'CW-2': 1, 'CW-3': 2 }, 'Other', ['CW-3', 'CW-1']],
   ]
   for (const [name, tickets, updated, section, want] of cases) {
     const rows = build({ state: { tickets }, updated }).status.find((g) => g.name === section)!.rows
@@ -425,9 +426,9 @@ test("a helper session joins its filed ticket's Todo or Backlog row on Linear an
   const cases: [string, string, string, 'todo' | 'backlog', boolean, 'live' | 'history', string | undefined][] = [
     ['Linear Backlog, live', 'ENG', 'ENG-12', 'backlog', true, 'live', 'Backlog'],
     ['Jira Backlog, live', 'PROJ', 'PROJ-7', 'backlog', false, 'live', 'Backlog'],
-    ['Jira Todo, live', 'PROJ', 'PROJ-7', 'todo', false, 'live', 'Todo'],
+    ['Jira Todo, live', 'PROJ', 'PROJ-7', 'todo', false, 'live', 'Waiting to spec'],
     ['Linear Backlog, history only', 'ENG', 'ENG-12', 'backlog', true, 'history', 'Backlog'],
-    ['Jira Todo, history only', 'PROJ', 'PROJ-7', 'todo', false, 'history', 'Todo'],
+    ['Jira Todo, history only', 'PROJ', 'PROJ-7', 'todo', false, 'history', 'Waiting to spec'],
     ['Linear ticket not in the saved lists: nowhere', 'ENG', 'ENG-13', 'backlog', true, 'live', undefined],
   ]
   for (const [name, prefix, ticket, list, isLinear, source, group] of cases) {
@@ -442,14 +443,23 @@ test("a helper session joins its filed ticket's Todo or Backlog row on Linear an
   }
 })
 
-test('Todo and Backlog rows follow the state groups, skip tickets in state or merged and link to the issue', () => {
-  const item = (id: string, title: string, state: 'Todo' | 'Backlog') => ({ id, title, state, priority: null, createdAt: null })
-  const backlog = [item('CW-1', 'in state', 'Todo'), item('CW-2', 'todo', 'Todo'), item('CW-3', 'merged', 'Backlog'), item('CW-4', 'b1', 'Backlog'), item('CW-5', 'b2', 'Backlog')]
-  const merged = [{ id: 'CW-3', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1, number: 1 }]
-  const api = build({ state: stateOf('CW-1'), backlog, merged })
-  assert.deepEqual(api.status.map((g) => [g.name, g.count, g.rows.map((r) => r.id)]), [['Building', 1, ['CW-1']], ['Todo', 1, ['CW-2']], ['Backlog', 2, ['CW-4', 'CW-5']]])
-  assert.deepEqual(api.status[1].rows[0], { id: 'CW-2', title: 'todo', issueUrl: 'https://github.com/o/r/issues/2', risk: '', next: '', stage: '' })
-  assert.deepEqual(build({ backlog: [backlog[1]] }).status.map((g) => g.name), ['Todo'])
+test('Todo tickets join Waiting to spec after the spec-queued rows, in priority then oldest order; there is no Todo group', () => {
+  const todo = (id: string, priority: 'urgent' | 'high' | 'medium' | 'low' | null, createdAt: number | null) => ({ id, title: id, state: 'Todo' as const, priority, createdAt })
+  const queued = (id: string, queuedAt: string) => [id, { title: 't', stage: 'spec-queued', status: 'x. Risk: low', queuedAt }]
+  const merged = [{ id: 'CW-9', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1, number: 1 }]
+  const seq = (ids: string[]) => ids.map((id) => todo(id, null, null))
+  const cases: [string, Record<string, unknown> | null, ReturnType<typeof todo>[], string[], [string, number, string[]][]][] = [
+    ['after the spec-queued rows, priority then oldest, no date last, then tracker order', Object.fromEntries([queued('CW-2', 'b'), queued('CW-1', 'a')]), [todo('CW-3', 'low', 1), todo('CW-4', 'high', 9), todo('CW-5', 'high', 2), todo('CW-6', null, 1), todo('CW-7', 'high', null), todo('CW-8', 'high', null)], [], [['Waiting to spec', 8, ['CW-1', 'CW-2', 'CW-5', 'CW-4', 'CW-7', 'CW-8', 'CW-3', 'CW-6']]]],
+    ['no spec-queued ticket: the group follows Queued to build and precedes Other', { 'CW-1': { title: 't', stage: 'build-queued', status: 'x', queuedAt: 'a' }, 'CW-2': { title: 't', stage: 'blocked', status: 'x' } }, seq(['CW-3']), [], [['Queued to build', 1, ['CW-1']], ['Waiting to spec', 1, ['CW-3']], ['Other', 1, ['CW-2']]]],
+    ['no state at all: only the group', null, seq(['CW-3']), [], [['Waiting to spec', 1, ['CW-3']]]],
+    ['a ticket in state or merged shows there only', Object.fromEntries([queued('CW-1', 'a')]), seq(['CW-1', 'CW-9', 'CW-2']), merged.map((e) => e.id), [['Waiting to spec', 2, ['CW-1', 'CW-2']]]],
+  ]
+  for (const [name, tickets, items, mergedIds, want] of cases) {
+    const api = build({ state: tickets && { tickets }, backlog: items, merged: merged.filter((e) => mergedIds.includes(e.id)) })
+    assert.deepEqual(api.status.map((g) => [g.name, g.count, g.rows.map((r) => r.id)]), want, name)
+  }
+  const row = build({ backlog: seq(['CW-2']) }).status[0].rows[0]
+  assert.deepEqual(row, { id: 'CW-2', title: 'CW-2', issueUrl: 'https://github.com/o/r/issues/2', risk: '', next: '', stage: '' })
   assert.deepEqual(build({ backlog: [] }).status, [])
 })
 
@@ -469,9 +479,8 @@ test('the Backlog group sends every row by priority then newest, counts them all
     const g = group(build({ backlog, ...over }), 'Backlog')
     assert.deepEqual([g?.count, g?.rows.map((r) => r.id), g?.moreUrl], [count, ids, moreUrl], name)
   }
-  const todos = ['CW-1', 'CW-2', 'CW-3', 'CW-4', 'CW-5'].map((id) => t(id, 'Todo', null, null))
-  const todo = group(build({ backlog: todos }), 'Todo')
-  assert.deepEqual([todo?.count, todo?.rows.length, todo?.moreUrl], [5, 5, undefined])
+  const mixed = build({ backlog: [t('CW-1', 'Todo', null, null), t('CW-2', 'Backlog', null, 1)] }).status
+  assert.deepEqual(mixed.map((g) => [g.name, g.moreUrl]), [['Waiting to spec', undefined], ['Backlog', 'https://github.com/o/r/issues']], 'Waiting to spec is before Backlog and has no link')
 })
 
 test('a ticket whose PR is already in merged is dropped from status; its group goes when empty', () => {
@@ -508,11 +517,14 @@ test('a saved Todo or Backlog list over an hour old is stale and carries its rea
     ['ten minutes old', new Date(NOW - 10 * min).toISOString(), { readAt: NOW - 10 * min }],
     ['no at', undefined, {}],
   ]
+  // The saved Todo ticket joins a spec-queued one; only the Todo row is stale.
+  const queued = { tickets: { 'CW-1': { title: 't', stage: 'spec-queued', status: 'x', queuedAt: 'a' } } }
   for (const [name, at, want] of cases) {
     const lists = createTrackerLists({ read: () => JSON.stringify({ todo: { at, list: [{ id: 'CW-2', title: 'x' }] }, backlog: { at, list: [{ id: 'CW-3', title: 'y' }] } }) })
     lists.want('CW')
-    const groups = build({ prefix: 'CW', repo: null, backlog: lists.get() }).status
-    assert.deepEqual(groups.map((g) => [g.name, g.readAt, g.stale]), [['Todo', want.readAt, want.stale], ['Backlog', want.readAt, want.stale]], name)
+    const groups = build({ state: queued, prefix: 'CW', repo: null, backlog: lists.get() }).status
+    assert.deepEqual(groups.map((g) => [g.name, g.readAt, g.stale]), [['Waiting to spec', want.readAt, want.stale], ['Backlog', want.readAt, want.stale]], name)
+    assert.deepEqual(groups[0].rows.map((r) => [r.id, r.stale]), [['CW-1', undefined], ['CW-2', want.stale]], `${name}: only the Todo row is stale`)
   }
   const gh = build({ backlog: [{ id: 'CW-2', title: 'x', state: 'Todo', priority: null, createdAt: null }] }).status[0]
   assert.deepEqual([gh.readAt, gh.stale], [undefined, undefined], 'the GitHub path has neither')
