@@ -31,7 +31,7 @@ Facts from main at `4b974cb`, all under `mods/agent-gantt/hooks/`.
 
 ### Call sites
 
-- `register.tsx`: `writeSnapshot` and the pane's `ui.render` pass their `buildRows()` result through `withHelperTicket(rows, await read($, ticket))`. In `writeSnapshot` the rows from an earlier process of the same session go through it too, so a resumed helper's earlier row also gets the ticket.
+- `register.tsx`: the pane's `ui.render` passes its `buildRows()` result through `withHelperTicket(rows, await read($, ticket))`. `writeSnapshot` takes the ticket from the `ticket` atom, falling back to the old snapshot's `ticket` field, and uses that one value for both `withHelperTicket` and the snapshot's `ticket` field, so a resumed helper's label and card agree. The rows from an earlier process of the same session go through it too.
 - `cursor.ts`: `cursorSnapshot` passes its rows through `withHelperTicket(rows, state.ticket)`.
 
 The stored task name stays `Ticket helper`; the ticket is added at render. So the row updates on the next snapshot after the ticket is found, and a ticket that is never found (`Tickets: none`) leaves the plain name.
