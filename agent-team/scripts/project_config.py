@@ -248,7 +248,13 @@ def _root_rows(run):
 
 
 def _committed_rows(run):
-    """(rows, why): project.md as committed on origin/<target>; rows is None and why says so on any failure.
+    """(rows, why): project.md as committed on origin/<target>; rows is None and why says so on any failure. See _committed_text."""
+    text, why = _committed_text(run)
+    return (None, why) if text is None else (_parse(text), "")
+
+
+def _committed_text(run):
+    """(text, why): the text of project.md as committed on origin/<target>; text is None and why says so on any failure.
 
     <target> is the `Merge target branch` row of the root checkout's project.md (the first entry of `git worktree list`,
     so a feature worktree's own edit of that row changes nothing), read as refs/remotes/origin/<target>. Never read from a
@@ -274,7 +280,25 @@ def _committed_rows(run):
         return None, str(e)
     if committed != target:
         return None, f"project.md on origin/{target} names merge target branch `{committed}`, not `{target}`"
-    return _parse(text), ""
+    return text, ""
+
+
+def living_docs(run=_git):
+    """(prefix, entries) from project.md as committed on origin/<target>, or None on any failure to read or parse it.
+
+    entries are the backticked paths on the `Living docs to search:` line of the `## Docs check` section. A line with no
+    backticked path, a missing line and a missing or malformed `Issue identifier prefix` row are failures. Never read from a working tree.
+    """
+    text, _ = _committed_text(run)
+    if text is None:
+        return None
+    pre = value("Issue identifier prefix", _parse(text))
+    if not pre or not re.fullmatch(r"[A-Z][A-Z0-9]*", pre):
+        return None
+    section = re.search(r"^## Docs check[ \t]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    line = next((l for l in (section.group(1) if section else "").splitlines() if l.lstrip("- ").startswith("Living docs to search:")), None)
+    entries = re.findall(r"`([^`]+)`", line.split(":", 1)[1]) if line else []
+    return (pre, entries) if entries else None
 
 
 def approval_setting(run=_git):
