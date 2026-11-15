@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer, TurnUsage } from 'claude-code'
 
 import type { AgentRecord, PriceState, Prices } from '../types/index.d.ts'
 import { bars, clock, dollars, fit, tokens } from './format.ts'
-import { addUsage, buildRows, MAIN } from './rows.ts'
+import { addUsage, buildRows, MAIN, withHelperTicket } from './rows.ts'
 import { buildSnapshot, earlierRows, oldField, pickFiledTicket, pickHeading, pickRequest, snapshotName } from './snapshot.ts'
 import { beginTask, closeSegment, createWaits, openSegment, taskName } from './timeline.ts'
 
@@ -168,7 +168,7 @@ async function writeSnapshot($: EngineInterface) {
     }
     const list = await read($, records)
     const earlier = earlierRows(previous, sessionId, list.find(r => r.id === MAIN)?.start ?? 0)
-    const rows = [...earlier, ...buildRows(list, await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)]
+    const rows = withHelperTicket([...earlier, ...buildRows(list, await $.agent.list(), (await read($, prices)).table, (await read($, harness)) || null)], await read($, ticket))
     const total = (await $.session.usage()).cost?.usd ?? null
     const text = buildSnapshot({ sessionId, cwd: await $.session.cwd(), updatedAt: await $.clock.now(), total, rows, threadId: (await read($, thread)) || null, heading: (await read($, heading)).value ?? oldField(previous, sessionId, 'heading'), ticket: (await read($, ticket)) || oldField(previous, sessionId, 'ticket'), request: (await read($, request)) || oldField(previous, sessionId, 'request') })
     await $.fs.write(`${dir}/${SNAPSHOT_DIR}/${name}`, text)
@@ -370,7 +370,7 @@ export const register: Register = on => {
     const { table, note } = await read($, prices)
     const now = await read($, clockAtom)
     const where = (await read($, harness)) || null
-    const rows = buildRows(list, await $.agent.list(), table, where)
+    const rows = withHelperTicket(buildRows(list, await $.agent.list(), table, where), await read($, ticket))
     const total = (await $.session.usage()).cost?.usd
 
     const NAME = 18
