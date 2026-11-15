@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 regroup Gantt bar categories, drop Docs and cleanup (WISE-438) (#451)
+
+Merged 2026-11-15 7:08 pm UTC.
+
+The agent chart on the dashboard now has six colors: the "Docs and cleanup" color is gone. Docs checks show as Review (now the lighter orange), docs cleanup shows as Building, and a spec revision after `changes N` shows as Planning.
+
 ## 2026-11-15 send the Chief of Staff back to read a child that finished mid-turn (WISE-435) (#449)
 
 Merged 2026-11-15 6:53 pm UTC.
