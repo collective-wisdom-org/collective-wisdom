@@ -221,3 +221,38 @@ def test_state_ops_remove_the_ticket_from_the_saved_lists(tmp_path, capsys, stat
         assert got == {"todo": block("ABC-2"), "backlog": block("ABC-3")}
     else:
         assert json.loads(target.read_text()) == held
+
+
+# takeover is null, or {startedAt with a zone, not in the future; mode take-over|resume} and nothing else
+@pytest.mark.parametrize(
+    "value, ok",
+    [
+        (None, 1),
+        ({"startedAt": OLD, "mode": "take-over"}, 1),
+        ({"startedAt": OLD, "mode": "resume"}, 1),
+        ({"startedAt": OLD, "mode": "reset"}, 0),
+        ({"mode": "resume"}, 0),
+        ({"startedAt": OLD, "mode": "resume", "x": 1}, 0),
+        ("take-over", 0),
+    ],
+)
+def test_top_takeover_is_null_or_a_marker(value, ok):
+    ops = [{"op": "top", "set": {"takeover": value}}]
+    with pytest.raises(cos_state.Reject, match="takeover needs") if not ok else contextlib.nullcontext():
+        new = cos_state.apply_ops({}, ops)[0]
+        assert new["takeover"] == value
+
+
+# ganttPluginVersion is dot-separated integers, or null
+@pytest.mark.parametrize("value, ok", [("v1", 0), ("1.x", 0), ("1.", 0), ("", 0), (1, 0), ("0.1.12", 1), ("1", 1), (None, 1)])
+def test_top_gantt_plugin_version_must_be_dotted_integers(value, ok):
+    ops = [{"op": "top", "set": {"ganttPluginVersion": value}}]
+    with pytest.raises(cos_state.Reject, match="ganttPluginVersion needs") if not ok else contextlib.nullcontext():
+        assert cos_state.apply_ops({}, ops)[0]["ganttPluginVersion"] == value
+
+
+def test_show_time_today_is_12_hour_without_a_space_and_other_days_stay_iso():
+    now = cos_state.datetime.now(cos_state.timezone.utc).replace(hour=14, minute=5, second=0, microsecond=0)
+    assert cos_state.t(now.strftime("%Y-%m-%dT%H:%M:%SZ")) == "2:05pm"
+    assert cos_state.t(OLD) == OLD
+    assert cos_state.t(None) == "-"

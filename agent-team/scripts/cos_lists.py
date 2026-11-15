@@ -3,13 +3,16 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_lists.py [--file PATH] <todo|backlog> < list-tickets JSON
+    ~/.collective-wisdom/scripts/cos_lists.py [--file PATH] changed
 
 stdin is the `list-tickets` result as the tracker adapter returns it: a JSON list, or an object holding an `issues` or
 `tickets` list. --file defaults to .agent-team/tracker-lists.json under the repo root. Replaces that one kind with
-{"at": <now, UTC>, "list": <the first 250 entries, as given>} and keeps the other kind. Writes through a temp file and a
-rename, and writes nothing when .agent-team is not a real folder or the file is not a regular file.
-Prints `lists: saved <kind> <n>` and exits 0. Exit 2 with `lists: cannot <what>` when stdin is not one of those shapes or
-the write fails; the caller goes on. cos_todo.py calls save() on its first pass.
+{"at": <now, UTC>, "list": <the first 250 entries, as given>} and keeps the other kind. `changed` reads no stdin: it sets
+the top-level "changed" stamp to now (UTC) and keeps both lists, so the dashboard reads the tracker again. A list save
+keeps the stamp. Writes through a temp file and a rename, and writes nothing when .agent-team is not a real folder or the
+file is not a regular file.
+Prints `lists: saved <kind> <n>` (`lists: saved changed` for `changed`) and exits 0. Exit 2 with `lists: cannot <what>`
+when stdin is not one of those shapes or the write fails; the caller goes on. cos_todo.py calls save() on its first pass.
 remove(ids) drops the entries with those ticket ids (read as identifier, then id, then key) from both kinds and keeps
 each kind's `at`. It writes nothing when the file is absent or no entry matches. cos_state.py apply calls it for each
 ticket a start, merged or drop op names, so a ticket that left Todo does not stay on the dashboard.
@@ -55,8 +58,18 @@ def regular(path):
         return True
 
 
-def update(path, change):
-    """Read the file, let change(held) edit it and say whether to write, and write it through a temp file. Raises Cannot."""
+def stamp():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def stamp_ms():
+    """Millisecond stamp for `changed`, so two changes inside one second differ."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def update(file, change):
+    """Run change(held) on the file's top-level object and write it back, unless it returns False. Raises Cannot. No lock: two writers at the same moment can drop one key."""
+    path = Path(file) if file else DEFAULT_FILE
     try:
         if not stat.S_ISDIR(os.lstat(path.parent).st_mode) or not regular(path):
             raise Cannot("write: not a regular file or folder")
@@ -65,7 +78,7 @@ def update(path, change):
         except (OSError, ValueError):
             held = {}
         held = held if isinstance(held, dict) else {}
-        if not change(held):
+        if change(held) is False:
             return
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
@@ -84,19 +97,13 @@ def save(kind, tickets, file=None):
     if kind not in KINDS:
         raise Cannot(f"save {kind}")
     items = entries(tickets) if isinstance(tickets, str) else list(tickets)[:MAX]
-
-    def change(held):
-        held[kind] = {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "list": items}
-        return True
-
-    update(Path(file) if file else DEFAULT_FILE, change)
+    update(file, lambda held: held.__setitem__(kind, {"at": stamp(), "list": items}))
     return len(items)
 
 
 def remove(ids, file=None):
-    """Drop the entries whose id is in `ids` from every kind, keeping each kind's `at`. Raises Cannot."""
+    """Drop the entries whose id is in `ids` from every kind, keeping each kind's `at` and the `changed` stamp. Raises Cannot."""
     ids = set(ids)
-    path = Path(file) if file else DEFAULT_FILE
 
     def change(held):
         hit = False
@@ -109,8 +116,13 @@ def remove(ids, file=None):
                 block["list"], hit = kept, True
         return hit
 
-    if path.exists():
-        update(path, change)
+    if (Path(file) if file else DEFAULT_FILE).exists():
+        update(file, change)
+
+
+def mark_changed(file=None):
+    """Set the top-level `changed` stamp and keep both lists. Raises Cannot."""
+    update(file, lambda held: held.__setitem__("changed", stamp_ms()))
 
 
 class Parser(argparse.ArgumentParser):
@@ -122,9 +134,13 @@ class Parser(argparse.ArgumentParser):
 def main(argv=None):
     ap = Parser(description="Save the Todo or Backlog list for the dashboard.")
     ap.add_argument("--file")
-    ap.add_argument("kind", choices=KINDS)
+    ap.add_argument("kind", choices=(*KINDS, "changed"))
     args = ap.parse_args(argv)
     try:
+        if args.kind == "changed":
+            mark_changed(args.file)
+            print("lists: saved changed")
+            return 0
         n = save(args.kind, sys.stdin.read(), args.file)
     except Cannot as e:
         print(f"lists: cannot {e}")

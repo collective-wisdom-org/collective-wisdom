@@ -202,8 +202,9 @@ PY
 machine_install() {
   MCHANGED=0
   MTODOS=()
+  GANTT_RESTART=0
   msay() { if [ "$DRY" -eq 1 ]; then echo "[dry-run] $*"; else echo "$*"; fi; }
-  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd item stop_first stop_second gantt out
+  local ROOT TOP gitdir common sha tag s a p status f cursor_entries todo ev timeout cmd item stop_first stop_second gantt line versions why out
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   MCLONE="$ROOT"
   { [ -n "${HOME:-}" ] && [ -d "$HOME" ]; } || { echo "Refusing: HOME is not set to a folder." >&2; exit 1; }
@@ -282,27 +283,33 @@ machine_install() {
       MTODOS+=("$todo") ;;
   esac
 
-  # The agent-gantt plugin, at user scope, through the claude CLI. Any failure is a to-do; the run goes on.
+  # The agent-gantt plugin, at user scope, through the claude CLI. gantt_plugin.py compares the installed version with the clone's and updates an older one.
+  # Any failure is a to-do; the run goes on.
   gantt=(claude plugin install agent-gantt --marketplace collective-wisdom-org/collective-wisdom)
-  if ! command -v claude >/dev/null 2>&1; then
-    MTODOS+=("Install the agent-gantt plugin (the Gantt pane): claude is not on PATH, so run  ${gantt[*]}  once it is, or use the Plugins menu in the desktop app (README, Agent pane).")
-  # A failing list, or output that is not a JSON array, counts as not installed. Any scope, enabled or not, counts as installed.
-  elif ! claude plugin list --json 2>/dev/null </dev/null | python3 -I -c 'import json, sys
-try:
-    plugins = json.load(sys.stdin)
-except ValueError:
-    sys.exit(1)
-sys.exit(0 if isinstance(plugins, list) and any(isinstance(p, dict) and p.get("id") == "agent-gantt@collective-wisdom" for p in plugins) else 1)'; then
-    if [ "$DRY" -eq 1 ]; then
-      msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
-    elif out="$("${gantt[@]}" --scope user 2>&1 </dev/null)"; then
-      msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
-    else
-      why=" (it failed)"
-      [ -n "$out" ] && why=" (it failed: ${out##*$'\n'})"
-      MTODOS+=("Install the agent-gantt plugin (the Gantt pane) by hand: ${gantt[*]}${why}")
-    fi
+  if [ "$DRY" -eq 1 ]; then
+    line="$(python3 -I "$ROOT/agent-team/scripts/gantt_plugin.py" --dry-run 2>/dev/null </dev/null || true)"
+  else
+    line="$(python3 -I "$ROOT/agent-team/scripts/gantt_plugin.py" 2>/dev/null </dev/null || true)"
   fi
+  case "$line" in
+    "gantt-plugin: no claude")
+      MTODOS+=("Install the agent-gantt plugin (the Gantt pane): claude is not on PATH, so run  ${gantt[*]}  once it is, or use the Plugins menu in the desktop app (README, Agent pane).") ;;
+    "gantt-plugin: not installed")
+      if [ "$DRY" -eq 1 ]; then
+        msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
+      elif out="$("${gantt[@]}" --scope user 2>&1 </dev/null)"; then
+        msay "install  agent-gantt plugin (claude plugin install, user scope)"; MCHANGED=$((MCHANGED + 1))
+      else
+        why=" (it failed)"
+        [ -n "$out" ] && why=" (it failed: ${out##*$'\n'})"
+        MTODOS+=("Install the agent-gantt plugin (the Gantt pane) by hand: ${gantt[*]}${why}")
+      fi ;;
+    "gantt-plugin: updated "*|"gantt-plugin: would update "*)
+      versions="${line#gantt-plugin: updated }"; versions="${versions#gantt-plugin: would update }"
+      msay "update  agent-gantt plugin $versions (claude plugin update, user scope)"; MCHANGED=$((MCHANGED + 1))
+      [ "$DRY" -eq 1 ] || GANTT_RESTART=1 ;;
+    "gantt-plugin: todo "*) MTODOS+=("${line#gantt-plugin: todo }") ;;
+  esac
 
   for f in .claude/CLAUDE.md .codex/AGENTS.md; do
     status="$(mpython block "$HOME/$f" "$ROOT/agent-team/templates/machine-instruction.md")"
@@ -319,6 +326,7 @@ sys.exit(0 if isinstance(plugins, list) and any(isinstance(p, dict) and p.get("i
 
   echo
   echo "Done$([ "$DRY" -eq 1 ] && echo ' (dry run, nothing written)'): $MCHANGED change(s) under $HOME"
+  if [ "$GANTT_RESTART" -eq 1 ]; then echo "Restart Claude Code to load the updated agent-gantt plugin."; fi
   if [ "${#MTODOS[@]}" -gt 0 ]; then
     echo "TODO:"
     for p in "${MTODOS[@]}"; do echo "  - $p"; done

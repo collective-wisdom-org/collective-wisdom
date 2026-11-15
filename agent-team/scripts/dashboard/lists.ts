@@ -1,6 +1,6 @@
 import type { BacklogItem, Priority } from './backlog.ts'
 
-const REFRESH_MS = 10_000
+const REFRESH_MS = 1_000
 const BAD = /[\x00-\x1f\x7f-\x9f\u2028\u2029]+/g
 const NAMES: Record<string, Priority> = { urgent: 'urgent', highest: 'urgent', high: 'high', medium: 'medium', low: 'low', lowest: 'low' }
 const NUMBERS: (Priority | null)[] = [null, 'urgent', 'high', 'medium', 'low']
@@ -52,30 +52,51 @@ function parseList(value: unknown, state: BacklogItem['state'], prefix: string):
   return items
 }
 
-/** The Todo and Backlog tickets of a Linear or Jira repo, from the file the Chief of Staff saves (`.agent-team/tracker-lists.json`), re-read at most every 10 seconds. The last good list of each kind stays when a read or a key is bad. */
+const message = (why: string | null) => (why ? `Could not read the saved Todo and Backlog lists: ${why}. Showing the last list read.` : null)
+
+/** The Todo and Backlog tickets of a Linear or Jira repo, from the file the Chief of Staff saves (`.agent-team/tracker-lists.json`), re-read at most every second. The last good list of each kind stays when a read or a key is bad, and `error()` says why. `changed()` is the file's change stamp, which GitHub repos read too, with no lists. */
 export function createTrackerLists(opts: { read: () => string | undefined; now?: () => number }) {
   const now = opts.now ?? Date.now
   let prefix: string | null = null
+  let keep = true
   let readAt = -Infinity
   let todo: BacklogItem[] = []
   let backlog: BacklogItem[] = []
+  let stamp: string | null = null
+  let error: string | null = null
 
   function load(p: string) {
     let file: unknown
+    let bad: string | null = null
     try {
       const text = opts.read()
       file = text === undefined ? undefined : JSON.parse(text)
-    } catch {}
-    if (!isObj(file)) return
-    todo = parseList(file.todo, 'Todo', p) ?? todo
-    backlog = parseList(file.backlog, 'Backlog', p) ?? backlog
+    } catch {
+      bad = 'the file is not valid JSON'
+    }
+    if (!bad && file !== undefined && !isObj(file)) bad = 'the file is not a JSON object'
+    if (!isObj(file)) {
+      error = keep ? message(bad) : null
+      return
+    }
+    if (typeof file.changed === 'string') stamp = file.changed
+    if (!keep) return
+    for (const key of ['todo', 'backlog'] as const) {
+      const items = parseList(file[key], key === 'todo' ? 'Todo' : 'Backlog', p)
+      if (items) key === 'todo' ? (todo = items) : (backlog = items)
+      else if (file[key] !== undefined) bad = `${key} is not a list`
+    }
+    error = message(bad)
   }
 
   return {
-    want(p: string | null) {
-      if (p !== prefix) {
+    /** `lists` false (GitHub) reads the file for the change stamp only and keeps no lists. */
+    want(p: string | null, lists = true) {
+      if (p !== prefix || lists !== keep) {
         prefix = p
+        keep = lists
         todo = backlog = []
+        stamp = error = null
         readAt = -Infinity
       }
       if (!p || now() - readAt < REFRESH_MS) return
@@ -83,9 +104,11 @@ export function createTrackerLists(opts: { read: () => string | undefined; now?:
       load(p)
     },
     get: (): BacklogItem[] => {
-      if (!prefix) return []
+      if (!prefix || !keep) return []
       const taken = new Set(todo.map((t) => t.id))
       return [...todo, ...backlog.filter((b) => !taken.has(b.id))]
     },
+    changed: (): string | null => stamp,
+    error: (): string | null => error,
   }
 }

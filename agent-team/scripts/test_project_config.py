@@ -299,3 +299,34 @@ def test_merge_target_on_any_listed_head_is_refused(tmp_path):
     )
     run = lambda cmd: f"worktree {tmp_path}\nHEAD x\n"
     assert project_config.approval_setting(run) == ("strict", "merge target branch `infra/cw-1-x` is a ticket branch")
+
+
+PREFIX_ROW = "| Issue identifier prefix (`<PREFIX>`) | `CW` |\n"
+
+
+@pytest.mark.parametrize(
+    "committed, expect",
+    [
+        (PREFIX_ROW + "\n## Docs check\n\n- Living docs to search: `README.md`, `docs/`.\n- Extra checks: none.\n", ("CW", ["README.md", "docs/"])),
+        # a line outside the Docs check section, a placeholder-only line, no prefix row and a failed read all fail
+        (PREFIX_ROW + "\n## Other\n\n- Living docs to search: `README.md`.\n", None),
+        (PREFIX_ROW + "\n## Docs check\n\n- Living docs to search: <add paths>.\n", None),
+        ("\n## Docs check\n\n- Living docs to search: `README.md`.\n", None),
+        (OSError("no git"), None),
+    ],
+)
+def test_living_docs_reads_the_committed_project_md(tmp_path, committed, expect):
+    root = tmp_path / "docs" / "agents"
+    root.mkdir(parents=True)
+    (root / "project.md").write_text("| Branch pattern | `feat/<prefix>-N-x` |\n")
+
+    def run(cmd):
+        if cmd[1] == "worktree":
+            return f"worktree {tmp_path}\nHEAD x\n"
+        if cmd[1] == "show":
+            if isinstance(committed, OSError):
+                raise committed
+            return committed
+        return ""
+
+    assert project_config.living_docs(run) == expect
