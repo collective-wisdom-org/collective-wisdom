@@ -888,8 +888,8 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r), approve, JSON.stringify(r))
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
-    const prompt = (t) => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}">`
-    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve)}Approve</a>`, `${prompt(changes)}Changes</a>`], JSON.stringify(r))
+    const prompt = (t, tip) => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in. ${tip}`)}">`
+    assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, 'Press Send to approve.')}Approve</a>`, `${prompt(changes, 'Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
 })

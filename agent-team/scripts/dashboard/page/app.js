@@ -310,7 +310,7 @@ export function approveCommand(r, kind = 'approve') {
 
 const THREAD_LINK = /^<t3-thread:\/\/v2\/([A-Za-z0-9:._%-]+)\/([A-Za-z0-9:._%-]+)>$/
 
-/** `t3code://threads/ENV/THREAD?prompt=TEXT`, which T3 opens as an unsent draft in that thread; built from the dashboard's `<t3-thread://v2/ENV/THREAD>` link. Null when the link is missing or not that shape. */
+/** `t3code://threads/ENV/THREAD?prompt=TEXT`, which T3 opens as an unsent draft in that thread (T3 Code 0.1.7 reads no send parameter, so the user still presses Send); built from the dashboard's `<t3-thread://v2/ENV/THREAD>` link. Null when the link is missing or not that shape. */
 export function promptLink(chiefLink, text) {
   const m = typeof chiefLink === 'string' ? THREAD_LINK.exec(chiefLink) : null
   return m ? `t3code://threads/${m[1]}/${m[2]}?prompt=${encodeURIComponent(text)}` : null
@@ -323,7 +323,8 @@ function approveControls(r, chiefLink) {
       const text = approveCommand(r, kind)
       if (text === null) return ''
       const href = promptLink(chiefLink, text)
-      return href ? `<a class="approve" href="${esc(href)}">${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
+      const title = `Opens the Chief of Staff thread with "${text}" typed in. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`
+      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}">${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
 }
