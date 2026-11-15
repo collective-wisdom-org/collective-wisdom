@@ -419,7 +419,7 @@ test('the page and /api carry the system scheme when it is known', async () => {
 })
 
 test('the page allows avatar images from one host only, and /api carries the viewer login', async () => {
-  const srv = await startServer({ root: tmpRoot(), port: 0, gh: async () => 'David\n' })
+  const srv = await startServer({ root: tmpRoot(), port: 0, viewerGh: async () => 'David\n' })
   try {
     const host = `127.0.0.1:${srv.port}`
     const csp = String((await call(srv.port, 'GET', '/', host)).headers['content-security-policy'])

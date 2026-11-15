@@ -204,7 +204,7 @@ export function mergedPageOf(url: string): number {
   }
 }
 
-export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; gh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; viewerGh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -213,7 +213,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
   const trackerTitles = createTitles({ run: ghRunner(root) })
   const merged = createMerged({ run: ghRunner(root) })
   const openPrs = createOpenPrs({ run: ghRunner(root) })
-  const viewer = createViewer({ run: opts.gh ?? ghRunner(root) })
+  const viewer = createViewer({ run: opts.viewerGh ?? ghRunner(root) })
   viewer.want()
   const updated = createUpdated({ run: ghRunner(root) })
   const backlog = createBacklog({ run: ghRunner(root) })

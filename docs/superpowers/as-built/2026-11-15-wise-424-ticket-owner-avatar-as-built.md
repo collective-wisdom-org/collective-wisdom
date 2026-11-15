@@ -7,5 +7,5 @@
 ## Differs from the spec
 
 - The spec puts the badge in the head beside the copy button. It shipped on the first row of the card (the ticket id row), right-aligned at the card's top right; the title and copy button stay on the second row.
-- The viewer is read by a new `viewer.ts` (`createViewer`), and `startServer` takes an optional `gh` runner for it so tests can inject a login.
+- The viewer is read by a new `viewer.ts` (`createViewer`), and `startServer` takes an optional `viewerGh` runner for it so tests can inject a login.
 - `createOpenPrs.get()` still returns the number map; its new `owners()` returns the owner map.

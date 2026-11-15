@@ -295,7 +295,7 @@ const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')
 /** The ticket owner's GitHub avatar and login. The initial sits under the image, so a slow or failed image still shows it. Empty without an owner. */
 export const ownerBadge = (login) =>
   typeof login === 'string' && login
-    ? `<span class="owner" title="${esc(login)}"><span class="avatar" aria-hidden="true"><span class="initial">${esc(login[0].toUpperCase())}</span><img src="https://avatars.githubusercontent.com/${esc(encodeURIComponent(login))}?s=40" alt="" loading="lazy" width="20" height="20"></span><span class="login">${esc(login)}</span></span>`
+    ? `<span class="owner" title="${esc(login)}"><span class="avatar" aria-hidden="true"><span class="initial">${esc(login[0].toUpperCase())}</span><img src="https://avatars.githubusercontent.com/${esc(encodeURIComponent(login))}?s=40" alt="" loading="lazy" referrerpolicy="no-referrer" width="20" height="20"></span><span class="login">${esc(login)}</span></span>`
     : ''
 /** True when the ticket's owner and the viewer are both logins and differ (GitHub logins are case-insensitive). */
 export const foreign = (owner, viewer) => typeof owner === 'string' && typeof viewer === 'string' && owner !== '' && viewer !== '' && owner.toLowerCase() !== viewer.toLowerCase()
