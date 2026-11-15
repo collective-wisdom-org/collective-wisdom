@@ -1,7 +1,7 @@
 # CW-278: Show a short title next to every ticket ID in what the user reads
 
 **Status:** Shipped
-**Shipped:** in PR #384, as specified
+**Shipped:** in PR #384, with differences: [as-built](../as-built/2026-11-14-cw-278-ticket-id-titles-as-built.md)
 **Ticket:** [#278](https://github.com/collective-wisdom-org/collective-wisdom/issues/278)
 **Replaces:** PR #279 (branch `feat/cw-278-ticket-id-titles`, spec `docs/superpowers/specs/2026-11-09-cw-278-ticket-id-titles-design.md` on that branch). That PR conflicts with main in 8 files, because the report rules it edits in `chief-of-staff/SKILL.md` § Report format now live in `chief-of-staff/report-format.md`. This spec ports its intent, and its build fixes (the as-built on that branch), to current main. The user closes #279 after this merges.
 
