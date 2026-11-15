@@ -1,7 +1,8 @@
 # WISE-436: Move the copy thread link control next to the ticket number on dashboard cards
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#436](https://github.com/collective-wisdom-org/collective-wisdom/issues/436)
+**Shipped:** in PR #446, as specified
 
 ## Goal
 
