@@ -225,15 +225,8 @@ function renderDetail(d) {
   return `<section class="detail">${out.join('')}</section>`
 }
 
-/** The `Details` body: a links line, the ticket and usage facts, then the spec or PR text. Each part is left out when empty; with none, one quiet line. */
+/** The `Details` body: the thread link, the ticket and usage facts, then the spec or PR text. Each part is left out when empty; with none, one quiet line. */
 export function renderDetails(r, now) {
-  const num = (u) => String(u).match(/(\d+)\/?$/)?.[1]
-  const numbered = (word, u) => link(u, num(u) ? `${word} #${num(u)}` : word)
-  const links = []
-  if (isHttp(r.issueUrl)) links.push(numbered('Issue', r.issueUrl))
-  if (isHttp(r.specUrl)) links.push(link(r.specUrl, 'Spec'))
-  if (isHttp(r.prUrl)) links.push(numbered('PR', r.prUrl))
-  if (r.threadLink) links.push(`<code>${esc(r.threadLink)}</code>`)
   const ticketFacts = []
   if (r.stage) ticketFacts.push(['Stage', esc(stageWords(r.stage))])
   if (r.risk) ticketFacts.push(['Risk', esc(r.risk)])
@@ -253,7 +246,7 @@ export function renderDetails(r, now) {
   }
   const grid = (facts) => (facts.length ? `<dl class="info-grid">${facts.map(([k, v, cls]) => `<div${cls ? ` class="${cls}"` : ''}><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : '')
   const facts = grid(ticketFacts) + grid(usage)
-  const html = (links.length ? `<p class="info-links">${links.join(' · ')}</p>` : '') + (facts ? `<div class="info-facts">${facts}</div>` : '') + renderDetail(r.detail)
+  const html = (r.threadLink ? `<p class="info-links"><code>${esc(r.threadLink)}</code></p>` : '') + (facts ? `<div class="info-facts">${facts}</div>` : '') + renderDetail(r.detail)
   return html || '<p class="quiet">Nothing more known yet</p>'
 }
 
@@ -280,6 +273,9 @@ function panelSwitch(scope, id, { gantt, view = '', details = false }) {
   return { control: `<div class="switch" role="group" aria-label="${esc(id)} panels">${buttons.join('')}</div>`, panels: panels.join('') }
 }
 const prSpan = (url) => (isHttp(url) ? `<span class="pr">${link(url, 'PR')}</span>` : '')
+const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')}</span>` : '')
+/** The first line of every row: the ticket number, then the title (left out when empty, so the id is not shown twice), then `extra`. */
+const rowHead = (idHtml, title, extra = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
 /** `3 agents · 41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
@@ -291,9 +287,9 @@ export const summaryLine = (gantt, now) => {
 
 /**
  * One ticket as a card (`li.ticket`) or a flat row (`li.row`).
- * A card is the title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
- * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show the id only.
- * A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
+ * A card is the ticket number and title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
+ * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. `slim` rows show no risk badge.
+ * Every row starts with its ticket number, then the title, and carries `Spec` and `PR` links in its meta line when it has them. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, slim, attn, group, open, info }) {
   const blocked = r.stage === 'blocked'
@@ -302,15 +298,15 @@ function ticket(r, { flat, slim, attn, group, open, info }) {
   const compact = flat && !blocked
   const phrase = compact && !slim && r.stage ? (group === 'Other' ? stageSentence(r.stage) : '') : ''
   const meta = metaLine([
-    `<span class="id">${r.helper ? 'Ticket helper' : link(r.issueUrl, r.id)}</span>`,
     risk && (risk.level ? `<span class="badge risk risk-${risk.level}">${esc(risk.text)}</span>` : `<span class="risk-none">${esc(risk.text)}</span>`),
+    r.helper ? '' : specSpan(r.specUrl),
     r.helper ? '' : prSpan(r.prUrl),
     phrase && esc(phrase),
   ])
   const summary = summaryLine(r.gantt, Date.now())
   const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
   const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${blocked && flat ? ' blocked' : ''}`
-  const head = `<div class="head"><span class="title">${esc(r.title || r.id)}</span>${copyButton(r.threadLink)}</div>`
+  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink))
   if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
   const status = r.stage && !SECTION_STAGES.has(r.stage) ? stageSentence(r.stage) : ''
   const waiting = String(r.stage).startsWith('awaiting-')
@@ -373,16 +369,16 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
     .map((e) => {
       const day = dayWords(e.mergedAt, Date.now())
       const meta = metaLine([
-        `<span class="id">${link(e.issueUrl, e.id)}</span>`,
         day && esc(`merged ${day} ${clock(e.mergedAt)}`),
         typeof e.spend?.cost === 'number' && esc(dollars(e.spend.cost)),
         e.spend && esc(`${tokens(e.spend.tokens)} tokens`),
+        specSpan(e.specUrl),
         prSpan(e.prUrl),
       ])
       const view = viewOf(e.id, open, info)
       const sw = panelSwitch('merged', e.id, { gantt: e.gantt, view, details: view === 'details' ? renderDetails(e, Date.now()) : '' })
       return `<li class="row">
-  <div class="head"><span class="title">${esc(e.title || e.id)}</span></div>
+  ${rowHead(link(e.issueUrl, e.id), e.title)}
   <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}
 </li>`
     })
