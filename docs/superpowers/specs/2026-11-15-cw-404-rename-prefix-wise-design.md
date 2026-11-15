@@ -49,6 +49,7 @@ A new Identity row after `Issue identifier prefix`:
 - `ticket_re(anchored=False)`: matches `<P>-\d+` for any `P` in `prefixes()`, as one escaped alternation, longest prefix first, so a prefix that starts another one never wins the match.
 - `ticket_id(number)`: the id of issue `number`. The first retired pair whose `below` is greater than `number` gives its prefix; otherwise the current prefix.
 - `ticket_number(tid)`: the issue number of an id with any known prefix, or None.
+- `branch_search_re()`: the unanchored `(?<![a-z0-9])(<lower-case prefixes>)-(\d+)(?!\d)` form for `pm_hygiene`.
 - `branch_ticket_re()`: `<heads>(<lower-case prefixes>)-(\d+)` as a regex, for the scripts that read a ticket from a branch name.
 - `chief_thread_title()` stays `f"{prefix()} - Chief of Staff"`: the current prefix.
 - The CLI gains `project_config.py prefixes`, printing one line per prefix (current first) with its cutover, for skills that need to read it. Optional for the build; skip it if no skill needs it.
@@ -56,7 +57,7 @@ A new Identity row after `Issue identifier prefix`:
 ### Scripts that map a number to an id or back
 
 - `cos_untracked_check.py`: `prs_by_ticket` reads branches with `branch_ticket_re()` and names the ticket `ticket_id(number)`; the issue loop uses `ticket_id(issue["number"])`. `known` also counts a ticket whose number is already in state under any prefix, so an issue never shows up twice even if it was started under the other prefix.
-- `pm_hygiene.py`: `ticket_id` uses `project_config.ticket_id(number)`; `ticket_of` reads the branch with `branch_ticket_re()` and the title with `ticket_re()`, and returns `ticket_id(number)`.
+- `pm_hygiene.py`: `ticket_id` uses `project_config.ticket_id(number)`; `ticket_of` searches the lower-cased branch with `branch_search_re()` (an unanchored search over all prefixes, so branches without a configured head still match, as before) and the title with `ticket_re()`, and returns `ticket_id(number)`.
 - `agent_usage.py`: the `ticket_id` error text drops the literal: `is not a ticket id like <PREFIX>-57`, with the current prefix read from `project_config` when it is readable.
 - `cos_state.py`, the four `TICKET` checks and the inline `ticket_re` callers need no code change: they pick up both prefixes from `ticket_re()`.
 
