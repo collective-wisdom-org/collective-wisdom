@@ -105,7 +105,8 @@ def boom():
         ({SKILL: "x\n"}, FIX, "one", ("CW", ["agent-team/docs/agents/"]), "changed"),  # not in the list
         ({"docs/superpowers/specs/x.md": "x\n"}, "docs: tidy", "one", boom, "docs"),
         ({"agent-team/.claude/skills/foo/NEW.md": "x\n", SKILL: "x\n"}, FIX, "one", CONFIG, "changed"),  # a living file added
-        ({"agent-team/.claude/skills/foo/LINK.md": ("link", "SKILL.md"), SKILL: "x\n"}, FIX, "one", CONFIG, "changed"),  # symlink
+        ({"README.md": ("link", "AGENTS.md"), SKILL: "x\n"}, FIX, "one", CONFIG, "changed"),  # a living file made a symlink
+        ({SKILL: None, "README.md": "x\n"}, FIX, "one", CONFIG, "changed"),  # a living file deleted
     ],
 )
 def test_delta_living(tmp_path, edits, subject, shape, config, expected):
@@ -118,7 +119,10 @@ def test_delta_living(tmp_path, edits, subject, shape, config, expected):
     def commit(files, msg):
         for path, text in files.items():
             (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-            if isinstance(text, tuple):  # ("link", target): a symlink
+            if text is None:  # delete the file
+                (tmp_path / path).unlink()
+            elif isinstance(text, tuple):  # ("link", target): a symlink, replacing any file there
+                (tmp_path / path).unlink(missing_ok=True)
                 (tmp_path / path).symlink_to(text[1])
             else:
                 (tmp_path / path).write_text(text)

@@ -45,7 +45,6 @@ GH = str(Path(__file__).absolute().parent / "gh.sh")
 SHOW = 10
 AGENT_CONFIG = ("claude.md", "claude.local.md", "agents.md")  # lowercase: tools read these from subfolders
 REGULAR = ("100644", "000000")  # 000000: the file is absent on that side
-ZERO = "0" * 40  # the blob of an absent file in `git diff --raw`
 
 
 def is_docs(path, modes):
@@ -125,10 +124,10 @@ def modes_of(path, old, new):
 
 
 def absent(path, mine, other):
-    """True when path is absent at the head `mine` was taken at. No entry there means unchanged against the base, so the other head's old blob says."""
+    """True when path is absent at the head `mine` was taken at. No entry there means unchanged against the base, so the other head's old mode says."""
     if path in mine:
-        return mine[path][3] == ZERO
-    return path in other and other[path][2] == ZERO
+        return mine[path][1] == "000000"
+    return path in other and other[path][0] == "000000"
 
 
 def living(shas, files, old, new, run, config):
