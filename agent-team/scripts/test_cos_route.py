@@ -131,7 +131,7 @@ def test_parent_thread_decides_continuation_and_the_moving_line(tmp_path, capsys
     "caller, stage, parent, last, wait, fallback",
     [
         ("approve-merge", "awaiting-merge", None, "route: send merge", True, False),  # no finish notice will come
-        ("approve-merge", "awaiting-merge", ME, "route: send merge", False, False),
+        ("approve-merge", "awaiting-merge", ME, "route: send merge", True, False),  # a finish notice can be lost here too
         ("approve-merge", "awaiting-merge", "old", "route: continuation merge", False, True),
         ("reviewer-changes", "awaiting-review", None, "route: send build", False, False),  # the build lane has its own coverage
         ("reviewer-changes", "awaiting-review", "old", "route: continuation build", False, False),

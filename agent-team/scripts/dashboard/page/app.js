@@ -12,6 +12,24 @@ export const clock = (ms) => {
   const d = new Date(ms)
   return `${d.getHours() % 12 || 12}:${two(d.getMinutes())} ${d.getHours() < 12 ? 'am' : 'pm'}`
 }
+
+const CLOCK_TIME = /(?<![\d:])(\d{1,2}):(\d{2})(?!\d|:)(?:\s?(am|pm)\b)?(?:\s?UTC\b|Z\b)?/gi
+/**
+ * Each clock time in status text (`3:55am UTC`, `3:53am`, `14:05`), written in UTC by the Chief of Staff, as the viewer's local `h:mm am/pm` with no zone.
+ * A time has no date, so it takes the latest moment at or before `now` (plus a minute of clock skew) with that UTC hour and minute.
+ * An hour or minute out of range, or digits right before or after (`10:30:00`, an ISO timestamp), leaves the match as it is.
+ */
+export const localTimes = (text, now = Date.now()) =>
+  String(text ?? '').replace(CLOCK_TIME, (match, hh, mm, ap) => {
+    let h = Number(hh)
+    if (Number(mm) > 59 || (ap ? h > 12 : h > 23)) return match
+    if (ap) h = (h % 12) + (ap.toLowerCase() === 'pm' ? 12 : 0)
+    const limit = now + 60_000
+    const d = new Date(limit)
+    let at = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, Number(mm))
+    if (at > limit) at -= 86_400_000
+    return clock(at)
+  })
 const tokens = (n) => (n >= 999_950 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(1)}k` : String(n))
 const dollars = (c) => (c === null || c === undefined ? '–' : `$${c.toFixed(2)}`)
 
@@ -22,7 +40,7 @@ export function riskText(risk) {
   const raw = String(risk ?? '').trim()
   if (!raw) return null
   const w = /^[a-z]+/.exec(raw.toLowerCase())
-  return w && ['low', 'medium', 'high'].includes(w[0]) ? { text: `${w[0][0].toUpperCase()}${w[0].slice(1)}`, level: w[0] } : { text: raw, level: '' }
+  return w && ['low', 'medium', 'high'].includes(w[0]) ? { text: `${w[0][0].toUpperCase()}${w[0].slice(1)}`, level: w[0] } : { text: localTimes(raw), level: '' }
 }
 
 // Bands are a page-side order over the /api groups. A group name the page does not know goes to In progress.
@@ -234,8 +252,8 @@ function renderDetail(d) {
 export function renderDetails(r, now) {
   const ticketFacts = []
   if (r.stage) ticketFacts.push(['Stage', esc(stageWords(r.stage))])
-  if (r.risk) ticketFacts.push(['Risk', esc(r.risk)])
-  if (r.next) ticketFacts.push(['Next', esc(r.next), 'wide'])
+  if (r.risk) ticketFacts.push(['Risk', esc(localTimes(r.risk))])
+  if (r.next) ticketFacts.push(['Next', esc(localTimes(r.next)), 'wide'])
   const usage = []
   if (r.gantt && r.gantt.length > 0) {
     const items = ganttTasks(r.gantt, now)
@@ -283,18 +301,18 @@ const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')
 const rowHead = (idHtml, title, extra = '') => `<div class="head"><span class="id">${idHtml}</span>${title ? `<span class="title">${esc(title)}</span>` : ''}${extra}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
-/** `3 agents · 41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
+/** `41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
 export const summaryLine = (gantt, now) => {
   const g = ganttSummary(gantt, now)
   if (!g) return ''
-  return metaLine([plural(g.agents, 'agent'), duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
+  return metaLine([duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
 }
 
 /**
- * One ticket as a card (`li.ticket`) or a flat row (`li.row`).
+ * One ticket as a card (`li.ticket`). Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
  * A card is the ticket number and title (with the copy icon), a meta line, the status sentence (left out when the section already names the stage), the agent text (or, while it waits on someone, a live `waiting 3h 16m` counter), an action when it needs the user and a footer with the Agents and Details control and the summary.
- * A row is the title and one footer with the control and the meta line; a blocked row is laid out as a card so it can say why and offer its action. A row from the tracker's Todo list has no stage or risk, and carries `stale` when that list is old, which greys it.
- * Every row starts with its ticket number, then the title, and carries `Spec` and `PR` links in its meta line when it has them. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
+ * A compact card is the title and one footer with the control and the meta line; a blocked flat row is laid out as a full card so it can say why and offer its action. A row from the tracker's Todo list has no stage or risk, and carries `stale` when that list is old, which greys it.
+ * Every card starts with its ticket number, then the title, and carries `Spec` and `PR` links in its meta line when it has them. A running ticket helper (`helper: true`) is a placeholder: `Ticket helper` for the id, the request for the title, the copy icon and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, attn, group, open, info }) {
   const blocked = r.stage === 'blocked'
@@ -310,13 +328,13 @@ function ticket(r, { flat, attn, group, open, info }) {
   ])
   const summary = summaryLine(r.gantt, Date.now())
   const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()) })
-  const cls = `${flat ? 'row' : 'ticket'}${attn ? ' attn' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
+  const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
   const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink))
   if (compact) return `<li class="${cls}">\n  ${head}\n  <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
   const status = r.stage && !SECTION_STAGES.has(r.stage) ? stageSentence(r.stage) : ''
   const waiting = String(r.stage).startsWith('awaiting-')
   const wait = waiting ? waitText(r.stageAt, Date.now()) : ''
-  const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(r.next)}</p>` : ''
+  const note = waiting ? (wait ? `<p class="wait" data-ticket="${esc(r.id)}"><time datetime="${esc(r.stageAt)}" title="Since ${stamp(Date.parse(r.stageAt))}">${esc(wait)}</time></p>` : '') : r.next ? `<p class="next">${esc(localTimes(r.next))}</p>` : ''
   return `<li class="${cls}">
   ${head}
   <div class="meta">${meta}</div>
@@ -347,7 +365,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
         const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info })).join('\n')
         // A Todo list read from the tracker over an hour ago says how old it is; its rows carry `stale` and grey themselves.
         const age = g.stale === true && Number.isFinite(g.readAt) ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
-        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="${flat ? 'rows' : 'cards'}">${rows}</ul></details>`
+        return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul></details>`
       })
       .join('\n')
     const key = bandKey(band.slug)
@@ -370,7 +388,7 @@ export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, op
   // A saved Backlog list read from the tracker over an hour ago says how old it is and greys its rows.
   const stale = g.stale === true && Number.isFinite(g.readAt)
   const age = stale ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
-  return `<details class="group${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="rows">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
+  return `<details class="group${stale ? ' stale' : ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul>${pager}${isHttp(g.moreUrl) ? `<p class="more">${link(g.moreUrl, 'Full backlog')}</p>` : ''}</details>`
 }
 
 /** The header: one sentence counting the bands (the Backlog is not counted). A blocked ticket (stage `blocked`) is counted apart from the waiting ones. */
@@ -393,7 +411,7 @@ const stamp = (ms) => {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${clock(ms)}`
 }
 
-/** One page of the merged list as flat rows plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
+/** One page of the merged list as compact cards plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
 export function renderMerged(list, page, size = 10, open = new Set(), info = new Set()) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const { at, pages } = pageOf(list.length, page, size)
@@ -410,7 +428,7 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
       ])
       const view = viewOf(e.id, open, info)
       const sw = panelSwitch('merged', e.id, { gantt: e.gantt, view, details: view === 'details' ? renderDetails(e, Date.now()) : '' })
-      return `<li class="row">
+      return `<li class="ticket compact">
   ${rowHead(link(e.issueUrl, e.id), e.title)}
   <div class="foot">${sw.control}<span class="meta">${meta}</span></div>${sw.panels}
 </li>`
@@ -420,7 +438,7 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
     pages > 1
       ? `<nav class="pager"><button type="button" data-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
       : ''
-  return { html: `<ul class="rows">${rows}</ul>${pager}`, page: at }
+  return { html: `<ul class="cards">${rows}</ul>${pager}`, page: at }
 }
 
 const ROLE_LABELS = new Map([['ranking', 'Backlog ranking'], ['hygiene', 'Hygiene']])
@@ -436,7 +454,7 @@ function teamList(rows, page, size, open, empty) {
     .map((p) => {
       const updated = list(p.gantt)[0]?.updatedAt
       const sw = panelSwitch('pm', p.sessionId, { gantt: list(p.gantt), view: open.has(p.sessionId) ? 'agents' : '' })
-      return `<li class="row">
+      return `<li class="ticket compact">
   <div class="head"><span class="title">${esc(ROLE_LABELS.get(p.role) ?? p.role)}</span>${copyButton(p.threadLink)}</div>
   <div class="foot">${sw.control}<span class="meta">${stateBadge(p.state)}${typeof updated === 'number' ? ` \u00b7 ${esc(`updated ${dayWords(updated, Date.now())} ${clock(updated)}`)}` : ''}</span></div>${sw.panels}
 </li>`
@@ -446,7 +464,7 @@ function teamList(rows, page, size, open, empty) {
     pages > 1
       ? `<nav class="pager"><button type="button" data-pm-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Newer</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-pm-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Older</button></nav>`
       : ''
-  return { html: rows.length ? `<ul class="rows">${items}</ul>${pager}` : `<p class="quiet">${empty}</p>`, page: at }
+  return { html: rows.length ? `<ul class="cards">${items}</ul>${pager}` : `<p class="quiet">${empty}</p>`, page: at }
 }
 
 /** The Chief of Staff tab: the Chief of Staff card, then one page of project manager threads with a pager. `page` is 0-based and comes back clamped; `open` holds the session ids whose chart is open. */
@@ -519,8 +537,8 @@ function ganttTasks(sessions, now) {
   return items.sort((a, b) => a.r.start - b.r.start)
 }
 
-/** How many tasks the chart draws, for the `Agents` pill. */
-export const taskCount = (sessions) => ganttTasks(sessions, 0).length
+/** How many agents the chart draws (tasks and their subagents), for the `Agents` pill. */
+export const taskCount = (sessions) => ganttTasks(sessions, 0).reduce((n, i) => n + 1 + i.kids.length, 0)
 
 const rowTitle = ({ r, s, clockNow }) => {
   const running = (r.end === null || r.end === undefined) && !s.stale
@@ -535,31 +553,29 @@ const ciSpansOf = (ci, now) =>
     .filter((p) => Array.isArray(p) && Number.isFinite(p[0]))
     .map(([a, b]) => [a, b === null || b === undefined ? Math.max(a, now) : b, b === null || b === undefined])
 
-/** The `CI wait` row: the merged length of the CI spans, one blue bar per merged span (`place(a, b)` gives its left and width in percent). Empty when there are no spans. */
-function ciRow(spans, place) {
-  if (spans.length === 0) return ''
-  const merged = union(spans)
-  const open = merged.some((p) => p[2])
-  const last = Math.max(...spans.map((p) => p[1]))
-  const range = `${clock(Math.min(...spans.map((p) => p[0])))} to ${open ? 'now, running' : clock(last)}`
-  const title = esc(`CI wait\n${spans.length} ${spans.length === 1 ? 'commit' : 'commits'} ran CI · ${range}`)
-  const bars = merged
-    .map(([a, b, o]) => {
-      const { left, width } = place(a, b)
-      const tip = esc(`CI wait\n${o ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
-      return `<span class="bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+/**
+ * For each CI span [start, end, open], the index in `items` of the top-level task that waited for it: the one whose latest finished working span ends at or before the span's start (ties to the earlier task, so the earliest index).
+ * Only a task's own spans count, not its subagents', and a span still running does not (a stale session's open span is closed at its last update, so it does). With no such task the earliest one (index 0) owns the span.
+ */
+export const ciOwner = (items, spans) =>
+  spans.map(([start]) => {
+    let owner = 0
+    let latest = -Infinity
+    items.forEach((i, n) => {
+      for (const [, end, open] of i.spans) {
+        if ((!open || i.s?.stale) && end <= start && end > latest) [owner, latest] = [n, end]
+      }
     })
-    .join('')
-  return `<div class="grow gciwait${open ? ' running' : ''}" title="${title}"><span class="name">CI wait</span><span class="track">${bars}</span><span class="num dur">${duration(merged.reduce((n, [a, b]) => n + (b - a), 0))}</span><span class="num cost"></span></div>`
-}
+    return owner
+  })
 
 const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
 
-/** What a card's footer says about its sessions: the rows drawn (tasks and subagents), the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
+/** What a card's footer says about its sessions: the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
 export function ganttSummary(sessions, now) {
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return null
-  return { agents: items.reduce((n, i) => n + 1 + i.kids.length, 0), ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
+  return { ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
 }
 
 export function renderGantt(sessions, now, ci) {
@@ -587,7 +603,16 @@ export function renderGantt(sessions, now, ci) {
     const left = Math.min(99, (pos(a) / scale) * 100)
     return { left, width: Math.min(100 - left, Math.max(0.5, ((pos(b) - pos(a)) / scale) * 100)) }
   }
-  const wait = ciRow(ciSpans, place)
+  const owners = ciOwner(items, ciSpans)
+  // A task's CI wait: its CI spans merged, one blue bar each, drawn before its working bars so work done during the wait stays on top.
+  const ciBars = (n) =>
+    union(ciSpans.filter((_, k) => owners[k] === n))
+      .map(([a, b, open]) => {
+        const { left, width } = place(a, b)
+        const tip = esc(`CI wait\n${open ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
+        return `<span class="bar ci" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+      })
+      .join('')
   const bars = (row, spans) =>
     union(spans)
       .map(([a, b, open]) => {
@@ -600,14 +625,14 @@ export function renderGantt(sessions, now, ci) {
       })
       .join('')
   const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
-  const line = (row, spans, cost, depth) => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
+  const line = (row, spans, cost, depth, ci = '') => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
   <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
-  <span class="track">${bars(row, spans)}</span>
+  <span class="track">${ci}${bars(row, spans)}</span>
   <span class="num dur">${duration(length(spans))}</span>
   <span class="num cost">${dollars(cost)}</span>
 </div>`
-  const rows = items.map((i) => {
-    return [line(i, i.spans, itemCost(i), 0), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
+  const rows = items.map((i, n) => {
+    return [line(i, i.spans, itemCost(i), 0, ciBars(n)), ...i.kids.map((k) => line(k, k.spans, k.r.cost, Math.max(1, k.r.depth - i.r.depth)))].join('\n')
   })
   const sum = ganttCost(items)
   const reported = sessions.every((s) => typeof s.total === 'number') ? sessions.reduce((n, s) => n + s.total, 0) : null
@@ -620,7 +645,6 @@ export function renderGantt(sessions, now, ci) {
   return `<div class="gantt">
 ${rows.join('\n')}
 <div class="grow gtotal"><span class="name">Total</span><span class="num dur">${duration(total)}</span><span class="num cost">${dollars(sum)}</span></div>
-${wait}
 ${note}
 ${oldNote}
 </div>`

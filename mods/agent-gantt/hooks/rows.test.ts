@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { bars } from './format.ts'
-import { addUsage, buildRows, modelCost } from './rows.ts'
+import { addUsage, buildRows, modelCost, withHelperTicket, type Row } from './rows.ts'
 import type { AgentRecord, Prices, Tokens } from '../types/index.d.ts'
 
 const M = 1_000_000
@@ -185,4 +185,15 @@ test('a cache write is 1h on main, 5m on any other agent, and 1h in a record sto
   const old = { 'claude-opus-5-5': { input: 0, output: 0, read: 0, write: M } as unknown as Tokens }
   const cases: [Record<string, Tokens>, number][] = [[addUsage({}, turn, 'main'), 8], [addUsage({}, turn, 'a1b2'), 5], [addUsage(old, turn, 'a1b2'), 13]]
   for (const [usage, want] of cases) assert.equal(modelCost('claude-opus-5-5', usage['claude-opus-5-5']!, PRICES), want)
+})
+
+test('withHelperTicket renames only task rows named exactly Ticket helper, and only with a ticket', () => {
+  const row = (kind: Row['kind'], name: string) => ({ id: name, depth: 1, kind, name, repo: '', start: 0, end: null, tokens: 0, cost: null, segments: [], model: null, harness: null }) as Row
+  const rows = [row('task', 'Ticket helper'), row('agent', 'Ticket helper'), row('task', 'Ticket helper CW-1'), row('task', 'Build CW-1: x')]
+  const cases: [string | null, string[]][] = [
+    ['CW-7', ['Ticket helper CW-7', 'Ticket helper', 'Ticket helper CW-1', 'Build CW-1: x']],
+    [null, ['Ticket helper', 'Ticket helper', 'Ticket helper CW-1', 'Build CW-1: x']],
+    ['', ['Ticket helper', 'Ticket helper', 'Ticket helper CW-1', 'Build CW-1: x']],
+  ]
+  for (const [ticket, want] of cases) assert.deepEqual(withHelperTicket(rows, ticket).map(r => r.name), want, String(ticket))
 })
