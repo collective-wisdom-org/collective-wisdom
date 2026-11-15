@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 give ensure-labels the color and description of each team label (CW-276) (#363)
+
+Merged 2026-11-15 03:14 UTC.
+
+The GitHub tracker doc now lists the color and description of every team label, so a repo's `ensure-labels` step can create them without looking anywhere else.
+
 ## 2026-11-15 update the agent-gantt plugin when install.sh finds an older version (CW-339) (#358)
 
 Merged 2026-11-15 03:06 UTC.
