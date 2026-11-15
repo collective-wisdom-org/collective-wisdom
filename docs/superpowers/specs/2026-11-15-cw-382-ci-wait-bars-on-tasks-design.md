@@ -1,7 +1,8 @@
 # CW-382: Draw each CI wait bar on the task row that was waiting for it
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#382](https://github.com/collective-wisdom-org/collective-wisdom/issues/382)
+**Shipped:** in PR #397, as specified
 
 ## Goal
 
