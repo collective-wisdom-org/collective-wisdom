@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-15 draw CI wait as blue bars on the dashboard gantt (CW-365) (#378)
+
+Merged 2026-11-15 4:58 am UTC.
+
+A ticket's dashboard chart now draws its PR's CI wait as blue bars next to the green working bars. Working bars get narrower to make room; the `Total` time and cost do not change.
+
 ## 2026-11-15 move the dashboard Done list to its own Done tab (CW-350) (#376)
 
 Merged 2026-11-15 4:38 am UTC.
