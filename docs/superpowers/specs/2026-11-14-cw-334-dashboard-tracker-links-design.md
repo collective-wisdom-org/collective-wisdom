@@ -29,7 +29,8 @@ Facts from `main` at `0d708cc`.
    - **Linear:** needs a `https://linear.app/<workspace>/...` link inside the `Linear team name` row; the `Repo` link is not needed. The workspace must match `^[A-Za-z0-9-]+$`. The team key is the `/team/<KEY>/` segment of that link, else the `Issue identifier prefix` row.
      - `issue(id)` gives `https://linear.app/<workspace>/issue/<id>` only for an id of the form `<KEY>-N`.
      - `backlog` is `https://linear.app/<workspace>/team/<KEY>/backlog`.
-   - Anything missing, a `TODO`, or a placeholder gives no link for that part, as today.
+   - A missing, empty or `TODO` `Tracker` row, or any value other than `github` or `jira`, reads as Linear (`trackers/README.md`).
+  - Anything missing, a `TODO`, or a placeholder gives no link for that part, as today.
 2. **`buildApi`** takes an optional `links` input. Both `issueUrl` sites use `links.issue(id)`, and the Backlog group's `moreUrl` uses `links.backlog`. When `links` is not passed, it falls back to the GitHub links from `repo` as today, so the existing tests keep passing unchanged.
 3. **`merged.ts`**: `MergedConfig` gets an optional `issueUrl(id)` function. When present, `parseMerged()` uses it for the Done row `issueUrl`. `issueUrls: true` without it keeps today's GitHub link.
 4. **`server.ts`** reads `trackerLinksFromProject(text)` beside `repoUrlFromProject(text)`, passes it to `buildApi` as `links`, and puts its `issue` on `mergedCfg`. Merged PRs still need the `Repo` link, since they are read from GitHub.
