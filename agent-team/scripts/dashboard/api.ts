@@ -22,6 +22,8 @@ export type Api = {
   pm: PmRow[]
 }
 type Repo = { url: string; isGithubIssues: boolean }
+/** Where a ticket id and the full backlog open in the repo's tracker. `issue` gives nothing for an id the tracker would not own. */
+export type TrackerLinks = { issue(id: string): string | undefined; backlog: string | null }
 
 const DAY = 24 * 3600 * 1000
 const STALE_MS = 30_000
@@ -43,21 +45,71 @@ const str = (x: unknown): string => (typeof x === 'string' ? x : '')
 const num = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) ? x : 0)
 const numOrNull = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null)
 
-function trackerIsGithub(markdown: string): boolean {
+/** The value cell of the first row named `name` or `name (...)`, else undefined. */
+function rowValue(markdown: string, name: string): string | undefined {
   for (const line of markdown.split(/\r?\n/)) {
     if (!line.trimStart().startsWith('|')) continue
-    const cells = line.split('|').map((c) => c.trim())
-    const [, name, value] = cells
-    if (name !== 'Tracker' && !name?.startsWith('Tracker (')) continue
-    return value?.match(/`([^`]+)`/)?.[1].toLowerCase() === 'github'
+    const [, key, value] = line.split('|').map((c) => c.trim())
+    if (key === name || key?.startsWith(`${name} (`)) return value
   }
-  return false
+  return undefined
+}
+
+const firstTicked = (cell: string | undefined): string | undefined => cell?.match(/`([^`]+)`/)?.[1]
+
+function trackerIsGithub(markdown: string): boolean {
+  return firstTicked(rowValue(markdown, 'Tracker'))?.toLowerCase() === 'github'
 }
 
 export function repoUrlFromProject(markdown: string): Repo | null {
   const m = markdown.match(/^\|\s*Repo\b[^|]*\|[^|]*<(https?:\/\/[^>\s]+)>/m)
   if (!m) return null
   return { url: m[1].replace(/\/+$/, ''), isGithubIssues: trackerIsGithub(markdown) }
+}
+
+const githubLinks = (url: string): TrackerLinks => ({
+  issue: (id) => {
+    const n = id.match(/-(\d+)$/)?.[1]
+    return n ? `${url}/issues/${n}` : undefined
+  },
+  backlog: `${url}/issues`,
+})
+
+const ticketLinks = (key: string, link: (id: string) => string, backlog: string | null): TrackerLinks => {
+  const own = new RegExp(`^${key}-\\d+$`)
+  return { issue: (id) => (own.test(id) ? link(id) : undefined), backlog }
+}
+
+/** Ticket and backlog links for the tracker in the `Tracker` row, or null when none can be built (a missing row, a `TODO` or a template placeholder gives no link). */
+export function trackerLinksFromProject(markdown: string): TrackerLinks | null {
+  const tracker = firstTicked(rowValue(markdown, 'Tracker'))?.toLowerCase()
+  if (tracker === 'github') {
+    const repo = repoUrlFromProject(markdown)
+    return repo && githubLinks(repo.url)
+  }
+  if (tracker === 'jira') {
+    const cell = rowValue(markdown, 'Jira site')
+    const key = firstTicked(rowValue(markdown, 'Jira project key'))
+    const raw = firstTicked(cell) ?? cell?.match(/<([^>\s]+)>/)?.[1]
+    if (!raw || !key || !/^[A-Z][A-Z0-9_]+$/.test(key) || /TODO|</.test(raw)) return null
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      return null
+    }
+    if (url.protocol !== 'https:' || url.hostname === 'example.atlassian.net') return null
+    const site = (url.origin + url.pathname).replace(/\/+$/, '')
+    const jql = `project = ${key} AND statusCategory = "To Do" ORDER BY created DESC`
+    return ticketLinks(key, (id) => `${site}/browse/${id}`, `${site}/issues/?jql=${encodeURIComponent(jql)}`)
+  }
+  // `linear`, or a missing or TODO tracker row, which means linear.
+  const cell = rowValue(markdown, 'Linear team name')
+  const link = cell?.match(/https:\/\/linear\.app\/([A-Za-z0-9-]+)\/([^\s>)`]*)/)
+  const key = link?.[2].match(/(?:^|\/)team\/([A-Z][A-Z0-9]*)(?:\/|$)/)?.[1] ?? firstTicked(rowValue(markdown, 'Issue identifier prefix'))
+  if (!link || !key || !/^[A-Z][A-Z0-9]*$/.test(key) || /TODO/.test(key)) return null
+  const base = `https://linear.app/${link[1]}`
+  return ticketLinks(key, (id) => `${base}/issue/${id}`, `${base}/team/${key}/backlog`)
 }
 
 /** Parses `git worktree list --porcelain`; detached worktrees have no branch line and are skipped. */
@@ -207,9 +259,11 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; heads?: string[]; merged?: MergedEntry[]; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
   const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, heads, merged = [], updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
+  // Without `links`, the GitHub links come from `repo`.
+  const links = input.links !== undefined ? input.links : repo?.isGithubIssues ? githubLinks(repo.url) : null
   // A ticket whose PR is already in `merged` shows there only, even while state still has it in a stage.
   const mergedPrs = new Set(merged.filter((e) => e.number !== undefined).map((e) => `${e.id}#${e.number}`))
   const open = groupTickets(state).map((g) => ({ ...g, rows: g.rows.filter((r) => !mergedPrs.has(`${r.id}#${numOrNull(isObj(tickets[r.id]) ? tickets[r.id].pr : null)}`)) })).filter((g) => g.rows.length)
@@ -220,8 +274,8 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       const t = isObj(tickets[r.id]) ? (tickets[r.id] as Record<string, unknown>) : {}
       const out: StatusRow = { id: r.id, title: r.title || titles[r.id] || '', risk: r.risk, next: r.next, stage: str(t.stage) }
       if (r.stageAt) out.stageAt = r.stageAt
-      const digits = r.id.match(/-(\d+)$/)
-      if (repo && repo.isGithubIssues && digits) out.issueUrl = `${repo.url}/issues/${digits[1]}`
+      const issueUrl = links?.issue(r.id)
+      if (issueUrl) out.issueUrl = issueUrl
       if (repo && typeof t.pr === 'number' && Number.isInteger(t.pr)) out.prUrl = `${repo.url}/pull/${t.pr}`
       if (environmentId && typeof t.childThreadId === 'string' && t.childThreadId)
         out.threadLink = `<t3-thread://v2/${environmentId}/${t.childThreadId}>`
@@ -260,13 +314,13 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     if (name === 'Backlog') items = [...items].sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 4) - (b.priority ? PRIORITY_RANK[b.priority] : 4) || (b.createdAt ?? -Infinity) - (a.createdAt ?? -Infinity) || 0)
     const rows = items.slice(0, name === 'Backlog' ? BACKLOG_SHOWN : undefined).map((b): StatusRow => {
       const row: StatusRow = { id: b.id, title: b.title, risk: '', next: '', stage: '' }
-      const digits = b.id.match(/-(\d+)$/)
-      if (repo && repo.isGithubIssues && digits) row.issueUrl = `${repo.url}/issues/${digits[1]}`
+      const issueUrl = links?.issue(b.id)
+      if (issueUrl) row.issueUrl = issueUrl
       return row
     })
     if (!rows.length) continue
     const group: Api['status'][number] = { name, count: items.length, rows }
-    if (name === 'Backlog' && repo && repo.isGithubIssues) group.moreUrl = `${repo.url}/issues`
+    if (name === 'Backlog' && links?.backlog) group.moreUrl = links.backlog
     status.push(group)
   }
   const cleaned = snapshots.map((s) => cleanSnapshot(s, now)).filter((s): s is NonNullable<typeof s> => s !== null)

@@ -26,6 +26,13 @@ test('parseMerged: newest first, id from branch or title, junk left out, urls ch
   assert.equal(parseMerged('{}', CFG), null)
 })
 
+test('parseMerged: an issueUrl function sets the Done row link, and wins over issueUrls', () => {
+  const issueUrl = (id: string) => (id.startsWith('ENG-') ? `https://linear.app/acme/issue/${id}` : undefined)
+  const json = JSON.stringify([pr({ headRefName: 'feat/eng-4-x', title: 'feat: x (ENG-4)' })])
+  assert.equal(parseMerged(json, { prefix: 'ENG', slug: 'o/r', issueUrls: false, issueUrl })![0].issueUrl, 'https://linear.app/acme/issue/ENG-4')
+  assert.equal(parseMerged(json, { prefix: 'ENG', slug: 'o/r', issueUrls: true, issueUrl: () => undefined })![0].issueUrl, undefined)
+})
+
 test('parseMerged: infra/ branches count only when the heads list them, and cw-7 is not cw-70', () => {
   const heads = { ...CFG, heads: ['feat/', 'infra/'] }
   const ids = (cfg: typeof CFG, branch: string) => parseMerged(JSON.stringify([pr({ headRefName: branch, title: 'no id' })]), cfg)!.map((e) => e.id)
