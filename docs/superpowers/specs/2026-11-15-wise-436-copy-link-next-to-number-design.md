@@ -5,7 +5,7 @@
 
 ## Goal
 
-On a ticket card the copy thread link button sits right after the ticket number, on the number row, instead of after the title. On every card with a ticket number, the owner avatar gets its own column at the right edge, and the title wraps before that column instead of running under the avatar.
+On a ticket card the copy thread link button sits right after the ticket number, on the number row, instead of after the title. On every card with a ticket number, the owner avatar gets its own column at the right edge, and the title wraps before that column instead of running under the avatar. The action links on cards waiting for your approval read `View PR` and `View spec` instead of `Open PR` and `Open spec`, since "Open" reads like acting on the PR or spec when the link only opens it.
 
 ## Today
 
@@ -16,6 +16,12 @@ Facts from main at `8c018e1`, `agent-team/scripts/dashboard/page/`.
 - `copyButton` returns `''` when there is no thread link.
 - `index.html`: `.head:has(> .id)` is a grid, `minmax(0, max-content) auto 1fr`. `.head .id` and `.owner` both span `1 / -1` in row 1, `.owner` with `justify-self: end`. The title and the button auto-place into row 2, columns 1 and 2, so the button follows the title.
 - Because `.owner` shares the full-width row 1 and the title's column can grow to the card's full width, a long title runs to the card's right edge, right under the avatar (seen on a WISE-424 Done card).
+- The action link labels come from `ACTIONS` in `app.js` (lines 117 and 118): `['awaiting-merge', ['Open PR', 'prUrl']]` and `['awaiting-build', ['Open spec', 'specUrl']]`. Every other place the dashboard uses those labels:
+  - `app.js` line 370, the `ticketRow` doc comment (`the \`Open PR\` or \`Open spec\` link`).
+  - `app.test.js` lines 136, 137 (the action table) and 145 (the rendered `>Open PR</a>` match).
+  - `README.md` line 187, twice: "one link (`Open PR` or `Open spec`)" and "it is also the `Open spec` button".
+  - Nothing else in `agent-team/`, `mods/`, `AGENTS.md` or `docs/agents/` uses them. Older specs under `docs/superpowers/` mention them as history and stay as written.
+- `README.md` line 187 also describes the copy button as sitting with the title: "the ticket number ... above the title and a copy button with a thread glyph" and "A ticket's copy button is a small icon right after its title".
 
 ## Design
 
@@ -38,8 +44,19 @@ Facts from main at `8c018e1`, `agent-team/scripts/dashboard/page/`.
 - The `.head .copy-icon` top-margin nudge stays; check it still lines up with the number in the browser and drop or adjust it only if it no longer does.
 - `.cos-card .head` and the role card head (no `.id`) are not touched.
 
+### Action labels (`app.js`)
+
+- `ACTIONS` maps `awaiting-merge` to `View PR` and `awaiting-build` to `View spec`. The URLs, the `action` class, `target="_blank"` and the rest of the middle row stay as they are.
+- The `ticketRow` doc comment names the new labels.
+
+### Docs (`README.md`)
+
+- Line 187: `View PR` or `View spec` in the middle-row sentence, and "the `View spec` button" for the spec link.
+- Line 187: the copy button sits right after the ticket number, and the title wraps before the avatar's column. Replace "A ticket's copy button is a small icon right after its title" with "right after its ticket number".
+
 ### Tests (`app.test.js`)
 
+- Update the action table (lines 136, 137) and the rendered-link match (line 145) to `View PR` and `View spec`.
 - Tighten the existing `threadLink becomes a copy button` test so it asserts the order: the `.id` span, then the button, then the `.title` span. Layout is CSS and gets no test, per `AGENTS.md` § Testing.
 
 ## Acceptance
@@ -51,15 +68,19 @@ Facts from main at `8c018e1`, `agent-team/scripts/dashboard/page/`.
 - A ticket with no thread link shows no button and no gap.
 - A long title or a narrow card does not push the button off the number row.
 - Role cards and the Chief of Staff card look the same as before. Done cards change only in where their title wraps.
+- A card waiting on merge approval shows a `View PR` link, and one waiting on build approval shows `View spec`. No `Open PR` or `Open spec` text is left on the page or in `README.md`.
 
 ## Non-goals
 
 - The Writing tickets cards' layout and titles (WISE-430).
-- The button's icon, label or copy behavior.
+- The copy button's icon, label or copy behavior.
+- What the action links point at, or any other middle-row control (`Approve`, `Changes`, `Mark todo`).
 - The avatar's size or shape, or any change to the owner badge markup.
 
 ## Calls I made
 
+- The new label is `View spec`, lower case s, matching today's `Open spec` and the page's sentence-case labels (`Mark todo`, `Full backlog`). The request said `View Spec`; say so if the capital S is wanted.
+- The README's copy-button sentences change in this PR too, since they describe the old place of the button.
 - The avatar column covers Done cards too, not just the cards with the button: the user's example was a Done card, and all of these cards share one grid.
 - The avatar stays on the number row and the title starts on the row below; the title just stops at the avatar's column. The avatar does not move down beside the title.
 - A card with no owner keeps an empty avatar column, so its title wraps one column gap (`--s1`) short of the edge. Dropping that gap would need a second grid rule for cards without an owner, which isn't worth it for a few pixels.
