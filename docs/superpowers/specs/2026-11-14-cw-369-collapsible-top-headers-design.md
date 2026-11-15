@@ -1,6 +1,7 @@
 # CW-369: Make the dashboard top-level section headers collapsible
 
-**Status:** Building
+**Status:** Shipped
+**Shipped:** in PR #383, with differences: [as-built](../as-built/2026-11-15-cw-369-collapsible-top-headers.md)
 **Ticket:** [#369](https://github.com/collective-wisdom-org/collective-wisdom/issues/369)
 **Related:** #349 (edits `renderStatus`), #350 (moves Done to its own tab), #370 (row cards). None has a PR open today; whichever builds second rebases on the other.
 
