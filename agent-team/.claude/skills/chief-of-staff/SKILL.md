@@ -173,10 +173,12 @@ Work moves in three lanes, each with its own limit. A cap on active children cov
 
 | Lane | Active stage | Queue | Limit | Why this number |
 |---|---|---|---|---|
-| Spec | `spec` | `spec-queued`, then Todo tickets | `user.md` (default 2) | Short runs. Two keep a spec ready while the user reviews another. |
+| Spec | `spec` | the spec queue: `spec-queued`, then Todo tickets | `user.md` (default 2) | Short runs. Two keep a spec ready while the user reviews another. |
 | Build | `build` | `build-queued` | `user.md` (default 2) | The longest, costliest runs. Two keep approved specs moving without doubling Opus time. |
 | Merge | `merge` | `merge-queued` | 1, fixed | Merges rebase onto the merge target branch; one at a time avoids conflicts. |
 | **Overall** | `spec` + `build` | | `user.md` (default: the two limits added) | The merge lane is outside the cap, so a merge can always take its one slot. |
+
+The spec queue is the tickets waiting for a spec slot: the `spec-queued` ones in `queuedAt` order, then the Todo tickets in `cos_todo.py` order (priority, then oldest first, then tracker order). A Todo ticket in the queue stays in the tracker's Todo; joining the queue is not a stage or a state change.
 
 A lane's count is the tickets in its active stage. The overall count is `spec` and `build` together. At most one ticket is in `merge` at a time.
 
