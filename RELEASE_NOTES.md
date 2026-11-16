@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 open the dashboard in the integrated browser from the Chief of Staff thread (WISE-465) (#467)
+
+Merged 2026-11-16 1:36 am UTC.
+
+The Chief of Staff now opens the dashboard in T3 Code's browser at start, take over and resume, and reuses the tab it already has instead of opening a second one. Say `dashboard` in its thread to bring the tab back. If the browser can't open, it gives you the URL and says why.
+
 ## 2026-11-15 route Cursor through default Auto for every role (WISE-459) (#460)
 
 Merged 2026-11-15 10:42 pm UTC.
