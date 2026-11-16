@@ -27,7 +27,7 @@ A `takeover` marker in state (a take over or resume pass that has not finished) 
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
 read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
-("ok (no reset on cursor; size unknown)" while the conversation has no usage yet).
+("ok (size unknown on Cursor)" while the conversation has no usage yet).
 Cursor writes a run's usage only when the run ends, so the take-over turn has none when --record-takeover runs. Then (with a
 chiefThreadId) it saves takeoverContext {"threadId", "tokens": null, "turn": N}, N the newest run, and the line ends
 "; take-over context pending (turn N)". A later plain check (not --hook, which stays read-only) reads run N; once it has usage it
@@ -90,7 +90,7 @@ QUIET_RESET_MIN = 60
 RESET_HOLD_MIN = 10
 # Reset mode per provider (T3's providerInstanceId, as chiefProvider.provider in state holds it): reset, reset-scheduled,
 # compact or none. A provider missing here is none. Change together with docs/compatibility.md's "Context reset (rotation check)" row.
-RESET_MODES = {"claudeAgent": "reset"}
+RESET_MODES = {"claudeAgent": "reset", "cursor": "reset"}
 PLUGIN_JSON = "mods/agent-gantt/.claude-plugin/plugin.json"
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",

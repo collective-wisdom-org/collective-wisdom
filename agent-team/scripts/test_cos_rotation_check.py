@@ -113,6 +113,8 @@ def test_decide(cap, state, context_over_cap_by, commit, branch, want):
     [
         ("claudeAgent", {}, 231_000, OLD, "rotate: size 231k >= 220k; mode reset"),
         ("claudeAgent", {}, 40_000, NEW, "rotate: skill changed aaaaaaa..bbbbbbb; mode reset"),
+        ("cursor", {}, 231_000, OLD, "rotate: size 231k >= 220k; mode reset"),
+        ("cursor", {}, 40_000, NEW, "rotate: skill changed aaaaaaa..bbbbbbb; mode reset"),
         ("p-scheduled", {}, 231_000, OLD, "rotate: size 231k >= 220k; mode reset-scheduled"),
         ("p-compact", {}, 40_000, NEW, "rotate: skill changed aaaaaaa..bbbbbbb; mode compact"),
         ("claudeAgent", {"reset": {"startedAt": ago(11)}}, 231_000, OLD, "rotate: size 231k >= 220k; mode reset; reset never confirmed"),
@@ -250,27 +252,28 @@ CURSOR = {"conversation_id": "C1", "hook_event_name": "stop", "status": "complet
 
 
 @pytest.mark.parametrize(
-    "hook_in, kw, followup, provider",
+    "hook_in, kw, want, provider",
     [
-        (CURSOR, {"commit": NEW}, True, CLAUDE),  # a provider with a reset mode
-        (CURSOR, {"commit": NEW}, False, {"provider": "cursor"}),  # no reset on this provider: silent
-        (CURSOR, {"readable": False}, False, {"provider": "cursor"}),  # ... even over a store it cannot read
-        ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, False, CLAUDE),
-        ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, True, CLAUDE),  # T3 Code names the folder agent-<id>
-        ({**CURSOR, "loop_count": 1}, {"commit": NEW}, False, CLAUDE),
-        ({**CURSOR, "status": "aborted"}, {"commit": NEW}, False, CLAUDE),
-        ({"conversation_id": "C1"}, {"commit": NEW}, False, CLAUDE),  # not Cursor's payload, and no session_id
+        (CURSOR, {"commit": NEW}, "rotate: skill changed", CLAUDE),  # a provider with a reset mode
+        (CURSOR, {"commit": NEW}, "rotate: skill changed", {"provider": "cursor"}),
+        (CURSOR, {"readable": False}, "rotation-check: cannot read context", {"provider": "cursor"}),
+        (CURSOR, {"commit": NEW}, None, {"provider": "codex"}),  # no reset on this provider: silent
+        (CURSOR, {"readable": False}, None, {"provider": "codex"}),  # ... even over a store it cannot read
+        ({**CURSOR, "conversation_id": "C2"}, {"commit": NEW}, None, CLAUDE),
+        ({**CURSOR, "conversation_id": "agent-C1"}, {"commit": NEW}, "rotate: skill changed", CLAUDE),  # T3 Code names the folder agent-<id>
+        ({**CURSOR, "loop_count": 1}, {"commit": NEW}, None, CLAUDE),
+        ({**CURSOR, "status": "aborted"}, {"commit": NEW}, None, CLAUDE),
+        ({"conversation_id": "C1"}, {"commit": NEW}, None, CLAUDE),  # not Cursor's payload, and no session_id
     ],
 )
-def test_hook_on_cursor_answers_with_a_followup_only_for_the_chief_once(monkeypatch, capsys, tmp_path, hook_in, kw, followup, provider):
+def test_hook_on_cursor_answers_with_a_followup_only_for_the_chief_once(monkeypatch, capsys, tmp_path, hook_in, kw, want, provider):
     out = run_hook(monkeypatch, capsys, tmp_path, hook_in, {**STATE, "chiefSessionId": "C1", "chiefProvider": provider}, **kw)
-    assert (list(json.loads(out)) == ["followup_message"] and "rotate: skill changed" in out) if followup else out == ""
+    assert (list(json.loads(out)) == ["followup_message"] and want in out) if want else out == ""
 
 
 def test_hook_on_cursor_reads_the_size_from_the_run_store(monkeypatch, capsys, tmp_path):
     context_store(tmp_path / "cur" / "proj", "agent-C1", [(1, {"inputTokens": 230_000}, [])])
     monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(tmp_path / "cur"))
-    monkeypatch.setitem(crc.RESET_MODES, "cursor", "reset")
     out = run_hook(monkeypatch, capsys, tmp_path, CURSOR, {**STATE, "chiefSessionId": "C1", "chiefProvider": {"provider": "cursor"}}, real_store=True)
     assert "rotate: size 230k >= 220k; mode reset" in json.loads(out)["followup_message"]
 
@@ -280,7 +283,7 @@ SIZE_RESET = "rotate: size 230k >= 220k; mode reset"
 
 
 @pytest.mark.parametrize("ages, turns, provider, want_id, want_line", [
-    ({"C1": 1, "C2": 0.5, "C3": 10}, USAGE, "cursor", "C2", "ok (no reset on cursor; context=230k)"),  # the newest fresh one is the Chief's
+    ({"C1": 1, "C2": 0.5, "C3": 10}, USAGE, "cursor", "C2", SIZE_RESET),  # the newest fresh one is the Chief's
     ({"C2": 1}, USAGE, "p-reset", "C2", SIZE_RESET),
     ({"C2": 1}, [(1, None, [])], "p-reset", "C2", "ok (size unknown on Cursor)"),  # no usage yet
     ({"C2": 1}, None, "p-reset", "C2", "rotation-check: cannot read context"),  # no store has the conversation
