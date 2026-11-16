@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 read the take-over context size on Cursor (WISE-462) (#473)
+
+Merged 2026-11-16 2:32 am UTC.
+
+On Cursor, the Chief of Staff now reports the context size of its take-over turn one turn late instead of "size unknown", so a reset can be checked against the 220k cap. Nothing to do.
+
 ## 2026-11-16 wait in the foreground on Cursor (WISE-461) (#472)
 
 Merged 2026-11-16 2:13 am UTC.
