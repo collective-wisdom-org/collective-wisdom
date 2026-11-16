@@ -805,13 +805,13 @@ test('clock: local 12-hour time with am/pm', () => {
   for (const [h, m, want] of cases) assert.equal(clock(new Date(2026, 0, 2, h, m).getTime()), want)
 })
 
-test('Writing tickets is a Backlog tab section: not on the Ship loop tab or in its counts, first on the Backlog tab, unpaged, no Mark todo, alone with the empty line when there is no Backlog', () => {
+test('Writing tickets is a Backlog tab section: not on the Ship loop tab or in its counts, first on the Backlog tab, unpaged, no Start shipping, alone with the empty line when there is no Backlog', () => {
   const helpers = { name: 'Writing tickets', count: 2, rows: [row({ id: 'helper:a', helper: true }), row({ id: 'helper:b', helper: true })] }
   const backlog = { name: 'Backlog', count: 1, rows: [row({ id: 'CW-8' })] }
   const building = { name: 'Building', count: 1, rows: [row({ id: 'CW-9' })] }
   const ids = (html) => [...html.matchAll(/<span class="id">([^<]*)</g)].map((m) => m[1])
   const cases = [
-    // [groups, Ship loop ids, Backlog tab group order, Backlog tab ids, Mark todo buttons, counts, header]
+    // [groups, Ship loop ids, Backlog tab group order, Backlog tab ids, Start shipping buttons, counts, header]
     [[building, helpers, backlog], ['CW-9'], ['Writing tickets', 'Backlog'], ['Ticket helper', 'Ticket helper', 'CW-8'], 1, { ship: 1, done: 0, backlog: 1 }, 'Nothing needs you \u00b7 1 in progress'],
     [[building, helpers], ['CW-9'], ['Writing tickets'], ['Ticket helper', 'Ticket helper'], 0, { ship: 1, done: 0, backlog: 0 }, 'Nothing needs you \u00b7 1 in progress'],
     [[helpers], [], ['Writing tickets'], ['Ticket helper', 'Ticket helper'], 0, { ship: 0, done: 0, backlog: 0 }, 'Nothing needs you'],
@@ -961,7 +961,7 @@ test('promptLink turns a dashboard thread link into a T3 prompt link and refuses
   for (const [link, want] of cases) assert.equal(promptLink(link, 'a b&c'), want, String(link))
 })
 
-test('each Backlog card has a Mark todo control after the switch and before the meta line, a link to the Chief of Staff thread or a copy button; no other tab has one', () => {
+test('each Backlog card has a Start shipping control after the switch and before the meta line, a link to the Chief of Staff thread or a copy button; no other tab has one', () => {
   const link = '<t3-thread://v2/e/t>'
   const cases = [
     ['WISE-419', 'mark 419 todo'],
@@ -973,8 +973,8 @@ test('each Backlog card has a Mark todo control after the switch and before the 
     const backlog = (chief) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row({ id })] }], new Set(), 0, new Set(), new Set(), chief)
     const foot = (html) => html.match(/<div class="foot">([\s\S]*?)<span class="meta">/)[1]
     const tip = `Opens the Chief of Staff thread with "${cmd}" typed in and presses Send for you and checks it arrived. If it can't, press Send.`
-    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" title="${esc(tip)}" data-return="${cmd}">Mark todo</a>`
-    const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Mark todo</button>`
+    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" title="${esc(tip)}" data-return="${cmd}">Start shipping</a>`
+    const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Start shipping</button>`
     for (const [chief, want] of [[link, withLink], [undefined, copy], ['t3-thread://v2/e/t', copy]]) {
       const f = foot(backlog(chief))
       assert.ok(want ? f.endsWith(want) && f.length > want.length : !f.includes('todo'), `${id} ${chief}`)
@@ -986,7 +986,7 @@ test('each Backlog card has a Mark todo control after the switch and before the 
 
 test('pressMessage: one line per reason for each control, none when sent or a repeat click was busy', () => {
   const tail = ' Press Send in the Chief of Staff thread.'
-  for (const action of ['Approve', 'Mark todo']) {
+  for (const action of ['Approve', 'Start shipping']) {
     const generic = `${action} not sent: the dashboard could not press Return.${tail}`
     const cases = [
       [{ sent: true }, ''],
@@ -1011,5 +1011,5 @@ test('pressMessage: one line per reason for each control, none when sent or a re
 })
 
 test('pressAction names the control from the command', () => {
-  for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Mark todo']]) assert.equal(pressAction(command), want, command)
+  for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Start shipping']]) assert.equal(pressAction(command), want, command)
 })
