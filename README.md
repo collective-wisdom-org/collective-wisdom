@@ -184,7 +184,7 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
 
 ## Local dashboard
 
-`start the team` also starts a local dashboard for the repo and opens it in the T3 browser pane.
+`start the team` also starts a local dashboard for the repo and opens it in the T3 browser pane, reusing its tab; `dashboard` in the Chief of Staff thread brings it back in front.
 
 - The header is one sentence such as `2 need you · 3 in progress · 1 waiting · 1 blocked`.
   It counts the Your turn and In progress tickets and the Up next tickets that are not blocked (shown as waiting), counts blocked tickets apart, leaves the Backlog out, and starts with `Nothing needs you` when nothing is for you.
