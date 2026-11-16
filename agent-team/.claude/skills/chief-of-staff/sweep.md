@@ -27,6 +27,8 @@ A child can merge and its finish notice never reach this thread, which leaves th
 
 ## Merge wait
 
+On Cursor skip § Merge wait and § Run wait (`t3_background_wait` is refused there, G32) and ignore the `merge-wait` and `run-wait` plan lines and the `merge-wait:` and `run-wait:` lines of `cos_route.py`. The Stop hook's `late-child:` line, a user message or the next tick catches a lost finish notice. Never run these waits in the foreground: they block this thread for up to 110 minutes.
+
 A finish notice can be lost even when this thread is the parent, and a ticket with no known parent thread gets none; either way the ticket would hold the only merge slot until the user writes. A merge wait is `cos_merge_wait.py` (read only): it polls the PR every 30 seconds for 30 minutes and ends when the PR is merged or closed or the ticket has left `merge`. It starts for a `merge-wait <PREFIX>-N` plan line and a `merge-wait:` line of `cos_route.py` (every merge send prints one), a `fallback:` line that says so, and in take over and resume for each `merge` ticket whose `parentThreadId` is not this thread (rotation.md § Thread rotation "Take over" step 3.2).
 
 1. Run `python3 ~/.collective-wisdom/scripts/cos_merge_wait.py <PREFIX>-N` with the Bash tool's background option (never `&`) and keep the task ID.
