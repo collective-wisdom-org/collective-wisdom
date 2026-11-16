@@ -26,7 +26,8 @@ subagents, ignores --since and --until, and exits 2 when no Claude Code or Curso
 A Cursor session's branch is the "Branch:" line of its first message, else the git branch of its workspace.
 When the user's user.md sets a positive "Claude subscription API-equivalent usage", the cost reads "cost $X
 API-equivalent (P% of the subscription), ..." with the share of the Claude Code dollars only. When the ticket
-has Cursor runs the cost part adds ", Cursor $Y". When any Cursor run on the ticket is unpriced, or a Cursor
+has Cursor runs the cost part adds ", Cursor $Y", and " (Auto at the ceiling rate)" after it when a run was on Auto
+(model "default"; the store does not name the routed model, so prices.json prices Auto at the highest rate of each kind). When any Cursor run on the ticket is unpriced, or a Cursor
 store cannot be read (once the ticket has a session) or a run of the ticket's session cannot be parsed, the line is "cost unknown (no price for <models>[; cannot read a Cursor store]; $X priced),
 N.NM tokens, spec ..." and still exits 0.
 --cursor-agent prints one Cursor agent's runs with usage as JSON, {"runs": [{"at": <ms since epoch>, "model": <str or null>,
@@ -488,6 +489,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
     mine = re.compile(heads + re.escape(ticket.lower()) + r"(-.*)?", re.I)
     spent = dict.fromkeys(("spec", "build", "merge"), 0.0)
     tokens, runs, times, cursor_runs, cursor_spent, unpriced, failed = 0, 0, [], 0, 0.0, set(), []
+    auto = False
     unreadable = False
     for proj in sorted(projects.glob(f"*{PROJECT}*")):
         if "worktrees" not in proj.name:
@@ -525,6 +527,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
                 else:
                     spent[stage_at(s["relays"], turn, start_stage(s["first"]))] += sum(paid.values())
                     cursor_spent += sum(paid.values())
+                    auto = auto or model == "default"
     if not runs:
         return None
     times = [t for t in times if t]
@@ -536,7 +539,7 @@ def ticket_line(projects, ticket, usage=None, cursor=None):
         cost = f"cost unknown ({'; '.join(why)}; ${total:.2f} priced)"
     else:
         cost = f"cost ${total:.2f} API-equivalent{share(total - cursor_spent, usage)}"
-        cost += f", Cursor ${cursor_spent:.2f}" * bool(cursor_runs)
+        cost += f", Cursor ${cursor_spent:.2f}" * bool(cursor_runs) + " (Auto at the ceiling rate)" * auto
     return (
         f"{cost}, {tokens / 1e6:.1f}M tokens, "
         f"spec ${spent['spec']:.2f} / build ${spent['build']:.2f} / merge ${spent['merge']:.2f}, "

@@ -1,4 +1,4 @@
-"""Every model the Cursor routing names is priced, except Auto, and none is a Claude model (CW-272, CW-275)."""
+"""Every model the Cursor routing names is priced, Auto included, and none is a Claude model (CW-272, CW-275, WISE-442)."""
 
 import re
 from pathlib import Path
@@ -8,8 +8,6 @@ import cos_models
 
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / ".claude" / "skills"
-# Auto bills at the list price of the model each request is routed to, so it has no price row by design.
-UNPRICED = "default"
 
 
 def routed_models():
@@ -28,11 +26,9 @@ def routed_models():
     return [(where, m) for where, m in found if m != "inherit"]
 
 
-def test_every_cursor_model_is_priced_except_auto_and_none_is_claude():
+def test_every_cursor_model_is_priced_and_none_is_claude():
     found = routed_models()
     assert {m for _, m in found} >= {"default"}  # the collection found the routing, not nothing
-    assert agent_usage.family(UNPRICED) is None  # the day Auto gets a price, drop the exception
     for where, model in found:
-        if model != UNPRICED:
-            assert agent_usage.family(model) in agent_usage.PRICES, f"{where}: no price for {model}"
+        assert agent_usage.family(model) in agent_usage.PRICES, f"{where}: no price for {model}"
         assert "claude" not in model, f"{where}: Claude model {model} on Cursor"

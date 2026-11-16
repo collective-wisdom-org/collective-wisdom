@@ -263,6 +263,8 @@ def cursor_store(proj, aid, msgs, runs, ref, results=None):
 OPUS, T0, T1 = "claude-opus-5-5", "2026-11-01T10:01:00Z", "2026-11-01T10:31:00Z"
 # Opus: 1.5M input less 0.5M of cache is 1M at $4, 40k out at $20, 400k read at $0.20, 100k written at $5 (5 minute rate): $5.38.
 PRICED = {"inputTokens": 1_500_000, "cacheReadTokens": 400_000, "cacheWriteTokens": 100_000, "outputTokens": 40_000}
+# One Auto run of the WISE-441 trial: 383k input and 343k read, so 40k net input at $10, 343k read at $0.50, 4k out at $50.
+AUTO = {"inputTokens": 383_000, "cacheReadTokens": 343_000, "outputTokens": 4_000}
 HERE = "Branch: feat/cw-57-foo. Create it yourself."
 BOTH = "cost $9.38 API-equivalent (0.40% of the subscription), Cursor $5.38, 2.5M tokens, spec $9.38 / build $0.00 / merge $0.00, 2 child runs, wall 0h 30m"
 ONLY_CLAUDE = "cost $4.00 API-equivalent (0.40% of the subscription), 1.0M tokens, spec $4.00 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"
@@ -287,6 +289,12 @@ ONLY_CLAUDE = "cost $4.00 API-equivalent (0.40% of the subscription), 1.0M token
          "cost $2.64 API-equivalent (0.00% of the subscription), Cursor $2.64, 1.5M tokens, spec $2.64 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
         (False, [([HERE], [(1, "composer-2.5", PRICED, T1)], "/none")], False,
          "cost $0.73 API-equivalent (0.00% of the subscription), Cursor $0.73, 1.5M tokens, spec $0.73 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
+        # Auto runs (token counts of WISE-441 trial runs) are priced at the ceiling rate and the line says so: 383k input, 343k read, 4k out is $0.77
+        (False, [([HERE], [(1, "default", AUTO, T1)], "/none")], False,
+         "cost $0.77 API-equivalent (0.00% of the subscription), Cursor $0.77 (Auto at the ceiling rate), 0.4M tokens, spec $0.77 / build $0.00 / merge $0.00, 1 child run, wall 0h 00m"),
+        # an Auto run beside a run on an unpriced model is still cost unknown
+        (False, [([HERE], [(1, "default", AUTO, T0), (2, "gemini-4-argon", {"inputTokens": 100_000}, T1)], "/none")], False,
+         "cost unknown (no price for gemini-4-argon; $0.77 priced), 0.5M tokens, spec $0.77 / build $0.00 / merge $0.00, 1 child run, wall 0h 30m"),
         (True, [(["Branch: feat/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
         # infra/ branches count for the ticket on both sides, and infra/cw-570 is not cw-57
         ("infra/cw-57-foo", [(["Branch: infra/cw-570-x"], [(2, OPUS, PRICED, T1)], "/none")], False, ONLY_CLAUDE),
