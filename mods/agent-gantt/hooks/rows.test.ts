@@ -180,6 +180,11 @@ test('modelCost gives the dollars of the cases test_prices.py checks agent_usage
   for (const c of shared.cases) assert.ok(Math.abs(modelCost(c.model, c.tokens, real)! - c.dollars) < 1e-9, c.model)
 })
 
+test('modelCost prices a Cursor Auto run (model default) from the real prices.json', () => {
+  const t: Tokens = { input: M, output: M, read: M, write_5m: 0, write_1h: 0 }
+  assert.equal(modelCost('default', t, real), 60.5)
+})
+
 test('a cache write is 1h on main, 5m on any other agent, and 1h in a record stored with only `write`', () => {
   const turn = { model: 'claude-opus-5-5', cache_creation_input_tokens: M }
   const old = { 'claude-opus-5-5': { input: 0, output: 0, read: 0, write: M } as unknown as Tokens }
