@@ -1,7 +1,8 @@
 # WISE-465: Open the dashboard in the integrated browser from the Chief of Staff thread
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#465](https://github.com/collective-wisdom-org/collective-wisdom/issues/465)
+**Shipped:** in PR #467, as specified
 
 ## Goal
 
