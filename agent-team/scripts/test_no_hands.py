@@ -157,6 +157,8 @@ def test_active_for_a_ticket_needs_it_on_the_started_list(tmp_path, ticket, want
     "code, out, err, stage, want",
     [
         (0, "cost $12.50 API-equivalent, 1.0M tokens", "", "build", 12.5),
+        # a Cursor Auto ticket: the whole dollar figure counts, the ceiling note does not change it
+        (0, "cost $9.38 API-equivalent (0.40% of the subscription), Cursor $5.38 (Auto at the ceiling rate), 2.5M tokens", "", "build", 9.38),
         (2, "", "agent_usage: no transcripts for ABC-1\n", "gone", 0.0),
         (2, "", "agent_usage: no transcripts for ABC-1\n", "spec", 0.0),
         (2, "", "agent_usage: no transcripts for ABC-1\n", "spec-queued", 0.0),

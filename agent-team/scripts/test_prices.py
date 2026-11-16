@@ -27,3 +27,11 @@ def test_prices_json_matches_the_published_rate_of_every_kind(model, rates):
 @pytest.mark.parametrize("case", FIXTURE["cases"], ids=lambda c: c["model"])
 def test_costs_gives_the_dollars_the_mod_is_checked_against(case):
     assert dollars(case["model"], case["tokens"]) == pytest.approx(case["dollars"], abs=1e-9)
+
+
+def test_the_auto_row_is_at_or_above_every_other_row_for_every_kind():
+    # Auto's routed model is not in the run store, so its row is a ceiling: no kind may be priced below a known model.
+    rows = json.loads(Path(__file__).with_name("prices.json").read_text())
+    ceiling = rows.pop("default")
+    for kind in KINDS:
+        assert ceiling[kind] >= max(r[kind] for r in rows.values()), kind
