@@ -329,7 +329,7 @@ def save_top(path, **keys):
 
 def takeover_cursor(state, sid, record, context):
     """(takeoverContext to save or None, line suffix) for a Cursor take-over: start one that is still pending when
-    record and the size is unknown, or fill a pending one in plain mode once its run has usage. LookupError means none."""
+    record and the size is unknown, or fill a pending one once its run has usage (the hook uses the filled size but never saves it). LookupError means none."""
     chief, tk = state.get("chiefThreadId"), state.get("takeoverContext")
     usage = load_module("agent_usage")
     try:
@@ -346,7 +346,7 @@ def takeover_cursor(state, sid, record, context):
 
 def check(state, record=False, sid=None, cursor=False, fill=False):
     """(line, takeoverContext to save or None). Raises Unreadable. cursor: sid is a Cursor conversation id.
-    fill: on Cursor, fill a pending takeoverContext (plain mode only)."""
+    fill: on Cursor, use a pending takeoverContext's size once its run has usage; only plain mode saves it."""
     context = read_context(sid, cursor)[0]
     tk, suffix = None, ""
     if record and context is not None:
