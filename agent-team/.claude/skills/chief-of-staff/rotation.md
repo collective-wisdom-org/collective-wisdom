@@ -24,7 +24,7 @@ A turn is quiet when no ticket is in a `*-queued` stage, `lastRelayAt` is absent
 
 It holds (`ok (held: ...)`) while `paused` is set or the `reset` marker is under 10 minutes old (`held: reset`). An older marker holds nothing: the check fires again and the next take over clears it. Never reset in the middle of a command. It also saves `chiefSessionId`.
 
-On `rotate:`, run the reset for its mode. On exit 2 (`rotation-check: cannot read <what>`), read `itemCount` (`t3_thread_read` on your own thread, `limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`) and reset at 240 or more, only on a harness whose mode is not `none` (Claude Code and Cursor: `reset`), with one Cleanup line: `Context size unreadable; used item count`. Item count is used only here.
+On `rotate:`, run the reset for its mode. On exit 2 (`rotation-check: cannot read <what>`), read `itemCount` (`t3_thread_read` on your own thread, `limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`) and reset at 240 or more (not within 60 minutes of `lastResetAt`: a reset keeps the thread's items), only on a harness whose mode is not `none` (Claude Code and Cursor: `reset`), with one Cleanup line: `Context size unreadable; used item count`. Item count is used only here.
 
 At or above the size cap, the script turns the size trigger off for this thread (`takeoverContext`, printing `ok (size trigger off: take-over ended at <N>k)`), so it does not reset repeatedly.
 
