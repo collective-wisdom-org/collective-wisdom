@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 wait in the foreground on Cursor (WISE-461) (#472)
+
+Merged 2026-11-16 2:13 am UTC.
+
+On Cursor, a ship loop child now waits for CI in the foreground instead of calling `t3_background_wait`, which Cursor refuses. A Cursor Chief of Staff no longer runs its merge and run waits; a lost finish notice is caught by the Stop hook, your next message or the next tick.
+
 ## 2026-11-16 price Cursor Auto runs at a ceiling rate (WISE-442) (#470)
 
 Merged 2026-11-16 2:10 am UTC.
