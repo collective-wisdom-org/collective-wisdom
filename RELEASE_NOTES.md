@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 rename the Mark todo dashboard button to Start shipping (WISE-466) (#471)
+
+Merged 2026-11-16 2:09 am UTC.
+
+The blue button on Backlog cards in the local dashboard now reads `Start shipping`. It does the same thing as before; if a press fails, the error line starts with `Start shipping`.
+
 ## 2026-11-16 turn on the context reset for Cursor (CW-343) (#468)
 
 Merged 2026-11-16 1:48 am UTC.
