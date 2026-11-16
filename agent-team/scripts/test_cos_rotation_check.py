@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -277,6 +278,15 @@ def test_hook_on_cursor_reads_the_size_from_the_run_store(monkeypatch, capsys, t
     assert "rotate: size 230k >= 220k; mode reset" in json.loads(out)["followup_message"]
 
 
+def test_hook_on_cursor_leaves_a_pending_takeover_over_the_cap_alone_and_unsaved(monkeypatch, capsys, tmp_path):
+    context_store(tmp_path / "cur" / "proj", "agent-C1", [(1, {"inputTokens": 250_000}, [])])
+    monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(tmp_path / "cur"))
+    pending = {"threadId": "T1", "tokens": None, "turn": 1}
+    state = {**STATE, "chiefSessionId": "C1", "chiefProvider": {"provider": "cursor"}, "takeoverContext": pending}
+    assert run_hook(monkeypatch, capsys, tmp_path, CURSOR, state, real_store=True) == ""  # no rotate: the take-over itself landed above the cap
+    assert json.loads((tmp_path / "state.json").read_text())["takeoverContext"] == pending
+
+
 USAGE = [(1, {"inputTokens": 230_000}, [])]
 SIZE_RESET = "rotate: size 230k >= 220k; mode reset"
 
@@ -485,3 +495,34 @@ def test_hook_blocks_from_a_drifted_cwd(tmp_path):
     ).stdout
     # "rotate: size", not "cannot read ...": a wrong project.md, transcript or git root also blocks, with another reason.
     assert json.loads(out)["reason"].startswith("rotate: size")
+
+
+PENDING = {"threadId": "T1", "tokens": None, "turn": 1}
+ENDED, RUNNING = [(1, {"inputTokens": 180_000}, [])], [(1, None, [])]
+
+
+@pytest.mark.parametrize("args, turns, tk_in, want_suffix, want_tk", [
+    (["--record-takeover"], RUNNING, None, "; take-over context pending (turn 1)", PENDING),  # the take-over turn has no usage yet
+    ([], RUNNING, PENDING, "", PENDING),  # still running: nothing changes
+    ([], ENDED, PENDING, "; take-over context=180k (turn 1)", {"threadId": "T1", "tokens": 180_000}),  # turn is dropped
+    (["--record-takeover"], ENDED, None, "; take-over context=180k", {"threadId": "T1", "tokens": 180_000}),
+])
+def test_cursor_takeover_context_is_recorded_pending_then_filled(monkeypatch, capsys, tmp_path, args, turns, tk_in, want_suffix, want_tk):
+    app, cursor, path = tmp_path / "app", tmp_path / "cursor", tmp_path / "state.json"
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", str(app)).strip("-")
+    context_store(cursor / slug, "agent-C2", turns)
+    f = cursor / slug / "agent-transcripts" / "C2" / "C2.jsonl"
+    f.parent.mkdir(parents=True)
+    f.write_text("{}\n")
+    state = {"chiefThreadId": "T1", "skillCommit": OLD, "chiefProvider": {"provider": "cursor"}}
+    path.write_text(json.dumps({**state, **({"takeoverContext": tk_in} if tk_in else {})}))
+    monkeypatch.setattr(crc, "ROOT", app)
+    monkeypatch.setenv("COS_STATE_FILE", str(path))
+    monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(cursor))
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.setattr(crc, "skill_commit", lambda: OLD)
+    monkeypatch.setattr(crc, "branch", lambda: "main")
+    assert crc.main(args) == 0
+    out = capsys.readouterr().out.strip()
+    assert out.endswith(want_suffix) and ("take-over context" in out) == bool(want_suffix)
+    assert json.loads(path.read_text()).get("takeoverContext") == want_tk

@@ -360,13 +360,10 @@ def cursor_agent_runs(projects, agent):
     raise LookupError(f"cannot read {failed[0]}" if failed else f"no Cursor store has agent {agent}")
 
 
-def cursor_context(projects, agent):
-    """(tokens, started) of one Cursor agent's conversation, or None when none of its runs has usage yet.
+def agent_store(projects, agent):
+    """(db, rows) of the readable store that has the Cursor agent; rows are read_store's runs with usage.
 
-    A run records inputTokens as a sum over its model requests, so tokens is the latest run's inputTokens divided by
-    its request count: 1 plus the distinct `call-<uuid>` prefixes of its tool_call call_ids. That average is a floor
-    on the last prompt while every request leaves a tool_call event (checked on one run). started is the agent's earliest run, in UTC. Raises LookupError when no readable store has the
-    agent (or a store that could hold it cannot be read), when run_events is missing, or when the usage cannot be parsed.
+    Raises LookupError when no readable store has the agent, or a store that could hold it cannot be read.
     """
     failed = []
     for db in sorted(projects.glob("*/sdk-agent-store/*/index.db")):
@@ -375,34 +372,60 @@ def cursor_context(projects, agent):
         except sqlite3.Error:
             failed.append(db)
             continue
-        if not any(a == agent for a, _ in agents):
-            continue
-        latest = [r for r in rows if r[0] == agent][-1:]
-        if not latest:
-            return None
-        try:
-            con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
-            try:
-                run_id = con.execute(
-                    "select run_id from runs where agent_id = ? and turn_number = ?", (agent, latest[0][1])
-                ).fetchone()[0]
-                times = con.execute(
-                    "select coalesce(started_at, created_at) from runs where agent_id = ?", (agent,)
-                ).fetchall()
-                calls = con.execute(
-                    "select json_extract(payload_json, '$.message.call_id') from run_events "
-                    "where run_id = ? and json_extract(payload_json, '$.message.type') = 'tool_call'",
-                    (run_id,),
-                ).fetchall()
-            finally:
-                con.close()
-            tokens = int(json.loads(latest[0][3])["inputTokens"])
-            started = min(parse_ts(t[0]) for t in times).astimezone(timezone.utc)
-        except (sqlite3.Error, TypeError, ValueError, KeyError, AttributeError, OverflowError):
-            raise LookupError(f"cannot read the context of {agent} in {db}")
-        requests = 1 + len({re.sub(r"-\d+$", "", c[0].split("\n")[0]) for c in calls if isinstance(c[0], str)})
-        return tokens // requests, started
+        if any(a == agent for a, _ in agents):
+            return db, rows
     raise LookupError(f"cannot read {failed[0]}" if failed else f"no Cursor store has agent {agent}")
+
+
+def cursor_latest_turn(projects, agent):
+    """The highest turn number of a Cursor agent's runs, with or without usage; None when it has no runs. Raises LookupError as cursor_context does."""
+    db, _ = agent_store(projects, agent)
+    try:
+        con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
+        try:
+            return con.execute("select max(turn_number) from runs where agent_id = ?", (agent,)).fetchone()[0]
+        finally:
+            con.close()
+    except sqlite3.Error:
+        raise LookupError(f"cannot read the runs of {agent} in {db}")
+
+
+def cursor_context(projects, agent, turn=None):
+    """(tokens, started) of one Cursor agent's conversation, or None when none of its runs has usage yet.
+
+    turn: read that run instead of the latest one; None when it has no usage yet or does not exist.
+    A run records inputTokens as a sum over its model requests, so tokens is the latest run's inputTokens divided by
+    its request count: 1 plus the distinct `call-<uuid>` prefixes of its tool_call call_ids. That average is a floor
+    on the last prompt while every request leaves a tool_call event (checked on one run). started is the agent's earliest run, in UTC. Raises LookupError when no readable store has the
+    agent (or a store that could hold it cannot be read), when run_events is missing, or when the usage cannot be parsed.
+    """
+    db, rows = agent_store(projects, agent)
+    mine = [r for r in rows if r[0] == agent and (turn is None or r[1] == turn)]
+    if not mine:
+        return None
+    latest = mine[-1]
+    try:
+        con = sqlite3.connect(f"{db.absolute().as_uri()}?mode=ro", uri=True)
+        try:
+            run_id = con.execute(
+                "select run_id from runs where agent_id = ? and turn_number = ?", (agent, latest[1])
+            ).fetchone()[0]
+            times = con.execute(
+                "select coalesce(started_at, created_at) from runs where agent_id = ?", (agent,)
+            ).fetchall()
+            calls = con.execute(
+                "select json_extract(payload_json, '$.message.call_id') from run_events "
+                "where run_id = ? and json_extract(payload_json, '$.message.type') = 'tool_call'",
+                (run_id,),
+            ).fetchall()
+        finally:
+            con.close()
+        tokens = int(json.loads(latest[3])["inputTokens"])
+        started = min(parse_ts(t[0]) for t in times).astimezone(timezone.utc)
+    except (sqlite3.Error, TypeError, ValueError, KeyError, AttributeError, OverflowError):
+        raise LookupError(f"cannot read the context of {agent} in {db}")
+    requests = 1 + len({re.sub(r"-\d+$", "", c[0].split("\n")[0]) for c in calls if isinstance(c[0], str)})
+    return tokens // requests, started
 
 
 def start_stage(first):
