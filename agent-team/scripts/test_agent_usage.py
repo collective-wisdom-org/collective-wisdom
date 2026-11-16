@@ -416,3 +416,17 @@ def test_cursor_context(tmp_path, agent, turns, extra, want):
     else:
         got = agent_usage.cursor_context(tmp_path, agent)
         assert got is None if want is None else got == (want, agent_usage.parse_ts(T0))
+
+
+@pytest.mark.parametrize("turns, turn, want", [
+    ([(1, {"inputTokens": 10_000}, []), (2, {"inputTokens": 50_000}, [])], 1, 10_000),  # turn= reads that run, not the latest
+    ([(1, {"inputTokens": 10_000}, []), (2, None, [])], 2, None),  # a running turn has no usage
+    ([(1, {"inputTokens": 10_000}, [])], 7, None),  # no such turn
+])
+def test_cursor_context_reads_the_asked_for_turn(tmp_path, turns, turn, want):
+    context_store(tmp_path / "proj", "agent-1", turns)
+    got = agent_usage.cursor_context(tmp_path, "agent-1", turn)
+    assert got is None if want is None else got[0] == want
+    assert agent_usage.cursor_latest_turn(tmp_path, "agent-1") == max(t[0] for t in turns)  # running turns count
+    with pytest.raises(LookupError):
+        agent_usage.cursor_latest_turn(tmp_path, "agent-9")

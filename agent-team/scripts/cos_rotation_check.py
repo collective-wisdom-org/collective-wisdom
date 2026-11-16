@@ -28,6 +28,10 @@ With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcri
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
 read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
 ("ok (no reset on cursor; size unknown)" while the conversation has no usage yet).
+Cursor writes a run's usage only when the run ends, so the take-over turn has none when --record-takeover runs. Then (with a
+chiefThreadId) it saves takeoverContext {"threadId", "tokens": null, "turn": N}, N the newest run, and the line ends
+"; take-over context pending (turn N)". A later plain check (not --hook, which stays read-only) reads run N; once it has usage it
+saves {"threadId", "tokens"} (no turn) and the line ends "; take-over context=<K>k (turn N)". Until then nothing changes.
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on any line that does not start with "ok" ("rotate:", "finish:") or exit 2. It reads Cursor's stop payload (conversation_id equals
@@ -256,13 +260,18 @@ def branch():
     return git("branch", "--show-current")
 
 
+def cursor_args(sid):
+    """(Cursor projects dir, agent id) of Cursor conversation id sid, for agent_usage's cursor_* readers."""
+    projects = Path(os.environ.get("COS_CURSOR_PROJECTS_DIR") or Path.home() / ".cursor" / "projects")
+    return projects, sid if sid.startswith("agent-") else f"agent-{sid}"
+
+
 def read_context(sid=None, cursor=False):
     """(tokens, start time) of session sid, or of $CLAUDE_CODE_SESSION_ID. cursor: sid is a Cursor conversation id,
     read from its run store; (None, None) when it has no usage yet."""
     if cursor:
-        projects = Path(os.environ.get("COS_CURSOR_PROJECTS_DIR") or Path.home() / ".cursor" / "projects")
         try:
-            return load_module("agent_usage").cursor_context(projects, sid if sid.startswith("agent-") else f"agent-{sid}") or (None, None)
+            return load_module("agent_usage").cursor_context(*cursor_args(sid)) or (None, None)
         except LookupError:
             raise Unreadable("context")
     projects = Path(os.environ.get("COS_PROJECTS_DIR") or Path.home() / ".claude" / "projects")
@@ -318,20 +327,41 @@ def save_top(path, **keys):
         return False
 
 
-def check(state, record=False, sid=None, cursor=False):
-    """(line, takeoverContext to save or None). Raises Unreadable. cursor: sid is a Cursor conversation id."""
+def takeover_cursor(state, sid, record, context):
+    """(takeoverContext to save or None, line suffix) for a Cursor take-over: start one that is still pending when
+    record and the size is unknown, or fill a pending one in plain mode once its run has usage. LookupError means none."""
+    chief, tk = state.get("chiefThreadId"), state.get("takeoverContext")
+    usage = load_module("agent_usage")
+    try:
+        if record:
+            turn = usage.cursor_latest_turn(*cursor_args(sid)) if context is None and chief else None
+            return (None, "") if turn is None else (
+                {"threadId": chief, "tokens": None, "turn": turn}, f"; take-over context pending (turn {turn})")
+        turn = tk.get("turn") if isinstance(tk, dict) and chief and tk.get("threadId") == chief and tk.get("tokens") is None else None
+        got = usage.cursor_context(*cursor_args(sid), turn) if isinstance(turn, int) and not isinstance(turn, bool) else None
+    except LookupError:
+        return None, ""
+    return (None, "") if not got else ({"threadId": chief, "tokens": got[0]}, f"; take-over context={k(got[0])} (turn {turn})")
+
+
+def check(state, record=False, sid=None, cursor=False, fill=False):
+    """(line, takeoverContext to save or None). Raises Unreadable. cursor: sid is a Cursor conversation id.
+    fill: on Cursor, fill a pending takeoverContext (plain mode only)."""
     context = read_context(sid, cursor)[0]
-    tk = None
-    if record and context is not None and state.get("chiefThreadId"):
-        tk = {"threadId": state["chiefThreadId"], "tokens": context}
+    tk, suffix = None, ""
+    if record and context is not None:
+        suffix = f"; take-over context={k(context)}"
+        tk = {"threadId": state["chiefThreadId"], "tokens": context} if state.get("chiefThreadId") else None
+    elif cursor and (record or fill):
+        tk, suffix = takeover_cursor(state, sid, record, context)
+    if tk:
         state = {**state, "takeoverContext": tk}
     now = datetime.now(timezone.utc)
     try:
         project_config.target_branch()
     except SystemExit:
         raise Unreadable("the Merge target branch row of project.md")
-    line = decide(state, context, now, skill_commit(), branch(), plugin=plugin_version())
-    return (f"{line}; take-over context={k(context)}" if record and context is not None else line), tk
+    return decide(state, context, now, skill_commit(), branch(), plugin=plugin_version()) + suffix, tk
 
 
 def run_hook(path):
@@ -393,7 +423,7 @@ def main(argv=None):
         sid = sid or cursor_id
         if sid and sid != state.get("chiefSessionId"):
             save_top(path, chiefSessionId=sid)
-        line, tk = check(state, record=args.record_takeover, sid=sid, cursor=bool(cursor_id))
+        line, tk = check(state, record=args.record_takeover, sid=sid, cursor=bool(cursor_id), fill=True)
     except Unreadable as e:
         print(f"rotation-check: cannot read {e}")
         return 2
