@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 price Cursor Auto runs at a ceiling rate (WISE-442) (#470)
+
+Merged 2026-11-16 2:10 am UTC.
+
+A Cursor ticket whose runs are all on Auto now shows a dollar cost in the usage report, the gantt, the dashboard spend and the No Hands cost cap instead of `cost unknown`. The figure is a ceiling, several times the likely bill, and the `--ticket` line says `(Auto at the ceiling rate)`. A run on a model with no price still shows `cost unknown`. Nothing to do.
+
 ## 2026-11-16 rename the Mark todo dashboard button to Start shipping (WISE-466) (#471)
 
 Merged 2026-11-16 2:09 am UTC.
