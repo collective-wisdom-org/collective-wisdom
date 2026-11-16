@@ -1,7 +1,8 @@
 # WISE-466: Rename the Mark todo dashboard button to Start shipping
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#466](https://github.com/collective-wisdom-org/collective-wisdom/issues/466)
+**Shipped:** in PR #471, as specified
 
 ## Goal
 
