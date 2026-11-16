@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 set the Chief of Staff thread title on Cursor (WISE-443) (#469)
+
+Merged 2026-11-16 1:44 am UTC.
+
+A Cursor Chief of Staff thread now gets the `<PREFIX> - Chief of Staff` title at start, take over and resume, like the other harnesses. Nothing to do on your side.
+
 ## 2026-11-16 open the dashboard in the integrated browser from the Chief of Staff thread (WISE-465) (#467)
 
 Merged 2026-11-16 1:36 am UTC.
