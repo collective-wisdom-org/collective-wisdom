@@ -220,7 +220,7 @@ Repeat **Feedback loop** until code review **PASS** or blocked, then go on to ph
 When `docs/agents/project.md` § Review sets `Review mode` to `ci`, the repo's review bot reviews the PR in CI. This section replaces § Review scope and § Agent review comment loop: no `code-reviewer` or `security-reviewer` run, and no `## Code review` or `## Security review` comment. The bot login is the `CI review bot login` row.
 
 1. Open the PR and commit closeout docs.
-2. Run `~/.collective-wisdom/scripts/wait-for-ci.sh <N>` (as a background command, per `ship-loop` § CI waits). Green CI on the head counts as "the bot has finished".
+2. Run `~/.collective-wisdom/scripts/wait-for-ci.sh <N>` (per `ship-loop` § CI waits, in the foreground on Cursor). Green CI on the head counts as "the bot has finished".
 3. Run `~/.collective-wisdom/scripts/ci_review.py list <N>`. It prints one `unresolved <path>:<line> <url> <thread id>` line per unresolved bot thread, then `ci-review: #N <bot>: F fixed, A answered and resolved, U unresolved`. Exit 0 means U is 0, 1 means a thread is open, 2 means it could not read (`ci-review: cannot ...`): run it once more, and a second 2 is a failed step. For each unresolved thread, read it at its URL and either:
    - fix it, push, and reply in thread `Fixed in <short sha>. ...` (§ Inline review replies; the comment id is the `discussion_r<id>` number in the thread's URL), or
    - when the finding is wrong, reply in thread with the reason,
