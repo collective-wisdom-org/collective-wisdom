@@ -27,6 +27,8 @@ A child can merge and its finish notice never reach this thread, which leaves th
 
 ## Merge wait
 
+On Cursor skip § Merge wait and § Run wait (`t3_background_wait` is refused there, G32) and ignore the `merge-wait` and `run-wait` plan lines and the `merge-wait:` and `run-wait:` lines of `cos_route.py`. The Stop hook's `late-child:` line, a user message or the next tick catches a lost finish notice. Never run these waits in the foreground: they block this thread for up to 110 minutes.
+
 A finish notice can be lost even when this thread is the parent, and a ticket with no known parent thread gets none; either way the ticket would hold the only merge slot until the user writes. A merge wait is `cos_merge_wait.py` (read only): it polls the PR every 30 seconds for 30 minutes and ends when the PR is merged or closed or the ticket has left `merge`. It starts for a `merge-wait <PREFIX>-N` plan line and a `merge-wait:` line of `cos_route.py` (every merge send prints one), a `fallback:` line that says so, and in take over and resume for each `merge` ticket whose `parentThreadId` is not this thread (rotation.md § Thread rotation "Take over" step 3.2).
 
 1. Run `python3 ~/.collective-wisdom/scripts/cos_merge_wait.py <PREFIX>-N` with the Bash tool's background option (never `&`) and keep the task ID.
@@ -39,7 +41,7 @@ Two waits on one ticket are harmless: both only read, and the second tick finds 
 
 A spec or build child's finish notice can be lost, leaving the ticket at `BUILD READY` or `MERGE READY`. A run wait is `cos_run_wait.py` (read only): it reads the child's newest run in T3's local store every 30 seconds for 110 minutes and ends when the run fails, is interrupted or cancelled, when a completed run holds a marker after the ticket's `lastPosition` (after one more round, so a late finish notice goes first), or when the ticket has left its lane or child. A completed run with no marker keeps it waiting (a child in `t3_background_wait`). It starts for a `run-wait <PREFIX>-N` plan line and a `run-wait:` line of `cos_route.py` (every spec or build send prints one), a `fallback:` line that says so, after a Todo or Backlog start (readiness.md § Todo start), a continuation child in the spec or build lane (continuation.md), and a stuck-check restart or an approvals.md send-back of a child that stays in `spec` or `build`.
 
-1. Start it as in § Merge wait steps 1 and 2, with `cos_run_wait.py <PREFIX>-N` and `timeout: 7200000` (the default is 30 minutes). A second `unmatched` adds the Cleanup line `Run wait for <PREFIX>-N: <short title> did not start`.
+1. On Cursor skip it (§ Merge wait, first paragraph). Otherwise start it as in § Merge wait steps 1 and 2, with `cos_run_wait.py <PREFIX>-N` and `timeout: 7200000` (the default is 30 minutes). A second `unmatched` adds the Cleanup line `Run wait for <PREFIX>-N: <short title> did not start`.
 2. When it exits, the thread wakes. `BUILD READY`, `MERGE READY`, `BLOCKED`, `MERGED` or `run <status>`: run the tick with `--trigger 'notice:<childThreadId>'`, the child from `cos_state.py get <PREFIX>-N`: the same plan as the finish notice that never came (child read, idle check, sweep, slot fill). `still working after 110m`: run that tick once, then start a new run wait if the ticket is still in the same lane with the same child. `left <lane>`: nothing (no tick, no message). Exit 2, or no `run-wait:` line: one Cleanup line in the next report, `Run wait for <PREFIX>-N: <short title>, <its line>`, and nothing else.
 
 Two waits on one ticket are harmless: both only read.
