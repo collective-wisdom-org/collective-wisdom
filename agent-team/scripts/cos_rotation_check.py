@@ -384,7 +384,7 @@ def run_hook(path):
         if not sid or (bare(sid) != bare(mine) if cursor else sid != mine) or skip:
             return 0
         try:
-            line = check(state, sid=sid, cursor=cursor)[0]
+            line = check(state, sid=sid, cursor=cursor, fill=cursor)[0]  # fill only decides; the hook never saves it
         except Unreadable as e:
             line = "ok" if cursor and mode_for(state)[0] == "none" else f"rotation-check: cannot read {e}"
             # nothing to reset on this provider: don't wake the Chief over a store it can't read

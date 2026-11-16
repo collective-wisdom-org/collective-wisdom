@@ -278,6 +278,15 @@ def test_hook_on_cursor_reads_the_size_from_the_run_store(monkeypatch, capsys, t
     assert "rotate: size 230k >= 220k; mode reset" in json.loads(out)["followup_message"]
 
 
+def test_hook_on_cursor_leaves_a_pending_takeover_over_the_cap_alone_and_unsaved(monkeypatch, capsys, tmp_path):
+    context_store(tmp_path / "cur" / "proj", "agent-C1", [(1, {"inputTokens": 250_000}, [])])
+    monkeypatch.setenv("COS_CURSOR_PROJECTS_DIR", str(tmp_path / "cur"))
+    pending = {"threadId": "T1", "tokens": None, "turn": 1}
+    state = {**STATE, "chiefSessionId": "C1", "chiefProvider": {"provider": "cursor"}, "takeoverContext": pending}
+    assert run_hook(monkeypatch, capsys, tmp_path, CURSOR, state, real_store=True) == ""  # no rotate: the take-over itself landed above the cap
+    assert json.loads((tmp_path / "state.json").read_text())["takeoverContext"] == pending
+
+
 USAGE = [(1, {"inputTokens": 230_000}, [])]
 SIZE_RESET = "rotate: size 230k >= 220k; mode reset"
 
