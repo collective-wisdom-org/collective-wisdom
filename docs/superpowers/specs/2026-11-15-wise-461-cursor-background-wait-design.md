@@ -1,7 +1,8 @@
 # WISE-461: Background waits on Cursor (G32)
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#461](https://github.com/collective-wisdom-org/collective-wisdom/issues/461)
+**Shipped:** in PR #472, as specified
 
 ## Goal
 
