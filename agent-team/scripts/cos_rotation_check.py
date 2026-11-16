@@ -27,7 +27,7 @@ A `takeover` marker in state (a take over or resume pass that has not finished) 
 With no $CLAUDE_CODE_SESSION_ID, plain mode looks for the newest Cursor transcript of the app changed in the last
 2 minutes. If there is one, the run is on Cursor: that conversation id is saved as chiefSessionId and the size is
 read from the Cursor run store: the latest turn's input tokens divided by its model requests, a floor on the last prompt
-("ok (no reset on cursor; size unknown)" while the conversation has no usage yet).
+("ok (size unknown on Cursor)" while the conversation has no usage yet).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on any line that does not start with "ok" ("rotate:", "finish:") or exit 2. It reads Cursor's stop payload (conversation_id equals
@@ -86,7 +86,7 @@ QUIET_RESET_MIN = 60
 RESET_HOLD_MIN = 10
 # Reset mode per provider (T3's providerInstanceId, as chiefProvider.provider in state holds it): reset, reset-scheduled,
 # compact or none. A provider missing here is none. Change together with docs/compatibility.md's "Context reset (rotation check)" row.
-RESET_MODES = {"claudeAgent": "reset"}
+RESET_MODES = {"claudeAgent": "reset", "cursor": "reset"}
 PLUGIN_JSON = "mods/agent-gantt/.claude-plugin/plugin.json"
 SKILL_PATHS = [
     ".claude/skills/chief-of-staff",
