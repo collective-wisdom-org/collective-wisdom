@@ -44,7 +44,7 @@ No Cursor run starts on a Claude model, Grok, Composer or Gemini; the team route
 
 Role values: `python3 ~/.collective-wisdom/scripts/cos_models.py cursor <role>`.
 
-Auto bills at the list price of the model each request is routed to, and the run store does not name the routed model (WISE-441 / G31 check 4), so `prices.json` has a `default` row at the highest rate of each token kind and `agent_usage.py` prices Auto runs there, never a low number, flagging `(Auto at the ceiling rate)` on the `--ticket` line (WISE-442; G8 in `docs/compatibility.md`).
+Auto bills at the list price of the routed model, which the run store does not name (WISE-441 / G31 check 4). `prices.json` has a `default` row at the highest rate per token kind; `agent_usage.py` prices Auto there and flags `(Auto at the ceiling rate)` on the `--ticket` line (WISE-442; G8 in `docs/compatibility.md`).
 
 Observed (WISE-441 Cursor trial, [#441](https://github.com/collective-wisdom-org/collective-wisdom/issues/441)): a Cursor subagent with `model: inherit` under an Auto parent ran on `cursor`/`default` (CT-7 implementer and dual-review). Gantt/run paths recorded `model: default`. Mid-thread build configure is a no-op because spec and build both route to `default`. A Cursor security-review PASS was posted on CT-7 PR #13; keep approval risk tolerance strict until `readonly` MCP enforcement is proven (G4). Full table: the 2026-11-15 entry under Runs in `docs/compatibility.md`.
 
