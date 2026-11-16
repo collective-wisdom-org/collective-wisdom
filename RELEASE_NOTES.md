@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-16 turn on the context reset for Cursor (CW-343) (#468)
+
+Merged 2026-11-16 1:48 am UTC.
+
+A Cursor Chief of Staff now resets its own context past 220k, on a skill change or on a newer agent-gantt plugin, as a Claude Code one does. Nothing to do. The row in `docs/compatibility.md` shows it as partial, since a hook-started reset on Cursor has not been recorded yet.
+
 ## 2026-11-16 set the Chief of Staff thread title on Cursor (WISE-443) (#469)
 
 Merged 2026-11-16 1:44 am UTC.
