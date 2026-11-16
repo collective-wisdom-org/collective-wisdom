@@ -58,6 +58,6 @@ Facts from `main` at `45ef2d78`.
 - **Rated 🟡 partial, not 🟢.** The hook's `followup_message` is confirmed only for `late-child:`; a `rotate:` from it starting the reset is not recorded, and neither is the post-reset size.
 - **No live check in this ticket.** The ticket asks to check that the hook answer reaches the thread and starts the reset; the build has no Cursor Chief of Staff to run, so it records WISE-441's evidence and says what is unconfirmed, as the ticket allows.
 - **The plugin-change trigger comes on too.** It rotates in every mode but `none`, so a Cursor Chief also resets to load a newer agent-gantt plugin. I did not exempt Cursor.
-- **The exit-2 item-count fallback now applies on Cursor** (reset at 240 or more items when the size cannot be read), since it is gated on a mode other than `none`.
+- **The exit-2 item-count fallback now applies on Cursor** (reset at 240 or more items when the size cannot be read), since it is gated on a mode other than `none`. Review found that a Cursor reset keeps the thread's items, so the fallback would reset every turn while the store is unreadable; it now holds for 60 minutes after `lastResetAt` (same as the quiet-turn rule).
 - **`Take-over context unknown.`** wording for the take-over post on Cursor, a small `rotation.md` change the ticket did not name, because step 4 assumed a number.
 - **The WISE-441 run record stays as written**, including "Mode stays `none`", since it describes that run.
