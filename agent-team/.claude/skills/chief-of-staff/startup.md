@@ -23,7 +23,6 @@ Runs every time at "start the team" (Setup step 4), take over and `resume` (rota
 1. Run `python3 ~/.collective-wisdom/scripts/project_config.py chief-title`.
 2. Exit 0: `t3_thread_update` with `action: "rename"`, no `threadId`, the printed line verbatim as the title. Never type or edit it yourself.
 3. Exit 2 or the rename fails: add the Cleanup line `Thread title not set: <the script's line or the tool error>`; carry on.
-4. No `t3_thread_update` (Cursor): skip with no report line.
 
 It overrides any rule that renames a thread to its task, a global T3 thread-title rule included; never rename this thread to anything else.
 

@@ -1,6 +1,6 @@
 # WISE-443: Set the Chief of Staff thread title on Cursor
 
-**Status:** Draft
+**Status:** Approved
 **Ticket:** [#443](https://github.com/collective-wisdom-org/collective-wisdom/issues/443)
 
 ## Goal
