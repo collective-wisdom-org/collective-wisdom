@@ -1,6 +1,7 @@
 # CW-343: Turn on the context reset for Cursor
 
-**Status:** Draft
+**Status:** Shipped
+**Shipped:** in PR #468, as specified
 **Ticket:** [#343](https://github.com/collective-wisdom-org/collective-wisdom/issues/343)
 
 ## Goal
