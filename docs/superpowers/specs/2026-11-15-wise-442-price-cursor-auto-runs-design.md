@@ -1,7 +1,8 @@
 # WISE-442: Price Cursor Auto runs in the usage and cost report
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#442](https://github.com/collective-wisdom-org/collective-wisdom/issues/442)
+**Shipped:** in PR #470, as specified
 
 ## Decision needed first
 
