@@ -349,12 +349,12 @@ const PRESS_MESSAGES = {
   busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
 
-/** The name of the control that sent `command` (the `data-return` value): `Mark todo` for `mark N todo`, else `Approve`. */
+/** The name of the control that sent `command` (the `data-return` value): `Start shipping` for `mark N todo`, else `Approve`. */
 export function pressAction(command) {
-  return String(command).startsWith('mark ') ? 'Mark todo' : 'Approve'
+  return String(command).startsWith('mark ') ? 'Start shipping' : 'Approve'
 }
 
-/** The line for the error area after Approve or Mark todo asked the server to press Return: empty when it was sent, or when a second click on the same command came inside the wait (`repeat`), else the reason in words, starting with `action`. `answer` is the server's JSON, or null when the request failed. */
+/** The line for the error area after Approve or Start shipping asked the server to press Return: empty when it was sent, or when a second click on the same command came inside the wait (`repeat`), else the reason in words, starting with `action`. `answer` is the server's JSON, or null when the request failed. */
 export function pressMessage(answer, repeat = false, action = 'Approve') {
   if (answer?.sent === true || (answer?.reason === 'busy' && repeat)) return ''
   const line = typeof answer?.reason === 'string' && Object.hasOwn(PRESS_MESSAGES, answer.reason) ? PRESS_MESSAGES[answer.reason] : null
@@ -367,19 +367,19 @@ export function todoCommand(r) {
   return n ? `mark ${n} todo` : null
 }
 
-/** The Mark todo control: a link that opens the Chief of Staff thread with the command typed in, or, with no usable thread link, a button that copies it; empty with no ticket number. */
+/** The Start shipping control: a link that opens the Chief of Staff thread with the command typed in, or, with no usable thread link, a button that copies it; empty with no ticket number. */
 function todoControl(r, chiefLink) {
   const text = todoCommand(r)
   if (text === null) return ''
   const href = promptLink(chiefLink, text)
   const title = `Opens the Chief of Staff thread with "${text}" typed in and presses Send for you and checks it arrived. If it can't, press Send.`
-  return href ? `<a class="todo" href="${esc(href)}" title="${esc(title)}" data-return="${esc(text)}">Mark todo</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Mark todo</button>`
+  return href ? `<a class="todo" href="${esc(href)}" title="${esc(title)}" data-return="${esc(text)}">Start shipping</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Start shipping</button>`
 }
 
 /**
  * One ticket as a card (`li.ticket`), the same three rows for every card. Classes: `attn` (Your turn), `compact` (a flat row that is not blocked), `blocked` (a blocked flat row).
  * Top row: the ticket number, the thread copy button right after it, and the title below. Middle row (only when it has something): the `View PR` or `View spec` link and the Approve and Changes controls.
- * Bottom row: the Agents and Details control, the Mark todo control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
+ * Bottom row: the Agents and Details control, the Start shipping control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
  * A running ticket helper (`helper: true`, in the Writing tickets group on the Backlog tab) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
 function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false, viewer = null }) {
@@ -433,7 +433,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
   return html || '<p class="quiet">No state yet</p>'
 }
 
-/** The Backlog tab: the `Writing tickets` group first (running ticket helpers, a collapsible section with its own count, not paged, no Mark todo), then the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; with no Backlog group, `Nothing in the Backlog` follows the helpers. `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each Backlog card gets a Mark todo control. */
+/** The Backlog tab: the `Writing tickets` group first (running ticket helpers, a collapsible section with its own count, not paged, no Start shipping), then the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; with no Backlog group, `Nothing in the Backlog` follows the helpers. `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each Backlog card gets a Start shipping control. */
 export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '', viewer = null) {
   const w = list(groups).find((x) => x.name === WRITING)
   const writing = w
@@ -953,7 +953,7 @@ if (typeof document !== 'undefined') {
     }
   }
   const seen = versionWatch()
-  // The press message for Approve or Mark todo stays in the error line until the next press or a reload.
+  // The press message for Approve or Start shipping stays in the error line until the next press or a reload.
   let pressNote = ''
   const showError = () => {
     document.getElementById('error').textContent = [last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' ')
