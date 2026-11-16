@@ -1,7 +1,8 @@
 # WISE-462: Read the take-over context size on Cursor
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#462](https://github.com/collective-wisdom-org/collective-wisdom/issues/462)
+**Shipped:** in PR #473, as specified
 
 ## Goal
 
