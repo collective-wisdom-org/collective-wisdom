@@ -46,7 +46,7 @@ Role values: `python3 ~/.collective-wisdom/scripts/cos_models.py cursor <role>`.
 
 Auto bills at the list price of the model each request is routed to, so `prices.json` has no `default` row and `agent_usage.py` reports `cost unknown` for Auto runs, never a low number, when the run store records `default` (WISE-441 / G31 check 4; G8 in `docs/compatibility.md`).
 
-Observed (WISE-441 Cursor trial, [#441](https://github.com/collective-wisdom-org/collective-wisdom/issues/441)): a Cursor subagent with `model: inherit` under an Auto parent ran on `cursor`/`default` (CT-7 implementer and dual-review). Gantt/run paths recorded `model: default`. Mid-thread build configure is a no-op because spec and build both route to `default`. A Cursor security-review PASS was posted on CT-7 PR #13; keep approval risk tolerance strict until `readonly` MCP enforcement is proven (G4). Full table: `docs/compatibility.md` § Runs 2026-11-15.
+Observed (WISE-441 Cursor trial, [#441](https://github.com/collective-wisdom-org/collective-wisdom/issues/441)): a Cursor subagent with `model: inherit` under an Auto parent ran on `cursor`/`default` (CT-7 implementer and dual-review). Gantt/run paths recorded `model: default`. Mid-thread build configure is a no-op because spec and build both route to `default`. A Cursor security-review PASS was posted on CT-7 PR #13; keep approval risk tolerance strict until `readonly` MCP enforcement is proven (G4). Full table: the 2026-11-15 entry under Runs in `docs/compatibility.md`.
 
 ### Codex
 
