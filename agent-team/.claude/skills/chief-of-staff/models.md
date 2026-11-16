@@ -44,9 +44,9 @@ No Cursor run starts on a Claude model, Grok, Composer or Gemini; the team route
 
 Role values: `python3 ~/.collective-wisdom/scripts/cos_models.py cursor <role>`.
 
-Auto bills at the list price of the model each request is routed to, so `prices.json` has no `default` row and `agent_usage.py` reports `cost unknown` for Auto runs, never a low number, when the run store records `default`, which is unconfirmed (follow-up check 3; G8 in `docs/compatibility.md`).
+Auto bills at the list price of the model each request is routed to, so `prices.json` has no `default` row and `agent_usage.py` reports `cost unknown` for Auto runs, never a low number, when the run store records `default` (WISE-441 / G31 check 4; G8 in `docs/compatibility.md`).
 
-Not yet observed: whether a Cursor subagent with `model: inherit` under an Auto parent runs on Auto, and what the run store records for an Auto run. Until those checks are observed, the Cursor review model is unpinned and unrecorded, so a code or security review PASS on Cursor carries less assurance than one on Claude Code; keep the approval risk tolerance strict for a Cursor Chief of Staff until then.
+Observed (WISE-441 Cursor trial, [#441](https://github.com/collective-wisdom-org/collective-wisdom/issues/441)): a Cursor subagent with `model: inherit` under an Auto parent ran on `cursor`/`default` (CT-7 implementer and dual-review). Gantt/run paths recorded `model: default`. Mid-thread build configure is a no-op because spec and build both route to `default`. A Cursor security-review PASS was posted on CT-7 PR #13; keep approval risk tolerance strict until `readonly` MCP enforcement is proven (G4). Full table: the 2026-11-15 entry under Runs in `docs/compatibility.md`.
 
 ### Codex
 
