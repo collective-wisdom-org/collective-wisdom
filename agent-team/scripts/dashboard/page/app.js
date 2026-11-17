@@ -249,7 +249,7 @@ export function renderDetails(r, now) {
   if (r.gantt && r.gantt.length > 0) {
     const items = ganttTasks(r.gantt, now)
     const drawn = items.flatMap((i) => [i, ...i.kids])
-    const subagents = drawn.filter((d) => d.r.kind === 'agent').length
+    const subagents = subagentCount(r.gantt)
     const agents = [plural(r.gantt.length, 'session'), items.length ? plural(items.length, 'task') : '', subagents ? plural(subagents, 'subagent') : '']
     usage.push(['Agents', esc(agents.filter(Boolean).join(', '))])
     usage.push(['Tokens', esc(tokens(drawn.reduce((n, d) => n + (d.r.tokens || 0), 0)))])
@@ -611,6 +611,9 @@ function ganttTasks(sessions, now) {
 /** How many agents the chart draws (tasks and their subagents), for the `Agents` pill. */
 export const taskCount = (sessions) => ganttTasks(sessions, 0).reduce((n, i) => n + 1 + i.kids.length, 0)
 
+/** How many of those drawn rows are subagents (`agent` rows, at any depth), for the Chief of Staff tab pill. */
+export const subagentCount = (sessions) => ganttTasks(sessions, 0).reduce((n, i) => n + [i, ...i.kids].filter((d) => d.r.kind === 'agent').length, 0)
+
 /** The bar categories in legend order. */
 export const CATEGORIES = [
   ['planning', 'Planning'],
@@ -940,11 +943,11 @@ if (typeof document !== 'undefined') {
     document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info, last.chief?.threadLink, last.viewer)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
-  // The Ship loop, Backlog and Done tab pills show a ticket count; the button's aria-label carries it too. Written only when changed.
-  const TAB_LABELS = { ship: 'Ship loop', done: 'Done', backlog: 'Backlog' }
+  // The Ship loop, Backlog and Done tab pills show a ticket count and the Chief of Staff pill its session's subagent count; the button's aria-label carries it too. Written only when changed.
+  const TAB_LABELS = { ship: 'Ship loop', done: 'Done', backlog: 'Backlog', cos: 'Chief of Staff' }
   const drawTabCounts = () => {
     if (!last) return
-    const counts = tabCounts(last.status, last.merged)
+    const counts = { ...tabCounts(last.status, last.merged), cos: subagentCount(last.chief?.gantt) }
     for (const pill of document.querySelectorAll('[data-count]')) {
       const n = String(counts[pill.dataset.count] ?? 0)
       if (pill.textContent !== n) pill.textContent = n

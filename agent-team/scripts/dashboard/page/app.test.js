@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -300,6 +300,16 @@ test('a card with sessions gets a closed Agents segment that reopens when its id
   // The pill counts tasks and subagents across sessions, not sessions; an older snapshot's session row beside task rows is not one.
   const rows = [grow({ kind: 'session' }), grow({ kind: 'task', depth: 1 }), grow({ kind: 'agent', depth: 2 }), grow({ kind: 'task', depth: 1 })]
   assert.match(renderStatus(group([row({ gantt: [sess({ rows }), sess({ rows: [grow({ kind: 'task' })] })] })])), /Agents <span class="pill">4<\/span>/)
+})
+
+test('subagentCount counts agent rows at any depth across sessions, not tasks', () => {
+  const cases = [
+    [undefined, 0],
+    [[], 0],
+    [[sess({ rows: [grow({ kind: 'task', depth: 1 }), grow({ kind: 'task', depth: 1 })] })], 0],
+    [[sess({ rows: [grow({ kind: 'task', depth: 1 }), grow({ kind: 'agent', depth: 2 })] }), sess({ rows: [grow({ kind: 'agent', depth: 1 }), grow({ kind: 'agent', depth: 2 })] })], 3],
+  ]
+  for (const [sessions, want] of cases) assert.equal(subagentCount(sessions), want)
 })
 
 test('each ticket has a closed Details section that lists what is known, escaped, and reopens from the info set', () => {
