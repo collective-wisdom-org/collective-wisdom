@@ -257,7 +257,7 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
   Paste the link into T3.
 
 * The page has four tabs, Ship loop, Backlog, Done and Chief of Staff, and remembers the one you picked in the browser.
-* The Ship loop, Backlog and Done tab labels carry a count pill: Ship loop counts the Your turn, In progress and Up next tickets (Waiting to spec included, the Backlog left out), Backlog shows the Backlog's full count (the number on its heading, not the rows loaded), Done counts the merged list (at most 200).
+* The Ship loop, Backlog, Done and Chief of Staff tab labels carry a count pill: Ship loop counts the Your turn, In progress and Up next tickets (Waiting to spec included, the Backlog left out), Backlog shows the Backlog's full count (the number on its heading, not the rows loaded), Done counts the merged list (at most 200), Chief of Staff counts the subagents in its session's chart.
   Each tab's accessible name carries the count too, for example `Done, 12`.
 * Ship loop is the page described above, except the Done list and the Backlog list, which have their own tabs.
 * The Chief of Staff tab shows a card for the Chief of Staff with its state (`running`, `idle` or `paused`) as a coloured dot and the state word, a thread copy button and the gantt of its current session, found through `chiefSessionId` or `chiefThreadId` in state.
