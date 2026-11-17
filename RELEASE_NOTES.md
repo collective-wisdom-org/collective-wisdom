@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-17 show the subagent count on the Chief of Staff dashboard tab (WISE-474) (#475)
+
+Merged 2026-11-17 7:56 pm UTC.
+
+The Chief of Staff tab on the dashboard now shows how many subagents the Chief of Staff has, next to the tab name, like the counts on the other tabs.
+
 ## 2026-11-16 read the take-over context size on Cursor (WISE-462) (#473)
 
 Merged 2026-11-16 2:32 am UTC.
