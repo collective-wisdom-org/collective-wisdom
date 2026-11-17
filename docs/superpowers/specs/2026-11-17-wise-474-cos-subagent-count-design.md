@@ -1,7 +1,8 @@
 # WISE-474: Show the subagent count next to the Chief of Staff dashboard tab
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#474](https://github.com/collective-wisdom-org/collective-wisdom/issues/474)
+**Shipped:** in PR #475, as specified
 
 ## Goal
 
