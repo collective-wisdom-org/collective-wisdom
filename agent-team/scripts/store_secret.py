@@ -13,12 +13,13 @@ backtick or `|`.
 
 import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
 
 SERVICE = "collective-wisdom"
-MAX_VALUE = 65536
+MAX_VALUE = 1900  # `security -i` splits a line past about 4094 characters; the hex line for this is under 4000
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 NOTE = re.compile(r"[^\x00-\x1f\x7f-\x9f\u2028\u2029\u200b-\u200f\u202a-\u202e`|]{1,120}")
 ROW = re.compile(r"`([^`]*)`")
@@ -100,17 +101,17 @@ def in_keychain(name):
 
 def read_value(file):
     """The bytes of the value file without trailing newlines, as $(cat file) gives them. Errors never carry the value."""
-    real = os.path.realpath(file)
     try:
-        if not os.path.isfile(real):
-            raise SecretError("the value file is not a regular file")
-        with open(real, "rb") as f:
-            data = f.read(MAX_VALUE + 1)
+        fd = os.open(file, os.O_RDONLY | os.O_NONBLOCK)  # no hang on a FIFO; the type is checked on the descriptor
+        with os.fdopen(fd, "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                raise SecretError("the value file is not a regular file")
+            data = f.read(MAX_VALUE + 64)
     except OSError as e:
         raise SecretError(f"cannot read the value file: {type(e).__name__}")
     value = data.rstrip(b"\n")
-    if not 1 <= len(data) <= MAX_VALUE or not value:
-        raise SecretError(f"the value file must hold 1 to {MAX_VALUE} bytes and a non-empty value")
+    if not 1 <= len(value) <= MAX_VALUE:
+        raise SecretError(f"the value must be 1 to {MAX_VALUE} bytes; for a longer one use the store line")
     return value
 
 

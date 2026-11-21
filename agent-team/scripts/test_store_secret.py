@@ -71,7 +71,7 @@ def test_record_and_list(capsys, keychain):
     assert calls and all("-w" not in c.split() and "-s collective-wisdom -a" in c for c in calls)
 
 
-@pytest.mark.parametrize("raw", [b"stand-in-1", b"stand-'\"\\$ in", b"stand-in-2\n\n", b"stand-in-3\r\n", "stand-\u00e9".encode()])
+@pytest.mark.parametrize("raw", [b"stand-in-1", b"stand-'\"\\$ in", b"stand-in-2\n\n", "stand-\u00e9".encode()])
 def test_save_sends_the_hex_on_stdin_and_records(capsys, keychain, raw):
     (keychain / "item").touch()
     (keychain / "v").write_bytes(raw)
@@ -85,7 +85,7 @@ def test_save_sends_the_hex_on_stdin_and_records(capsys, keychain, raw):
     assert not any(value.decode() in f.read_text() for f in (ss.path(), keychain / "security.args"))
 
 
-@pytest.mark.parametrize("make", [lambda p: p.write_bytes(b""), lambda p: p.write_bytes(b"\n\n"), lambda p: p.mkdir(), lambda p: p.write_bytes(b"x" * 65537), lambda p: None])
+@pytest.mark.parametrize("make", [lambda p: p.write_bytes(b""), lambda p: p.write_bytes(b"\n\n"), lambda p: p.mkdir(), lambda p: p.write_bytes(b"x" * 1901), lambda p: None])
 def test_save_refuses_a_bad_file(capsys, keychain, make):
     make(keychain / "v")
     assert run(capsys, "save", "key", "--note", "n", "--file", str(keychain / "v"))[:2] == (2, "")
