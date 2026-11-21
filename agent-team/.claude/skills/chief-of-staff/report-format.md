@@ -26,6 +26,7 @@ Needs you
 Moving (<spec + build count> of <cap> active)
 Spec <count> of <spec limit>
 - <PREFIX>-240 started: Example feature. Took the slot <PREFIX>-235: Audit log freed (merged #181).
+- <PREFIX>-213: Job retries, moved to Todo: last blocker <PREFIX>-212 merged
 - <PREFIX>-212 started: Background job replies. From the Backlog ranking: High priority, unblocks <PREFIX>-213: Job retries.
 Build <count> of <build limit>
 - <PREFIX>-199: Background jobs, building (PR #180, code review pass 2)
