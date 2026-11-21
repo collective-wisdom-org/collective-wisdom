@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-21 store-secret command and keychain key registry (WISE-476) (#477)
+
+Merged 2026-11-21 6:04 am UTC.
+
+You can now ask an agent to store a secret: it opens a T3 card where you type the value, and the agent writes it to the macOS keychain without the value reaching a thread (a paste-into-Terminal line is the fallback). Agents can then see the stored names in `~/.config/collective-wisdom/secrets.md` and read a value only at the moment a task needs it.
+
 ## 2026-11-17 show the subagent count on the Chief of Staff dashboard tab (WISE-474) (#475)
 
 Merged 2026-11-17 7:56 pm UTC.
