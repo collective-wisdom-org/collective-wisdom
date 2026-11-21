@@ -24,10 +24,10 @@ Run as `~/.collective-wisdom/scripts/store_secret.py`. Service name for every te
 | Command | What it does | Exit |
 |---|---|---|
 | `store <name>` | Prints exactly one line: `security add-generic-password -U -s collective-wisdom -a <name> -w`. `-w` is last with no value, so `security` prompts for it and the value never appears in the command, the shell history or the thread. `-U` updates an existing entry. Writes nothing. | 0, or 2 on a bad name |
-| `record <name> --note <text>` | Runs `security find-generic-password -s collective-wisdom -a <name>` (no `-w`, so no value is read; its output is discarded and never printed). On exit 0 it adds the name with the note to the registry, or replaces the note if the name is there, and prints `recorded <name>`. When the item is not in the keychain it exits 1 with `store_secret: <name> is not in the keychain; run the store line first` and writes nothing. | 0, 1, or 2 on a bad name, a bad note, a missing `security` or an unreadable registry |
+| `record <name> --note <text>` | Runs `security find-generic-password -s collective-wisdom -a <name>` (no `-w`, so no value is read; its output is discarded and never printed). Only exit 0 (found) and 44 (not found) are answers: any other `security` exit, or a 30-second timeout, exits 2 (`security exited <code>; check that the keychain is unlocked`), so a locked keychain is not read as a missing item. On exit 0 it adds the name with the note to the registry, or replaces the note if the name is there, and prints `recorded <name>`. When the item is not in the keychain it exits 1 with `store_secret: <name> is not in the keychain; run the store line first` and writes nothing. | 0, 1, or 2 on a bad name, a bad note, a missing or failing `security`, or an unreadable or undecodable registry |
 | `list` | Prints one `<name>\t<note>` line per registry row. Nothing when the registry is missing or empty. | 0, or 2 on an unreadable registry |
 
-A note is one line of at most 120 characters with no backtick, `|` or control character; anything else exits 2. The note says what the secret is for; the agent doc says it never holds the value.
+A note is one line of at most 120 characters with no backtick, `|`, control character, line or paragraph separator, zero-width character or bidi override (U+200B to U+200F, U+202A to U+202E); anything else exits 2. The note says what the secret is for; the agent doc says it never holds the value.
 
 ### 2. The registry: `~/.config/collective-wisdom/secrets.md`
 
