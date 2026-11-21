@@ -1,6 +1,6 @@
 # WISE-476: A store-secret command and a keychain key registry
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#476](https://github.com/collective-wisdom-org/collective-wisdom/issues/476)
 
 ## Goal
