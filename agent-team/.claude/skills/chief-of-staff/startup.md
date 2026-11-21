@@ -32,7 +32,7 @@ Runs every time at "start the team" (Setup step 4), take over and `resume` (rota
 1. Run `python3 ~/.collective-wisdom/scripts/project_config.py chief-title`.
 2. Exit 0: `t3_thread_update` with `action: "rename"`, no `threadId`, the printed line verbatim as the title. Never type or edit it yourself.
 3. Exit 2 or the rename fails: add the Cleanup line `Thread title not set: <the script's line or the tool error>`; carry on.
-4. Call `t3_thread_organize` with `action: "pin"` and no `threadId`. It runs after the rename and does not depend on it. If it fails, add the Cleanup line `Thread not pinned: <the tool error>`; carry on. An already pinned thread is success: no Cleanup line. If the session has no `t3_thread_organize` (Cursor, Codex), skip this step with no Cleanup line.
+4. Call `t3_thread_organize` with `action: "pin"`, no `threadId`, whether or not the rename worked. A failure adds the Cleanup line `Thread not pinned: <the tool error>`; carry on. An already pinned thread is success, no Cleanup line. Without `t3_thread_organize` (Cursor, Codex), skip this step, no Cleanup line.
 
 It overrides any rule that renames a thread to its task, a global T3 thread-title rule included; never rename this thread to anything else.
 
