@@ -1,6 +1,6 @@
 # Secrets
 
-How a task gets a secret without the value passing through a thread. The macOS keychain holds the values under the service `collective-wisdom`. A machine-local registry, `~/.config/collective-wisdom/secrets.md`, lists the names and a note on each, never a value. It sits outside the clone and is never committed.
+How a task gets a secret without the value passing through a thread. The macOS keychain holds the values under the service `collective-wisdom`. A registry outside the clone, `~/.config/collective-wisdom/secrets.md`, lists each name with a note, never a value, and is never committed.
 
 The script is `~/.collective-wisdom/scripts/store_secret.py` with three commands: `store <name>`, `record <name> --note "<text>"` and `list`. A name is letters, digits, `.`, `_` and `-`, at most 64 characters, and does not start with `.`, `_` or `-`.
 
@@ -21,8 +21,8 @@ OPENAI_API_KEY="$(security find-generic-password -s collective-wisdom -a openai-
 ```
 
 - Never echo the value, and never keep it in a variable that outlives the command.
-- Never write it to a ticket, comment, PR, commit, state file, log or thread. That includes command output that would print it.
-- The script has no command that prints a value. Reading it is the one `security ... -w` call above.
+- Never write it to a ticket, comment, PR, commit, state file, log or thread, including command output that would print it.
+- The script has no command that prints a value; the `security ... -w` call above is the only read.
 
 ## Not covered
 
