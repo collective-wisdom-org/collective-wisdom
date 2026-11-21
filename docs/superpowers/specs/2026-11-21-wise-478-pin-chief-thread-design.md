@@ -16,7 +16,7 @@ In T3 Code, the Chief of Staff thread pins itself at `start the team`, take over
 
 ## Change
 
-1. `startup.md` § Thread title: add a step 4 after the rename steps. Call `t3_thread_organize` with `action: "pin"` and no `threadId`. If the call fails, add the Cleanup line `Thread not pinned: <tool error>` and carry on. If the harness has no `t3_thread_organize` (Cursor, Codex), skip the step with no Cleanup line. The section's opening line also says pinning a pinned thread is a no-op, next to the rename no-op.
+1. `startup.md` § Thread title: add a step 4 after the rename steps. Call `t3_thread_organize` with `action: "pin"` and no `threadId`. If the call fails, add the Cleanup line `Thread not pinned: <tool error>` and carry on. If the session has no `t3_thread_organize` tool, skip the step with no Cleanup line. The section's opening line also says pinning a pinned thread is a no-op, next to the rename no-op.
 2. The pin runs after the rename and does not depend on it: a failed rename still pins, and a failed pin does not undo the rename.
 3. `agent-team/docs/agents/chief-of-staff.md`: the line about titling the thread also says it pins the thread, and that a failed pin is one Cleanup line.
 
@@ -33,7 +33,7 @@ In T3 Code, the Chief of Staff thread pins itself at `start the team`, take over
 - After `start the team`, take over or `resume` in T3 Code, the Chief of Staff thread is pinned.
 - Pinning an already pinned thread changes nothing and adds no Cleanup line.
 - A pin failure adds one Cleanup line and never stops a pass.
-- On Cursor or Codex the step is skipped silently.
+- A session with no `t3_thread_organize` tool skips the step silently (a Cursor Chief of Staff in T3 Code has the tool and pins).
 - `python3 -I -m pytest -q agent-team/scripts` passes.
 
 ## Files
