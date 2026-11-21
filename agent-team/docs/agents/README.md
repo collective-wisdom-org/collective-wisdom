@@ -13,6 +13,7 @@
 | [`security-review.md`](security-review.md) | OWASP-aligned PR security review and the vendored security skills |
 | [`trackers/README.md`](trackers/README.md) | The ticket operations the skills use, and one adapter per tracker: Linear, GitHub Issues or Jira |
 | [`github-auth.md`](github-auth.md) | GitHub auth for agents and the `~/.collective-wisdom/scripts/gh.sh` wrapper |
+| [`secrets.md`](secrets.md) | Storing a secret in the macOS keychain and fetching it without it reaching a thread |
 
 Release notes: unless `Publish release notes` in project.md § Docs is `off`, every merge publishes them all to `RELEASE_NOTES.md` on the `release-notes` branch, at `https://github.com/<owner>/<repo>/blob/release-notes/RELEASE_NOTES.md` (Repo row in project.md).
 
