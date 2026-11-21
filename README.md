@@ -194,10 +194,11 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
   Other) with a legend below the chart and a running bar pulsing, with each task's time and cost, a total line, and an `Agents` count of tasks and their subagents.
 - Once the ticket's PR has run CI, the chart draws how long the PR waited on the required checks (`Required CI checks` in project.md), counted from each commit's first run to its last required run, overlaps once, as blue bars on the track of the task that waited for it (the task that last finished working before the checks started), read from GitHub about once a minute
   (every 5 minutes once all its spans have closed, and a merged PR only when its entry has a chart) and left out of every task's time and cost and of the total (it takes width on the axis but adds no time to it).
-- Your turn cards, merge and build alike, have a 3px amber left edge and tint, and a blocked ticket has a red edge.
+- Your turn cards, merge and build alike, have a 3px amber left edge and tint, and a ticket that needs an answer from you (the `blocked` stage) has a red edge, which is not the red x below.
 - Every card has the same three rows.
   The top row is the ticket number (linked to the issue) with a copy button with a thread glyph right after it that copies the thread link, and the title below it, wrapping before the avatar's column, with the owner's GitHub avatar in its own column at the card's right edge on the ticket-number row (hover shows the login) (the author of the open or merged PR,
   else of the issue; none for a bot author, a ticket helper, or a Todo, Backlog or spec-stage card on Linear or Jira).
+  On a GitHub issues repo, Ship loop and Backlog tab cards stack two more icons under the avatar: an epic icon when the ticket's epic is open (tooltip `Epic <id>: <title>`; the slot stays empty without one), then a red x when an open ticket blocks it (tooltip `Blocked by:` and one `<id>: <title>` per line) or a green check (`Not blocked`). Done cards, ticket helpers, Linear and Jira cards get none, and neither does a card while the epic and blocker read is failing.
   The avatar loads from `https://avatars.githubusercontent.com` (the page's only image host, no proxy) and shows an initial circle when it fails.
 - The middle row appears only when there is something for you: one link (`View PR` or `View spec`) for a ticket waiting on merge approval or build approval, then an `Approve` button and a `Changes` button.
   With a Chief of Staff thread, they open that thread with `approve 402` or `changes 402: ` typed in the input; `Changes` waits for you to add what to change and press Send, and `Approve` presses Send for you: the dashboard server presses Return in T3 Code, so T3 sends the message as yours.
@@ -228,6 +229,7 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
   The full count is on its heading and a `Full backlog` link to the repo's issues page sits below the pager.
   The page stays put through the 5-second refresh and resets on a reload.
   On GitHub issues it lists only issues whose author has triage access or more, and is read from GitHub about once a minute, and at once after the Chief of Staff marks a ticket Todo or moves it to Backlog on your request or a ticket helper files a ticket.
+  An epic (an open issue with sub-issues) is left out of both lists and of the count. The same read fetches each epic's sub-issues and each blocked ticket's open blockers, for every open issue (the 200 cap is the list's only); when that part fails, no error line shows, cards lose their icons and known epics stay hidden.
   If GitHub cannot be read, the page shows a message in its error line and keeps the last list.
   On Linear or Jira the two lists come from the Chief of Staff's last Todo read and last Backlog ranking, and from both lists saved when you ask it to mark a ticket Todo or move it to Backlog (a ticket helper's new ticket saves only the Backlog list), all in `.agent-team/tracker-lists.json`.
   A ticket the Chief of Staff starts, merges or drops is taken off both lists at once.
