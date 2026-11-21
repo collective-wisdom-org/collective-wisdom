@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-21 pin the Chief of Staff thread when it starts (WISE-478) (#480)
+
+Merged 2026-11-21 6:24 am UTC.
+
+In T3 Code, the Chief of Staff thread now pins itself when the team starts, resumes or takes over, so it sits at the top of the thread list. Nothing to do. A failed pin shows one Cleanup line and never stops a pass.
+
 ## 2026-11-21 store-secret command and keychain key registry (WISE-476) (#477)
 
 Merged 2026-11-21 6:04 am UTC.
