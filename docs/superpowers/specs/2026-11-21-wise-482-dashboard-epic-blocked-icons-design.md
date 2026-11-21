@@ -1,7 +1,8 @@
 # WISE-482: Show epic and blocked icons on dashboard cards and stop drawing epics as cards
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#482](https://github.com/collective-wisdom-org/collective-wisdom/issues/482)
+**Shipped:** in PR #483, as specified
 
 ## Goal
 
