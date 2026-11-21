@@ -4,6 +4,8 @@ Every team entry uses the keychain service `collective-wisdom`. The registry ~/.
 and notes, never values. A name matches [A-Za-z0-9][A-Za-z0-9._-]{0,63}; a note is one line of at most 120 characters without a
 backtick or `|`.
 
+    store_secret.py save <name> --note <text> --file <path>
+                                                  write the value in the file `request_secret` returned to the keychain, then record it
     store_secret.py store <name>                  print the `security` line the user pastes into their own Terminal
     store_secret.py record <name> --note <text>   add the name to the registry once the keychain holds it
     store_secret.py list                          print `<name>` and `<note>` separated by a tab, one line per registry row
@@ -16,6 +18,7 @@ import sys
 from pathlib import Path
 
 SERVICE = "collective-wisdom"
+MAX_VALUE = 65536
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 NOTE = re.compile(r"[^\x00-\x1f\x7f-\x9f\u2028\u2029\u200b-\u200f\u202a-\u202e`|]{1,120}")
 ROW = re.compile(r"`([^`]*)`")
@@ -76,18 +79,47 @@ def _write(file, rows):
         raise SecretError(f"cannot write {file}: {type(e).__name__}")
 
 
-def in_keychain(name):
-    """True when the keychain holds the item. No -w, so no value is read; the output is discarded."""
-    cmd = ["security", "find-generic-password", "-s", SERVICE, "-a", name]
+def _security(args, stdin=None):
+    """Exit code of `security` run with stdin bytes, its output discarded."""
     try:
-        code = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode
+        code = subprocess.run(["security", *args], input=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode
     except FileNotFoundError:
         raise SecretError("the security command is not on PATH (macOS only)")
     except subprocess.SubprocessError:
         raise SecretError("security did not answer")
+    return code
+
+
+def in_keychain(name):
+    """True when the keychain holds the item. No -w, so no value is read."""
+    code = _security(["find-generic-password", "-s", SERVICE, "-a", name])
     if code not in (0, 44):  # 44: item not found; anything else is a locked keychain or similar, not a missing item
         raise SecretError(f"security exited {code}; check that the keychain is unlocked")
     return code == 0
+
+
+def read_value(file):
+    """The bytes of the value file without trailing newlines, as $(cat file) gives them. Errors never carry the value."""
+    real = os.path.realpath(file)
+    try:
+        if not os.path.isfile(real):
+            raise SecretError("the value file is not a regular file")
+        with open(real, "rb") as f:
+            data = f.read(MAX_VALUE + 1)
+    except OSError as e:
+        raise SecretError(f"cannot read the value file: {type(e).__name__}")
+    value = data.rstrip(b"\n")
+    if not 1 <= len(data) <= MAX_VALUE or not value:
+        raise SecretError(f"the value file must hold 1 to {MAX_VALUE} bytes and a non-empty value")
+    return value
+
+
+def keychain_write(name, value):
+    """Add or update the item. The value goes to `security -i` on stdin as hex, so it is in no argv and no quoting can break the command."""
+    line = f"add-generic-password -U -s {SERVICE} -a {name} -X {value.hex()}\n"
+    code = _security(["-i"], line.encode())
+    if code:
+        raise SecretError(f"security could not store the value (exit {code}); check that the keychain is unlocked")
 
 
 def record(name, note):
@@ -107,7 +139,7 @@ def main(argv):
         if cmd == "list" and not args:
             for name, note in _rows(path()):
                 print(f"{name}\t{note}")
-        elif (cmd, len(args)) in (("store", 1), ("record", 3)) and args[1:2] in ([], ["--note"]):
+        elif (cmd, len(args)) in (("store", 1), ("record", 3), ("save", 5)) and args[1:2] in ([], ["--note"]) and args[3:4] in ([], ["--file"]):
             name = args[0]
             if not NAME.fullmatch(name):
                 raise SecretError(f"{_shown(name)} is not a safe secret name")
@@ -117,12 +149,14 @@ def main(argv):
             note = args[2].strip()
             if not NOTE.fullmatch(note):
                 raise SecretError("a note is one line of 1 to 120 characters without a backtick or |")
+            if cmd == "save":
+                keychain_write(name, read_value(args[4]))
             if not record(name, note):
                 print(f"store_secret: {name} is not in the keychain; run the store line first", file=sys.stderr)
                 return 1
-            print(f"recorded {name}")
+            print(f"{'saved' if cmd == 'save' else 'recorded'} {name}")
         else:
-            raise SecretError("usage: store_secret.py store <name> | record <name> --note <text> | list")
+            raise SecretError("usage: store_secret.py save <name> --note <text> --file <path> | store <name> | record <name> --note <text> | list")
     except SecretError as e:
         print(f"store_secret: {e}", file=sys.stderr)
         return 2

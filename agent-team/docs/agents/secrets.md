@@ -1,16 +1,17 @@
 # Secrets
 
-How a task gets a secret without the value passing through a thread. The macOS keychain holds the values under the service `collective-wisdom`. A registry outside the clone, `~/.config/collective-wisdom/secrets.md`, lists each name with a note, never a value, and is never committed.
+How a task gets a secret without the value entering a thread. The macOS keychain holds values under the service `collective-wisdom`. The registry `~/.config/collective-wisdom/secrets.md`, outside the clone and never committed, lists each name with a note, never a value.
 
-The script is `~/.collective-wisdom/scripts/store_secret.py` with three commands: `store <name>`, `record <name> --note "<text>"` and `list`. A name is letters, digits, `.`, `_` and `-`, at most 64 characters, and does not start with `.`, `_` or `-`.
+The script is `~/.collective-wisdom/scripts/store_secret.py` with four commands: `save <name> --note "<text>" --file <path>`, `store <name>`, `record <name> --note "<text>"` and `list`. A name is letters, digits, `.`, `_` and `-`, at most 64 characters, and does not start with `.`, `_` or `-`.
 
 ## Asking for a secret
 
 1. Run `~/.collective-wisdom/scripts/store_secret.py list`. If the name the task needs is there, go to Fetching a secret.
-2. Pick a name and run `~/.collective-wisdom/scripts/store_secret.py store <name>`. It prints one `security add-generic-password` line and writes nothing.
-3. Ask the user to paste that line into their own Terminal and type the value at the prompt. The value never appears in the command, the shell history or the thread. Running the line again updates the entry.
+2. Pick a name. Call `request_secret`, a tool on the T3 server (load it with ToolSearch if it is deferred), with `delivery: "file"`, a `label` that names the secret and a `reason`. The user types the value into the card, so it never enters the thread.
+3. Run `~/.collective-wisdom/scripts/store_secret.py save <name> --note "<what it is for>" --file <path>` with the path the tool returned. The script reads the file and writes the keychain itself, so the value is in no command line, output or history. Running it again with a new value updates the entry. It then adds the name to the registry, and exits 1 if the keychain does not hold the item. The note says what the secret is for, not what it is. The script does not delete the file; T3 owns it.
 4. Never ask for the value in the thread, and never accept it there. If the user pastes one anyway, do not repeat it and tell them to rotate it.
-5. When the user says it is done, run `~/.collective-wisdom/scripts/store_secret.py record <name> --note "<what it is for>"`. It checks that the keychain holds the item and exits 1 if not, so the registry never lists a name the keychain lacks. The note says what the secret is for, not what it is.
+
+Without `request_secret`, run `~/.collective-wisdom/scripts/store_secret.py store <name>` instead. It prints one `security add-generic-password` line and writes nothing. The user pastes it into their own Terminal and types the value at the prompt. When they say it is done, run `~/.collective-wisdom/scripts/store_secret.py record <name> --note "<what it is for>"`, which makes the same keychain check as `save`.
 
 ## Fetching a secret
 
