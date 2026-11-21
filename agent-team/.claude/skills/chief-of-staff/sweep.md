@@ -21,7 +21,7 @@ For a ticket the sweep listed with `conflict`, after its full read, still in `bu
 
 A child can merge and its finish notice never reach this thread, which leaves the ticket in `merge` and holds the only merge slot. `cos_merged_check.py --apply` finds those by PR number and branch and writes the `merged` op for each. It runs as part of the sweep (§ Sweep), never alone. Its lines:
 
-- `merged <PREFIX>-N #PR at <time>`: the ticket has left the team, as for `MERGED #N`. Report it under Moving as `<PREFIX>-N: <short title>, merged (#PR), found by the merged check` (a ticket out of state takes one `get-ticket` for its title, report-format.md § Report format). The turn's slot fill (§ Tick) runs with `(merged #X)` as the slot reason. Later child reads in the turn skip that ticket. A finish notice that arrives later for its child finds no ticket and takes the generic path, as after `cancel N`. A merge wait (§ Merge wait) ends in a tick that runs this check.
+- `merged <PREFIX>-N #PR at <time>`: the ticket has left the team, as for `MERGED #N`, then readiness.md § Unblocked after a merge. Report it under Moving as `<PREFIX>-N: <short title>, merged (#PR), found by the merged check` (a ticket out of state takes one `get-ticket` for its title, report-format.md § Report format). The turn's slot fill (§ Tick) runs with `(merged #X)` as the slot reason. Later child reads in the turn skip that ticket. A finish notice that arrives later for its child finds no ticket and takes the generic path, as after `cancel N`. A merge wait (§ Merge wait) ends in a tick that runs this check.
 - `mismatch <PREFIX>-N #PR head <branch>` and `unreadable <PREFIX>-N #PR`: nothing written. One Cleanup line.
 - Exit 2: the sweep's rule for a part that didn't run applies (§ Sweep).
 
