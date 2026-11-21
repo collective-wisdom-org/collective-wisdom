@@ -594,3 +594,14 @@ test('owner: status row takes the open PR author, else the issue author; lists c
   assert.equal(build({ viewer: 'david' }).viewer, 'david')
   assert.equal(build().viewer, null)
 })
+
+test('Ship loop, Todo and Backlog rows carry epic and blockedBy from the relations map; rows not in it get neither', () => {
+  const epic = { id: 'CW-9', title: 'Epic' }
+  const relations = { 'CW-1': { epic, blockedBy: [{ id: 'CW-5', title: 'b' }] }, 'CW-2': { blockedBy: [] }, 'CW-3': { epic, blockedBy: [] } }
+  const item = (id: string, state: 'Todo' | 'Backlog') => ({ id, title: id, state, priority: null, createdAt: null })
+  const api = build({ state: stateOf('CW-1'), backlog: [item('CW-2', 'Todo'), item('CW-3', 'Backlog'), item('CW-4', 'Backlog')], relations, merged: [{ id: 'CW-3', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1, number: 1 }] })
+  const rows = Object.fromEntries(api.status.flatMap((g) => g.rows).map((r) => [r.id, [r.epic, r.blockedBy]]))
+  assert.deepEqual(rows, { 'CW-1': [epic, [{ id: 'CW-5', title: 'b' }]], 'CW-2': [undefined, []], 'CW-4': [undefined, undefined] })
+  assert.deepEqual(api.merged.map((e) => ('epic' in e) || ('blockedBy' in e)), [false])
+  assert.ok(!('epic' in build({ state: stateOf('CW-1') }).status[0].rows[0]))
+})

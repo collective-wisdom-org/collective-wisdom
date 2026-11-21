@@ -62,7 +62,12 @@ ul.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%
 .head .id { grid-column:1; grid-row:1; }
 .head > .copy-icon { grid-column:2; grid-row:1; }
 .head:has(> .id) .title { grid-column:1 / 4; grid-row:2; }
-.owner { grid-column:4; grid-row:1; display:inline-flex; align-items:center; min-width:0; color:var(--muted); font-size:var(--t-small); line-height:1.35; }
+.owner, .marks { grid-column:4; grid-row:1; }
+.marks { grid-row:1 / 3; display:flex; flex-direction:column; align-items:center; gap:var(--s1); }
+.marks .owner { grid-column:auto; grid-row:auto; }
+.slot { display:flex; align-items:center; justify-content:center; height:20px; }
+.mark { display:inline-flex; color:var(--muted); } .mark.blocked { color:var(--red); } .mark.clear { color:var(--green); }
+.owner { display:inline-flex; align-items:center; min-width:0; color:var(--muted); font-size:var(--t-small); line-height:1.35; }
 .avatar { position:relative; flex:none; width:20px; height:20px; border-radius:50%; overflow:hidden; background:var(--soft); }
 .avatar .initial { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:600; }
 .avatar img { position:relative; display:block; width:20px; height:20px; border-radius:50%; }

@@ -36,7 +36,7 @@ test('backlog: Todo and Backlog from the issue list, team authors only, last goo
   b.want(CFG)
   await b.idle()
   assert.deepEqual(calls[0], ['issue', 'list', '--repo', 'o/r', '--state', 'open', '--limit', '200', '--json', 'number,title,labels,author,createdAt'])
-  assert.deepEqual(calls.filter((c) => c[0] === 'api'), [['api', 'repos/o/r/collaborators/ann/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/eve/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/bob/permission', '--jq', '.role_name']])
+  assert.deepEqual(calls.filter((c) => c[1]?.includes('/collaborators/')), [['api', 'repos/o/r/collaborators/ann/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/eve/permission', '--jq', '.role_name'], ['api', 'repos/o/r/collaborators/bob/permission', '--jq', '.role_name']])
   assert.deepEqual(b.get(), [{ id: 'CW-1', title: 't1', state: 'Todo', priority: null, createdAt: null, owner: 'ann' }, { id: 'CW-2', title: 'Fix ]8;;x  it', state: 'Backlog', priority: null, createdAt: null, owner: 'ann' }, { id: 'CW-9', title: 'last', state: 'Backlog', priority: null, createdAt: null, owner: 'ann' }])
 
   // At most once a minute; a failed read keeps the list; a team login's answer is cached for good, a refusal for 5 minutes.
@@ -137,4 +137,45 @@ test('backlog: a new change stamp reads at once, one more read after a running o
   assert.equal(b.error(), null)
   b.want(null)
   assert.equal(b.error(), null)
+})
+
+test('backlog: relations read leaves epics out, maps children to their epic, keeps open blockers, and survives a failed call', async () => {
+  const calls: string[][] = []
+  let list = [issue(1, 'ann', [], 'Epic\x1b one'), issue(2, 'ann'), issue(3, 'ann', ['status:todo']), issue(4, 'ann')]
+  let failAt: string | null = null
+  const rel = (number: number, title: string, total: number, blocked: number) => JSON.stringify({ number, title, total, blocked })
+  const blockers = [{ number: 2, title: 'in repo', state: 'open', repository_url: 'https://api.github.com/repos/o/r' }, { number: 9, title: 'closed', state: 'closed', repository_url: 'https://api.github.com/repos/o/r' }, { number: 7, title: 'other\nrepo', state: 'open', repository_url: 'https://api.github.com/repos/x/y' }]
+  const b = createBacklog({ run: async (args) => {
+    calls.push(args)
+    if (args[0] === 'issue') return JSON.stringify(list)
+    const path = args[1]
+    if (failAt && path.includes(failAt)) throw new Error('boom')
+    if (path.includes('/collaborators/')) return 'write'
+    if (path.includes('/1/sub_issues')) return '[2,3]'
+    if (path.includes('/3/dependencies/blocked_by')) return blockers.map((x) => JSON.stringify(x)).join('\n')
+    return [rel(1, 'Epic\x1b one', 2, 0), rel(2, 't2', 0, 0), rel(3, 't3', 0, 2), rel(4, 't4', 0, 0)].join('\n')
+  } })
+
+  b.want(CFG)
+  await b.idle()
+  assert.deepEqual(b.get().map((i) => i.id), ['CW-2', 'CW-3', 'CW-4'])
+  assert.deepEqual(b.relations(), {
+    'CW-1': { blockedBy: [] },
+    'CW-2': { epic: { id: 'CW-1', title: 'Epic  one' }, blockedBy: [] },
+    'CW-3': { epic: { id: 'CW-1', title: 'Epic  one' }, blockedBy: [{ id: 'CW-2', title: 'in repo' }, { id: 'x/y#7', title: 'other repo' }] },
+    'CW-4': { blockedBy: [] },
+  })
+  const related = calls.filter((c) => c[0] === 'api' && !c[1].includes('/collaborators/')).map((c) => c[1])
+  assert.deepEqual(related, ['repos/o/r/issues?state=open&per_page=100', 'repos/o/r/issues/1/sub_issues', 'repos/o/r/issues/3/dependencies/blocked_by'])
+
+  // A failed relations call: the list still updates, the epic stays hidden, no icons, no error line.
+  list = [...list, issue(5, 'ann')]
+  failAt = '/sub_issues'
+  b.want(CFG, 'next')
+  await b.idle()
+  assert.deepEqual(b.get().map((i) => i.id), ['CW-2', 'CW-3', 'CW-4', 'CW-5'])
+  assert.deepEqual(b.relations(), {})
+  assert.equal(b.error(), null)
+  b.want(null)
+  assert.deepEqual(b.relations(), {})
 })

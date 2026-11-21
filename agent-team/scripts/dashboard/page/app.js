@@ -298,9 +298,21 @@ export const ownerBadge = (login) =>
   typeof login === 'string' && login
     ? `<span class="owner" role="img" aria-label="${esc(login)}" title="${esc(login)}"><span class="avatar" aria-hidden="true"><span class="initial">${esc(login[0].toUpperCase())}</span><img src="https://avatars.githubusercontent.com/${esc(encodeURIComponent(login))}?s=40" alt="" loading="lazy" referrerpolicy="no-referrer" width="20" height="20"></span></span>`
     : ''
+const SVG = (body) => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+const mark = (kind, name, svg) => `<span class="mark ${kind}" role="img" title="${esc(name)}" aria-label="${esc(name)}">${svg}</span>`
+/** The marks column of a ticket card: the owner avatar, then the epic icon, then the blocked icon (a red x with the blockers in its tooltip, or a green check). The epic slot stays empty without an epic so the blocked icon sits at the same height on every card. A row with neither `epic` nor `blockedBy` gets the bare avatar. */
+export const marksColumn = (r) => {
+  if (!r.epic && !Array.isArray(r.blockedBy)) return ownerBadge(r.owner)
+  const slot = (html = '') => `<span class="slot">${html}</span>`
+  const blocked = !Array.isArray(r.blockedBy) ? '' : r.blockedBy.length
+    ? mark('blocked', ['Blocked by:', ...r.blockedBy.map((b) => `${b.id}: ${b.title}`)].join('\n'), SVG('<path d="M4 4l8 8M12 4l-8 8"/>'))
+    : mark('clear', 'Not blocked', SVG('<path d="M3.5 8.5l3 3 6-7"/>'))
+  const epic = r.epic ? mark('epic', `Epic ${r.epic.id}: ${r.epic.title}`, SVG('<path d="M8 2L2 5l6 3 6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/>')) : ''
+  return `<div class="marks">${slot(ownerBadge(r.owner))}${slot(epic)}${blocked && slot(blocked)}</div>`
+}
 /** True when the ticket's owner and the viewer are both logins and differ (GitHub logins are case-insensitive). */
 export const foreign = (owner, viewer) => typeof owner === 'string' && typeof viewer === 'string' && owner !== '' && viewer !== '' && owner.toLowerCase() !== viewer.toLowerCase()
-/** The first line of every row: the ticket number, then `extra` (the thread copy button), then the title (left out when empty, so the id is not shown twice), then the owner badge (`ownerHtml`), which the page puts in its own column at the right end of the number row. */
+/** The first line of every row: the ticket number, then `extra` (the thread copy button), then the title (left out when empty, so the id is not shown twice), then the owner badge or marks column (`ownerHtml`), which the page puts in its own column at the right end of the card. */
 const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${extra}${title ? `<span class="title">${esc(title)}</span>` : ''}${ownerHtml}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
@@ -398,7 +410,7 @@ function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false,
   ])
   const sw = panelSwitch('ticket', r.id, { gantt: r.gantt, view: viewOf(r.id, open, info), details: r.helper ? null : renderDetails(r, Date.now()), hideAgents: foreign(r.owner, viewer) })
   const cls = `ticket${attn ? ' attn' : ''}${compact ? ' compact' : ''}${blocked && flat ? ' blocked' : ''}${r.stale ? ' stale' : ''}`
-  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink, { thread: true }), ownerBadge(r.owner))
+  const head = rowHead(r.helper ? 'Ticket helper' : link(r.issueUrl, r.id), r.title, copyButton(r.threadLink, { thread: true }), marksColumn(r))
   const actions = (action ? `<a class="action" href="${esc(action.url)}" target="_blank" rel="noopener noreferrer">${esc(action.label)}</a>` : '') + approveControls(r, chiefLink)
   return `<li class="${cls}">\n  ${head}\n  ${actions ? `<div class="actions">${actions}</div>\n  ` : ''}<div class="foot">${sw.control}${markTodo ? todoControl(r, chiefLink) : ''}<span class="meta">${meta}</span></div>${sw.panels}\n</li>`
 }

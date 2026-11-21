@@ -533,7 +533,7 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     backlog.want(titleCfg, trackerLists.changed())
     trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), openOwners: openPrs.owners(), issueOwners: trackerTitles.owners(), viewer: viewer.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get() })
+    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), openOwners: openPrs.owners(), issueOwners: trackerTitles.owners(), viewer: viewer.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get(), relations: fromFile ? {} : backlog.relations() })
   }
 
   const token = randomBytes(32).toString('hex')

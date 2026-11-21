@@ -2,7 +2,7 @@ import { GROUP_ORDER, groupTickets } from './groups.ts'
 import type { MergedEntry } from './merged.ts'
 import { specUrlOf } from './details.ts'
 import type { Detail, Found } from './details.ts'
-import type { BacklogItem, Priority } from './backlog.ts'
+import type { BacklogItem, Priority, Relations } from './backlog.ts'
 import { headsPattern, idForNumber, prefixesPattern } from './titles.ts'
 import type { Retired } from './titles.ts'
 import { isWorktree } from '../../../mods/agent-gantt/hooks/rows.ts'
@@ -13,7 +13,7 @@ export type Session = { sessionId: string; cwd: string; updatedAt: number; stale
 export type TeamRole = 'ranking' | 'hygiene'
 type TeamState = 'running' | 'idle' | 'paused'
 type PmRow = { sessionId: string; role: TeamRole; state: 'running' | 'finished'; threadLink?: string; gantt: Session[] }
-type StatusRow = { id: string; title: string; owner?: string; risk: string; next: string; stage: string; stageAt?: string; stale?: true; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][] }
+type StatusRow = { id: string; title: string; owner?: string; risk: string; next: string; stage: string; stageAt?: string; stale?: true; helper?: boolean; issueUrl?: string; prUrl?: string; specUrl?: string; threadLink?: string; gantt?: Session[]; detail?: Detail; ci?: [number, number | null][]; epic?: { id: string; title: string }; blockedBy?: { id: string; title: string }[] }
 export type Worktree = { path: string; branch: string }
 export type Api = {
   generatedAt: number
@@ -263,14 +263,21 @@ function newestFirst(rows: StatusRow[], updated: Record<string, number>): Status
   return rows.map((r) => (QUEUED.includes(r.stage) ? r : sorted.shift()!))
 }
 
-export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; retired?: Retired; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; openOwners?: Record<string, string>; issueOwners?: Record<string, string>; viewer?: string | null; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[] }): Api {
-  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, retired = [], heads, merged = [], openPrs = {}, openOwners = {}, issueOwners = {}, viewer = null, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [] } = input
+export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Repo | null; links?: TrackerLinks | null; titles: Record<string, string>; environmentId: string | null; now: number; worktrees?: Worktree[]; prefix?: string | null; retired?: Retired; heads?: string[]; merged?: MergedEntry[]; openPrs?: Record<string, number>; openOwners?: Record<string, string>; issueOwners?: Record<string, string>; viewer?: string | null; updated?: Record<string, number>; spend?: Record<string, { cost: number | null; tokens: number }>; history?: Record<string, Session[]>; details?: Record<string, Found>; ci?: Record<string, [number, number | null][]>; teamHistory?: { role: TeamRole; session: Session }[]; backlog?: BacklogItem[]; relations?: Relations }): Api {
+  const { state, snapshots, repo, titles, environmentId, now, worktrees = [], prefix = null, retired = [], heads, merged = [], openPrs = {}, openOwners = {}, issueOwners = {}, viewer = null, updated = {}, spend = {}, history = {}, details = {}, ci = {}, teamHistory = [], backlog = [], relations = {} } = input
   const tickets = isObj(state) && isObj(state.tickets) ? state.tickets : {}
   // Without `links`, the GitHub links come from `repo`.
   const links = input.links !== undefined ? input.links : repo?.isGithubIssues ? githubLinks(repo.url) : null
   // A ticket whose PR is already in `merged` shows there only, even while state still has it in a stage.
   const mergedPrs = new Set(merged.filter((e) => e.number !== undefined).map((e) => `${e.id}#${e.number}`))
   const open = groupTickets(state).map((g) => ({ ...g, rows: g.rows.filter((r) => !mergedPrs.has(`${r.id}#${numOrNull(isObj(tickets[r.id]) ? tickets[r.id].pr : null)}`)) })).filter((g) => g.rows.length)
+  // The epic and blockers of a ticket on GitHub; a row with no entry gets neither field.
+  const addRelations = (row: StatusRow) => {
+    const rel = Object.hasOwn(relations, row.id) ? relations[row.id] : undefined
+    if (!rel) return
+    if (rel.epic) row.epic = rel.epic
+    row.blockedBy = rel.blockedBy
+  }
   const status = open.map((g) => ({
     name: g.name,
     count: g.rows.length,
@@ -299,6 +306,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
       }
       const waits = Object.hasOwn(ci, `${r.id}#${t.pr}`) ? ci[`${r.id}#${t.pr}`] : undefined
       if (waits?.length) out.ci = waits
+      addRelations(out)
       return out
     }), updated),
   }))
@@ -309,6 +317,7 @@ export function buildApi(input: { state: unknown; snapshots: unknown[]; repo: Re
     const issueUrl = links?.issue(b.id)
     if (issueUrl) row.issueUrl = issueUrl
     if (b.owner) row.owner = b.owner
+    addRelations(row)
     return row
   }
   // A list read from the saved file carries a read time; one over an hour old is stale.
