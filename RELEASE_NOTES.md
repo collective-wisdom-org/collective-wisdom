@@ -1,5 +1,13 @@
 # Release notes
 
+## 2026-11-21 mark tickets Todo when their last blocker merges (WISE-479) (#481)
+
+Merged 2026-11-21 6:47 am UTC.
+
+The Chief of Staff now moves a Backlog ticket to Todo when the last ticket blocking it merges, so it joins the queue without you pressing Start shipping. Tickets labelled `agent-skip` stay in Backlog.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-21 pin the Chief of Staff thread when it starts (WISE-478) (#480)
 
 Merged 2026-11-21 6:24 am UTC.
