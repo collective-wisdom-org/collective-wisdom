@@ -63,6 +63,7 @@ How:
 
 - Never commit `.env`, API keys, or tokens
 - Use `.env.example` for documented variables
+- A task that needs a secret: `~/.collective-wisdom/docs/agents/secrets.md`.
 
 ## Agent config
 
