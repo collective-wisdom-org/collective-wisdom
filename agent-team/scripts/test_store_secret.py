@@ -85,7 +85,7 @@ def test_save_sends_the_hex_on_stdin_and_records(capsys, keychain, raw):
     assert not any(value.decode() in f.read_text() for f in (ss.path(), keychain / "security.args"))
 
 
-@pytest.mark.parametrize("make", [lambda p: p.write_bytes(b""), lambda p: p.write_bytes(b"\n\n"), lambda p: p.mkdir(), lambda p: p.write_bytes(b"x" * 1901), lambda p: None])
+@pytest.mark.parametrize("make", [lambda p: p.write_bytes(b""), lambda p: p.write_bytes(b"\n\n"), lambda p: p.mkdir(), lambda p: p.write_bytes(b"x" * 1901), lambda p: p.write_bytes(b"a" * 1800 + b"\n" * 200 + b"TAIL"), lambda p: None])
 def test_save_refuses_a_bad_file(capsys, keychain, make):
     make(keychain / "v")
     assert run(capsys, "save", "key", "--note", "n", "--file", str(keychain / "v"))[:2] == (2, "")

@@ -107,11 +107,13 @@ def read_value(file):
             if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
                 raise SecretError("the value file is not a regular file")
             data = f.read(MAX_VALUE + 64)
+            if f.read(1):  # more than the value plus its trailing newlines: refuse rather than store a cut-off value
+                data = b""
     except OSError as e:
         raise SecretError(f"cannot read the value file: {type(e).__name__}")
     value = data.rstrip(b"\n")
     if not 1 <= len(value) <= MAX_VALUE:
-        raise SecretError(f"the value must be 1 to {MAX_VALUE} bytes; for a longer one use the store line")
+        raise SecretError(f"the value must be 1 to {MAX_VALUE} bytes")
     return value
 
 
