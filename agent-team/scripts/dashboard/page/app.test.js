@@ -611,6 +611,8 @@ test('marks column: avatar, epic slot and blocked icon with their tooltips, esca
   for (const [name, r, has, slots] of cases) {
     const html = marksColumn(r)
     for (const t of has) assert.ok(html.includes(t), `${name}: ${t}`)
+    for (const [, t, a] of html.matchAll(/ role="img" title="([^"]*)" aria-label="([^"]*)"/g)) assert.equal(t, a, `${name}: accessible name matches tooltip`)
+    if (html.includes('mark epic') && html.includes('mark blocked')) assert.ok(html.indexOf('class="owner"') < html.indexOf('mark epic') && html.indexOf('mark epic') < html.indexOf('mark blocked'), `${name}: avatar, epic, blocked order`)
     assert.equal(html.split('class="slot"').length - 1, slots, `${name} slots`)
     assert.ok(!html.includes('<epic>') && !html.includes('"b"'), `${name} escaped`)
   }

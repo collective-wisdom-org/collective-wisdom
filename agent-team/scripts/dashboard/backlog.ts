@@ -77,7 +77,7 @@ export function createBacklog(opts: { run: Run; now?: () => number }) {
         if (b.state !== 'open' || !isNum(b.number)) continue
         const repo = typeof b.repository_url === 'string' ? b.repository_url.match(/\/repos\/([^/]+\/[^/]+)$/)?.[1] : undefined
         const name = repo && repo.toLowerCase() !== c.slug.toLowerCase() ? `${repo}#${b.number}` : id(b.number)
-        out[id(r.number)].blockedBy.push({ id: name, title: clean(b.title) })
+        out[id(r.number)].blockedBy.push({ id: clean(name), title: clean(b.title) })
       }
     }
     return { relations: out, epics: epicNumbers }
