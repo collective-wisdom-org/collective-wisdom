@@ -1,7 +1,8 @@
 # WISE-478: Pin the Chief of Staff thread when it starts
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#478](https://github.com/collective-wisdom-org/collective-wisdom/issues/478)
+**Shipped:** in PR #480, as specified
 
 ## Goal
 
