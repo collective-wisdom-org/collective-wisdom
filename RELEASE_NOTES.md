@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-21 show epic and blocked icons on dashboard cards (WISE-482) (#483)
+
+Merged 2026-11-21 7:54 am UTC.
+
+On GitHub repos, the dashboard no longer lists epics as cards. Ship loop and Backlog cards of tickets under an epic show an epic icon, and each shows a red x (blockers on hover) or a green check for whether an open ticket blocks it.
+
 ## 2026-11-21 mark tickets Todo when their last blocker merges (WISE-479) (#481)
 
 Merged 2026-11-21 6:47 am UTC.
