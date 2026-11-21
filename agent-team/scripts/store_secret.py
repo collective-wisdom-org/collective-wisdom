@@ -17,7 +17,7 @@ from pathlib import Path
 
 SERVICE = "collective-wisdom"
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
-NOTE = re.compile(r"[^\x00-\x1f\x7f-\x9f  `|]{1,120}")
+NOTE = re.compile(r"[^\x00-\x1f\x7f-\x9f\u2028\u2029\u200b-\u200f\u202a-\u202e`|]{1,120}")
 ROW = re.compile(r"`([^`]*)`")
 HEADER = """# collective-wisdom secrets
 
@@ -43,7 +43,7 @@ def _shown(text):
 def _rows(file):
     """[(name, note)] in file order; [] with no file. Raises SecretError on an unreadable file or a row that is not `name` | note."""
     try:
-        lines = file.read_text().splitlines()
+        lines = file.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
         return []
     except (OSError, ValueError) as e:
@@ -68,7 +68,7 @@ def _write(file, rows):
     try:
         file.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
         os.chmod(tmp, 0o600)
         os.replace(tmp, file)
@@ -80,11 +80,14 @@ def in_keychain(name):
     """True when the keychain holds the item. No -w, so no value is read; the output is discarded."""
     cmd = ["security", "find-generic-password", "-s", SERVICE, "-a", name]
     try:
-        return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode == 0
+        code = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode
     except FileNotFoundError:
         raise SecretError("the security command is not on PATH (macOS only)")
     except subprocess.SubprocessError:
         raise SecretError("security did not answer")
+    if code not in (0, 44):  # 44: item not found; anything else is a locked keychain or similar, not a missing item
+        raise SecretError(f"security exited {code}; check that the keychain is unlocked")
+    return code == 0
 
 
 def record(name, note):
