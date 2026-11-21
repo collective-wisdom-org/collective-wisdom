@@ -28,10 +28,13 @@ def test_only_a_backlog_ticket_with_no_other_open_blocker_moves_to_todo(monkeypa
         "ABC-6": {"untrusted": True},
         "ABC-7": {"state": "OPEN", "labels": [], "relations": {"blockedBy": [{"number": 1, "state": "OPEN"}]}},  # GitHub: no status label means Backlog
         "ABC-8": got("Backlog", A, {"number": 12, "state": "CLOSED"}),
+        "ABC-9": {"status": "Done", "labels": [], "relations": {"blockedBy": [A]}},  # Linear names the state `status`
+        "ABC-10": {"fields": {"status": {"name": "Backlog"}}},  # Jira with no readable relations
+        "ABC-11": {"labels": [], "relations": {"blockedBy": []}},  # no state at all
     }
     assert run(monkeypatch, capsys, {"merged": "ABC-1", "tickets": tickets}) == (
         0,
-        ["todo ABC-2", "stay ABC-3 blocked by ABC-9", "stay ABC-4 agent-skip", "stay ABC-5 state In Progress", "stay ABC-6 untrusted", "todo ABC-7", "todo ABC-8", "unblocked: 7 checked, 3 to Todo"],
+        ["stay ABC-10 relations unknown", "stay ABC-11 state unknown", "todo ABC-2", "stay ABC-3 blocked by ABC-9", "stay ABC-4 agent-skip", "stay ABC-5 state In Progress", "stay ABC-6 untrusted", "todo ABC-7", "todo ABC-8", "stay ABC-9 state Done", "unblocked: 10 checked, 3 to Todo"],
     )
 
 

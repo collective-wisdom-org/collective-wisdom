@@ -10,7 +10,8 @@ author the adapter calls untrusted is given as {"untrusted": true}.
 Prints, for each ticket in id order, `todo <ID>` when it is in Backlog, not labelled `agent-skip`, not untrusted, and every
 blocker other than the merged ticket is closed (cos_todo.is_open). The merged ticket counts as closed whatever state the read
 gave it, since the tracker may not have caught up. A blocker is the merged ticket by its id, or by its number alone (GitHub).
-Otherwise prints `stay <ID> <why>`: `state <State>`, `agent-skip`, `untrusted`, or `blocked by <ID>[, <ID>...]`.
+Otherwise prints `stay <ID> <why>`: `state <State>`, `state unknown` or `relations unknown` (not readable: nothing moves),
+`agent-skip`, `untrusted`, or `blocked by <ID>[, <ID>...]`. A GitHub blocker given only as a number matches the merged ticket by number.
 Ends `unblocked: <C> checked, <T> to Todo`. Exit 0.
 Exit 2 with `unblocked: cannot <what>` when stdin is not usable.
 """
@@ -41,7 +42,11 @@ def is_merged(blocker, merged):
 def verdict(got, merged):
     if got.get("untrusted"):
         return "untrusted"
-    state = pm_hygiene.state_of(got)
+    fields = got.get("fields") if isinstance(got.get("fields"), dict) else {}
+    named = next((x for x in (got.get("state"), got.get("status"), fields.get("status")) if x), None)  # GitHub, Linear, Jira
+    if named is None or not isinstance(got.get("relations"), (dict, list)):
+        return "state unknown" if named is None else "relations unknown"  # fail closed: never move what can't be read
+    state = pm_hygiene.state_of({**got, "state": named})
     if state != "Backlog":
         return f"state {state}"
     if "agent-skip" in pm_hygiene.labels_of(got):
