@@ -2,7 +2,7 @@
 
 **Status:** Shipped
 **Ticket:** [#479](https://github.com/collective-wisdom-org/collective-wisdom/issues/479)
-**Shipped:** in PR #481, as specified
+**Shipped:** in PR #481, with differences: [as-built](../as-built/2026-11-21-wise-479-todo-after-blocker-merges.md)
 
 ## Goal
 
