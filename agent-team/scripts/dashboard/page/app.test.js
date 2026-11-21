@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, marksColumn, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -596,6 +596,28 @@ test('owner avatar on every card type; Agents is left out only for a foreign own
   assert.ok(!bad.includes('<b>') && bad.includes('&lt;b&gt;') && bad.includes('<span class="initial">&lt;</span>') && /src="https:\/\/avatars\.githubusercontent\.com\/%3Cb%3E%22x\?s=40"/.test(bad))
   assert.ok(!bad.includes('class="login"'))
   assert.ok(bad.includes('title="&lt;b&gt;&quot;x"') && bad.includes('aria-label="&lt;b&gt;&quot;x"'))
+})
+
+test('marks column: avatar, epic slot and blocked icon with their tooltips, escaped; no relations draws the bare avatar', () => {
+  const epic = { id: 'CW-9', title: 'Big <epic>' }
+  const x = { id: 'CW-5', title: 'a "b"' }
+  const E = 'Epic CW-9: Big &lt;epic&gt;'
+  const cases = [
+    ['epic and red x', { owner: 'ann', epic, blockedBy: [x, { id: 'o/r#2', title: 'c' }] }, [E, 'Blocked by:\nCW-5: a &quot;b&quot;\no/r#2: c', 'mark blocked'], 3],
+    ['green check', { owner: 'ann', epic, blockedBy: [] }, [E, 'Not blocked', 'mark clear'], 3],
+    ['no epic keeps its slot', { owner: 'ann', blockedBy: [x] }, ['Blocked by:\nCW-5: a &quot;b&quot;', 'mark blocked'], 3],
+    ['epic only', { owner: 'ann', epic }, [E], 2],
+  ]
+  for (const [name, r, has, slots] of cases) {
+    const html = marksColumn(r)
+    for (const t of has) assert.ok(html.includes(t), `${name}: ${t}`)
+    assert.equal(html.split('class="slot"').length - 1, slots, `${name} slots`)
+    assert.ok(!html.includes('<epic>') && !html.includes('"b"'), `${name} escaped`)
+  }
+  assert.ok(!marksColumn(cases[2][1]).includes('Epic'))
+  assert.equal(marksColumn({ owner: 'ann' }), ownerBadge('ann'))
+  assert.equal(marksColumn({}), '')
+  assert.ok(renderBacklog([{ name: 'Backlog', count: 1, rows: [{ ...row(), epic, blockedBy: [] }] }]).includes('class="marks"'))
 })
 
 test('drawCharts writes a chart body only when its html changed; a body with no entry is never written', () => {
