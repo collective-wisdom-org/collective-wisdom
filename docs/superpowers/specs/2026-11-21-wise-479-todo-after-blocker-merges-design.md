@@ -1,7 +1,8 @@
 # WISE-479: Mark tickets Todo when their last blocker merges
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#479](https://github.com/collective-wisdom-org/collective-wisdom/issues/479)
+**Shipped:** in PR #481, as specified
 
 ## Goal
 
