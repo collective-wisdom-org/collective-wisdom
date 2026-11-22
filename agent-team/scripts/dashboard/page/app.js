@@ -560,6 +560,9 @@ export function renderChief(api, page = 0, open = new Set(), size = 10, collapse
   return { html: `${card}<details class="band band-pm" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>Project manager</h2></summary>${pm.html}</details>`, page: pm.page }
 }
 
+/** Whether the red banner shows: only for non-empty text that is not the text the user last dismissed. */
+export const bannerShown = (text, dismissed) => text !== '' && text !== dismissed
+
 /** The tab to open from the saved value: `cos`, `done` or `backlog`, else `ship` for anything unknown or missing. */
 export const tabFromStorage = (value) => (value === 'cos' || value === 'done' || value === 'backlog' ? value : 'ship')
 
@@ -1035,8 +1038,20 @@ if (typeof document !== 'undefined') {
   const seen = versionWatch()
   // The press message for Approve or Start shipping stays in the error line until the next press or a reload.
   let pressNote = ''
+  // The red banner has one writer. The x remembers the text it hid; any other text shows the banner again.
+  let dismissed = ''
+  let banner = ''
+  const setBanner = (text) => {
+    banner = text
+    document.getElementById('error-text').textContent = text
+    document.getElementById('error').hidden = !bannerShown(text, dismissed)
+  }
+  document.getElementById('error-dismiss').addEventListener('click', () => {
+    dismissed = banner
+    document.getElementById('error').hidden = true
+  })
   const showError = () => {
-    document.getElementById('error').textContent = [last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' ')
+    setBanner([last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' '))
   }
   let pressedCommand = null
   const pressReturn = async (command) => {
@@ -1052,7 +1067,6 @@ if (typeof document !== 'undefined') {
     showError()
   }
   const poll = async () => {
-    const err = document.getElementById('error')
     try {
       const res = await fetch(`/api?mergedPage=${mergedPage}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -1070,7 +1084,7 @@ if (typeof document !== 'undefined') {
       drawCos()
       drawTabCounts()
     } catch (e) {
-      err.textContent = `Could not refresh: ${e.message}`
+      setBanner(`Could not refresh: ${e.message}`)
     }
   }
   // Opens or closes one segment's panel in place and closes the row's other one, so nothing is rebuilt.
