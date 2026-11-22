@@ -9,50 +9,38 @@ user-invocable: true
 
 # Build from plan
 
-Before acting, read **ship-loop** § Repo invariants.
+Read **ship-loop** § Repo invariants first.
 
 ## Preconditions
 
-1. Confirm **cwd** is the feature worktree, not root on the merge target branch.
-2. Load the plan from `docs/superpowers/plans/` (path from kickoff or user). A ticket that changes only markdown files has no plan; build from the spec.
+1. **cwd** is the feature worktree, not the root on the merge target branch.
+2. Load the plan from `docs/superpowers/plans/` (path from kickoff or the user). A ticket that changes only markdown files has no plan: build from the spec.
 3. Stay within `AGENTS.md` scope.
 
 ## Execution
 
-Read and follow one of:
-
-- **subagent-driven-development** — when plan tasks are independent.
-- **executing-plans** — otherwise.
-
-If **planner-delegates** applies: parent plans and delegates; **implementer** subagent edits files and runs verification. Start it with the `Agent` tool and `subagent_type: "implementer"`. If that type isn't listed (the session started before `.claude/agents/implementer.md` existed), start a general subagent (Sonnet on Claude Code, Auto on Cursor) with the prompt `Read ~/.collective-wisdom/docs/agents/implementer.md and follow it.` plus the task.
-
-Follow plan tasks in order; use plan file paths and acceptance criteria.
-
-**verification-before-completion** before claiming any task done: run the plan's command and show output.
+Follow **subagent-driven-development** when plan tasks are independent, else **executing-plans**. Under **planner-delegates** the parent plans and the `implementer` subagent (`subagent_type: "implementer"`; fallback `ship-loop` § Models) edits files and runs verification. Do plan tasks in order, by their file paths and acceptance criteria. **verification-before-completion** before calling a task done: run the plan's command and show its output.
 
 ## Testing (prefer plan Task 0)
 
-What to test, and how much: `AGENTS.md` § Testing. When a plan lists more tests than that allows, merge or drop the extras and say so.
+What and how much to test: `AGENTS.md` § Testing. Where the plan lists more, merge or drop the extras and say so.
 
 | Area | Command pattern |
 |------|-----------------|
 | Plan Task 0 | Use exactly what the plan specifies |
 | Everything else | The test, lint and typecheck commands in `docs/agents/project.md` § Commands, scoped to touched paths when the tool allows |
-| Guards | Follow `docs/agents/project.md` § Commands (Test database) and § Repo invariants (local data directories, docker rules). Never test or migrate against the dev database |
+| Guards | `project.md` § Commands (Test database) and § Repo invariants (data directories, docker rules). Never test or migrate against the dev database |
 
 ## Git
 
-- Commit and push as tasks finish.
-- Never push to the merge target branch. Push only this ticket's own branch (the one the task names).
-- No force-push to the merge target branch.
+Commit and push as tasks finish. Push only this ticket's own branch (the one the task names), never the merge target branch; no force-push to it.
 
 ## Compaction pass
 
-After the last task passes, run `python3 ~/.collective-wisdom/scripts/compact_check.py` and keep its totals for **open-pr**. After a compacter run, take them from a re-run once its edits are committed.
+After the last task passes, run `python3 ~/.collective-wisdom/scripts/compact_check.py` and keep its totals for **open-pr** (after a compacter run, from a re-run once its edits are committed).
 
 - `compact: skip`: go on. Exit 2: run it once more; a second exit 2 is `BLOCKED:` (`ship-loop` § Blocked).
-- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`, foreground; if the type isn't listed, a general subagent (Sonnet, or Auto on Cursor) told `Read ~/.collective-wisdom/docs/agents/compacter.md and follow it.`) with the base `origin/<target>` and the output.
-- Then check `git status` lists only files from the output, run the `project.md` test command, and revert any hunk that drops or changes a rule. Commit `docs: compact agent text for <PREFIX>-N` and push.
+- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`; fallback `ship-loop` § Models) with the base `origin/<target>` and the script's output. Then check `git status` lists only files from that output, run the `project.md` test command, and revert any hunk that drops or changes a rule. Commit `docs: compact agent text for <PREFIX>-N` and push.
 
 ## When all tasks pass
 

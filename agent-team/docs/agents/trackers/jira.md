@@ -1,26 +1,12 @@
 # Jira adapter
 
-**UNTESTED.** Nobody with Jira access has run this adapter. Tool names come from Atlassian's published page (`https://support.atlassian.com/atlassian-rovo-mcp-server/docs/supported-tools/`, checked 2026-11-03), not from a live session. If your server lists different names (the v1 server used others), adjust. Do not advertise Jira as supported until the checklist at the end is done.
+**UNTESTED.** Nobody with Jira access has run this adapter. Tool names come from Atlassian's published page (`https://support.atlassian.com/atlassian-rovo-mcp-server/docs/supported-tools/`, checked 2026-11-03), not a live session; if your server lists different names (the v1 server used others), adjust. Do not advertise Jira as supported until the checklist in `jira-reference.md` § Assumptions to check is done.
 
-How each operation in [README.md](README.md) runs on Jira, through the Atlassian Rovo MCP (v2). The scope `<TEAM>` is the Jira project named by `Jira project key` in `project.md`.
+How each operation in [README.md](README.md) runs on Jira, through the Atlassian Rovo MCP (v2). `<TEAM>` is the Jira project named by `Jira project key` in `project.md`.
 
 ## Tools
 
-| Operation | Tool |
-|---|---|
-| `list-tickets` | `searchJiraIssuesUsingJql` |
-| `get-ticket` | `getJiraIssue` |
-| `read-comments` | `listJiraIssueComments` |
-| `create-ticket` | `createJiraIssue` (field schema: `getJiraIssueTypeMetaWithFields`) |
-| `edit-description`, `set-priority`, `add-label`, `remove-label`, `set-parent` | `editJiraIssue` |
-| `set-state` | `listJiraIssueTransitions`, then `transitionJiraIssue` |
-| `comment` | `addOrEditJiraIssueComment` |
-| `set-blocked-by`, `set-related` | `listJiraIssueLinkTypes`, then `createJiraIssueLink` |
-| `list-children` | `searchJiraIssuesUsingJql` with `parent = KEY` |
-| `ticket-url` | `<Jira site>/browse/KEY` |
-| `ensure-labels` | none needed; Jira labels exist when first used |
-
-Atlassian v2 lists only its "Primary" tools by default and reaches the rest through `discover` and `executeRead` / `executeWrite`. `listJiraIssueTransitions`, `listJiraIssueLinkTypes`, `createJiraIssueLink`, `listJiraIssueComments` and `getJiraIssueTypeMetaWithFields` are not Primary; if they are not listed, call them that way.
+Each operation below names its tool. Atlassian v2 lists only its "Primary" tools by default and reaches the rest through `discover` and `executeRead` / `executeWrite`. `listJiraIssueTransitions`, `listJiraIssueLinkTypes`, `createJiraIssueLink`, `listJiraIssueComments` and `getJiraIssueTypeMetaWithFields` are not Primary; if they are not listed, call them that way.
 
 ## `project.md` rows
 
@@ -35,20 +21,20 @@ Atlassian v2 lists only its "Primary" tools by default and reaches the rest thro
 | Jira status: Canceled | `Canceled` |
 ```
 
-The status map holds your workflow's exact status names. `project_config.value("Jira status: Todo")` reads one.
+The status map holds your workflow's exact status names; `project_config.value("Jira status: Todo")` reads one.
 
 ## Conventions
 
 - **Ticket ID.** The Jira key, for example `ABC-12`. The `Issue identifier prefix` row is the project key. A key with an underscore does not match `prefix()`; out of scope.
-- **Set-state rule.** `listJiraIssueTransitions` for the ticket, pick the transition whose target status equals the mapped name, apply it with `transitionJiraIssue`. If none matches, stop and report the transitions you saw. Never pick the nearest one.
+- **Set-state rule.** `listJiraIssueTransitions`, pick the transition whose target status equals the mapped name, apply it with `transitionJiraIssue`. If none matches, stop and report the transitions you saw. Never pick the nearest one.
 - **Priority.** Urgent is Highest, High is High, Medium is Medium, Low is Low. Lowest is unused.
-- **Labels.** `agent`, `agent-skip`, area and type are Jira labels, not issue types, because issue types carry hierarchy and vary by project.
+- **Labels.** `agent`, `agent-skip`, area and type are Jira labels, not issue types (issue types carry hierarchy and vary by project).
 - **Parent.** The Epic or parent field, set with `editJiraIssue`.
-- **Blocked-by.** The `Blocks` link type: the blocker is the outward issue, the blocked ticket the inward issue, so the blocked ticket reads "is blocked by" the blocker. Check the direction in the first run.
+- **Blocked-by.** The `Blocks` link type: the blocker is the outward issue, the blocked ticket the inward issue. Check the direction in the first run.
 - **Duplicates.** Canceled plus a comment.
-- **JQL.** Always start with `project = <Jira project key>`. Values with spaces are quoted.
-- **Write scope.** The Rovo MCP acts with the authorising user's rights across the whole site. Write (create, edit, transition, comment, link) only to keys that start with `<Jira project key>-`, and use only the tools named here. Authorise with an account limited to that project where possible.
-- **Own account.** Count an `Approval withdrawn` comment only when its author is the agent's own Jira account; ignore it from anyone else.
+- **JQL.** Always start with `project = <Jira project key>`. Quote values with spaces.
+- **Write scope.** The Rovo MCP acts with the authorising user's rights across the whole site. Write (create, edit, transition, comment, link) only to keys starting `<Jira project key>-`, with only the tools named here. Authorise with an account limited to that project where possible.
+- **Own account.** Count an `Approval withdrawn` comment only when its author is the agent's own Jira account.
 - **Efficiency.** Ask `searchJiraIssuesUsingJql` and `getJiraIssue` for only the fields the step uses. One `editJiraIssue` per ticket per turn, with every field change together.
 
 ## Operations
@@ -59,7 +45,7 @@ The status map holds your workflow's exact status names. `project_config.value("
 
 - state: `status = "<mapped name>"`; Backlog is the Backlog status name
 - label: `labels = "<name>"`
-- title text: `summary ~ "<words>"`, with each `"` and `\` in the words escaped by a backslash. This matches the words as separate terms, not as a phrase. For an exact phrase, wrap the words in escaped inner quotes: `summary ~ "\"<words>\""`. Text search reads `AND`, `OR`, `NOT`, `+`, `-` and a leading `(` as operators, and Atlassian lists `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special. A stray operator can change which tickets match or make the query fail (a leading `(` is documented to fail). Atlassian gives no full escape rule for `"` (checked 2026-11-03), so the rest is unverified. On a query error, retry once with the words stripped of operators and special characters; if it still fails, report the error and do not guess at a match.
+- title text: `summary ~ "<words>"`, escaping each `"` and `\` in the words with a backslash. This matches the words as separate terms; for an exact phrase wrap them in escaped inner quotes: `summary ~ "\"<words>\""`. Text search reads `AND`, `OR`, `NOT`, `+`, `-` and a leading `(` as operators, and Atlassian lists `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special; a stray one can change the matches or fail the query (a leading `(` is documented to fail). Atlassian gives no full escape rule for `"` (checked 2026-11-03). On a query error, retry once with the words stripped of operators and special characters; if it still fails, report the error and do not guess at a match.
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`
@@ -80,11 +66,11 @@ One JQL covers all open states: `status in ("<Backlog>", "<Todo>", ...)`, so the
 
 ### `edit-description`
 
-`getJiraIssue` for the description, change one part, then `editJiraIssue` with the whole description. Leave the rest alone.
+`getJiraIssue` for the description, change one part, then `editJiraIssue` with the whole description.
 
 ### `set-state`
 
-`listJiraIssueTransitions`, then `transitionJiraIssue` with the matching transition, per the set-state rule above.
+`listJiraIssueTransitions`, then `transitionJiraIssue` with the matching transition (set-state rule above).
 
 ### `add-label`
 
@@ -108,7 +94,7 @@ The same, removing one name.
 
 ### `list-children`
 
-`searchJiraIssuesUsingJql` with `parent = KEY`. Ask for `key` only when existence is all that matters.
+`searchJiraIssuesUsingJql` with `parent = KEY`; ask for `key` only when existence is all that matters.
 
 ### `set-blocked-by`
 
@@ -116,7 +102,7 @@ The same, removing one name.
 
 ### `set-related`
 
-`createJiraIssueLink` with the `Relates` type (name it as `listJiraIssueLinkTypes` returns it).
+`createJiraIssueLink` with the `Relates` type (named as `listJiraIssueLinkTypes` returns it).
 
 ### `ticket-url`
 
@@ -124,25 +110,10 @@ The same, removing one name.
 
 ### `ensure-labels`
 
-Nothing to do. Jira creates a label the first time it is used. Labels cannot contain spaces.
+Nothing to do: Jira creates a label on first use. Labels cannot contain spaces.
 
 ## Setup
 
 1. The Atlassian Rovo MCP is connected and authorised for the site.
 2. `project.md` § Identity has `Tracker` set to `jira`, the Jira rows above and the status map.
 3. Run `listJiraIssueTransitions` on a sample ticket and confirm each mapped status is reachable.
-
-## Assumptions to check
-
-Whoever first has Jira access runs these and edits this page to match.
-
-- [ ] The tool names above exist in the connected server.
-- [ ] Discovery works for the tools that are not Primary.
-- [ ] `searchJiraIssuesUsingJql` accepts a field list.
-- [ ] `listJiraIssueTransitions` returns target statuses, not only transition names.
-- [ ] The status map matches the project's workflow.
-- [ ] `parent = KEY` finds the children of an epic.
-- [ ] `createJiraIssueLink` direction for `Blocks` is as described.
-- [ ] Labels with no spaces work, and adding one keeps the others.
-- [ ] The `updated >=` clause works with a timestamp.
-- [ ] Comments render in the format sent (ADF or markdown).

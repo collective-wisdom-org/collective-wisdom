@@ -4,10 +4,12 @@ Read on `adopt N` (commands.md § Commands, strict check).
 
 ## Adopt
 
-`adopt N` takes a ticket the sweep listed as untracked into state.
+`adopt N` takes an untracked ticket into state.
 
-1. Run `python3 ~/.collective-wisdom/scripts/cos_untracked_check.py`. If the ticket isn't listed (state has it now, or it left flight), say so and stop.
-2. `get-ticket` (fields include `title`) with the adapter's author check. An untrusted author: say so and stop. On Linear or Jira also apply sweep.md § Sweep's drop (`agent-skip`, or not In Progress or In Review) and, if it drops the ticket, say so and stop.
-3. `t3_thread_list` for its child as in sweep.md § Sweep (the `<PREFIX>-N` title match applies). Exactly one child thread: read it, set the stage by startup.md § State rebuild (the same `BUILD READY`, `MERGE READY` and unsure-is-`blocked` rules), and write it with one `cos_state.py apply` (`start` with that thread's `parentThreadId` and the ticket's `title` from step 2, then `stage`). No title from step 2 (read failed or blank): write nothing and say it can't be adopted until the tracker answers. The parent check then lists it as `old-parent` for a full read, as for any rebuilt ticket. More than one child thread: list them and ask which; write nothing.
-4. No child thread on this machine: write nothing. Say it can't be adopted here, and that the user can run the team on the machine that owns it, or `cancel` it there and move it back to Todo to restart it.
-5. Report under Moving: `<PREFIX>-N: <short title>, adopted at <stage>` (the title from step 2). The turn's slot fill runs; the stage may put the count over the cap, which startup.md § State rebuild already allows.
+1. Run `python3 ~/.collective-wisdom/scripts/cos_untracked_check.py`. Ticket not listed: say so, stop.
+2. `get-ticket` (with `title`) and the adapter's author check. Untrusted author: say so, stop. On Linear or Jira also apply sweep.md § Sweep's drop (`agent-skip`, or not In Progress or In Review); dropped: say so, stop.
+3. `t3_thread_list` for its child as in sweep.md § Sweep (the `<PREFIX>-N` title match applies).
+   - Exactly one: read it, set the stage by startup.md § State rebuild (its `BUILD READY`, `MERGE READY` and unsure-is-`blocked` rules), write it with one `cos_state.py apply`: `start` (that thread's `parentThreadId`, the title from step 2), then `stage`. No title from step 2: write nothing, say it waits on the tracker. The parent check then lists it as `old-parent`.
+   - More than one: list them, ask which, write nothing.
+4. No child on this machine: write nothing. Say it can't be adopted here: run the team on the machine that owns it, or `cancel` it there and move it back to Todo.
+5. Report under Moving: `<PREFIX>-N: <short title>, adopted at <stage>`. The turn's slot fill runs; a count over the cap is allowed (startup.md § State rebuild).

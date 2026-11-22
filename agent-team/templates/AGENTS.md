@@ -7,28 +7,27 @@ All agents working on this repo must follow these rules.
 **<Project>** is <one line>.
 
 - Stack: <stack>. Update this section and `docs/agents/project.md` as it changes.
-- Repo-specific facts (tracker, its scope and prefix, commands, repo invariants): `docs/agents/project.md`.
 
 ## Required reading
 
-1. `docs/agents/project.md`: repo-specific config and invariants
+1. `docs/agents/project.md`: repo-specific facts (tracker, its scope and prefix, commands, repo invariants)
 2. `~/.collective-wisdom/docs/agents/org-chart.md`: who is on the agent team and what each role may do
-3. Your role file in `~/.collective-wisdom/docs/agents/` (see `~/.collective-wisdom/docs/agents/README.md`)
+3. Your role file in `~/.collective-wisdom/docs/agents/` (`README.md` there lists them)
 4. `~/.collective-wisdom/docs/agents/security-review.md`: OWASP-aligned PR security review before merge (ship loop phase 4)
 
 ## GitHub
 
-- Use `~/.collective-wisdom/scripts/gh.sh` for all `gh` commands (PRs, API, issues). Do not use bare `gh`. If you must, prefix it: `env -u GITHUB_TOKEN -u GH_TOKEN gh ...`.
-- Never export a limited PAT as `GITHUB_TOKEN` locally. It overrides `gh auth login` and causes `Resource not accessible by personal access token` on GraphQL.
+- Use `~/.collective-wisdom/scripts/gh.sh` for all `gh` commands (PRs, API, issues), never bare `gh`. If you must, prefix it: `env -u GITHUB_TOKEN -u GH_TOKEN gh ...`.
+- Never export a limited PAT as `GITHUB_TOKEN` locally: it overrides `gh auth login` and causes `Resource not accessible by personal access token` on GraphQL.
 - Full setup: `~/.collective-wisdom/docs/agents/github-auth.md`.
 
 ## Workflow
 
-- Write or edit tickets with the `write-ticket` skill.
+- Write or edit tickets with the `write-ticket` skill
 - **One ticket = one branch = one PR**
-- Branch naming and ticket identifiers: see `docs/agents/project.md`
+- Branch naming and ticket identifiers: `docs/agents/project.md`
 - Link the ticket in the PR description
-- Move the ticket to **In Review** when PR is open, **Done** when merged
+- Move the ticket to **In Review** when the PR is open, **Done** when merged
 - Run the test command from `docs/agents/project.md` before opening a PR
 - Do not expand scope beyond the assigned ticket
 
@@ -47,8 +46,7 @@ Test:
 
 Don't test:
 
-- Styling, layout and copy
-- Small UI interactions: Escape to close, outside click, badge caps
+- Styling, layout, copy, small UI interactions (Escape to close, outside click, badge caps)
 - Constants and registries (`assert TYPES == {...}`)
 - Framework or library behavior
 
@@ -62,18 +60,17 @@ How:
 ## Secrets
 
 - Never commit `.env`, API keys, or tokens
-- Use `.env.example` for documented variables
+- Document variables in `.env.example`
 - A task that needs a secret: `~/.collective-wisdom/docs/agents/secrets.md`.
 
 ## Agent config
 
-This file holds the shared instructions for every agent: Cursor, Claude Code, and T3 Code threads on either. `CLAUDE.md` imports it (`@AGENTS.md`).
+Shared instructions for every agent (Cursor, Claude Code, and T3 Code threads on either). `CLAUDE.md` imports this file (`@AGENTS.md`).
 
-- The machine install links the team's skills into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex) and `~/.cursor/skills` (Cursor), and its subagents into `~/.claude/agents` and `~/.cursor/agents`. An app may still hold its own skills in `.claude/skills/`.
-- Each team subagent is a short pointer to a role file in `~/.collective-wisdom/docs/agents/`, which holds the real brief. Cursor gets copies with the same name, description and body, `model: inherit` (they run on the parent thread's Auto), and `readonly: true` on reviewers. Elsewhere, start a general subagent with the role file as its prompt.
-- The agent team (skills, subagents, scripts, role docs) is installed once per machine from the collective-wisdom clone with `install.sh`. Update it by checking out a newer release there and rerunning `./install.sh`. Only `docs/agents/project.md` lives in this repo. Change shared files in collective-wisdom.
+- The machine install links the team's skills into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex) and `~/.cursor/skills` (Cursor), and its subagents into `~/.claude/agents` and `~/.cursor/agents`. An app may add its own skills in `.claude/skills/`.
+- Each team subagent points to a role file in `~/.collective-wisdom/docs/agents/`, which holds the brief. Cursor's copies keep the name, description and body, set `model: inherit` (the parent thread's Auto) and `readonly: true` on reviewers. Elsewhere, start a general subagent with the role file as its prompt.
+- The team (skills, subagents, scripts, role docs) is installed once per machine from the collective-wisdom clone with `install.sh`. Update it by checking out a newer release there and rerunning `./install.sh`. Only `docs/agents/project.md` lives in this repo; change shared files in collective-wisdom.
 - Always-on project rules go in this file, not in `.cursor/rules/`.
-- Who's on the agent team and what each role may do: `~/.collective-wisdom/docs/agents/org-chart.md`.
 
 ## Commits
 

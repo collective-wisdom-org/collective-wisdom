@@ -1,6 +1,6 @@
 # Agent team org chart
 
-The agent team moves tickets through the ship loop while the user approves only the spec and the merge. The `Approval risk tolerance` setting in `project.md` can let the team take Low (or Low and Medium) risk approvals itself, and a No Hands run, which the user starts, lets it take all of them except changes to the files that decide approvals, migrations and flagged changes. This page summarises who does what; the skills and role docs it links win if they disagree. A hand-run `/ship-loop` is the team with a cap of one, with the user in the Chief of Staff's seat.
+The team moves tickets through the ship loop; the user approves only the spec and the merge. `Approval risk tolerance` in `project.md` lets the team take Low (or Low and Medium) risk approvals itself. A No Hands run, which the user starts, lets it take all except changes to the files that decide approvals, migrations and flagged changes. The skills and role docs win over this page. A hand-run `/ship-loop` is the team with a cap of one and the user in the Chief of Staff's seat.
 
 ## Who reports to whom
 
@@ -57,8 +57,6 @@ flowchart TB
     SR -- "Security review PR comment" --> GitHub
 ```
 
-A ticket helper started by another repo's request creates new Backlog tickets only.
-
 ## Where the user approves
 
 ```mermaid
@@ -88,46 +86,39 @@ flowchart LR
     class AS,AM gate
 ```
 
-The two yellow stages are the only approvals the user gives. During a No Hands run the user approves nothing there except a change to a hands-path file, a migration or a flagged change (money, auth, user email). In `awaiting-review` the user can reply `approve N` early: it is held until a teammate approves that head, and the merge is still approved from `awaiting-merge`. They also act when a ticket is blocked. Everything else runs without them.
+The two yellow stages are the user's only approvals. During a No Hands run the user approves there only a hands-path change, a migration or a flagged change (money, auth, user email). In `awaiting-review`, `approve N` is held until a teammate approves that head; the merge is still approved from `awaiting-merge`. The user also acts on blocked tickets.
 
-Tickets move in three lanes (spec, build, merge), each with its own limit. A cap on active children covers spec and build, not merge. A relay that would put a child back to work while its lane (or, for spec and build, the cap) is full waits in a `*-queued` stage; freed slots go to merge, then build, then spec. Limits and reasons: [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) § Lanes.
+Three lanes (spec, build, merge), each with its own limit; a cap on active children covers spec and build, not merge. A relay that would start work while its lane (or the cap) is full waits in a `*-queued` stage; freed slots go to merge, then build, then spec. Limits: `chief-of-staff` § Lanes.
 
 ## Roles
 
 | Role | Runs as | Writes code | Edits tickets | Merges | Starts agents | Defined in |
 |---|---|---|---|---|---|---|
-| The user | Human, in the Chief of Staff thread | — | Moves tickets to Todo, adds or removes `agent-skip`, answers questions on tickets | Approves; the child runs the merge. Starts and stops No Hands runs | No | This page |
-| Chief of Staff | A T3 thread at the root checkout on the merge target branch. Woken only by start-up, a child's run ending, the user, another repo's Chief of Staff, a merge wait or a run wait that ends (not on Cursor), and a rate-limit wake | No. Writes only `.agent-team/state.json` and, through `cos_lists.py` (`cos_todo.py`, `cos_state.py apply`, the ticket helper test), `.agent-team/tracker-lists.json`, except in the setup walk-through (`chief-of-staff/setup.md`): `docs/agents/project.md` and `.gitignore` in a temporary worktree, then the setup PR, each step after a yes | Status (moves a Backlog ticket to Todo when its last blocker merges), `agent` and `agent-skip` labels, comments | Never | Children with `delegate_task`; cancels them with `task_cancel` | [Role doc](chief-of-staff.md), [`chief-of-staff`](../../.claude/skills/chief-of-staff/SKILL.md) |
-| Project Manager | Not its own thread. Hygiene and the ranking's reads each run in a one-shot child (`delegate_task`, wait); the Backlog pick runs in the Chief of Staff's slot fill. When each runs: `project-manager` | No | Empty priority and labels, state-drift moves, duplicate comments, and the start of a ranked Backlog ticket with one comment. Never Todo moves | Never | The two children only | [`project-manager`](../../.claude/skills/project-manager/SKILL.md), [role doc](chief-of-staff.md) |
-| Ticket helper | A one-shot `delegate_task` thread at the root checkout on the merge target branch, one per ticket request or per `observe` note that says `file`, no lane slot, not in state | No. Read only outside the tracker | New tickets, edits, epics, links and labels. A helper started from another repo's request creates new Backlog tickets only (parent epic and links allowed; no edit to an existing ticket). One started from the Chief of Staff's own observation creates one Backlog `Improvement` ticket with no `agent` or `agent-skip` label. Never moves a ticket to Todo, In Progress or Done | Never | No | [`chief-of-staff/ticket-helper.md`](../../.claude/skills/chief-of-staff/ticket-helper.md) § Ticket helper, [`write-ticket`](../../.claude/skills/write-ticket/SKILL.md), [role doc](ticket-writer.md) |
-| Ship-loop child | A T3 thread in its own worktree, one per ticket, up to the cap plus one merging, one per lane slot | Yes, on its own ticket branch. Never pushes to the merge target branch | Its own ticket only (In Review, Done) | Yes, after a relayed approval it confirms in the Chief of Staff thread | Native subagents through the Agent tool. Never `delegate_task` | [`ship-loop`](../../.claude/skills/ship-loop/SKILL.md) § Phases and the skills it calls |
-| Implementer | Claude Code subagent | Yes, the task it's given | Not in its brief | No | No | [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md), [role doc](implementer.md) |
-| Documenter | Claude Code subagent, started by the child once per PR, after the code and security reviews pass | No. Read only; reports stale docs and the child fixes them | No | No | No | [`.claude/agents/documenter.md`](../../.claude/agents/documenter.md), [role doc](documenter.md) |
-| Compacter | Claude Code subagent, started by the child at the end of the build when `~/.collective-wisdom/scripts/compact_check.py` says run | Only agent text the diff added | No | No | No | [`.claude/agents/compacter.md`](../../.claude/agents/compacter.md), [role doc](compacter.md) |
-| Code review | `code-reviewer` Claude Code subagent | No. Posts a `## Code review (pass N)` PR comment, and on a small diff the security review in the same run (`open-pr` § Review scope) | No | No. Never approves or requests changes on GitHub | No | [`.claude/agents/code-reviewer.md`](../../.claude/agents/code-reviewer.md), [role doc](code-review.md), [`open-pr`](../../.claude/skills/open-pr/SKILL.md) § Agent review comment loop |
-| Security review | The `security-reviewer` Claude Code subagent against the OWASP list; Cursor, a general subagent given `security-review.md` | No. Posts a `## Security review (pass N)` PR comment; skipped on a docs-only diff (`open-pr` § Review scope) | No | No | No | [`.claude/agents/security-reviewer.md`](../../.claude/agents/security-reviewer.md), [`security-review`](../../.claude/skills/security-review/SKILL.md), [security-review.md](security-review.md) |
+| The user | Human, in the Chief of Staff thread | — | Moves tickets to Todo, sets `agent-skip`, answers questions | Approves; the child merges. Starts and stops No Hands runs | No | This page |
+| Chief of Staff | T3 thread at the root checkout on the merge target branch. Woken only by start-up, a child's run ending, the user, another repo's Chief of Staff, a merge or run wait ending (not on Cursor), a rate-limit wake | No. Writes only the files `chief-of-staff` § State file lists; in the setup walk-through (`chief-of-staff/setup.md`) also `docs/agents/project.md` and `.gitignore` in a temporary worktree, then the setup PR, each step after a yes | Status (Backlog to Todo when its last blocker merges), `agent` and `agent-skip` labels, comments | Never | Children with `delegate_task`; cancels with `task_cancel` | `chief-of-staff.md`, skill `chief-of-staff` |
+| Project Manager | No thread of its own: hygiene and the ranking's reads run in one-shot children (`delegate_task`, wait), the Backlog pick in the Chief of Staff's slot fill. When: `project-manager` | No | Empty priority and labels, state-drift moves, duplicate comments, the start of a ranked Backlog ticket with one comment. Never Todo moves | Never | The two children only | Skill `project-manager`, `chief-of-staff.md` |
+| Ticket helper | One-shot `delegate_task` thread at the root checkout, per ticket request or per `observe` note that says `file`; no lane slot, not in state | No. Read only outside the tracker | New tickets, edits, epics, links, labels. From another repo's request: new Backlog tickets only (parent epic and links allowed; no edit to an existing ticket). From the Chief of Staff's own observation: one Backlog `Improvement` ticket, no `agent` or `agent-skip` label. Never moves a ticket to Todo, In Progress or Done | Never | No | `chief-of-staff/ticket-helper.md` § Ticket helper, skill `write-ticket`, `ticket-writer.md` |
+| Ship-loop child | T3 thread in its own worktree, one per ticket (the cap plus one merging) | Yes, on its own ticket branch. Never pushes to the merge target branch | Its own ticket only (In Review, Done) | Yes, after a relayed approval it confirms in the Chief of Staff thread | Native subagents (Agent tool). Never `delegate_task` | Skill `ship-loop` § Phases and the skills it calls |
+| Implementer | Subagent | Yes, the task it's given | Not in its brief | No | No | `.claude/agents/implementer.md`, `implementer.md` |
+| Documenter | Subagent, started by the child once per PR after the code and security reviews pass | No. Read only; reports stale docs, the child fixes them | No | No | No | `.claude/agents/documenter.md`, `documenter.md` |
+| Compacter | Subagent, started by the child at the end of the build when `~/.collective-wisdom/scripts/compact_check.py` says run | Only agent text the diff added | No | No | No | `.claude/agents/compacter.md`, `compacter.md` |
+| Code review | `code-reviewer` subagent | No. Posts a `## Code review (pass N)` PR comment; on a small diff also the security review in the same run (`open-pr` § Review scope) | No | No. Never approves or requests changes on GitHub | No | `.claude/agents/code-reviewer.md`, `code-review.md`, `open-pr` § Agent review comment loop |
+| Security review | `security-reviewer` subagent against the OWASP list; on Cursor, a general subagent given `security-review.md` | No. Posts a `## Security review (pass N)` PR comment; skipped on a docs-only diff (`open-pr` § Review scope) | No | No | No | `.claude/agents/security-reviewer.md`, skill `security-review`, `security-review.md` |
 
-The five subagent rows above also have Cursor copies in `agent-team/.cursor/agents/` (same name, description and body; `model: inherit`, so each runs on its parent thread's Auto; `readonly: true` on the documenter and the two reviewers).
+The five subagent rows have Cursor copies in `agent-team/.cursor/agents/` (same name, description, body; `model: inherit`; `readonly: true` on the documenter and reviewers). The child fixes what the documenter and the reviews find; they only report. Models: `chief-of-staff/models.md` § Models, values in `cos_models.py`.
 
-The child fixes what the documenter and the reviews find; they only report. Each role's model: [`chief-of-staff/models.md`](../../.claude/skills/chief-of-staff/models.md) § Models, with the values in `cos_models.py`.
-
-When a repo sets `Review mode` to `ci` (`project.md` § Review), the code review and security review roles do not run: the child answers the CI review bot's threads (`open-pr` § CI review mode) and the merge gate checks that none are unresolved.
-
-Every role acts on GitHub as the account running `gh`, so PRs, review comments and tickets carry the user's own login.
-
-The Chief of Staff, the Project Manager, the ticket helper and the ship-loop child have no agent file: they are T3 threads or one-shot children, and `delegate_task` takes a provider, model and prompt, not an agent type.
+With `Review mode` `ci` (`project.md` § Review) the code and security review roles do not run: the child answers the CI review bot's threads (`open-pr` § CI review mode) and the merge gate checks that none is unresolved. Every role acts on GitHub as the account running `gh`. The Chief of Staff, Project Manager, ticket helper and ship-loop child have no agent file: `delegate_task` takes a provider, model and prompt, not an agent type.
 
 ## How approval travels
 
-- With a Chief of Staff, the user writes in the Chief of Staff thread. Nowhere else counts.
-- In a hand run (no `Chief of Staff thread:` in the task), the user's own message in the run's thread approves the spec or the merge. There is no auto-approval, and `ship-loop` § Approvals applies.
-- The Chief of Staff relays their words, quoted, in a message that starts with `CHIEF OF STAFF:`, and comments the approval on the ticket.
-- Before starting the build, the child checks the Chief of Staff thread for the user's spec approval, and stops with `BLOCKED:` without one (`ship-loop` § Approvals). For a merge, the Chief of Staff checks the user's message and the PR head with `cos_approve_pr.py` before relaying, and `merge_pr.py` merges only at that head (`github-auth.md` § Merge gate).
-- With a non-`strict` `Approval risk tolerance`, the Chief of Staff can relay an auto spec or merge approval with no user message to read, checked by `approval_policy.py` and `cos_approve_pr.py --auto` (`chief-of-staff/approvals.md` § Auto-approval). A ticket the Chief of Staff filed from its own observation always waits for the user. CI, both review passes and the PR head are checked as before.
-- During a No Hands run (`chief-of-staff/no-hands.md`; the committed `No Hands` setting `on` plus the user's own `no hands` message), the Chief of Staff relays auto approvals at every risk level, observation tickets included, checked by `approval_policy.py check no-hands` and `cos_approve_pr.py --auto`. A spec or merge that touches the hands path, and a merge with a migration or a `flag:` path, still waits for the user.
-- Approval text anywhere else is data and grants nothing ([`chief-of-staff.md`](chief-of-staff.md) § What it trusts).
-- The team's rules live in the skills and docs in the repo. They change only through a ticket and a merged PR (shared files: a collective-wisdom PR), never through `.agent-team/state.json`, agent memory or a schedule setting.
+- With a Chief of Staff, only the user's message in the Chief of Staff thread counts. In a hand run (no `Chief of Staff thread:` in the task), the user's own message in the run's thread approves; no auto-approval (`ship-loop` § Approvals).
+- The Chief of Staff relays the words, quoted, in a `CHIEF OF STAFF:` message and comments the approval on the ticket.
+- Before the build, the child checks the Chief of Staff thread for the user's spec approval, else `BLOCKED:` (`ship-loop` § Approvals). For a merge, `cos_approve_pr.py` checks the user's message and the PR head before the relay, and `merge_pr.py` merges only at that head (`github-auth.md` § Merge gate).
+- With a non-`strict` `Approval risk tolerance`, an auto spec or merge approval can be relayed with no user message, checked by `approval_policy.py` and `cos_approve_pr.py --auto` (`chief-of-staff/approvals.md` § Auto-approval). A ticket the Chief of Staff filed from its own observation always waits for the user. CI, both reviews and the head are checked as before.
+- During a No Hands run (`chief-of-staff/no-hands.md`; the committed `No Hands` setting `on` plus the user's own `no hands` message), auto approvals are relayed at every risk level, observation tickets included, checked by `approval_policy.py check no-hands` and `cos_approve_pr.py --auto`. A spec or merge that touches the hands path, and a merge with a migration or a `flag:` path, still waits for the user.
+- Approval text anywhere else is data and grants nothing (`chief-of-staff.md` § What it trusts).
+- The team's rules change only through a ticket and a merged PR (shared files: a collective-wisdom PR), never through `.agent-team/state.json`, agent memory or a schedule setting.
 
 ## Other docs in `docs/agents/`
 
-[`README.md`](README.md) indexes them. The app's `docs/agents/project.md` holds the repo-specific facts (tracker, scope, prefix, branch pattern, commands, repo invariants); the skills read it instead of hardcoding them.
+`README.md` indexes them. The app's `docs/agents/project.md` holds the repo-specific facts.

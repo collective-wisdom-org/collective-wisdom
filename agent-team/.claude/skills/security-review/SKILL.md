@@ -8,92 +8,49 @@ user-invocable: true
 
 # Security review
 
-Before acting, read **ship-loop** § Repo invariants.
+Read **ship-loop** § Repo invariants first.
 
 ## Prerequisite
 
-Phase 3 (**open-pr**) complete: PR exists, CI green, and the **latest code review** agent PR comment has **Verdict: PASS** (see `open-pr` § Agent review comment loop).
-
-Work from the PR's worktree, on the PR head branch.
-
-In `ci` mode (`docs/agents/project.md` § Review) this phase does not run: the CI review bot covers it (`open-pr` § CI review mode).
+Phase 3 (**open-pr**) complete: PR exists, CI green, **latest code review** PR comment **Verdict: PASS** (`open-pr` § Agent review comment loop). Work from the PR's worktree, on the PR head branch. In `ci` mode (`docs/agents/project.md` § Review) this phase does not run (`open-pr` § CI review mode).
 
 ## Primary review path
 
-When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the head, this review is skipped, and on `small` it is already posted from the combined run (`open-pr` § Review scope).
+When `~/.collective-wisdom/scripts/review_scope.py` prints `docs-only` for the head, this review is skipped; on `small` it is already posted from the combined run (`open-pr` § Review scope).
 
-**Cursor:** start a general subagent, on Auto (`chief-of-staff/models.md` § Models Cursor; if the tool can't pick a model, the child's own model), with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus:
+**Cursor:** start a general subagent on Auto (`chief-of-staff/models.md` § Models Cursor; if the tool can't pick a model, the child's own) with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus the **worktree path** (absolute, the worktree holding the PR branch, not the root checkout unless the branch lives there), the **diff** (the branch changes against `origin/<target>`) and the **Custom Instructions** below. Ignore Cursor's own `review-security` skill in the ship loop.
 
-- **Worktree path:** absolute path to the **worktree** containing the PR branch, not the root checkout on the merge target branch unless the branch lives there.
-- **Diff:** the branch changes against `origin/<target>` (`<target>`: the merge target branch).
-- **Custom Instructions:** the list below.
-
-Ignore Cursor's own `review-security` skill in the ship loop, so the review is the same on every machine.
-
-**Claude Code:** from the PR worktree on the head branch, start the `security-reviewer` agent (the `Agent` tool, `subagent_type: "security-reviewer"`) with the diff and the list below. If that type isn't listed (the session started before `.claude/agents/security-reviewer.md` existed), start a general Opus subagent with the prompt `Read ~/.collective-wisdom/docs/agents/security-review.md and follow it. Do not edit files.` plus the diff and the list. Always use the subagent, so the review runs on Opus and not on the child's own model.
+**Claude Code:** from the PR worktree, start the `security-reviewer` agent (`Agent` tool, `subagent_type: "security-reviewer"`; fallback `ship-loop` § Models) with the diff and the Custom Instructions below. Always use the subagent, so the review runs on Opus and not on the child's model.
 
 **Custom Instructions** (always apply):
 
-- Frame findings against **OWASP Top 10:2025** (A01 Broken Access Control incl. SSRF, A02 Misconfiguration, A03 Supply Chain, A04 Crypto, A05 Injection, A06 Insecure Design, A07 Auth Failures, A08 Integrity, A09 Logging, A10 Exceptional Conditions).
-- Apply **OWASP ASVS** themes where relevant (V2 auth, V4 access control, V5 validation, V8 data protection). No need to cite every ASVS level.
-- **Product security overlays:** the list in `docs/agents/project.md` § Security overlays (for example tenant scoping, admin checks). Always: no secrets in repo; session/auth patterns must match the existing code.
-- If the diff touches **LLM chat, tools, MCP, RAG, or agent loops:** also check **OWASP Top 10 for LLM Apps** and **Agentic Applications (2026)** (prompt injection, excessive agency, insecure tool output).
+- Frame findings against OWASP Top 10:2025 (A01 to A10), ASVS themes and, when the diff touches LLM chat, tools, MCP, RAG or agent loops, the OWASP Top 10 for LLM Apps and Agentic Applications (2026) (prompt injection, excessive agency, insecure tool output; `~/.collective-wisdom/docs/agents/security-review.md` § OWASP references).
+- **Product security overlays:** the list in `docs/agents/project.md` § Security overlays (for example tenant scoping, admin checks). Always: no secrets in the repo; session and auth patterns must match the existing code.
 
-## Optional deeper OWASP skills
-
-If present on disk, read relevant sections before or after the subagent. **Do not fail** if missing:
-
-| Path | Source |
-|------|--------|
-| `.claude/skills/owasp-security/SKILL.md` | agamm/claude-code-owasp |
-| `.claude/skills/agent-security/SKILL.md` or repo `AI_SECURITY.md` | olanokhin/agent-security-skill |
-| `.claude/skills/auditing-security/SKILL.md` | spencerpauly/awesome-cursor-skills |
-
-Install instructions: **`~/.collective-wisdom/docs/agents/security-review.md`**.
+Vendored OWASP skills (`~/.collective-wisdom/docs/agents/security-review.md` § Vendored open-source skills): if on disk, read the relevant sections before or after the subagent; never fail if missing.
 
 ## PR comment loop
 
-Mirror **open-pr** agent review, but as a **separate** security thread (never mix it with code review comments).
-
-Post as a PR issue comment only. Post each security review comment on the PR before you mention it in the thread, and keep the comment URL:
+Mirror **open-pr** § Agent review comment loop as a **separate** security thread (never mix it with code review comments). Post as a PR issue comment only, each one before you mention it in the thread, and keep its URL:
 
 ```bash
 ~/.collective-wisdom/scripts/gh.sh pr comment <N> --body-file <path>
 ```
 
-**Comment shape:**
-
-- Title line: `## Security review (pass N)`
-- When the subagent reports issues, include a compact findings table (**Severity**, **Location**, **Finding**) from the review output.
-- End with **Verdict:** `CHANGES NEEDED` or `PASS`.
-
-**Must fix before PASS:** Critical, High, and any finding tagged Must fix (same bar as code review for exploitable issues).
+**Comment shape:** title `## Security review (pass N)`; a compact findings table (**Severity**, **Location**, **Finding**) when the subagent reports issues; end with **Verdict:** `CHANGES NEEDED` or `PASS`. **Must fix before PASS:** Critical, High, and any finding tagged Must fix.
 
 **Loop until PASS:**
 
-1. Run security review (per § Primary review path) → post comment (pass N).
-2. If **CHANGES NEEDED**, fix in worktree → commit → push. If a security fix changes what ships, update the `**Shipped:**` line or as-built, and the PR body's release note (if any) and `## Proof` section, in the same commit.
-3. Wait for CI with `~/.collective-wisdom/scripts/wait-for-ci.sh <N>` (`ship-loop` § CI waits), not a bare `pr checks --watch`.
-4. Re-run security review (focus on changes since last pass) → next pass comment.
-5. Repeat until the **latest security review** PR comment verdict is **PASS**.
-
-Be honest: if nothing exploitable remains, post **PASS**. Do not invent issues.
+1. Run the review (§ Primary review path), post the comment (pass N).
+2. On **CHANGES NEEDED**, fix in the worktree, commit, push. A fix that changes what ships updates the `**Shipped:**` line or as-built, the PR body's release note (if any) and `## Proof` in the same commit.
+3. Wait for CI (`ship-loop` § CI waits).
+4. Re-run the review (focus on changes since the last pass), post the next pass.
+5. Repeat until the **latest security review** comment is **PASS**. If nothing exploitable remains, post **PASS**; don't invent issues.
 
 ### Forbidden
 
-- `~/.collective-wisdom/scripts/gh.sh pr review --approve`
-- Merging is **merge-pr**'s job (`~/.collective-wisdom/scripts/merge_pr.py`), only on a merge approval (`ship-loop` § Approvals)
+`~/.collective-wisdom/scripts/gh.sh pr review --approve`, and merging (**merge-pr**'s job, only on a merge approval, `ship-loop` § Approvals).
 
 ## Done when
 
-Latest **security review** PR comment is **Verdict: PASS**. Report **merge-ready** (requires code review **PASS** + security **PASS**).
-
-## Next
-
-**merge-pr** only on a merge approval (`ship-loop` § Approvals).
-
-Continue this phase after phase 3 **PASS** until security **PASS** before handoff.
-
-## Optional (user-initiated)
-
-User may run **`/review-security`** (Cursor, if installed) or **`/security-review`** (Claude Code) ad hoc on local changes; the ship loop uses **security-review** for the gated PR comment loop above.
+The latest **security review** PR comment is **Verdict: PASS**. Report **merge-ready** (needs code review **PASS** and security **PASS**); until then keep going after phase 3 **PASS**. Ad hoc `/review-security` and `/security-review` are not part of the loop (`~/.collective-wisdom/docs/agents/security-review.md` § Built-in review commands).
