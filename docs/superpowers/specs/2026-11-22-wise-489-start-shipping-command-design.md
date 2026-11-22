@@ -1,7 +1,8 @@
 # WISE-489: Make the Start shipping button send "start shipping N"
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#489](https://github.com/collective-wisdom-org/collective-wisdom/issues/489)
+**Shipped:** in PR #490, as specified
 
 ## Goal
 
