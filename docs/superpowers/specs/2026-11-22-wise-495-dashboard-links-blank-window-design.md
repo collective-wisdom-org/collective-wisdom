@@ -2,6 +2,7 @@
 
 **Status:** Draft
 **Ticket:** [#495](https://github.com/collective-wisdom-org/collective-wisdom/issues/495)
+**Shipped:** in PR #498, with differences: [as-built](../as-built/2026-11-22-wise-495-dashboard-links-blank-window.md)
 
 ## Goal
 
