@@ -5,7 +5,7 @@
 
 ## Goal
 
-Cut the agent text that grew back since CW-197, across every file `compact_check.py` counts, with no change in behaviour. Four ways: say each rule once and point to its owner, keep a script's flags, lines and exit codes in its docstring only, move rarely read sections to reference files, and give the model a script where it follows fixed steps to a fixed answer. Scripts read and print. T3 calls and tracker writes stay with the model.
+Cut the agent text across every file `compact_check.py` counts by at least a third, with no change in behaviour. Six ways: rewrite every file from scratch in a terse rule style, say each rule once and point to its owner, keep a script's flags, lines and exit codes in its docstring only, move rarely read sections to reference files, give the model a script where it follows fixed steps to a fixed answer, and have scripts print the step to take on each line they output, so that text loads only when the line comes up. Scripts read and print. T3 calls and tracker writes stay with the model.
 
 ## Today
 
@@ -36,8 +36,29 @@ Measured 2026-11-22 on `main` at `72f5538c`, in characters (the `compact_check.p
 
 Two surveys of the files (one over the Chief of Staff files, one over the rest) found about 20k characters of fixed steps a script can take, 18k of script docs restated in prose, 15k of rules stated in more than one place, and 16k of sections read only on a rare path.
 
+## How far it can go
+
+The user asked whether half, a third or two thirds is feasible. To find out, a trial rewrite compressed four files, keeping every rule, gate, command, exit-code action, pointed-to heading and verbatim template, and audited each rule line by line afterwards. `test_section_pointers.py` passed on the result.
+
+| File | Before | After | Cut |
+|---|---|---|---|
+| `merge-pr/SKILL.md` | 8222 | 5886 | 28% |
+| `chief-of-staff/sweep.md` | 10626 | 7061 | 34% |
+| `docs/agents/org-chart.md` | 13221 | 12033 | 9% |
+| `ship-loop/SKILL.md` | 22871 | 16915 | 26% |
+| All four | 54940 | 41895 | 24% |
+
+The cut was about 45% wordiness, 25% restated script docs, 15% rationale and 15% duplicates of other files. The floor is rule density: exact strings the agents emit or match (relays, `BLOCKED:` texts, report lines, templates; inline code alone is about 20% of what is left), long conditional chains where each clause is a gate, full script paths that `test_call_sites.py` requires, and the org-chart diagrams.
+
+- **Two thirds: not feasible.** The rules and verbatim strings alone are more than a third of the text.
+- **Half: not feasible without dropping rules,** or without moving most of the instructions into Python strings that print at run time, which hides the rules from review. This spec doesn't do either.
+- **A third: feasible,** as the target. Rewriting alone gives about 20%. The scripts in § 1 and the printed steps in § 6 take a further 10 to 15%, because the text they replace stops counting.
+
 ## Design
 
+### 0. Rewrite every file
+
+Every counted file is rewritten whole, biggest first, not just trimmed: terse imperative bullets and tables, no rationale where a rule stands alone, no example that repeats a template, one sentence where there were two. Rationale stays only where the model needs it to judge an edge case (for example why the merge lane is one). Frontmatter `description` lines, headings that other files or scripts name, and verbatim templates don't change. Each file's rewrite is audited rule by rule against the original before the next file (§ Nothing lost).
 ### 1. Fixed steps into scripts
 
 Each item below prints an answer the model works out by hand today. The prose becomes "run it, act on its line"; what to do on each line stays in the skill, and what each line means goes in the script's docstring.
@@ -106,34 +127,31 @@ The child task templates (readiness.md, continuation.md, ticket-helper.md) stay 
 
 A section whose heading a script prints (`cos_tick.py`'s `follow <file> § <section>` lines and the others `test_section_pointers.py` checks) is not renamed or moved. Every pointer to a moved section is updated in the same commit, and § When to read a reference file gets a row per new file.
 
+### 6. Scripts print the step to take
+
+Where a skill holds a table of a script's output lines and the action for each, and the action is a fixed instruction, the script prints it after the line as `next: <instruction>` when called with a new `--next` flag, and the table goes. Without the flag the output is what it is today, so existing callers and tests see no change. The skill keeps one sentence: run it with `--next`, do what its `next:` line says. This applies only to fixed actions: `next:` never asks the model to skip a gate, and a line whose action needs judgement keeps its row in the skill. Candidates:
+
+- `cos_tick.py` plan lines: the § Tick table in `chief-of-staff/SKILL.md` (about 5000 characters).
+- `cos_restart.py`, `cos_route.py`, `cos_head_check.py`, `cos_sweep.py`, `cos_merge_wait.py`, `cos_run_wait.py`: the action bullets in SKILL.md § Child path, send-or-queue.md and sweep.md.
+- `review_gate.py`, `review_scope.py`, `wait-for-ci.sh` (with `--attempt <n>` and `--conflicts <n>` flags for the retry and conflict counts, which the caller passes): ship-loop § CI waits and phase 4, open-pr § Review scope.
+- `no_hands.py check`, `cos_rotation_check.py`, `merge_pr.py`: no-hands.md, rotation.md, merge-pr.
+- The untracked-ticket filter and the background-wait retry procedure, written out twice in sweep.md and once in ship-loop: one helper line each.
+
+The `next:` texts sit in one table per script, next to the code that prints the line, and each script's test checks that every output line has its `next:` text. A reviewer reads the rules there, in one place.
+
 ### Size targets
 
-Smaller by at least, in characters, measured after the build:
+Measured after the build, in characters:
 
-| File | Target |
+| Files | Smaller by at least |
 |---|---|
-| `chief-of-staff/SKILL.md` | 6000 |
-| `ship-loop/SKILL.md` | 6000 |
-| `open-pr/SKILL.md` | 6000 |
-| `chief-of-staff/approvals.md` | 4000 |
-| `project-manager/SKILL.md` | 2500 |
-| `chief-of-staff/rotation.md` | 2500 |
-| `chief-of-staff/commands.md` | 2500 |
-| `chief-of-staff/send-or-queue.md` | 2500 |
-| `chief-of-staff/status.md` | 2500 |
-| `docs/agents/github-auth.md` | 2500 |
-| `chief-of-staff/state-keys.md` | 2000 |
-| `chief-of-staff/report-format.md` | 2000 |
-| `docs/agents/org-chart.md` | 2000 |
-| `docs/agents/trackers/github.md` | 1500 |
-| `chief-of-staff/sweep.md` | 1500 |
-| `merge-pr/SKILL.md` | 1500 |
-| `project-manager/reference.md` | 1500 (after taking in the moved sections) |
-| `chief-of-staff/session.md` | 1500 |
-| `chief-of-staff/setup.md`, `no-hands.md` | 1000 each |
-| Total of the counted files | 30000 (387141 to 357141 or less) |
+| Total of the counted files | a third: 387141 to 258094 or less |
+| Each file over 5000 characters, except below | 35% |
+| `chief-of-staff/SKILL.md`, `ship-loop/SKILL.md`, `open-pr/SKILL.md`, `chief-of-staff/approvals.md`, `chief-of-staff/send-or-queue.md`, `chief-of-staff/status.md`, `chief-of-staff/sweep.md`, `chief-of-staff/no-hands.md`, `chief-of-staff/rotation.md` (the files § 1 and § 6 take text from) | 45% |
+| `docs/agents/org-chart.md`, `docs/agents/trackers/*.md`, `chief-of-staff/setup.md` (diagrams, call tables, setup questions) | 15% |
+| Each file under 5000 characters | 20% |
 
-The total is below the sum of the file targets because moved text still counts in the total. The PR body lists before, after and delta for every touched file, the total, whether each target was met, and why for any miss.
+New reference files count in the total, and a source file's cut counts the text it moved out. The PR body lists before, after and delta for every touched file, the total, whether each target was met, and why for any miss.
 
 ### Nothing lost
 
@@ -141,28 +159,32 @@ Before the first cut, the build writes an inventory into the as-built: every app
 
 ### Tests
 
-One table-driven test per new or extended script, on fixture input, per `AGENTS.md` § Testing, each in a new test file so no existing test is edited: `test_cos_state_title.py` (S1, S2), `test_cos_brief_lines.py` (S3), `test_approval_policy_paths.py` (S4), `test_no_hands_action.py` (S5), `test_cos_tick_report.py` (S6), `test_review_gate_lines.py` (S7), `test_review_scope_skip.py` (S8), `test_cos_route_relay.py` (S9), `test_cos_status.py` (S10), `test_cos_rank_count.py` (S11), `test_pm_hygiene_report.py` (S12). Each row compares the script's output with the text the old prose gives for the same input. `test_section_pointers.py`, `test_call_sites.py` and `test_agent_files.py` must still pass.
+Each script that gains `next:` lines gets a test that every output line it can print has its `next:` text. One table-driven test per new or extended script, on fixture input, per `AGENTS.md` § Testing, each in a new test file so no existing test is edited: `test_cos_state_title.py` (S1, S2), `test_cos_brief_lines.py` (S3), `test_approval_policy_paths.py` (S4), `test_no_hands_action.py` (S5), `test_cos_tick_report.py` (S6), `test_review_gate_lines.py` (S7), `test_review_scope_skip.py` (S8), `test_cos_route_relay.py` (S9), `test_cos_status.py` (S10), `test_cos_rank_count.py` (S11), `test_pm_hygiene_report.py` (S12). Each row compares the script's output with the text the old prose gives for the same input. `test_section_pointers.py`, `test_call_sites.py` and `test_agent_files.py` must still pass.
 
 ## Leaves out
 
 - Any change to a rule, gate, lane limit, model default or command.
 - The vendored `agent-security` and `owasp-security` skills.
+- Half or two thirds (§ How far it can go).
+- Instructions as Python strings beyond the fixed `next:` steps of § 6.
 - A size check that fails CI on growth.
 - The child task templates: they stay whole (above).
 - These candidates, left in prose:
   - The `cos_user_check.py` call per command (strict or whole message, `--after`): it is the user check itself, and moving the choice into the script changes how an approval-path script is called.
   - The setup questions and the `user.md` figure parsing (setup.md, startup.md § User settings check): read once per repo, so a script saves little load.
   - The take-over reset-message search and the gantt version line (rotation.md): they read T3's store in ways the scripts don't today, and they run once per rotation.
-  - The `wait-for-ci.sh` retry and conflict counts (ship-loop § CI waits): the counts span tool calls in one run, which the script can't see without a state file.
   - The risk level itself: "mostly docs" and "anything else you know touches them" are judgement. S3 gives only the file count.
   - Reading a child's last message, the readiness check, the approval block bullets and the Moving and Cleanup wording.
 
 ## Calls I made
 
-- **Twelve script changes, one of them a new script (`cos_status.py`); the rest add a subcommand or output lines to an existing one.** I took every survey candidate with a fixed answer that runs on most turns or on every approval, and left the rare or judgement ones in prose with the reasons above.
-- **Extended scripts on the hands path** (`approval_policy.py`, `review_gate.py`, `cos_route.py`, `cos_state.py`, `no_hands.py`, `cos_brief.py`) only add output lines or subcommands. No existing line, exit code or decision changes, and their existing tests are not edited.
+- **Twelve script changes in § 1, plus `--next` on about fifteen scripts in § 6. One new script (`cos_status.py`); the rest add a subcommand, flag or output line to an existing one.** I took every survey candidate with a fixed answer that runs on most turns or on every approval, and left the rare or judgement ones in prose with the reasons above.
+- **Extended scripts on the hands path** (`approval_policy.py`, `review_gate.py`, `cos_route.py`, `cos_state.py`, `no_hands.py`, `cos_brief.py`, `cos_tick.py`, `cos_restart.py`, `cos_head_check.py`, `merge_pr.py` and the others in § 6) only add subcommands, flags or output lines behind a new flag. No existing line, exit code or decision changes, and their existing tests are not edited.
 - **New test files, not new rows in old ones,** so "no existing test is edited" is checkable from the diff.
-- **A 30000 character total target** (about 8%), twice CW-197's, because this pass covers every file and moves three large blocks of restated script docs.
+- ⚠ **Scripts print their own next step (§ 6).** It is the biggest lever after the rewrite, and the instructions move from markdown into a table in each script. They load only when their line prints, but a reviewer reads them in Python, not in the skill.
+- **A third, not half,** from the trial rewrite of four files (24% with every rule kept). Half would mean dropping rules or hiding most instructions in code.
+- **Every file is rewritten whole,** biggest first, not trimmed section by section, with a rule-by-rule audit per file.
+- **`wait-for-ci.sh` takes the retry and conflict counts as flags** from the caller, so it can print the next step without a state file.
 - **Moves keep headings that scripts print,** even where a section would read better elsewhere, so `cos_tick.py` and `test_section_pointers.py` need no change for a move.
 - **New reference files** (`stuck.md`, `rotation-edge.md`, `models-notes.md`, `open-pr/reference.md`, `github-auth-setup.md` and the tracker ones) instead of growing the existing ones, each read only on its own trigger.
 - **The inventory lives in the as-built and the PR body,** not in a test: a test over prose would only restate it.
@@ -175,6 +197,6 @@ None of data, money, auth, user email or migrations. It changes files on the han
 ## Verify
 
 - `python3 -I -m pytest -q agent-team/scripts` and `shellcheck install.sh tag-release.sh agent-team/scripts/*.sh` pass.
-- `compact_check.py` shows the total at 357141 or less, and the PR size table meets each target or says why not.
+- `compact_check.py` shows the total at 258094 or less, and the PR size table meets each target or says why not.
 - Each new script line, run against a copy of a real state file or PR, prints what the old prose gives for the same input.
 - The inventory before and after match.
