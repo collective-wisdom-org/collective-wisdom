@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, marksColumn, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, marksColumn, foreign, tabFromStorage, bannerShown, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -1000,8 +1000,8 @@ test('promptLink turns a dashboard thread link into a T3 prompt link and refuses
 test('each Backlog card has a Start shipping control after the switch and before the meta line, a link to the Chief of Staff thread or a copy button; no other tab has one', () => {
   const link = '<t3-thread://v2/e/t>'
   const cases = [
-    ['WISE-419', 'mark 419 todo'],
-    ['CW-7', 'mark 7 todo'],
+    ['WISE-419', 'start shipping 419'],
+    ['CW-7', 'start shipping 7'],
     ['helper:x', null],
   ]
   for (const [id, cmd] of cases) {
@@ -1047,7 +1047,7 @@ test('pressMessage: one line per reason for each control, none when sent or a re
 })
 
 test('pressAction names the control from the command', () => {
-  for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Start shipping']]) assert.equal(pressAction(command), want, command)
+  for (const [command, want] of [['approve 402', 'Approve'], ['start shipping 419', 'Start shipping']]) assert.equal(pressAction(command), want, command)
 })
 
 test('no markup the page builds carries a native title attribute', () => {
@@ -1066,4 +1066,15 @@ test('no markup the page builds carries a native title attribute', () => {
     assert.ok(html.includes('data-tip="'))
     assert.doesNotMatch(html, / title="/)
   }
+})
+
+test('the red banner shows only for text that is not the dismissed text', () => {
+  const cases = [
+    ['', '', false],
+    ['', 'old', false],
+    ['Tracker down', '', true],
+    ['Tracker down', 'Tracker down', false],
+    ['Tracker down. Restart failed', 'Tracker down', true],
+  ]
+  for (const [text, dismissed, shown] of cases) assert.equal(bannerShown(text, dismissed), shown, `${text} / ${dismissed}`)
 })

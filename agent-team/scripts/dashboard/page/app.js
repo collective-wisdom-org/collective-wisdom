@@ -361,9 +361,9 @@ const PRESS_MESSAGES = {
   busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
 
-/** The name of the control that sent `command` (the `data-return` value): `Start shipping` for `mark N todo`, else `Approve`. */
+/** The name of the control that sent `command` (the `data-return` value): `Start shipping` for `start shipping N`, else `Approve`. */
 export function pressAction(command) {
-  return String(command).startsWith('mark ') ? 'Start shipping' : 'Approve'
+  return String(command).startsWith('start shipping ') ? 'Start shipping' : 'Approve'
 }
 
 /** The line for the error area after Approve or Start shipping asked the server to press Return: empty when it was sent, or when a second click on the same command came inside the wait (`repeat`), else the reason in words, starting with `action`. `answer` is the server's JSON, or null when the request failed. */
@@ -373,10 +373,10 @@ export function pressMessage(answer, repeat = false, action = 'Approve') {
   return line ? line(action) : `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.`
 }
 
-/** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */
+/** `start shipping 419` for a Backlog ticket; null for an id with no trailing number. */
 export function todoCommand(r) {
   const n = /-(\d+)$/.exec(String(r?.id))?.[1]
-  return n ? `mark ${n} todo` : null
+  return n ? `start shipping ${n}` : null
 }
 
 /** The Start shipping control: a link that opens the Chief of Staff thread with the command typed in, or, with no usable thread link, a button that copies it; empty with no ticket number. */
@@ -559,6 +559,9 @@ export function renderChief(api, page = 0, open = new Set(), size = 10, collapse
   const key = bandKey('pm')
   return { html: `${card}<details class="band band-pm" data-band="${key}"${collapsed.has(key) ? '' : ' open'}><summary class="band-head"><h2>Project manager</h2></summary>${pm.html}</details>`, page: pm.page }
 }
+
+/** Whether the red banner shows: only for non-empty text that is not the text the user last dismissed. */
+export const bannerShown = (text, dismissed) => text !== '' && text !== dismissed
 
 /** The tab to open from the saved value: `cos`, `done` or `backlog`, else `ship` for anything unknown or missing. */
 export const tabFromStorage = (value) => (value === 'cos' || value === 'done' || value === 'backlog' ? value : 'ship')
@@ -985,6 +988,7 @@ if (typeof document !== 'undefined') {
       tab.tabIndex = on ? 0 : -1
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !on
       if (on && focus) tab.focus()
+      else if (on) tab.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
     }
     if (!save) return
     try {
@@ -1035,8 +1039,20 @@ if (typeof document !== 'undefined') {
   const seen = versionWatch()
   // The press message for Approve or Start shipping stays in the error line until the next press or a reload.
   let pressNote = ''
+  // The red banner has one writer. The x remembers the text it hid; any other text shows the banner again.
+  let dismissed = ''
+  let banner = ''
+  const setBanner = (text) => {
+    banner = text
+    document.getElementById('error-text').textContent = text
+    document.getElementById('error').hidden = !bannerShown(text, dismissed)
+  }
+  document.getElementById('error-dismiss').addEventListener('click', () => {
+    dismissed = banner
+    document.getElementById('error').hidden = true
+  })
   const showError = () => {
-    document.getElementById('error').textContent = [last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' ')
+    setBanner([last?.restartError, last?.trackerError, pressNote].filter(Boolean).join(' '))
   }
   let pressedCommand = null
   const pressReturn = async (command) => {
@@ -1052,7 +1068,6 @@ if (typeof document !== 'undefined') {
     showError()
   }
   const poll = async () => {
-    const err = document.getElementById('error')
     try {
       const res = await fetch(`/api?mergedPage=${mergedPage}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -1070,7 +1085,7 @@ if (typeof document !== 'undefined') {
       drawCos()
       drawTabCounts()
     } catch (e) {
-      err.textContent = `Could not refresh: ${e.message}`
+      setBanner(`Could not refresh: ${e.message}`)
     }
   }
   // Opens or closes one segment's panel in place and closes the row's other one, so nothing is rebuilt.

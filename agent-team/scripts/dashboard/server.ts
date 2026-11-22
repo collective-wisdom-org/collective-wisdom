@@ -336,9 +336,9 @@ function readBody(req: IncomingMessage): Promise<string | null> {
   })
 }
 
-const PRESS_COMMAND = /^(approve \d{1,7}|mark \d{1,7} todo)$/
+const PRESS_COMMAND = /^(approve \d{1,7}|start shipping \d{1,7})$/
 
-/** The command in a press body (`{"command": "approve 402"}`), or `null` unless it is exactly `approve N` or `mark N todo`. */
+/** The command in a press body (`{"command": "approve 402"}`), or `null` unless it is exactly `approve N` or `start shipping N`. */
 export function pressCommand(body: string | null): string | null {
   try {
     const command = (JSON.parse(body ?? '') as { command?: unknown } | null)?.command

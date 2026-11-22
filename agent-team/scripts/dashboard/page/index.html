@@ -45,8 +45,11 @@ summary.band-head > h2::after { content:""; display:inline-block; width:.4em; he
 details[open] > summary.band-head > h2::after { transform:rotate(45deg); vertical-align:.12em; }
 a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
 .quiet { color:var(--muted); margin:0; }
-#error { margin:0 0 var(--s4); padding:var(--s3) var(--s4); border-radius:10px; background:var(--red-tint); color:var(--red); font-size:var(--t-small); }
-#error:empty { display:none; }
+#error { display:flex; align-items:flex-start; gap:var(--s3); margin:0 0 var(--s4); padding:var(--s3) var(--s4); border-radius:10px; background:var(--red-tint); color:var(--red); font-size:var(--t-small); }
+#error[hidden] { display:none; }
+#error-text { flex:1; margin:0; }
+#error button.copy-icon { color:var(--red); opacity:.7; margin:-.2rem -.5rem 0 0; }
+#error button.copy-icon:hover { color:var(--red); opacity:1; }
 .pill { display:inline-block; min-width:1.6em; padding:0 .5em; border-radius:999px; background:var(--soft); color:var(--muted); font-size:var(--t-small); font-weight:500; text-align:center; vertical-align:.05em; }
 .needs-merge > summary h3 .pill, .needs-build > summary h3 .pill { background:var(--attn-tint); color:var(--attn); }
 ul { list-style:none; margin:0; padding:0; }
@@ -112,10 +115,11 @@ button.copy-icon.with-thread { width:auto; gap:2px; padding:0 .25rem; }
 button.copy-icon:hover:not(:disabled) { background:none; color:var(--fg); }
 button.copy-icon[data-state="copied"] { color:var(--green); }
 button.copy-icon[data-state="failed"] { color:var(--red); }
-.tabs { display:inline-flex; gap:2px; margin:0 0 var(--s6); padding:3px; background:var(--soft); border-radius:10px; }
+.tabs { display:inline-flex; max-width:100%; overflow-x:auto; gap:2px; margin:0 0 var(--s6); padding:3px; background:var(--soft); border-radius:10px; }
 .tabs .pill { background:var(--line); margin-left:var(--s1); }
 .tabs .pill:empty { display:none; }
-.tabs button { height:2rem; padding:0 var(--s4); border:0; border-radius:8px; color:var(--muted); font-size:var(--t-small); font-weight:500; }
+.tabs button { flex:none; white-space:nowrap; height:2rem; padding:0 var(--s4); border:0; border-radius:8px; color:var(--muted); font-size:var(--t-small); font-weight:500; }
+.tabs button:focus-visible { outline-offset:-2px; }
 .tabs button:hover:not(:disabled) { background:transparent; color:var(--fg); }
 .tabs button[aria-selected="true"], .tabs button[aria-selected="true"]:hover:not(:disabled) { background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 2px var(--shadow); }
 .cos-card { display:flex; flex-direction:column; gap:var(--s2); background:var(--card); border-radius:12px; padding:var(--s4); box-shadow:0 0 0 1px var(--edge), 0 1px 2px var(--shadow); }
@@ -201,7 +205,10 @@ details.group.stale ul a.todo, li.ticket.stale a.todo { color:var(--on-accent); 
 <h1>Agent team</h1>
 <div id="cta" aria-live="polite"></div>
 </header>
-<p id="error" role="status"></p>
+<div id="error" hidden>
+<p id="error-text" role="status"></p>
+<button type="button" id="error-dismiss" class="copy-icon" aria-label="Dismiss" data-tip="Dismiss"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+</div>
 <div class="tabs" role="tablist" aria-label="Dashboard">
 <button type="button" role="tab" id="tab-ship" data-tab="ship" aria-selected="true" aria-controls="panel-ship" tabindex="0">Ship loop <span class="pill tab-count" data-count="ship" aria-hidden="true"></span></button>
 <button type="button" role="tab" id="tab-backlog" data-tab="backlog" aria-selected="false" aria-controls="panel-backlog" tabindex="-1">Backlog <span class="pill tab-count" data-count="backlog" aria-hidden="true"></span></button>
