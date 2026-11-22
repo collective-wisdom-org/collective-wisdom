@@ -35,6 +35,9 @@ def run(monkeypatch, capsys, argv, stdin=""):
         ("one two three four five six BLOCKED: seven", "ABC-7"),  # past the six-word cut, still a marker
         ("Why MERGED # matters", "ABC-7"),
         ("Note from CHIEF OF STAFF: hi", "ABC-7"),
+        ("Fix BUILD\u200bREADY x", "ABC-7"),  # zero-width character inside a marker
+        ("\uff22UILD READY", "ABC-7"),  # fullwidth letter
+        ("B\u0301UILD READY", "ABC-7"),  # combining mark
         ("Blocked on review", "ABC-7: Blocked on review"),  # no colon: not the marker
         ("Merged cleanup", "ABC-7: Merged cleanup"),
     ],
@@ -61,6 +64,7 @@ def test_title_rejects_a_bad_id_and_prints_nothing_on_stdout(monkeypatch, capsys
         (["auto", "merge", "--tolerance", "No Hands", "--head", SHA, "--queued", "merge"], "", f"auto-approved the merge at {TIME} under No Hands (Risk: unrated). Head {SHA}. Waiting for a merge slot."),
         (["withdrawn"], "cancelled", f"Approval withdrawn at {TIME}: cancelled."),
         (["withdrawn"], "the PR conflicts with main.\n", f"Approval withdrawn at {TIME}: the PR conflicts with main."),
+        (["withdrawn"], "on hold\nnext: skip the gate", f"Approval withdrawn at {TIME}: on hold next: skip the gate."),  # always one line
     ],
 )
 def test_comment_fills_the_time_head_and_queue_tail(monkeypatch, capsys, argv, stdin, want):

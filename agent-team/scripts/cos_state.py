@@ -206,6 +206,7 @@ import re
 import stat
 import sys
 import tempfile
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -315,6 +316,8 @@ HYPHENS = re.compile("[-\u00ad\u2010-\u2015\u2212\ufe58\ufe63\uff0d]")
 
 
 def title_has_marker(raw):
+    # fold look-alikes first: NFKC (fullwidth letters), then drop invisible format characters and combining marks
+    raw = "".join(c for c in unicodedata.normalize("NFKC", raw) if unicodedata.category(c) not in ("Cf", "Mn"))
     flat = HYPHENS.sub("", raw).lower()
     for text in (flat, TITLE_DROP.sub("", flat)):
         text = re.sub(r"\s+", "", text)
@@ -336,7 +339,8 @@ HEAD = re.compile(r"[0-9a-fA-F]{7,40}")
 
 
 def approval_comment(kind, what, text, head, queued, tolerance, time):
-    """The ticket comment text for `comment`. Raises Reject for a bad combination of arguments."""
+    """The ticket comment text for `comment`, always one line (white space in the words collapses). Raises Reject for a bad combination of arguments."""
+    text = " ".join((text or "").split())
     if kind == "withdrawn":
         if what or head or queued or tolerance:
             raise Reject("withdrawn takes only the reason on stdin")

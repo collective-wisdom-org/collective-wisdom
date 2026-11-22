@@ -529,7 +529,7 @@ def finished_filling(line, state):
         return "Filling stopped: no ready ticket in the Backlog."
     names = []
     for e in held[:3]:
-        reason = str(e["readiness"]).removeprefix("held: ")
+        reason = " ".join("".join(c if c.isprintable() else " " for c in str(e["readiness"]).removeprefix("held: ")).split())
         pr = re.search(r"PR #(\d+)", reason)
         names.append(f"{cos_state.display_title(str(e.get('id')), str(e.get('title')))} waits on {f'PR #{pr.group(1)}' if pr else reason}")
     return "Filling stopped: Backlog held. " + "; ".join(names) + "."
