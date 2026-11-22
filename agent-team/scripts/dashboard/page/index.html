@@ -115,10 +115,11 @@ button.copy-icon.with-thread { width:auto; gap:2px; padding:0 .25rem; }
 button.copy-icon:hover:not(:disabled) { background:none; color:var(--fg); }
 button.copy-icon[data-state="copied"] { color:var(--green); }
 button.copy-icon[data-state="failed"] { color:var(--red); }
-.tabs { display:inline-flex; gap:2px; margin:0 0 var(--s6); padding:3px; background:var(--soft); border-radius:10px; }
+.tabs { display:inline-flex; max-width:100%; overflow-x:auto; gap:2px; margin:0 0 var(--s6); padding:3px; background:var(--soft); border-radius:10px; }
 .tabs .pill { background:var(--line); margin-left:var(--s1); }
 .tabs .pill:empty { display:none; }
-.tabs button { height:2rem; padding:0 var(--s4); border:0; border-radius:8px; color:var(--muted); font-size:var(--t-small); font-weight:500; }
+.tabs button { flex:none; white-space:nowrap; height:2rem; padding:0 var(--s4); border:0; border-radius:8px; color:var(--muted); font-size:var(--t-small); font-weight:500; }
+.tabs button:focus-visible { outline-offset:-2px; }
 .tabs button:hover:not(:disabled) { background:transparent; color:var(--fg); }
 .tabs button[aria-selected="true"], .tabs button[aria-selected="true"]:hover:not(:disabled) { background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 2px var(--shadow); }
 .cos-card { display:flex; flex-direction:column; gap:var(--s2); background:var(--card); border-radius:12px; padding:var(--s4); box-shadow:0 0 0 1px var(--edge), 0 1px 2px var(--shadow); }
