@@ -2,7 +2,7 @@
 """Wait for a ticket's PR to merge or close, or for the ticket to leave the merge stage (the Chief of Staff's "Merge wait").
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_merge_wait.py <PREFIX>-N [--file STATE] [--every SECONDS] [--for SECONDS]
+    ~/.collective-wisdom/scripts/cos_merge_wait.py <PREFIX>-N [--file STATE] [--every SECONDS] [--for SECONDS] [--next]
 
 Read only: writes no state, sends nothing. Each round (default every 30 seconds, for 30 minutes) it reads the ticket from
 .agent-team/state.json (under the repo root unless --file is given) through cos_state.load and, while the ticket is in
@@ -15,11 +15,15 @@ The last line printed and the exit code:
     merge-wait: cannot <what>              (exit 2) a bad ticket id, no such ticket at the start, no integer pr,
                                            unreadable state, or 5 GitHub reads in a row that failed or gave bad JSON
 The sweep's merged check (cos_merged_check.py --apply) stays the only writer of the `merged` op.
+--next (without it the output is the last line alone): print `next: <instruction>` after it, from the table NEXT below, for every line it can
+print. After `merged`, `closed` and `still open` the text names the tick to run, with the child's thread id read from state when the ticket is
+still there (`<childThreadId>` otherwise).
 """
 
 import argparse
 import io
 import json
+import re
 import subprocess
 import sys
 import time
@@ -102,6 +106,37 @@ def wait(tid, read, every, limit, gh=run_gh, clock=time.monotonic, sleep=time.sl
         sleep(every)
 
 
+# --next: what to do when the wait ends, by the line's last words. Two waits on one ticket are harmless: both only read.
+TICK = (
+    "run the tick with `python3 ~/.collective-wisdom/scripts/cos_tick.py --thread <this thread's id> --trigger 'notice:{child}' --next`: the same "
+    "plan as the finish notice that never came (child read, idle check, sweep with the merged check, slot fill)"
+)
+NEXT = {
+    "merged": "The PR merged: " + TICK + ".",
+    "closed": "The PR was closed: " + TICK + ".",
+    "still open": "The time ran out: " + TICK + " once, and start no new wait.",
+    "left merge": "Nothing: no tick, no message.",
+    "cannot": "One Cleanup line in the next report, `Merge wait for <PREFIX>-N: <short title>, <its line>`, and nothing else.",
+}
+
+
+def next_for(line, child):
+    """The `next:` text for the wait's last line."""
+    if line.startswith("merge-wait: cannot"):
+        return NEXT["cannot"]
+    key = "left merge" if line.endswith(" left merge") else "still open" if " still open after " in line else line.rsplit(" ", 1)[1]
+    return NEXT[key].format(child=child)
+
+
+def child_of(path, tid):
+    """The ticket's childThreadId from state, or `<childThreadId>` when it is gone or unreadable (or holds characters a command line can't carry)."""
+    try:
+        child = (load_ticket(path, tid) or {}).get("childThreadId")
+    except Cannot:
+        child = None
+    return child if isinstance(child, str) and re.fullmatch(r"[A-Za-z0-9._:%@][A-Za-z0-9._:%@-]*", child) else "<childThreadId>"
+
+
 def positive(s):
     if not s.isdigit() or int(s) < 1:
         raise argparse.ArgumentTypeError(f"bad number of seconds {s!r}")
@@ -120,6 +155,7 @@ def main(argv=None):
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("--every", type=positive, default=30)
     ap.add_argument("--for", dest="limit", type=positive, default=1800)
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     try:
         if not cos_state.ID.fullmatch(args.ticket):
@@ -128,6 +164,8 @@ def main(argv=None):
     except Cannot as e:
         line, code = f"merge-wait: cannot {e}", 2
     print(line)
+    if args.nxt:
+        print(f"next: {next_for(line, child_of(args.file, args.ticket))}")
     return code
 
 

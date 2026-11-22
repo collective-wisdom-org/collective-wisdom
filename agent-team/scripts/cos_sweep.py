@@ -3,7 +3,7 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_sweep.py --thread ID [--file STATE] [--merged-prs FILE] [--open-prs FILE] [--refs FILE] [--review-prs FILE]
-                            [--issues FILE] [--login LOGIN] [--verbose]
+                            [--issues FILE] [--login LOGIN] [--verbose] [--next]
 
 --thread is this thread's own ID, as for cos_parent_check.py. Runs, in one process:
     1. the merged check with --apply (writes a merged op for each merged PR),
@@ -28,6 +28,12 @@ The `; untracked:` list shows only when the untracked check found something. The
 Exit 0 when nothing is listed, merged, untracked or to act on in review, 1 when something is, 2 when any part didn't run.
 --merged-prs, --open-prs, --refs, --review-prs and --issues read the parts' GitHub data from files (tests do).
 --login stands in for the untracked check's `gh api user` call.
+--next (without it the output is exactly the lines above): after each line the Chief of Staff acts on (the ACTION words above, per part) and
+after the last line, print `next: <instruction>` from the table NEXT below. The `unreadable` line means one thing from the merged check and
+another from the review check, so the table is keyed by part and word. The last line's `next:` covers the full reads, the report wording and the
+slot reason, and, for each part named after `didn't run:`, the fallback and the Cleanup line. Lines --verbose adds (`ok`, `idle`, `building`,
+`no-pr`, `writing`, `waiting`, the ready check's `unreadable`, each part's summary) and a failing part's own `cos_<name>: <what>` line have no `next:`
+text: they ask for nothing (the last line carries the failed part's fallback).
 """
 
 import argparse
@@ -52,10 +58,70 @@ ACTION = {  # the first words the Chief of Staff acts on, per part
 }
 
 
-def show(name, lines, verbose):
+def show(name, lines, verbose, nxt=False):
     keep = lines if verbose else [x for x in lines if x.split()[:1] and x.split()[0] in ACTION[name]]
+    if nxt:  # a `next:` line follows each action line
+        keep = [y for x in keep for y in (x, *([f"next: {NEXT[name, x.split()[0]](x.split())}"] if x.split()[:1] and x.split()[0] in ACTION[name] else []))]
     if keep or verbose:
         print("\n".join(keep))
+
+
+# --next: the step for each action line, keyed by (part, first word), and the pieces of the last line's step.
+def untracked_facts(w):
+    """`in review, PR #132` from `untracked ABC-N in-review #132`; either part may be missing (then `in flight`)."""
+    facts = [x.replace("-", " ") if not x.startswith("#") else f"PR {x}" for x in w[2:]]
+    return ", ".join(facts) or "in flight"
+
+
+READ_FULL = "Full-read this ticket's child (it is on the `read in full:` list; skip it if this turn already did), then SKILL.md § Child path."
+NEXT = {
+    ("merged", "merged"): lambda w: (
+        f"{w[1]} has left the team, as for `MERGED #N`: readiness.md § Unblocked after a merge. Report it under Moving as `{w[1]}: <short title>, "
+        f"merged ({w[2]}), found by the merged check` (a ticket out of state takes one `get-ticket` for its title, report-format.md § Report format). "
+        f"The slot fill runs with `(merged {w[2]})` as the slot reason. Later child reads this turn skip it."
+    ),
+    ("merged", "mismatch"): lambda w: "Nothing is written. One Cleanup line.",
+    ("merged", "unreadable"): lambda w: "Nothing is written. One Cleanup line.",
+    ("ready", "ready"): lambda w: READ_FULL,
+    ("ready", "pushed"): lambda w: READ_FULL,
+    ("ready", "conflict"): lambda w: READ_FULL.removesuffix(".") + " (Conflict), then sweep.md § Conflict relay.",
+    ("parent", "full"): lambda w: READ_FULL,
+    ("untracked", "untracked"): lambda w: (
+        "Nothing is read in full, written or started for it. After the other lines are handled, on Linear or Jira run `get-ticket` and drop the "
+        "line when the ticket is labelled `agent-skip` or is not In Progress or In Review. For each remaining line run `t3_thread_list` "
+        f"(`includeSubagents: true`, `titleContains: \"{w[1]}\"`) for a child thread on this machine (the title must contain `{w[1]}` not followed by "
+        f"another digit), and give it one Needs you line: `{w[1]}: <short title> in flight but not in my state ({untracked_facts(w)}; child "
+        "<link>|no child thread on this machine). Another machine's Chief of Staff may own it. Say adopt "
+        f"{w[1]} to take it here.` The line goes in any report the turn posts; it never makes a quiet turn post, and the `get-ticket` and list calls "
+        "are skipped when the turn posts nothing."
+    ),
+    **{("review", word): lambda w: "Act on it as review.md § Review check says for this line (no thread read)." for word in
+       ("approved", "changes", "moved", "closed", "unreadable")},
+}
+LAST = (
+    "A marker on a full read moves the ticket as for a notice, and approvals.md § Approval requests follows. No marker and the child still running: "
+    "nothing changes. No marker and the child finished: the stuck check (SKILL.md § Child path). Report a ticket found this way under Moving as "
+    "`<PREFIX>-N: <short title>, merge ready, found by the sweep` (or `build ready`); the slot fill runs with `(merge ready)` or `(build ready)` as "
+    "the slot reason. The full read is the only thing that moves a ticket on the list."
+)
+FALLBACK = {  # a part that exited 2: what to fall back to
+    "merged": "no fallback (the merge lane is not known clear, so don't call it clear)",
+    "ready": "the idle check",
+    "parent": "full-read every active child whose `parentThreadId` isn't this thread",
+    "review": "no fallback (say the `awaiting-review` tickets were not checked)",
+    "untracked": "no fallback (don't say every ticket in flight is known)",
+}
+
+
+def last_next(failed):
+    text = LAST
+    if failed:
+        text += (
+            " A part that didn't run: add one Cleanup line, `Sweep part didn't run: <its line>`, and fall back to what it covers: "
+            + "; ".join(f"{p}: {FALLBACK[p]}" for p in failed)
+            + ". Don't say or imply that nothing is waiting in the lanes that part covers."
+        )
+    return text
 
 
 def part(name, fn):
@@ -69,7 +135,7 @@ def part(name, fn):
         return None
 
 
-def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, review_prs=None, issues=None, login=None, verbose=False):
+def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, review_prs=None, issues=None, login=None, verbose=False, nxt=False):
     """Print every part's lines and the last line; return the exit code."""
     listed, merged, untracked, to_act, failed = {}, [], [], [], []
 
@@ -82,7 +148,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("merged")
     else:
-        show("merged", got[0], verbose)
+        show("merged", got[0], verbose, nxt)
         merged = got[1]
 
     def ready():
@@ -95,7 +161,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("ready")
     else:
-        show("ready", got[0], verbose)
+        show("ready", got[0], verbose, nxt)
         for tid, reason in got[1]:
             list_ticket(tid, reason)
 
@@ -103,7 +169,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("parent")
     else:
-        show("parent", got[0], verbose)
+        show("parent", got[0], verbose, nxt)
         for line in got[0]:
             words = line.split()
             if words[0] == "full":
@@ -113,7 +179,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("untracked")
     else:
-        show("untracked", got[0], verbose)
+        show("untracked", got[0], verbose, nxt)
         untracked = got[1]
 
     def review():
@@ -124,7 +190,7 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if got is None:
         failed.append("review")
     else:
-        show("review", got[0], verbose)
+        show("review", got[0], verbose, nxt)
         to_act = got[1]
 
     read = ", ".join(f"{t} ({', '.join(r)})" for t, r in listed.items()) or "none"
@@ -137,6 +203,8 @@ def sweep(thread, state_file, merged_prs=None, open_prs=None, refs_file=None, re
     if failed:
         last += f"; didn't run: {', '.join(failed)}"
     print(last)
+    if nxt:
+        print(f"next: {last_next(failed)}")
     return 2 if failed else int(bool(listed or merged or untracked or to_act))
 
 
@@ -151,8 +219,9 @@ def main(argv=None):
     ap.add_argument("--issues", type=Path)
     ap.add_argument("--login")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
-    return sweep(args.thread, args.file, args.merged_prs, args.open_prs, args.refs, args.review_prs, args.issues, args.login, args.verbose)
+    return sweep(args.thread, args.file, args.merged_prs, args.open_prs, args.refs, args.review_prs, args.issues, args.login, args.verbose, args.nxt)
 
 
 if __name__ == "__main__":

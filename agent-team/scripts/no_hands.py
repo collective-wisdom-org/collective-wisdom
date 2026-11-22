@@ -3,7 +3,7 @@
 
 Usage:
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] [--db PATH] start --thread <chiefThreadId>
-    ~/.collective-wisdom/scripts/no_hands.py [--file STATE] [--db PATH] check
+    ~/.collective-wisdom/scripts/no_hands.py [--file STATE] [--db PATH] check [--next]
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] drain <reason>
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] end <reason>
 
@@ -35,6 +35,15 @@ check   Prints one line. It writes only when the result is a stop: it then recor
             no-hands: stop stopped-by-user         the user said `stop everything` after the run began
             no-hands: stop <why>                   setting off | start message not verified
             no-hands: stop cost unknown (<PREFIX>-N)   the first ticket in run order whose cost cannot be read, such as a Cursor run on a model with no price or an unreadable Cursor store
+        With --next (without it the output is the one line above, nothing else), `check` prints more after that line:
+            action: fill | drain | stop | off      on -> fill, drain -> drain, stop -> stop, off -> off
+            No Hands on: <N> of <cap> tickets, $<X> of $<C>.                        the report line, for on
+            No Hands draining: <reason>, <N> of <cap> tickets, $<X> of $<C>.         the report line, for drain
+            next: <instruction>                    the step for the action (the table NEXT, below), after the report line
+        The report line is the one every report and `status` answer starts with while a run is active (nothing is printed for off and stop).
+        `next:` for drain also reads the state: it says to run `no_hands.py drain ticket-cap` when state holds no drain reason yet, and to
+        end the run (after the auto checks) when no ticket on the run's `started` list is in spec, build, merge or a *-queued stage. `next:`
+        for stop names the reason `check` recorded, so `no_hands.py end <why>` takes it. Every line `check` can print has a `next:` text.
 drain   Sets the drain reason (the first one stays). Last line: no-hands: drain <reason>
         drain and end print `no-hands: refused (...)` and exit 2 when a word of the reason is not one the Chief of Staff's plan lines
         may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.
@@ -317,13 +326,73 @@ def cmd_end(reason, setting, state_file, cost):
     ])
 
 
+# --next: the action word and the step for each result of `check`. The report line is data (copied as is), so it has no `next:`.
+ACTION = {"off": "off", "on": "fill", "drain": "drain", "stop": "stop"}
+PROGRESS = re.compile(r"(?P<n>\d+)/(?P<cap>\d+) \$(?P<x>\d+)/\$(?P<c>\d+)$")
+LIVE_STAGES = ("spec", "build", "merge", "spec-queued", "build-queued", "merge-queued")
+NEXT = {
+    "off": lambda f: "Nothing: the slot fill is as the plan says, and approvals use the tolerance.",
+    "fill": lambda f: (
+        f"The slot fill is as the plan says, at most {f['cap'] - f['n']} `start-todo` lines this turn (the ticket cap is a rule you keep: `check` counts, "
+        "the script does not stop a start). Approvals are No Hands (approvals.md § Auto-approval). Nothing else. Start every report and `status` "
+        "answer with the `No Hands on:` line above."
+    ),
+    "drain": lambda f: (
+        "Print no `start-todo` and make no Backlog pick; queued sends still go. Approvals stay No Hands. Start every report and `status` answer with "
+        "the `No Hands draining:` line above."
+        + (f" The reason is not in state yet: run `python3 {cos_tick.SCRIPTS}/no_hands.py drain {f['reason']}`." if not f["in_state"] else "")
+        + (
+            " No ticket of the run is active or queued: first the auto checks for every spec or merge that reached `awaiting-build` or "
+            "`awaiting-merge` this turn (approvals.md § Auto-approval; an approved one is sent or queued, so it counts as active); if still none is "
+            "active or queued, end the run: no-hands.md § End a run."
+            if not f["live"] else ""
+        )
+    ),
+    "stop": lambda f: (
+        "Print no `start-todo` and send nothing from the plan. `check` has already recorded the end, so the run is off from now on. Run "
+        f"kill-switch.md § Kill switch steps 1 to 4 with the note `stopped by No Hands: {f['why']}` in place of `stopped by the user`, then "
+        f"`python3 {cos_tick.SCRIPTS}/no_hands.py end {f['why']}` (it prints the summary), then post it (no-hands.md § End a run)."
+    ),
+}
+
+
+def stop_why(line):
+    """`cost-cap`, `cost unknown`, `setting off`, `start message not verified` or `stopped-by-user`: the line without its figures and ticket."""
+    return line.removeprefix("no-hands: stop ").split(" $")[0].split(" (")[0]
+
+
+def next_lines(kind, line, state_file):
+    """The lines `check --next` prints after the check line: action, report line (on and drain), next."""
+    action = ACTION[kind]
+    out = [f"action: {action}"]
+    m = PROGRESS.search(line)
+    facts = {"why": stop_why(line)}
+    if m:
+        facts.update(n=int(m["n"]), cap=int(m["cap"]))
+        money = f"{m['n']} of {m['cap']} tickets, ${m['x']} of ${m['c']}."
+        if kind == "on":
+            out.append(f"No Hands on: {money}")
+        else:
+            reason = line[len("no-hands: drain "):m.start()].strip()
+            facts["reason"] = reason
+            out.append(f"No Hands draining: {reason}, {money}")
+    if kind == "drain":
+        state = _load(state_file)
+        run = state.get("noHands")
+        started = _tickets(run)
+        facts["in_state"] = bool(run.get("drain"))
+        facts["live"] = any(stage_of(state, t) in LIVE_STAGES for t in started)
+    out.append(f"next: {NEXT[action](facts)}")
+    return out
+
+
 def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None, cost=ticket_cost):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", type=Path)
     ap.add_argument("--db", type=Path, default=cos_user_check.DEFAULT_DB)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("start").add_argument("--thread", required=True)
-    sub.add_parser("check")
+    sub.add_parser("check").add_argument("--next", action="store_true")
     for name in ("drain", "end"):
         sub.add_parser(name).add_argument("reason", nargs="+")
     a = ap.parse_args(argv)
@@ -334,6 +403,8 @@ def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None
             code = 0
             if kind == "stop":
                 record_stop(line, state_file)
+            if a.next:
+                line = "\n".join([line, *next_lines(kind, line, state_file)])
         elif a.cmd == "start":
             code, line = cmd_start(a.thread, setting, state_file, db)
         else:

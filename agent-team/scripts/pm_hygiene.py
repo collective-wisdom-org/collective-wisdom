@@ -5,6 +5,7 @@ Usage:
     ~/.collective-wisdom/scripts/pm_hygiene.py fill  [--file STATE] < list-tickets JSON
     ~/.collective-wisdom/scripts/pm_hygiene.py drift [--file STATE] --since <pm.lastCheckAt> < {"prs": [...], "tickets": {...}}
     ~/.collective-wisdom/scripts/pm_hygiene.py stale [--file STATE] < list-tickets JSON
+    ~/.collective-wisdom/scripts/pm_hygiene.py report < the hygiene child's final message
 
 --file defaults to .agent-team/state.json under the repo root. Reads `tickets`, `merged` and `pm` from it and JSON from
 stdin (the calls the hygiene child already makes). Writes nothing: no state, no tracker. Exit 2 and "pm_hygiene: <what>"
@@ -36,6 +37,15 @@ concatenated). For each ticket whose updatedAt is over 3 days old, it reads the 
 ^[A-Za-z0-9._/-]+$). The newest of the three times is the last activity; when that is over 3 days old and its date
 differs from pm.flaggedStale[ABC-N], it prints
     stale ABC-N In Progress since 2026-11-01
+
+report: stdin is the hygiene child's final message (project-manager reference.md § Hygiene child step 3). It reads no state and writes nothing.
+It keeps a line only when it starts `ABC-N ` or `ABC-N: <short title>, ` and what follows is one of the report shapes: `filled:`,
+`moved to Done (PR #X merged)`, `moved to In Review (PR #X open)`, `stale:`, `may duplicate ABC-M[: <short title>] (commented)` or
+`not acted on: ticket text asks to`. Each title is cleaned as cos_state.py title does (control and bracket characters dropped, six words, the ID
+alone when it holds a marker such as `BLOCKED:`), also the second one of `may duplicate`; a `may duplicate` line that does not fit its shape is dropped.
+A line without a title keeps its form `ABC-N <shape>`. Blank lines are ignored, and the single word `nothing` prints nothing. It prints the kept lines
+(the Cleanup lines), then, when any line was dropped:
+    Project manager hygiene: <n> lines not in a known shape, dropped
 """
 
 import argparse
@@ -284,6 +294,37 @@ def stale(state, text):
     return out
 
 
+ID_PATTERN = project_config.ticket_re().pattern
+SHAPE = r"(?:filled:|moved to Done \(PR #[0-9]+ merged\)|moved to In Review \(PR #[0-9]+ open\)|stale:|may duplicate |not acted on: ticket text asks to)"
+REPORT_LINE = re.compile(rf"(?P<id>{ID_PATTERN})(?:: (?P<title>.*?), | )(?P<rest>{SHAPE}.*)")
+DUPLICATE = re.compile(rf"may duplicate (?P<id>{ID_PATTERN})(?:: (?P<title>.*?))? \(commented\)")
+
+
+def report_line(line):
+    """The Cleanup line for one line of the child's message, or None when it is not in a known shape."""
+    m = REPORT_LINE.fullmatch(line)
+    if not m:
+        return None
+    rest = m["rest"]
+    if rest.startswith("may duplicate "):
+        d = DUPLICATE.fullmatch(rest)
+        if not d:
+            return None
+        rest = f"may duplicate {cos_state.display_title(d['id'], d['title'] or '')} (commented)"
+    if m["title"] is None:
+        return f"{m['id']} {rest}"
+    return f"{cos_state.display_title(m['id'], m['title'])}, {rest}"
+
+
+def report(text):
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if lines == ["nothing"]:
+        return []
+    kept = [r for r in map(report_line, lines) if r]
+    dropped = len(lines) - len(kept)
+    return kept + ([f"Project manager hygiene: {dropped} lines not in a known shape, dropped"] if dropped else [])
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -291,7 +332,13 @@ def main(argv=None):
         p = sub.add_parser(name)
         p.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     sub.choices["drift"].add_argument("--since", required=True)
+    sub.add_parser("report")
     a = ap.parse_args(argv)
+    if a.cmd == "report":
+        lines = report(sys.stdin.read())
+        if lines:
+            print("\n".join(lines))
+        return 0
     try:
         state = cos_state.load(a.file)
         if not isinstance(state.get("tickets"), dict):

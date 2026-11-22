@@ -2,7 +2,7 @@
 """Does the Chief of Staff session need a reset? One line: "ok ...", "rotate: <reason>; mode <mode>" or "finish: take over unfinished ...".
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover]   # the model's call, every working turn
+    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover] [--next]   # the model's call, every working turn
     ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit        # print the current skill commit only
     ~/.collective-wisdom/scripts/cos_rotation_check.py --hook                # the Stop hook's call (hook JSON on stdin)
 
@@ -41,6 +41,11 @@ read each per chief-of-staff SKILL.md § Child path" for each active child that 
 (cos_idle_check.py late_children, reading the T3 store at $COS_T3_DB or the default). With a rotation line the reason is both, rotation first.
 Silent on that line while `paused`, `reset` or `takeover` is set. Plain mode never prints it.
 It never writes and any error exits 0 silently.
+--next (plain mode and --record-takeover only; without it the output is the one line): print `next: <instruction>` after the line, from the table
+NEXT below: one text for the line's kind (`rotate:`, `finish:`, each `ok` form) and one for each suffix the line can end in
+(`; take-over context=<K>k`, `; take-over context pending (turn N)`, `; take-over context=<K>k (turn N)`). With a figure of 220k or more the
+take-over context text adds the Cleanup line for a reset that did not shrink the context. No `next:` follows `rotation-check: cannot read <what>`
+(exit 2: reading the item count and deciding on a reset is a judgement) or the `; takeoverContext not saved` suffix (no rule says what to do).
 COS_STATE_FILE, COS_PROJECTS_DIR, COS_CURSOR_PROJECTS_DIR and COS_T3_DB override the state file, the Claude Code transcripts
 directory, the Cursor projects directory (~/.cursor/projects) and the T3 store.
 """
@@ -404,11 +409,48 @@ def run_hook(path):
     return 0
 
 
+# --next: the step for each line, matched on the line with its take-over suffix taken off.
+GANTT = (
+    "Before any reset run `python3 ~/.collective-wisdom/scripts/gantt_plugin.py`: on `gantt-plugin: todo <text>` add the Cleanup line "
+    "`agent-gantt plugin: <text>`; the reset goes on whatever it prints."
+)
+KINDS = [  # (pattern on the line, instruction)
+    (r"rotate: ", GANTT + " Then run the reset for the line's mode: rotation.md § Thread rotation (modes `reset`, `reset-scheduled` and `compact`)."),
+    (r"finish: ", "A take over or resume pass was interrupted. Finish it first (rotation.md § Thread rotation: Finish take over), then handle the message that woke this turn."),
+    (r"ok \(held: ", "Nothing: the check holds while `paused` is set or a reset is in flight. Never reset in the middle of a command."),
+    (r"ok; (skillCommit is not a full sha; )?set skillCommit ", "Save that sha as `skillCommit` in a `top` op. Don't reset."),
+    (r"ok \((skill|plugin) change waits: ", "Do nothing: the first quiet turn resets (now, if the size trigger also fires)."),
+    (r"ok \(size trigger off: ", "Nothing: the size trigger is off for this thread so it does not reset again and again."),
+    (r"ok", "Nothing."),
+]
+SUFFIX = re.compile(r"; take-over context(?: pending \(turn (?P<pending>\d+)\)|=(?P<k>\d+)k(?: \(turn (?P<turn>\d+)\))?)$")
+
+
+def next_text(line):
+    """The `next:` instruction for one check line, or None for `; takeoverContext not saved` and `rotation-check: cannot read ...`."""
+    if line.endswith("; takeoverContext not saved") or line.startswith("rotation-check:"):
+        return None
+    suffix = SUFFIX.search(line)
+    base = line[: suffix.start()] if suffix else line
+    text = next(t for pat, t in KINDS if re.match(pat, base))
+    if suffix and suffix["pending"]:
+        text += (
+            " Take-over context is pending: post `Take-over context pending.`, and add `Take-over context <K>k.` to the report of the next working "
+            f"turn whose check line ends `take-over context=<K>k (turn {suffix['pending']})`."
+        )
+    elif suffix:
+        text += f" Take-over context is {suffix['k']}k: it goes in the take-over line (`Take-over context {suffix['k']}k.`)."
+        if int(suffix["k"]) * 1000 >= SIZE_CAP:
+            text += " That is still 220k or more, so the reset did not shrink the context (the send lacked a fresh context): add the Cleanup line `Reset did not shrink the context`."
+    return text
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Does the Chief of Staff session need a reset?")
     ap.add_argument("--hook", action="store_true")
     ap.add_argument("--record-takeover", action="store_true")
     ap.add_argument("--skill-commit", action="store_true")
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     path = Path(os.environ.get("COS_STATE_FILE") or ROOT / ".agent-team" / "state.json")
     if args.hook:
@@ -430,6 +472,8 @@ def main(argv=None):
     if tk and not save_top(path, takeoverContext=tk):
         line += "; takeoverContext not saved"
     print(line)
+    if args.nxt and next_text(line):
+        print(f"next: {next_text(line)}")
     return 0
 
 

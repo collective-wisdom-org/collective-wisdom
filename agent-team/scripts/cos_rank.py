@@ -4,6 +4,7 @@
 Usage:
     ~/.collective-wisdom/scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] < child_message
     ~/.collective-wisdom/scripts/cos_rank.py dry [--file PATH] [--out-of-date]
+    ~/.collective-wisdom/scripts/cos_rank.py count < list-tickets JSON, or {"tickets": [...], "children": {...}}
 
 --started is the time the ranking began (YYYY-MM-DDTHH:MM:SSZ); it becomes pm.rankedAt.
 --backlog-count is the number of Backlog tickets that are neither agent-skip nor an epic,
@@ -30,6 +31,16 @@ up); --out-of-date (the pick found a ranked ticket moved, labelled agent-skip, b
 `~/.collective-wisdom/scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number`
 that returns a PR (a failed read counts as none). Otherwise the agent makes one Backlog list-tickets since that time:
 a ticket back means rank, none means the Backlog is dry. Exit 2 and "cos_rank: <reason>" when state cannot be read.
+
+count is the Backlog count an empty list needs (project-manager reference.md § Ranking child step 3), in two passes on stdin like
+pm_hygiene.py drift. It reads and writes no state. stdin is the Backlog `list-tickets` result (fields id, labels, parent; the tracker adapter's
+shape, as for pm_hygiene.py) on the first pass, and on the second the object {"tickets": <that list>, "children": {"<PREFIX>-N": <the
+`list-children` (limit 1) result: a list, a number or a true/false>}}. It drops tickets labelled agent-skip and any ticket that is the
+parent (a `parent` or `parentId` that is an id, or an object with id, key or number) of another ticket in the list. Of the tickets left it prints
+    children <PREFIX>-N                    one per ticket with no entry in "children": make that `list-children` read (one at a time, stop at the first ticket with none)
+    backlog-count: <n>                     the number of read tickets with no sub-ticket (so 1 once one is found), or 0 when every ticket left has a sub-ticket
+The first pass prints `children` lines, or `backlog-count: 0` when nothing is left. The second prints `backlog-count: <n>` once a ticket with no sub-ticket is
+found or all are read, and the `children` lines still to read before that. Pass `<n>` as --backlog-count. Exit 2 and "cos_rank: <reason>" on unreadable input.
 """
 
 import argparse
@@ -43,6 +54,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).absolute().parent))
 import cos_state  # noqa: E402
+import pm_hygiene  # noqa: E402
+import project_config  # noqa: E402
 
 KEYS = {"id", "title", "reason", "readiness", "priority", "createdAt"}
 PRIORITIES = ("Urgent", "High", "Medium", "Low", "No priority")
@@ -139,10 +152,59 @@ def dry(argv):
     return f"dry: check backlog since {at}"
 
 
+def parent_id(t):
+    """The id of the ticket's parent as the adapter gives it (a string, or an object with id, key or number), or None."""
+    p = t.get("parent", t.get("parentId"))
+    if isinstance(p, dict):
+        p = p.get("id") or p.get("key") or p.get("number")
+    if type(p) is int:
+        p = project_config.ticket_id(p)
+    return p if isinstance(p, str) and p else None
+
+
+def child_count(v):
+    """How many sub-tickets a `list-children` result shows: a list, a number, true/false or an object holding a list."""
+    if isinstance(v, dict):
+        v = next((v[k] for k in ("nodes", "issues", "tickets") if isinstance(v.get(k), list)), None)
+    if isinstance(v, list):
+        return len(v)
+    if isinstance(v, int):  # bool too
+        return int(v)
+    raise ValueError
+
+
+def count(text):
+    """The output lines of `count` for the stdin text. Raises pm_hygiene.Bad."""
+    values = pm_hygiene.read_json_values(text)
+    obj = values[0] if len(values) == 1 and isinstance(values[0], dict) and "children" in values[0] else {}
+    children = obj.get("children", {})
+    if not isinstance(children, dict):
+        raise pm_hygiene.Bad('"children" must be an object')
+    tickets = {t["id"]: t for t in pm_hygiene.ticket_list(text)}
+    parents = {parent_id(t) for t in tickets.values()}
+    left = [i for i, t in tickets.items() if "agent-skip" not in pm_hygiene.labels_of(t) and i not in parents]
+    try:
+        read = {i: child_count(children[i]) for i in left if i in children}
+    except ValueError:
+        raise pm_hygiene.Bad("a children entry is not a list-children result") from None
+    found = sum(n == 0 for n in read.values())
+    if found:
+        return [f"backlog-count: {found}"]
+    todo = [f"children {i}" for i in left if i not in read]
+    return todo or ["backlog-count: 0"]
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["dry"]:
         print(dry(argv[1:]))
+        return 0
+    if argv[:1] == ["count"]:
+        try:
+            print("\n".join(count(sys.stdin.read())))
+        except pm_hygiene.Bad as e:
+            print(f"cos_rank: {e}")
+            return 2
         return 0
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)

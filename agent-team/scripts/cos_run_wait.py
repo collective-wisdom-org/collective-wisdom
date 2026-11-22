@@ -2,7 +2,7 @@
 """Wait for a spec or build child's run to end, even when T3's finish notice is lost (the Chief of Staff's "Run wait").
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_run_wait.py <PREFIX>-N [--file STATE] [--db PATH] [--every SECONDS] [--for SECONDS]
+    ~/.collective-wisdom/scripts/cos_run_wait.py <PREFIX>-N [--file STATE] [--db PATH] [--every SECONDS] [--for SECONDS] [--next]
 
 Read only: writes no state, sends nothing. At the start it reads the ticket from .agent-team/state.json (under the repo
 root unless --file is given) through cos_state.load, keeps its lane (spec or build) and childThreadId, and reads the child's
@@ -21,10 +21,14 @@ The last line printed and the exit code:
     run-wait: <T> still working after Nm     (exit 1) the time ran out
     run-wait: cannot <what>                  (exit 2) a bad ticket id, a ticket not in spec or build at the start, no
                                              childThreadId, unreadable state, or a store that is missing or not as expected
+--next (without it the output is the last line alone): print `next: <instruction>` after it, from the table NEXT below, for every line it can
+print. After a marker, `run <status>` and `still working` the text names the tick to run, with the child's thread id read from state when the
+ticket is still there (`<childThreadId>` otherwise).
 """
 
 import argparse
 import io
+import re
 import sys
 import time
 from contextlib import redirect_stderr
@@ -107,6 +111,40 @@ def wait(tid, read, store, every, limit, clock=time.monotonic, sleep=time.sleep)
         sleep(every)
 
 
+# --next: what to do when the wait ends, by the line's last words. Two waits on one ticket are harmless: both only read.
+TICK = (
+    "run the tick with `python3 ~/.collective-wisdom/scripts/cos_tick.py --thread <this thread's id> --trigger 'notice:{child}' --next`: the same "
+    "plan as the finish notice that never came (child read, idle check, sweep, slot fill)"
+)
+NEXT = {
+    "marker": "The child ended its run with a marker: " + TICK + ".",
+    "run": "The child's run failed, was interrupted or was cancelled: " + TICK + ".",
+    "still working": (
+        "The time ran out: " + TICK + " once, then start a new run wait (sweep.md § Run wait) if the ticket is still in the same lane with the same child."
+    ),
+    "left": "Nothing: no tick, no message.",
+    "cannot": "One Cleanup line in the next report, `Run wait for <PREFIX>-N: <short title>, <its line>`, and nothing else.",
+}
+
+
+def next_for(line, child):
+    """The `next:` text for the wait's last line."""
+    if line.startswith("run-wait: cannot"):
+        return NEXT["cannot"]
+    rest = line.split(" ", 2)[2] if line.count(" ") >= 2 else ""
+    key = "left" if rest.startswith("left ") else "still working" if rest.startswith("still working") else "run" if rest.startswith("run ") else "marker"
+    return NEXT[key].format(child=child)
+
+
+def child_of(path, tid):
+    """The ticket's childThreadId from state, or `<childThreadId>` when it is gone or unreadable (or holds characters a command line can't carry)."""
+    try:
+        child = (load_ticket(path, tid) or {}).get("childThreadId")
+    except Cannot:
+        child = None
+    return child if isinstance(child, str) and re.fullmatch(r"[A-Za-z0-9._:%@][A-Za-z0-9._:%@-]*", child) else "<childThreadId>"
+
+
 def positive(s):
     if not s.isdigit() or int(s) < 1:
         raise argparse.ArgumentTypeError(f"bad number of seconds {s!r}")
@@ -126,6 +164,7 @@ def main(argv=None):
     ap.add_argument("--db", type=Path, default=cos_child_read.DEFAULT_DB)
     ap.add_argument("--every", type=positive, default=30)
     ap.add_argument("--for", dest="limit", type=positive, default=6600)
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     try:
         if not cos_state.ID.fullmatch(args.ticket):
@@ -134,6 +173,8 @@ def main(argv=None):
     except Cannot as e:
         line, code = f"run-wait: cannot {e}", 2
     print(line)
+    if args.nxt:
+        print(f"next: {next_for(line, child_of(args.file, args.ticket))}")
     return code
 
 

@@ -6,6 +6,7 @@ Usage:
     ~/.collective-wisdom/scripts/approval_policy.py check <Level>          ship-loop child: a relayed level (Low, Medium or High)
     ~/.collective-wisdom/scripts/approval_policy.py check no-hands [<PREFIX>-N]   ship-loop child: exit 0 only while a No Hands run is active
                                                                                   (and, with a ticket id, the run started that ticket)
+    ~/.collective-wisdom/scripts/approval_policy.py paths <file>...        any: which of a spec's `Builds` files sit on the approval or hands path
 
 The setting is read from project.md as committed on refs/remotes/origin/<merge target branch> (project_config.approval_setting); the level is never read
 from a working tree, and the merge target branch is read from the root checkout. A missing row, an unknown value or a failed read is `strict`. The rule:
@@ -20,6 +21,14 @@ A spec queued for the build lane with an auto-approved relay (`build-queued`) is
 While a No Hands run is active (no_hands.active()), every level is auto, High and unrated included, and the last line says
 `under No Hands`, for a ticket the run started (the `noHands.started` list) only; a ticket in flight when the run began keeps the tolerance.
 With no run nothing above changes. HANDS_PATH is the short list of files a No Hands merge may not change.
+
+paths reads no state and no setting. Pass the files a spec's `Builds` name (or a PR's files), repo-relative, with or without a leading `agent-team/`.
+It prints one line per file, in the order given, `<file> <where>`, where <where> is `approval` (on_approval_path), `hands` (on_hands_path), `both` or `none`
+(control characters in a file name print as `?`), then a last line:
+    paths: clear      no file is on either path
+    paths: approval   at least one file is on the approval path: never auto-approved, whatever the setting or a No Hands run
+    paths: hands      no file is on the approval path, at least one is on the hands path: asks only while a No Hands run is active for the ticket
+Exit 0: `paths: clear`. Exit 1: `paths: approval` or `paths: hands`. Exit 2: no file given (last line: `approval: cannot read arguments; usage: ... paths <file>...`).
 
 Exit 0: auto. Last line: approval: auto spec [<PREFIX>-N] under <tolerance> (Risk: <Level>)  (under No Hands: Risk may be `unrated`)
 Exit 1: ask.  Last line: approval: ask [<PREFIX>-N] (<why>)
@@ -165,6 +174,18 @@ def on_hands_path(path):
             or root_shadow or nested_rules(p) or shadows_imports(p, name))
 
 
+def cmd_paths(files):
+    """(code, lines): one `<file> approval|hands|both|none` line per file, then `paths: clear|approval|hands`."""
+    lines, approval, hands = [], False, False
+    for f in files:
+        a, h = on_approval_path(f), on_hands_path(f)
+        approval, hands = approval or a, hands or h
+        shown = re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]", "?", f)
+        lines.append(f"{shown} {'both' if a and h else 'approval' if a else 'hands' if h else 'none'}")
+    last = "approval" if approval else "hands" if hands else "clear"
+    return (0 if last == "clear" else 1), [*lines, f"paths: {last}"]
+
+
 def _verdict(kind, who, level, setting, ticket=None):
     """(code, last line) for a level and a setting: a function giving (tolerance, note), read only when No Hands does not apply.
 
@@ -215,6 +236,13 @@ def main(argv, setting=project_config.approval_setting):
         code, line = cmd_auto(argv[1], argv[2], setting)
     elif len(argv) == 2 and argv[0] == "check":
         code, line = cmd_check(argv[1], setting)
+    elif argv[:1] == ["paths"]:
+        if len(argv) == 1:
+            print("approval: cannot read arguments; usage: ~/.collective-wisdom/scripts/approval_policy.py paths <file>...")
+            return 2
+        code, lines = cmd_paths(argv[1:])
+        print("\n".join(lines))
+        return code
     elif len(argv) == 3 and argv[:2] == ["check", "no-hands"]:
         code, line = cmd_check(argv[1], setting, argv[2])
     else:

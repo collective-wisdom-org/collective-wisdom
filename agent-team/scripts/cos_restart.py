@@ -3,7 +3,7 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_restart.py <PREFIX>-N --run completed|failed|interrupted|running --updated-at ISO
-        [--marker] [--wait 0|1|2|2twice] [--step TEXT] [--missing TEXT] [--spec PATH] [--file STATE] [--thread ID] [--now ISO]
+        [--marker] [--wait 0|1|2|2twice] [--step TEXT] [--missing TEXT] [--spec PATH] [--file STATE] [--thread ID] [--now ISO] [--next]
 
 Read only: sends, cancels and writes nothing. The model reads the child (t3_thread_read, the wait check) and passes what
 it found: --run is recentRuns[0].status, --updated-at the thread's updatedAt, --marker that the last assistant message has
@@ -33,6 +33,10 @@ A ticket in any other stage is skipped. Prints, then a last line, exit 0 unless 
     restart: unreadable                           an unreadable wait check on a ticket already restarted: not blocked; add the cleanup line
     restart: cannot <what>                        (exit 2) bad arguments, unreadable state, or a PR that cannot be read
 A restart is sent when restarts[stage] is 0; otherwise the ticket is blocked (never on an unreadable wait check).
+
+--next (without it the output is exactly the lines above): after each of the `cancel:`, `set:`, `moving:`, `cleanup:` and `restart:` lines
+(not after `---` or the message between them, which are the text to send) print `next: <instruction>`, from the table NEXT below. The
+`restart: cannot <what>` line (exit 2) has none: fixing the call or telling the user is a judgement. Every other line has one.
 """
 
 import argparse
@@ -163,6 +167,52 @@ def judge(state, tid, args, now):
     return lines, f"restart: {'continuation' if continuation else 'send'} {stage}" + (" cancel" if cancel and not continuation else "")
 
 
+# --next: the step for each line that carries an action. Keys are the line's first word, and for `restart:` its second word.
+SEND_STEPS = (
+    "`t3_thread_send` the message between the two `---` lines, then apply the `set` op and copy the `moving:` and `cleanup:` lines under Moving and "
+    "Cleanup. The ticket keeps its slot: no slot check, queue or models.md § Models switch. In `spec` or `build`, start the run wait (sweep.md § Run wait)."
+)
+NEXT = {
+    "cancel:": "Call `task_cancel(firstTaskId)` before anything else below.",
+    "set:": "Apply this op (`apply`) once the message is sent.",
+    "moving:": "Copy it under Moving.",
+    "cleanup:": "Copy it under Cleanup.",
+    "restart: not-stuck": (
+        "Nothing: no restart, `restarts` unchanged, no report line (a `waiting` child is seen again by the next notice or idle check)."
+    ),
+    "restart: send": SEND_STEPS + " With `cancel` on the line (or a `cancel:` line), `task_cancel(firstTaskId)` first.",
+    "restart: continuation": (
+        "The same as `restart: send`, but the message is a relay for continuation.md § Continuation child, in the ticket's current lane, in place of "
+        "the send. " + SEND_STEPS
+    ),
+    "restart: blocked": (
+        "`task_cancel(firstTaskId)` first if a `cancel:` line printed. `stage` op to `blocked` with the text after `blocked` in `status`, `comment` the "
+        "error on the ticket (after `stalled`, quote the wait check's own line too), and report it; for a ticket of an active No Hands run also "
+        "no-hands.md § What drains or stops a run (blocked ticket)."
+    ),
+    "restart: unreadable": "Not blocked. Copy the `cleanup:` line under Cleanup.",
+}
+
+
+def next_for(line):
+    """The `next:` text for one output line, or None for a line with no action (`restart: cannot ...` is exit 2 and never reaches here)."""
+    words = line.split()
+    key = " ".join(words[:2]) if words[0] == "restart:" else words[0]
+    return NEXT.get(key)
+
+
+def with_next(lines):
+    """The output lines, each action line followed by its `next:` line; the message between the `---` lines is text to send and stays as it is."""
+    out, inside = [], False
+    for line in lines:
+        out.append(line)
+        if line == "---":
+            inside = not inside
+        elif not inside and (text := next_for(line)):
+            out.append(f"next: {text}")
+    return out
+
+
 class Parser(argparse.ArgumentParser):
     def error(self, message):
         print(f"restart: cannot {message}")
@@ -182,6 +232,7 @@ def main(argv=None):
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("--thread")
     ap.add_argument("--now")
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     try:
         if not cos_state.ID.fullmatch(args.ticket):
@@ -190,7 +241,8 @@ def main(argv=None):
     except Cannot as e:
         print(f"restart: cannot {e}")
         return 2
-    print("\n".join([*lines, last]))
+    out = [*lines, last]
+    print("\n".join(with_next(out) if args.nxt else out))
     return 0
 
 

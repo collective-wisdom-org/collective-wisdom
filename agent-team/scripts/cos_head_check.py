@@ -2,7 +2,7 @@
 """The head check for a merge approval: did the PR head move, or does the PR now conflict?
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_head_check.py <PREFIX>-N [--file STATE] [--no-approval] [--prs FILE]
+    ~/.collective-wisdom/scripts/cos_head_check.py <PREFIX>-N [--file STATE] [--no-approval] [--prs FILE] [--next]
 
 Read only: writes, comments and sends nothing. Reads the ticket's `pr` and `headSha` from .agent-team/state.json
 (under the repo root unless --file is given), `~/.collective-wisdom/scripts/gh.sh pr view <pr> --json
@@ -22,6 +22,8 @@ the state is unreadable, a gh read fails, or the merge target branch is missing 
 --no-approval is for a ticket with no approval to carry (`approve N` on `awaiting-review`, a MERGE READY conflict).
 The ticket's `noApproval: true` in state does the same for a merge-lane run that carries none. With either, a
 conflict under `off` is `conflict stand`, never `conflict keep`; under `on` it is `conflict withdraw`.
+--next (without it the output is exactly the lines above): after the last line (and after `head-check: cannot <what>`, exit 2) print
+`next: <instruction>` from the table NEXT below. The relay before the last line is the text to send and has none.
 """
 
 import argparse
@@ -103,12 +105,37 @@ def check(pr, stored, live, mergeable, no_approval, setting):
     return CONFLICT.format(target=target), "head-check: conflict withdraw"
 
 
+# --next: the step for each last line (send-or-queue.md's head check). `<time>` is the clock from `cos_state.py now`; a relay goes out
+# through `cos_route.py <PREFIX>-N <caller> --thread <this thread's id>` as the caller named (send-or-queue.md § Send or queue).
+WITHDRAWN = "`comment` `Approval withdrawn at <time>: {why}.` (`<time>` from `python3 ~/.collective-wisdom/scripts/cos_state.py now`)"
+NEXT = {
+    "ok": "Go on with the next step; this check has no relay.",
+    "moved": (
+        "The head moved after the reviews the user saw. Don't send the approval, and drop it if it was queued. "
+        + WITHDRAWN.format(why="the PR head moved") + ", tell the user under Needs you, and send the printed relay (caller `head-moved`)."
+    ),
+    "conflict keep": "Keep the approval (verified at this head) and send the printed relay (caller `conflict-keep`).",
+    "conflict stand": "No approval exists, reviews stand: send the printed relay (caller `conflict-stand`).",
+    "conflict withdraw": (
+        WITHDRAWN.format(why="the PR conflicts with <target>") + ", tell the user under Needs you, and send the printed relay (caller `conflict-withdraw`)."
+    ),
+    "cannot": "Don't send, and tell the user under Needs you.",
+}
+
+
+def next_for(last):
+    """The `next:` text for the last line `head-check: <kind> ...`."""
+    words = last.removeprefix("head-check: ").split()
+    return NEXT["conflict " + words[1] if words[0] == "conflict" else words[0]]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Head check for a merge approval.")
     ap.add_argument("ticket")
     ap.add_argument("--file", type=Path, default=ROOT / ".agent-team" / "state.json")
     ap.add_argument("--no-approval", action="store_true")
     ap.add_argument("--prs", type=Path)
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     try:
         if not TICKET.fullmatch(args.ticket):
@@ -124,10 +151,14 @@ def main(argv=None):
         relay, last = check(pr, stored, live, mergeable, args.no_approval or ticket_no_approval, project_config.review_after_conflict)
     except Cannot as e:
         print(f"head-check: cannot {e}")
+        if args.nxt:
+            print(f"next: {NEXT['cannot']}")
         return 2
     if relay:
         print(relay)
     print(last)
+    if args.nxt:
+        print(f"next: {next_for(last)}")
     return 0
 
 

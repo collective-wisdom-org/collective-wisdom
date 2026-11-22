@@ -8,6 +8,10 @@ Usage:
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] prune
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] init
     ~/.collective-wisdom/scripts/cos_state.py now [--iso]
+    ~/.collective-wisdom/scripts/cos_state.py title <PREFIX>-N                       the raw ticket title on stdin
+    ~/.collective-wisdom/scripts/cos_state.py comment approved <spec|merge> [--head SHA] [--queued LANE]      the user's words on stdin
+    ~/.collective-wisdom/scripts/cos_state.py comment auto <spec|merge> --tolerance T [--head SHA] [--queued LANE]   `<Level> (<reason>)` on stdin, or nothing
+    ~/.collective-wisdom/scripts/cos_state.py comment withdrawn                      the reason on stdin
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket). get prints
@@ -19,6 +23,20 @@ Backlog lists (tracker-lists.json next to the file, through cos_lists.remove) so
 never changes the output or the exit code. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
 now prints the current time as 2026-11-15 5:16 am UTC (--iso: 2026-11-15T05:16:00Z) and reads no state file; it is the only
 source of a clock time the Chief of Staff writes into a ticket comment.
+
+title and comment read no state file. Both print the finished text, one line, and nothing else; the caller copies it.
+title prints the display text of a ticket in a message to the user: `<PREFIX>-N: <short title>`. The title is ticket-author text, so
+`[`, `]`, `<`, `>`, backticks and control characters (newlines included) become spaces, runs of white space collapse, and the first six words are kept.
+It prints the ID alone when nothing is left, or when the title (before the cut to six words) contains a marker, so it cannot pass for one:
+`Auto-approved`, `SPEC READY`, `BUILD READY`, `MERGE READY`, `BLOCKED:`, `MERGED #` or `CHIEF OF STAFF:`, ignoring case, white space, the dropped
+characters and hyphens of any kind (- ‐ ‑ ‒ – — ― − and the soft hyphen).
+comment prints the ticket comment for an approval, with every <time> from `now` (2026-11-15 5:16 am UTC):
+    approved   the user approved the <spec|merge> at <time>: "<words>". Head <sha>.     (` Head <sha>.` only for a merge, which needs --head)
+    auto       auto-approved the <spec|merge> at <time> under <T> (Risk: <Level> (<reason>)).    (` Head <sha>.` added for a merge; no stdin: Risk: unrated)
+    withdrawn  Approval withdrawn at <time>: <reason>.                                    (a final `.` is added when the reason has none)
+--queued LANE (spec, build or merge; approved and auto only) ends the comment with ` Waiting for a <lane> slot.`
+--head SHA is 7 to 40 hex characters and is a merge-only option. The stdin text is trimmed; words (approved) and reason (withdrawn) are required.
+Exit 0 prints the text. Exit 2: bad arguments or empty stdin, with a `cos_state: ...` line on stderr and nothing on stdout.
 
 A status line takes its since time from the script: {since} in the text of a start, stage or set op becomes the ticket's
 stageAt as 2026-11-15 5:16 am UTC. A status with since followed by a digit before its first ": " (a hand-typed time) is rejected; text after it is left alone.
@@ -187,6 +205,60 @@ def clean_title(val):
     if not isinstance(val, str):
         raise Reject("title must be a string")
     return BAD_TITLE.sub(" ", val).strip()[:200]
+
+
+TITLE_DROP = re.compile(r"[\[\]<>`\x00-\x1f\x7f-\x9f\u2028\u2029]")
+TITLE_WORDS = 6
+# What a title may not contain: each marker is compared with case, white space, hyphens of any kind and the dropped characters ignored.
+TITLE_MARKERS = ("autoapproved", "specready", "buildready", "mergeready", "blocked:", "merged#", "chiefofstaff:")
+HYPHENS = re.compile("[-\u00ad\u2010-\u2015\u2212\ufe58\ufe63\uff0d]")
+
+
+def title_has_marker(raw):
+    flat = HYPHENS.sub("", raw).lower()
+    for text in (flat, TITLE_DROP.sub("", flat)):
+        text = re.sub(r"\s+", "", text)
+        if any(m in text for m in TITLE_MARKERS):
+            return True
+    return False
+
+
+def display_title(tid, raw):
+    """`<ID>: <first six words of the cleaned title>`, or the ID alone for an empty title or one that carries a marker."""
+    words = TITLE_DROP.sub(" ", raw).split()
+    if not words or title_has_marker(raw):
+        return tid
+    return f"{tid}: {' '.join(words[:TITLE_WORDS])}"
+
+
+LANES = ("spec", "build", "merge")
+HEAD = re.compile(r"[0-9a-fA-F]{7,40}")
+
+
+def approval_comment(kind, what, text, head, queued, tolerance, time):
+    """The ticket comment text for `comment`. Raises Reject for a bad combination of arguments."""
+    if kind == "withdrawn":
+        if what or head or queued or tolerance:
+            raise Reject("withdrawn takes only the reason on stdin")
+        if not text:
+            raise Reject("withdrawn needs the reason on stdin")
+        return f"Approval withdrawn at {time}: {text}" + ("" if text.endswith(".") else ".")
+    if what not in ("spec", "merge"):
+        raise Reject(f"{kind} needs spec or merge")
+    if (what == "merge") != bool(head):
+        raise Reject("--head is for a merge, and a merge needs it")
+    if head and not HEAD.fullmatch(head):
+        raise Reject("--head needs 7 to 40 hex characters")
+    if queued is not None and queued not in LANES:
+        raise Reject(f"--queued needs one of {', '.join(LANES)}")
+    tail = (f" Head {head}." if head else "") + (f" Waiting for a {queued} slot." if queued else "")
+    if kind == "approved":
+        if tolerance or not text:
+            raise Reject("approved needs the user's words on stdin and takes no --tolerance")
+        return f'the user approved the {what} at {time}: "{text}".{tail}'
+    if not tolerance or not tolerance.strip():
+        raise Reject("auto needs --tolerance")
+    return f"auto-approved the {what} at {time} under {tolerance.strip()} (Risk: {text or 'unrated'}).{tail}"
 
 
 HAND_TIME = re.compile(r"since\s*\d")
@@ -696,10 +768,32 @@ def main(argv=None):
     sub.add_parser("prune")
     sub.add_parser("init")
     sub.add_parser("now").add_argument("--iso", action="store_true")
+    sub.add_parser("title").add_argument("ticket")
+    cp = sub.add_parser("comment")
+    cp.add_argument("kind", choices=("approved", "auto", "withdrawn"))
+    cp.add_argument("what", nargs="?")
+    cp.add_argument("--head")
+    cp.add_argument("--queued")
+    cp.add_argument("--tolerance")
     a = ap.parse_args(argv)
 
     if a.cmd == "now":
         print(now() if a.iso else stamp_text(now()))
+        return 0
+
+    if a.cmd == "title":
+        if not ID.match(a.ticket):
+            print(f"cos_state: title: {a.ticket!r} is not a ticket id", file=sys.stderr)
+            return 2
+        print(display_title(a.ticket, sys.stdin.read()))
+        return 0
+
+    if a.cmd == "comment":
+        try:
+            print(approval_comment(a.kind, a.what, sys.stdin.read().strip(), a.head, a.queued, a.tolerance, stamp_text(now())))
+        except Reject as e:
+            print(f"cos_state: comment: {e}", file=sys.stderr)
+            return 2
         return 0
 
     if a.cmd == "init":
