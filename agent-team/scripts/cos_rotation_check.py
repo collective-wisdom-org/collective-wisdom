@@ -425,7 +425,7 @@ GANTT = (
 )
 SEND_RESET = "`CHIEF OF STAFF RESET <id>. Run /chief-of-staff take over.`"
 RESET_STEPS = (  # the reset, in this thread, in this order; {send} and {reason} are filled from the line's mode and reason
-    "The reset, in this thread, in this order. "
+    "do the reset, in this thread, in this order. "
     "0. Write `.agent-team/chief-notes.md` (session.md § Working set) with what the next session needs that state does not hold: a plan the user "
     "gave, a test in progress, a promise made in a reply. With nothing to carry, leave it. "
     "1. `top` op: `reset` = `{{\"id\": <8 random hex chars>, \"startedAt\": now, \"reason\": \"{reason}\"{extra}}}`. Save state. "
