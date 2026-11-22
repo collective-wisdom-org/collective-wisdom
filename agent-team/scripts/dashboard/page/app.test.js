@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, marksColumn, foreign, tabFromStorage, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, marksColumn, foreign, tabFromStorage, bannerShown, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -1066,4 +1066,15 @@ test('no markup the page builds carries a native title attribute', () => {
     assert.ok(html.includes('data-tip="'))
     assert.doesNotMatch(html, / title="/)
   }
+})
+
+test('the red banner shows only for text that is not the dismissed text', () => {
+  const cases = [
+    ['', '', false],
+    ['', 'old', false],
+    ['Tracker down', '', true],
+    ['Tracker down', 'Tracker down', false],
+    ['Tracker down. Restart failed', 'Tracker down', true],
+  ]
+  for (const [text, dismissed, shown] of cases) assert.equal(bannerShown(text, dismissed), shown, `${text} / ${dismissed}`)
 })
