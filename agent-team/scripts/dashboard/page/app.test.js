@@ -27,7 +27,7 @@ test('threadLink becomes a copy button carrying the exact link', () => {
   const link = '<t3-thread://v2/env/th"1>'
   const html = renderStatus(group([row({ threadLink: link })]))
   // The button follows the ticket number and comes before the title.
-  assert.match(html, /<div class="head"><span class="id">.*?<\/span><button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" title="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect.*?<\/button><span class="title">/)
+  assert.match(html, /<div class="head"><span class="id">.*?<\/span><button type="button" class="copy-icon with-thread" data-copy="&lt;t3-thread:\/\/v2\/env\/th&quot;1&gt;" aria-label="Copy thread link" data-tip="Copy thread link"><svg[^>]*><path.*?<\/svg><svg[^>]*><rect.*?<\/button><span class="title">/)
   assert.ok(!html.includes('>Copy thread link<'))
   assert.ok(!renderStatus(group([row()])).includes('copy-icon'))
 })
@@ -176,7 +176,7 @@ test('gantt escapes text, formats tokens and cost in the row title, and marks ru
   const html = renderGantt([sess({ rows: [grow({ name: '<img onerror=x>', kind: 'task' }), grow({ id: 'b', kind: 'task', end: null, tokens: 950, cost: 0.42, model: 'opus-5-5', harness: 'T3 Code' })] })], T + 60000)
   assert.ok(!html.includes('<img'))
   assert.match(html, /&lt;img onerror=x&gt;/)
-  assert.match(html, /title="&lt;img onerror=x&gt;\nr · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 12\.3k tokens\n\/x"/)
+  assert.match(html, /data-tip="&lt;img onerror=x&gt;\nr · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 12\.3k tokens\n\/x"/)
   assert.match(html, /r · \d\d?:\d\d [ap]m, running · 950 tokens · opus-5-5 · T3 Code/)
   assert.match(html, /\$0\.42/)
   assert.match(html, /bar cat-other running/)
@@ -268,7 +268,7 @@ test('renderGantt draws one waterfall of active time', () => {
 
 test('each bar has an escaped tooltip with its own range, length and the row model; a running bar says running', () => {
   const html = renderGantt([sess({ rows: [task({ name: '<b>t</b>', model: 'opus-5-5', end: null, segments: [[T, T + MIN], [T + 5 * MIN, null]] })] })], T + 8 * MIN)
-  const titles = [...html.matchAll(/class="bar[^"]*"[^>]*title="([^"]*)"/g)].map((m) => m[1])
+  const titles = [...html.matchAll(/class="bar[^"]*"[^>]*data-tip="([^"]*)"/g)].map((m) => m[1])
   assert.equal(titles.length, 2)
   assert.match(titles[0], /^&lt;b&gt;t&lt;\/b&gt;\nOther · \d\d?:\d\d [ap]m to \d\d?:\d\d [ap]m · 1m 00s · opus-5-5$/)
   assert.match(titles[1], /^&lt;b&gt;t&lt;\/b&gt;\nOther · \d\d?:\d\d [ap]m, running · opus-5-5$/)
@@ -532,7 +532,7 @@ test('a running ticket helper is a placeholder card on the Backlog tab; a Todo r
   assert.match(card, /class="seg" data-ticket="helper:&lt;img[^"]*" data-view="agents"/)
   const placeholder = card.split('<li class="ticket">').find((li) => li.includes('Ticket helper')).split('</li>')[0]
   assert.ok(!/<a |class="info-body"/.test(placeholder), 'no link or Details panel on the placeholder')
-  assert.match(placeholder, /data-view="details"[^>]* disabled title="No ticket yet"/)
+  assert.match(placeholder, /data-view="details"[^>]* aria-disabled="true" data-tip="No ticket yet"/)
   assert.ok(!html.includes('<img'))
   const next = part('queued')
   assert.ok(next.indexOf('data-group="Queued to build"') < next.indexOf('data-group="Waiting to spec"'), 'Waiting to spec follows Queued to build')
@@ -552,7 +552,7 @@ test('merged row with sessions has a closed Agents segment that stays open when 
   assert.match(html([sess()], new Set(['CW-1'])), /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="true"/)
   assert.equal(html([sess()]).match(/class="chart-body"/g).length, 1)
   for (const none of [html([]), html()]) {
-    assert.match(none, /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="false" disabled title="No agent sessions recorded">Agents <span class="pill">0<\/span>/)
+    assert.match(none, /data-merged="CW-1" data-view="agents" id="seg-merged-CW-1-agents" aria-expanded="false" aria-disabled="true" data-tip="No agent sessions recorded">Agents <span class="pill">0<\/span>/)
     assert.doesNotMatch(none, /class="chart-body"|pan-merged-CW-1-agents/)
   }
 })
@@ -567,7 +567,7 @@ test('the Agents pill counts every task and subagent on every row type; an empty
   ]
   for (const [name, render] of cases) {
     assert.match(render(g), /Agents <span class="pill">5<\/span>/, name)
-    assert.match(render([]), /disabled[^>]*>Agents <span class="pill">0<\/span>/, name)
+    assert.match(render([]), /aria-disabled="true"[^>]*>Agents <span class="pill">0<\/span>/, name)
   }
 })
 
@@ -595,7 +595,7 @@ test('owner avatar on every card type; Agents is left out only for a foreign own
   const bad = ownerBadge('<b>"x')
   assert.ok(!bad.includes('<b>') && bad.includes('&lt;b&gt;') && bad.includes('<span class="initial">&lt;</span>') && /src="https:\/\/avatars\.githubusercontent\.com\/%3Cb%3E%22x\?s=40"/.test(bad))
   assert.ok(!bad.includes('class="login"'))
-  assert.ok(bad.includes('title="&lt;b&gt;&quot;x"') && bad.includes('aria-label="&lt;b&gt;&quot;x"'))
+  assert.ok(bad.includes('data-tip="&lt;b&gt;&quot;x"') && bad.includes('aria-label="&lt;b&gt;&quot;x"'))
 })
 
 test('marks column: avatar, epic slot and blocked icon with their tooltips, escaped; no relations draws the bare avatar', () => {
@@ -611,7 +611,7 @@ test('marks column: avatar, epic slot and blocked icon with their tooltips, esca
   for (const [name, r, has, slots] of cases) {
     const html = marksColumn(r)
     for (const t of has) assert.ok(html.includes(t), `${name}: ${t}`)
-    for (const [, t, a] of html.matchAll(/ role="img" title="([^"]*)" aria-label="([^"]*)"/g)) assert.equal(t, a, `${name}: accessible name matches tooltip`)
+    for (const [, t, a] of html.matchAll(/ role="img" data-tip="([^"]*)" aria-label="([^"]*)"/g)) assert.equal(t, a, `${name}: accessible name matches tooltip`)
     if (html.includes('mark epic') && html.includes('mark blocked')) assert.ok(html.indexOf('class="owner"') < html.indexOf('mark epic') && html.indexOf('mark epic') < html.indexOf('mark blocked'), `${name}: avatar, epic, blocked order`)
     assert.equal(html.split('class="slot"').length - 1, slots, `${name} slots`)
     assert.ok(!html.includes('<epic>') && !html.includes('"b"'), `${name} escaped`)
@@ -751,7 +751,7 @@ test('renderGantt draws each CI wait bar on its task row and leaves durations, c
   assert.equal([...withCi.matchAll(/class="bar cat-ci"/g)].length, 1)
   assert.ok(!withCi.includes(' running"'))
   assert.ok(!withCi.includes('CI wait</span>'))
-  assert.match(withCi, /title="CI wait\n\d\d?:\d\d [ap]m, running · 27m 00s"/)
+  assert.match(withCi, /data-tip="CI wait\n\d\d?:\d\d [ap]m, running · 27m 00s"/)
   assert.equal(renderGantt(sessions, now, []), renderGantt(sessions, now), 'no CI spans, same chart as before')
 })
 
@@ -977,7 +977,7 @@ test('Approve and Changes show only on a card waiting for approval; they open th
     assert.equal(approveCommand(r), approve, JSON.stringify(r))
     assert.equal(approveCommand(r, 'changes'), changes, JSON.stringify(r))
     const controls = (link) => renderStatus([{ name: 'Other', count: 1, rows: [row(r)] }], new Set(), new Set(), new Set(), link).match(/<a class="approve"[^>]*>\w+<\/a>|<button type="button" class="approve"[^>]*>\w+<\/button>/g) ?? []
-    const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" title="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
+    const prompt = (t, tip, ret = '') => `<a class="approve" href="${promptLink('<t3-thread://v2/e/t>', t)}" data-tip="${esc(`Opens the Chief of Staff thread with "${t}" typed in${tip}`)}"${ret}>`
     assert.deepEqual(controls('<t3-thread://v2/e/t>'), approve === null ? [] : [`${prompt(approve, ' and presses Send for you and checks it arrived. If it can\'t, press Send.', ` data-return="${approve}"`)}Approve</a>`, `${prompt(changes, '. Add what to change, then press Send.')}Changes</a>`], JSON.stringify(r))
     assert.deepEqual(controls(), approve === null ? [] : [`<button type="button" class="approve" data-copy="${approve}">Approve</button>`, `<button type="button" class="approve" data-copy="${changes}">Changes</button>`], JSON.stringify(r))
   }
@@ -1007,7 +1007,7 @@ test('each Backlog card has a Start shipping control after the switch and before
     const backlog = (chief) => renderBacklog([{ name: 'Backlog', count: 1, rows: [row({ id })] }], new Set(), 0, new Set(), new Set(), chief)
     const foot = (html) => html.match(/<div class="foot">([\s\S]*?)<span class="meta">/)[1]
     const tip = `Opens the Chief of Staff thread with "${cmd}" typed in and presses Send for you and checks it arrived. If it can't, press Send.`
-    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" title="${esc(tip)}" data-return="${cmd}">Start shipping</a>`
+    const withLink = cmd && `<a class="todo" href="${promptLink(link, cmd)}" data-tip="${esc(tip)}" data-return="${cmd}">Start shipping</a>`
     const copy = cmd && `<button type="button" class="todo" data-copy="${cmd}">Start shipping</button>`
     for (const [chief, want] of [[link, withLink], [undefined, copy], ['t3-thread://v2/e/t', copy]]) {
       const f = foot(backlog(chief))
@@ -1046,4 +1046,22 @@ test('pressMessage: one line per reason for each control, none when sent or a re
 
 test('pressAction names the control from the command', () => {
   for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Start shipping']]) assert.equal(pressAction(command), want, command)
+})
+
+test('no markup the page builds carries a native title attribute', () => {
+  const link = '<t3-thread://v2/e/t>'
+  const full = row({ id: 'CW-402', stage: 'awaiting-merge', owner: 'ann', epic: { id: 'CW-9', title: 'e' }, blockedBy: [{ id: 'CW-5', title: 'x' }], threadLink: link, gantt: [sess({ rows: [task({})] })] })
+  const todo = row({ id: 'CW-7', stage: '', risk: '', next: '', threadLink: link })
+  const merged = { id: 'CW-1', title: 't', mergedAt: 0, gantt: [sess()] }
+  const pages = [
+    renderStatus(group([full, row({ id: 'helper:x', helper: true })]), new Set(), new Set(), new Set(), link),
+    renderBacklog([{ name: 'Backlog', count: 1, rows: [todo] }], new Set(), 0, new Set(), new Set(), link),
+    renderMerged([merged, { ...merged, id: 'CW-2', gantt: [] }], 0, 10).html,
+    renderChief({ chief: { threadLink: link }, pm: [{ sessionId: 'M', role: 'ranking', state: 'idle', threadLink: link, gantt: [sess()] }] }, 0, new Set()).html,
+    renderGantt([sess({ rows: [task({ end: null })] })], T + 60000, [[T, null]]),
+  ]
+  for (const html of pages) {
+    assert.ok(html.includes('data-tip="'))
+    assert.doesNotMatch(html, / title="/)
+  }
 })

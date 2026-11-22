@@ -95,6 +95,7 @@ p.more { margin:var(--s2) 0 0; font-size:var(--t-small); }
 .seg .pill { background:var(--line); }
 .seg:hover:not(:disabled) { background:transparent; color:var(--fg); }
 .seg[aria-expanded="true"], .seg[aria-expanded="true"]:hover:not(:disabled) { background:var(--card); color:var(--fg); font-weight:600; box-shadow:0 1px 2px var(--shadow); }
+.seg[aria-disabled="true"], .seg[aria-disabled="true"]:hover { background:transparent; color:var(--muted); opacity:.5; cursor:default; }
 .panel { margin-top:var(--s2); padding-top:var(--s3); border-top:1px solid var(--line); }
 .panel .info-body, .panel .gantt { margin-top:0; }
 @media (max-width: 29.99rem) { .seg { height:2.25rem; } .foot .meta { flex:1 1 100%; } }
@@ -183,6 +184,11 @@ details.group.stale ul a.todo, li.ticket.stale a.todo { color:var(--on-accent); 
 .legend { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s3); margin:var(--s2) 0 0; padding:0; list-style:none; color:var(--muted); font-size:var(--t-small); }
 .legend li { display:flex; align-items:center; gap:var(--s1); }
 .swatch { width:10px; height:10px; border-radius:6px; }
+#tip { position:fixed; z-index:10; max-width:22rem; padding:var(--s1) var(--s2); border-radius:8px; background:var(--card); color:var(--fg); box-shadow:0 0 0 1px var(--edge), 0 4px 12px light-dark(#00000026, #00000099); font-size:var(--t-small); line-height:1.4; white-space:pre-line; pointer-events:none; }
+/* The glow shows exactly while the popup does. !important so it beats a state's own box-shadow (an open segment, a hovered one). */
+.tipped:not(.mark, .owner) { box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent), 0 1px 2px var(--shadow) !important; }
+.mark.tipped, .owner.tipped { filter:drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 70%, transparent)); }
+.bar.tipped { filter:brightness(1.15); }
 @container (min-width: 36rem) {
   .grow { grid-template-columns:14rem minmax(0, 1fr) 5rem 4.5rem; grid-template-areas:"name track dur cost"; }
   .grow.gtotal { grid-template-areas:"name . dur cost"; }
@@ -216,5 +222,6 @@ details.group.stale ul a.todo, li.ticket.stale a.todo { color:var(--on-accent); 
 </div>
 </main>
 <script type="module" src="/app.js"></script>
+<div id="tip" role="tooltip" hidden></div>
 </body>
 </html>
