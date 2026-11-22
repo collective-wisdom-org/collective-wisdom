@@ -188,6 +188,7 @@ export function createDetails(opts: { run: Run; git: Run; now?: () => number }) 
           prs.set(n, { startedAt: t, parsed: have?.parsed })
           start(async () => {
             try {
+              // `files` here is capped at 100 by gh, so a bigger PR shows a short file list and a low "more files" count; display only, no gate reads it.
               const parsed = prDetail(await opts.run(['pr', 'view', n, '--repo', cfg!.slug, '--json', 'body,files,comments,mergeCommit']))
               const cur = prs.get(n)
               if (parsed && cur) cur.parsed = parsed

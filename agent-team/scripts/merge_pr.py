@@ -64,7 +64,7 @@ ROOT = root()
 GH = str(Path(__file__).absolute().parent / "gh.sh")
 FIELDS = (
     "state,isDraft,mergeable,mergeStateStatus,headRefOid,headRefName,baseRefName,"
-    "statusCheckRollup,comments,commits,files,mergeCommit,isCrossRepository,body,"
+    "statusCheckRollup,comments,commits,mergeCommit,isCrossRepository,body,"
     "author,reviews,reviewDecision,reviewRequests"
 )
 VERDICTS = ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")
@@ -111,6 +111,20 @@ def codeowners(run):
     return owners
 
 
+CHANGE_TYPES = {"added": "ADDED", "removed": "DELETED", "renamed": "RENAMED"}  # any other status counts as MODIFIED
+
+
+def pr_files(pr, run):
+    """Every file in the PR as [{"path", "changeType"}], read page by page from the API (`gh pr view --json files` stops at 100)."""
+    out = run([GH, "api", f"repos/{{owner}}/{{repo}}/pulls/{pr}/files", "--paginate", "--jq", ".[] | {path: .filename, status}"])
+    files = []
+    for line in out.splitlines():
+        if line.strip():
+            x = json.loads(line)
+            files.append({"path": x["path"], "changeType": CHANGE_TYPES.get(x["status"], "MODIFIED")})
+    return files
+
+
 def read_facts(pr, approved, run):
     """Everything the gate needs, from gh and git reads only."""
     f = json.loads(run([GH, "pr", "view", pr, "--json", FIELDS]))
@@ -139,6 +153,7 @@ def read_facts(pr, approved, run):
             except ci_review.CiError as e:
                 raise CmdError(f"read CI review threads: {e}")
             f["ciThreads"] = ci_review.classify(threads, f["ciBot"])["unresolved"]
+    f["files"] = pr_files(pr, run) if f["state"] == "OPEN" else []
     f["docs"] = {}
     if f["state"] == "OPEN":
         want = [x["path"] for x in f["files"] if re.fullmatch(SPECS, x["path"]) and x["changeType"] != "DELETED"]

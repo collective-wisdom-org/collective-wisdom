@@ -987,7 +987,9 @@ test('Approve and Changes show only on a card waiting for approval; they open th
 
 test('promptLink turns a dashboard thread link into a T3 prompt link and refuses anything else', () => {
   const cases = [
-    ['<t3-thread://v2/env-1/th:2>', 't3code://threads/env-1/th:2?prompt=a%20b%26c'],
+    ['<t3-thread://v2/env-1/th:2>', 't3code://threads/env-1/th%3A2?prompt=a%20b%26c'],
+    ['<t3-thread://v2/env-1/th%3A2>', 't3code://threads/env-1/th%253A2?prompt=a%20b%26c'],
+    ['<t3-thread://v2/env.1/th.2>', 't3code://threads/env%2E1/th%2E2?prompt=a%20b%26c'],
     [undefined, null],
     ['t3-thread://v2/env/th', null],
     ['<t3-thread://v1/env/th>', null],
@@ -1031,6 +1033,7 @@ test('pressMessage: one line per reason for each control, none when sent or a re
       [{ sent: false, reason: 'unchecked' }, `${action} may not have sent: the dashboard could not read T3's messages to check. Look in the Chief of Staff thread and press Send if it is still there.`],
       [{ sent: false, reason: 'not-frontmost' }, `${action} not sent: T3 Code was not in front.${tail}`],
       [{ sent: false, reason: 'no-focus' }, `${action} not sent: the dashboard could not put the cursor in the T3 message box.${tail}`],
+      [{ sent: false, reason: 'not-open' }, `${action} not sent: the Chief of Staff thread was not open yet. Press Send there.`],
       [{ sent: false, reason: 'permission' }, new RegExp(`^${action} not sent: macOS has not allowed .* System Settings > Privacy & Security > Accessibility, turn on T3 Code \\(or the app that started the dashboard\\)`)],
       [{ sent: false, reason: 'error' }, generic],
       [{ sent: false, reason: 'toString' }, generic],

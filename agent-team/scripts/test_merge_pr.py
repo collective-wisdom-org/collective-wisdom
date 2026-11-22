@@ -192,8 +192,11 @@ def fake(f):
     def runner(cmd):
         calls.append(cmd)
         text = " ".join(cmd)
+        if "/pulls/" in text and text.endswith("/files --paginate --jq .[] | {path: .filename, status}"):
+            status = {"ADDED": "added", "DELETED": "removed", "RENAMED": "renamed", "MODIFIED": "modified"}
+            return "".join(json.dumps({"path": x["path"], "status": status[x["changeType"]]}) + "\n" for x in f["files"]) if f["state"] == "OPEN" else ""
         if "pr view" in text:
-            return json.dumps({k: v for k, v in f.items() if k not in ("docs", "login", "owner", "repoKey", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
+            return json.dumps({k: v for k, v in f.items() if k not in ("files", "docs", "login", "owner", "repoKey", "approved", "root", "root_branch", "root_dirty", "root_ahead")})
         if "api user" in text:
             return f["login"]
         if "/contents/" in text:
@@ -638,4 +641,28 @@ def test_teammate_row_as_written(tmp_path, monkeypatch, cell, cause):
     runner, _ = fake(green())
     f = merge_pr.read_facts("7", HEAD[:7], runner)
     reason = merge_pr.gate(f)
+    assert reason is None if cause is None else cause in reason
+
+
+FILLER = [{"path": f"src/f{i}.py", "changeType": "MODIFIED"} for i in range(119)]
+
+
+@pytest.mark.parametrize(
+    "tail, spec, cause",
+    [
+        ([{"path": SPECMD, "changeType": "ADDED"}, {"path": ASBUILT, "changeType": "ADDED"}] + FILLER[:10], SHIPPED, None),  # spec at 120, as-built past 100
+        ([{"path": SPECMD, "changeType": "ADDED"}] + FILLER[:10], SHIPPED, None),
+        (FILLER[:10], SHIPPED, "no spec in the PR has **Status:** Shipped"),
+        ([{"path": SPECMD, "changeType": "DELETED"}] + FILLER[:10], SHIPPED, "no spec in the PR has **Status:** Shipped"),  # removed: not fetched
+        ([{"path": SPECMD, "changeType": "ADDED"}, {"path": ASBUILT, "changeType": "MODIFIED"}], "**Status:** Shipped\n", "no added docs/superpowers/as-built"),  # modified as-built does not count
+    ],
+)
+def test_pr_files_reads_every_page(tail, spec, cause):
+    f = green()
+    f["files"] = FILLER + tail
+    f["docs"] = {SPECMD: spec} if any(x["path"] == SPECMD and x["changeType"] != "DELETED" for x in tail) else {}
+    runner, _ = fake(f)
+    facts = merge_pr.read_facts("7", HEAD[:7], runner)
+    assert len(facts["files"]) == len(f["files"]) >= 120
+    reason = merge_pr.gate(facts)
     assert reason is None if cause is None else cause in reason
