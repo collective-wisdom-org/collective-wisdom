@@ -300,15 +300,15 @@ export const ownerBadge = (login) =>
     : ''
 const SVG = (body) => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
 const mark = (kind, name, svg) => `<span class="mark ${kind}" role="img" data-tip="${esc(name)}" aria-label="${esc(name)}">${svg}</span>`
-/** The marks column of a ticket card: the owner avatar, then the epic icon, then the blocked icon (a red x with the blockers in its tooltip, or a green check). The epic slot stays empty without an epic so the blocked icon sits at the same height on every card. A row with neither `epic` nor `blockedBy` gets the bare avatar. */
+/** The marks column of a ticket card: the owner avatar, then the epic icon, then the blocked icon (a red x with the blockers in its tooltip, drawn only when there is an open blocker). The epic and blocked slots stay empty without an epic or a blocker so the column keeps the same height on every card with relations. A row with neither `epic` nor `blockedBy` gets the bare avatar. */
 export const marksColumn = (r) => {
   if (!r.epic && !Array.isArray(r.blockedBy)) return ownerBadge(r.owner)
   const slot = (html = '') => `<span class="slot">${html}</span>`
-  const blocked = !Array.isArray(r.blockedBy) ? '' : r.blockedBy.length
+  const blocked = !Array.isArray(r.blockedBy) ? '' : slot(r.blockedBy.length
     ? mark('blocked', ['Blocked by:', ...r.blockedBy.map((b) => `${b.id}: ${b.title}`)].join('\n'), SVG('<path d="M4 4l8 8M12 4l-8 8"/>'))
-    : mark('clear', 'Not blocked', SVG('<path d="M3.5 8.5l3 3 6-7"/>'))
+    : '')
   const epic = r.epic ? mark('epic', `Epic ${r.epic.id}: ${r.epic.title}`, SVG('<path d="M8 2L2 5l6 3 6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/>')) : ''
-  return `<div class="marks">${slot(ownerBadge(r.owner))}${slot(epic)}${blocked && slot(blocked)}</div>`
+  return `<div class="marks">${slot(ownerBadge(r.owner))}${slot(epic)}${blocked}</div>`
 }
 /** True when the ticket's owner and the viewer are both logins and differ (GitHub logins are case-insensitive). */
 export const foreign = (owner, viewer) => typeof owner === 'string' && typeof viewer === 'string' && owner !== '' && viewer !== '' && owner.toLowerCase() !== viewer.toLowerCase()
