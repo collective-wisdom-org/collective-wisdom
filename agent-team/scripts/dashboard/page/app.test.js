@@ -604,19 +604,21 @@ test('marks column: avatar, epic slot and blocked icon with their tooltips, esca
   const E = 'Epic CW-9: Big &lt;epic&gt;'
   const cases = [
     ['epic and red x', { owner: 'ann', epic, blockedBy: [x, { id: 'o/r#2', title: 'c' }] }, [E, 'Blocked by:\nCW-5: a &quot;b&quot;\no/r#2: c', 'mark blocked'], 3],
-    ['green check', { owner: 'ann', epic, blockedBy: [] }, [E, 'Not blocked', 'mark clear'], 3],
+    ['no open blocker', { owner: 'ann', epic, blockedBy: [] }, [E], 3, ['mark clear', 'mark blocked', 'Not blocked']],
+    ['no epic, no blocker', { owner: 'ann', blockedBy: [] }, [], 3, ['mark clear', 'mark blocked', 'Not blocked', 'Epic']],
     ['no epic keeps its slot', { owner: 'ann', blockedBy: [x] }, ['Blocked by:\nCW-5: a &quot;b&quot;', 'mark blocked'], 3],
     ['epic only', { owner: 'ann', epic }, [E], 2],
   ]
-  for (const [name, r, has, slots] of cases) {
+  for (const [name, r, has, slots, lacks = []] of cases) {
     const html = marksColumn(r)
     for (const t of has) assert.ok(html.includes(t), `${name}: ${t}`)
+    for (const t of lacks) assert.ok(!html.includes(t), `${name}: no ${t}`)
     for (const [, t, a] of html.matchAll(/ role="img" title="([^"]*)" aria-label="([^"]*)"/g)) assert.equal(t, a, `${name}: accessible name matches tooltip`)
     if (html.includes('mark epic') && html.includes('mark blocked')) assert.ok(html.indexOf('class="owner"') < html.indexOf('mark epic') && html.indexOf('mark epic') < html.indexOf('mark blocked'), `${name}: avatar, epic, blocked order`)
     assert.equal(html.split('class="slot"').length - 1, slots, `${name} slots`)
     assert.ok(!html.includes('<epic>') && !html.includes('"b"'), `${name} escaped`)
   }
-  assert.ok(!marksColumn(cases[2][1]).includes('Epic'))
+  assert.ok(!marksColumn(cases[3][1]).includes('Epic'))
   assert.equal(marksColumn({ owner: 'ann' }), ownerBadge('ann'))
   assert.equal(marksColumn({}), '')
   assert.ok(renderBacklog([{ name: 'Backlog', count: 1, rows: [{ ...row(), epic, blockedBy: [] }] }]).includes('class="marks"'))
