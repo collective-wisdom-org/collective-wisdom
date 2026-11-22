@@ -35,4 +35,4 @@ In `cos_state.py`'s docstring. Top-level keys, no others (never `policy`, `setti
 
 ## Unknown keys and prune
 
-`prune` drops an unknown top-level key and prints it as an `unknown keys:` line; report it once under Cleanup (SKILL.md § Tick).
+`prune` drops an unknown top-level key; `show` prints the `unknown keys:` line. Report it once under Cleanup (SKILL.md § Tick).

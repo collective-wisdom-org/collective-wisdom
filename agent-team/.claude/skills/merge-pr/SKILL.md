@@ -46,7 +46,7 @@ Exit 0: do what its `next:` line says. Exit 1 (a gate failed, nothing changed) o
 
 ## Done when
 
-The PR is merged with its closeout docs, the ticket is **Done**, the root checkout is fast-forwarded to `origin/<target>`, and the report names the worktree and ends with `MERGED #N`.
+The PR is merged with its closeout docs, the ticket is **Done**, the root checkout is fast-forwarded to `origin/<target>`, and the report names the worktree and ends with `MERGED #N`. Never touch what `docs/agents/project.md` § Repo invariants protects on the root checkout (data directories).
 
 ## Do not
 

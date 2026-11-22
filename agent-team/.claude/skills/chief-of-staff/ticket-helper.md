@@ -63,7 +63,7 @@ The user's request, verbatim:
 
 ## Observation tickets
 
-A helper from your own observation, started only when an `observe` op (SKILL.md § Child path) prints `file`. Same `delegate_task` call as § Ticket helper with `title: "Observed: <3 to 6 words>"` and no `On it:` reply.
+A helper from your own observation, started only when an `observe` op (SKILL.md § Child path) prints `file`. At most one `file` per turn (`cos_state.py observe` prints `hold (one per turn)` after the first). Same `delegate_task` call as § Ticket helper with `title: "Observed: <3 to 6 words>"` and no `On it:` reply.
 
 Sighting `kind`: the report line that shows it is in the `cos_state.py` docstring, `observe` op.
 

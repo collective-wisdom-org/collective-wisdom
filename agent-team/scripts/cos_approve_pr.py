@@ -10,7 +10,7 @@ file. The PR, its head, the thread, the cut-off time and the words (`approve <N>
 mapped GitHub login. It writes nothing: exit 0 is the proof the Chief of Staff needs before it relays the merge approval.
 
 Gates, in order; the first failure stops: root checkout, state, the user's message (~/.collective-wisdom/scripts/cos_user_check.py latest),
-gh login, PR facts, head.
+gh login, PR facts (open, not a draft, based on the merge target branch), head.
 
 With --auto the user's message is not read. Every other gate runs, and the script also needs the approval rule to say
 auto (the Risk tail of the ticket's status line in state, and the `Approval risk tolerance` on origin/<merge target branch>; see
