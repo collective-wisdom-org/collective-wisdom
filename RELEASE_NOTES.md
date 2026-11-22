@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 instant styled hover popups on the dashboard (WISE-485) (#487)
+
+Merged 2026-11-22 2:29 am UTC.
+
+The dashboard's hover tooltips now appear instantly in a styled popup instead of after the browser's delay, and the element you hover glows slightly. Nothing to do.
+
 ## 2026-11-21 show epic and blocked icons on dashboard cards (WISE-482) (#483)
 
 Merged 2026-11-21 7:54 am UTC.
