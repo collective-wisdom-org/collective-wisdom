@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
+import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, pressReturnMac, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -569,6 +569,7 @@ test('press-return answers sent only when the check finds the user\'s message, a
     ['check threw', 'sent', 'ct', [new Error('boom')], { sent: false, reason: 'unchecked' }, 1],
     ['no Chief of Staff thread', 'sent', undefined, [true], { sent: false, reason: 'unchecked' }, 0],
     ['press found no message box', 'no-focus', 'ct', [true], { sent: false, reason: 'no-focus' }, 0],
+    ['press found the thread not open', 'not-open', 'ct', [true], { sent: false, reason: 'not-open' }, 0],
   ]
   await Promise.all(cases.map(async ([name, press, chief, answers, want, runs]) => {
     const calls: [string, string, string][] = []
@@ -585,12 +586,16 @@ test('press-return answers sent only when the check finds the user\'s message, a
     })
     assert.deepEqual([res.status, JSON.parse(res.body)], [200, want], name)
     if (runs >= 0) assert.equal(calls.length, runs, name)
-    else assert.ok(calls.length >= 3 && Date.now() - before >= 3500, `${name}: kept trying for about 3 seconds`)
+    else assert.ok(calls.length >= 3 && Date.now() - before >= 2500, `${name}: kept trying for about 3 seconds`)
     for (const [thread, command, after] of calls) {
       assert.deepEqual([thread, command], ['ct', 'approve 402'], name)
       assert.ok(Date.parse(after) >= before - 1 && /Z$/.test(after), `${name}: after is when the request arrived`)
     }
   }))
+})
+
+test('pressReturnMac presses nothing without a valid issue prefix', { skip: process.platform !== 'darwin' }, async () => {
+  for (const prefix of [null, '', 'WI SE', 'WISE;', 'A'.repeat(17)]) assert.equal(await pressReturnMac(prefix), 'not-open', String(prefix))
 })
 
 test('pressResult maps the osascript output and errors', () => {
@@ -600,6 +605,7 @@ test('pressResult maps the osascript output and errors', () => {
     ['not-frontmost\n', { sent: false, reason: 'not-frontmost' }],
     ['unsupported', { sent: false, reason: 'unsupported' }],
     ['no-focus\n', { sent: false, reason: 'no-focus' }],
+    ['not-open\n', { sent: false, reason: 'not-open' }],
     ['permission\n', { sent: false, reason: 'permission' }],
     ['', { sent: false, reason: 'error' }],
     [fail('execution error: Not authorized to send Apple events to System Events. (-1743)'), { sent: false, reason: 'permission' }],

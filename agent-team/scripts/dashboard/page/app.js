@@ -332,10 +332,13 @@ export function approveCommand(r, kind = 'approve') {
 
 const THREAD_LINK = /^<t3-thread:\/\/v2\/([A-Za-z0-9:._%-]+)\/([A-Za-z0-9:._%-]+)>$/
 
-/** `t3code://threads/ENV/THREAD?prompt=TEXT`, which T3 opens as an unsent draft in that thread (T3 Code 0.1.7 reads no send parameter, so the user still presses Send); built from the dashboard's `<t3-thread://v2/ENV/THREAD>` link. Null when the link is missing or not that shape. */
+/** A path segment the way T3 builds its own thread links: `encodeURIComponent`, then `.!~*'()` as `%XX`. T3 decodes route segments, so a raw `%` in an id would be decoded twice. */
+const segment = (s) => encodeURIComponent(s).replace(/[.!~*'()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+
+/** `t3code://threads/ENV/THREAD?prompt=TEXT`, which T3 opens as an unsent draft in that thread (the user still presses Send); built from the dashboard's `<t3-thread://v2/ENV/THREAD>` link. Checked against T3 Code 0.1.9 and 0.1.10-nightly: neither reads a send parameter, and the dashboard runs in T3's built-in browser, so a click opens through its "Open this t3code link?" dialog. Null when the link is missing or not that shape. */
 export function promptLink(chiefLink, text) {
   const m = typeof chiefLink === 'string' ? THREAD_LINK.exec(chiefLink) : null
-  return m ? `t3code://threads/${m[1]}/${m[2]}?prompt=${encodeURIComponent(text)}` : null
+  return m ? `t3code://threads/${segment(m[1])}/${segment(m[2])}?prompt=${encodeURIComponent(text)}` : null
 }
 
 /** The Approve and Changes controls: a link that opens the Chief of Staff thread with the command typed in, or, with no thread link, a button that copies the command. */
@@ -354,6 +357,7 @@ function approveControls(r, chiefLink) {
 
 const PRESS_MESSAGES = {
   'not-frontmost': (action) => `${action} not sent: T3 Code was not in front. Press Send in the Chief of Staff thread.`,
+  'not-open': (action) => `${action} not sent: the Chief of Staff thread was not open yet. Press Send there.`,
   'no-focus': (action) => `${action} not sent: the dashboard could not put the cursor in the T3 message box. Press Send in the Chief of Staff thread.`,
   permission: (action) => `${action} not sent: macOS has not allowed the dashboard to press keys. In System Settings > Privacy & Security > Accessibility, turn on T3 Code (or the app that started the dashboard), and under Automation allow it to control System Events, then press Send in the Chief of Staff thread.`,
   'not-recorded': (action) => `${action} not sent: no new message with the command reached the Chief of Staff thread. If it is still in the message box, press Send there.`,
