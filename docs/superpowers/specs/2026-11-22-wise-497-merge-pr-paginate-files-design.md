@@ -1,7 +1,8 @@
 # WISE-497: Read the PR file list from the paginated API in merge_pr.py
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#497](https://github.com/collective-wisdom-org/collective-wisdom/issues/497)
+**Shipped:** in PR #499, as specified
 
 ## Goal
 
