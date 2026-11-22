@@ -1,5 +1,15 @@
 # Release notes
 
+## 2026-11-22 shrink agent docs by a third, move fixed steps into scripts (WISE-488) (#496)
+
+Merged 2026-11-22 11:42 pm UTC.
+
+The agent skills and role docs are about a third shorter, so each Chief of Staff and child session loads less text. Scripts such as `cos_tick.py` and `review_gate.py` can now print the next step (`--next`), and the skills point to them. Nothing changes in the rules, gates or commands. After you pull, rerun `./install.sh` to refresh the installed copies.
+
+Closes #488
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
 ## 2026-11-22 read PR files from the paginated API in merge_pr.py (WISE-497) (#499)
 
 Merged 2026-11-22 11:26 pm UTC.
