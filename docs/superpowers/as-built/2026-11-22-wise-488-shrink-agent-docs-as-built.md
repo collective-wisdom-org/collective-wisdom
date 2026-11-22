@@ -625,50 +625,50 @@ Characters, measured the same way as § Sizes before (`compact_check.py`'s `coun
 
 | File | Before | After | Delta |
 |---|---|---|---|
-| `.claude/agents/code-reviewer.md` | 399 | 399 | 0 |
-| `.claude/agents/compacter.md` | 413 | 413 | 0 |
-| `.claude/agents/documenter.md` | 339 | 339 | 0 |
-| `.claude/agents/implementer.md` | 297 | 297 | 0 |
-| `.claude/agents/security-reviewer.md` | 385 | 385 | 0 |
+| `.claude/agents/code-reviewer.md` | 399 | 399 | +0 |
+| `.claude/agents/compacter.md` | 413 | 413 | +0 |
+| `.claude/agents/documenter.md` | 339 | 339 | +0 |
+| `.claude/agents/implementer.md` | 297 | 297 | +0 |
+| `.claude/agents/security-reviewer.md` | 385 | 385 | +0 |
 | `.claude/skills/auditing-security/SKILL.md` | 2703 | 2063 | -640 |
 | `.claude/skills/build-from-plan/SKILL.md` | 3092 | 2042 | -1050 |
-| `.claude/skills/chief-of-staff/SKILL.md` | 32695 | 15532 | -17163 |
+| `.claude/skills/chief-of-staff/SKILL.md` | 32695 | 15945 | -16750 |
 | `.claude/skills/chief-of-staff/adopt.md` | 1656 | 1315 | -341 |
-| `.claude/skills/chief-of-staff/approvals.md` | 15685 | 8091 | -7594 |
-| `.claude/skills/chief-of-staff/commands.md` | 10926 | 7954 | -2972 |
+| `.claude/skills/chief-of-staff/approvals.md` | 15685 | 8269 | -7416 |
+| `.claude/skills/chief-of-staff/commands.md` | 10986 | 7994 | -2992 |
 | `.claude/skills/chief-of-staff/continuation.md` | 6263 | 4362 | -1901 |
 | `.claude/skills/chief-of-staff/cross-repo.md` | 6889 | 3740 | -3149 |
 | `.claude/skills/chief-of-staff/fallbacks.md` | 1329 | 1515 | +186 |
 | `.claude/skills/chief-of-staff/kill-switch.md` | 2091 | 2049 | -42 |
 | `.claude/skills/chief-of-staff/models-notes.md` | 0 | 1498 | +1498 |
-| `.claude/skills/chief-of-staff/models.md` | 5737 | 2912 | -2825 |
+| `.claude/skills/chief-of-staff/models.md` | 5737 | 2923 | -2814 |
 | `.claude/skills/chief-of-staff/no-hands.md` | 9150 | 3799 | -5351 |
 | `.claude/skills/chief-of-staff/rate-limit.md` | 1556 | 1390 | -166 |
 | `.claude/skills/chief-of-staff/readiness.md` | 5853 | 4949 | -904 |
-| `.claude/skills/chief-of-staff/report-format.md` | 9365 | 6359 | -3006 |
+| `.claude/skills/chief-of-staff/report-format.md` | 9365 | 6901 | -2464 |
 | `.claude/skills/chief-of-staff/review.md` | 4354 | 1337 | -3017 |
-| `.claude/skills/chief-of-staff/rotation.md` | 12581 | 6496 | -6085 |
+| `.claude/skills/chief-of-staff/rotation.md` | 12581 | 6623 | -5958 |
 | `.claude/skills/chief-of-staff/send-or-queue.md` | 8344 | 4504 | -3840 |
 | `.claude/skills/chief-of-staff/session.md` | 4895 | 3745 | -1150 |
 | `.claude/skills/chief-of-staff/setup.md` | 12319 | 5998 | -6321 |
 | `.claude/skills/chief-of-staff/startup.md` | 9908 | 7684 | -2224 |
-| `.claude/skills/chief-of-staff/state-keys.md` | 13708 | 4655 | -9053 |
+| `.claude/skills/chief-of-staff/state-keys.md` | 13708 | 4654 | -9054 |
 | `.claude/skills/chief-of-staff/status.md` | 5645 | 3086 | -2559 |
 | `.claude/skills/chief-of-staff/stuck.md` | 0 | 1294 | +1294 |
 | `.claude/skills/chief-of-staff/sweep.md` | 10626 | 4386 | -6240 |
-| `.claude/skills/chief-of-staff/ticket-helper.md` | 9974 | 7911 | -2063 |
-| `.claude/skills/human-writing/SKILL.md` | 3638 | 3376 | -262 |
+| `.claude/skills/chief-of-staff/ticket-helper.md` | 9974 | 8010 | -1964 |
+| `.claude/skills/human-writing/SKILL.md` | 3638 | 3177 | -461 |
 | `.claude/skills/human-writing/examples.md` | 1975 | 1424 | -551 |
 | `.claude/skills/kickoff-feature/SKILL.md` | 2605 | 2225 | -380 |
-| `.claude/skills/merge-pr/SKILL.md` | 8222 | 4262 | -3960 |
+| `.claude/skills/merge-pr/SKILL.md` | 8222 | 4372 | -3850 |
 | `.claude/skills/open-pr/SKILL.md` | 19580 | 9994 | -9586 |
 | `.claude/skills/open-pr/reference.md` | 0 | 4432 | +4432 |
-| `.claude/skills/project-manager/SKILL.md` | 14877 | 8536 | -6341 |
-| `.claude/skills/project-manager/reference.md` | 9892 | 8816 | -1076 |
+| `.claude/skills/project-manager/SKILL.md` | 14877 | 8384 | -6493 |
+| `.claude/skills/project-manager/reference.md` | 9892 | 8626 | -1266 |
 | `.claude/skills/security-review/SKILL.md` | 5627 | 3428 | -2199 |
-| `.claude/skills/ship-loop/SKILL.md` | 22871 | 13342 | -9529 |
+| `.claude/skills/ship-loop/SKILL.md` | 22871 | 13388 | -9483 |
 | `.claude/skills/ship-loop/reference.md` | 580 | 3799 | +3219 |
-| `.claude/skills/write-ticket/SKILL.md` | 4985 | 4196 | -789 |
+| `.claude/skills/write-ticket/SKILL.md` | 4985 | 4043 | -942 |
 | `docs/agents/README.md` | 1910 | 1839 | -71 |
 | `docs/agents/chief-of-staff.md` | 9121 | 7166 | -1955 |
 | `docs/agents/code-review.md` | 1699 | 1355 | -344 |
@@ -677,23 +677,23 @@ Characters, measured the same way as § Sizes before (`compact_check.py`'s `coun
 | `docs/agents/github-auth-setup.md` | 0 | 1390 | +1390 |
 | `docs/agents/github-auth.md` | 10102 | 5679 | -4423 |
 | `docs/agents/implementer.md` | 225 | 189 | -36 |
-| `docs/agents/org-chart.md` | 13221 | 9527 | -3694 |
+| `docs/agents/org-chart.md` | 13221 | 9137 | -4084 |
 | `docs/agents/secrets.md` | 2955 | 2281 | -674 |
 | `docs/agents/security-review-reference.md` | 0 | 1138 | +1138 |
 | `docs/agents/security-review.md` | 3647 | 2410 | -1237 |
 | `docs/agents/ticket-writer.md` | 628 | 536 | -92 |
 | `docs/agents/trackers/README.md` | 4988 | 4217 | -771 |
 | `docs/agents/trackers/github-reference.md` | 0 | 1895 | +1895 |
-| `docs/agents/trackers/github.md` | 13985 | 10040 | -3945 |
+| `docs/agents/trackers/github.md` | 13985 | 9568 | -4417 |
 | `docs/agents/trackers/jira-reference.md` | 0 | 764 | +764 |
-| `docs/agents/trackers/jira.md` | 7994 | 6027 | -1967 |
+| `docs/agents/trackers/jira.md` | 7994 | 5771 | -2223 |
 | `docs/agents/trackers/linear.md` | 3922 | 3070 | -852 |
 | `templates/AGENTS.md` | 4070 | 3808 | -262 |
-| **Total (64 files)** | **387141** | **257617** | **-129524** |
+| **Total (64 files)** | **387201** | **257370** | **-129831** |
 
-Total: 387141 -> 257617 (-129524, 33.5%, target 258094 met).
+Total: 387201 -> 257370 (-129831, 33.5%, target 258094 met). The review fixes added text after the first measurement (257617); a docs check caught it at 259209 and a further trim of 1839 characters in seven files brought it to this figure.
 
-Per-file targets (spec § Size targets: 45% for the nine named files, 35% for other files over 5000 characters, 15% for the org chart, the trackers and `setup.md`, 20% under 5000) that were missed, with why. Every other file met its tier. The reason is the category the pass agents gave (the remaining text is gates, verbatim templates and script paths, or the cut moved into a script or a reference file); I matched each to its file from the file's content, not from a per-file record.
+The cut percentages in the list below were measured before the review fixes; the table above is at the head. Per-file targets (spec § Size targets: 45% for the nine named files, 35% for other files over 5000 characters, 15% for the org chart, the trackers and `setup.md`, 20% under 5000) that were missed, with why. Every other file met its tier. The reason is the category the pass agents gave (the remaining text is gates, verbatim templates and script paths, or the cut moved into a script or a reference file); I matched each to its file from the file's content, not from a per-file record.
 
 - `chief-of-staff/commands.md`: cut 27.2%, target 35%. The command table and A1 to A6, A30, A31 stay here as gates; the remaining text is the user-check script paths and verbatim comment strings.
 - `chief-of-staff/continuation.md`: cut 30.4%, target 35%. Remaining text is the continuation gates (A10, A14, A51) and the verbatim `TEAM MODE. CONTINUE` task text.

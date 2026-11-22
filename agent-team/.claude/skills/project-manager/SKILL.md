@@ -16,7 +16,7 @@ Read **ship-loop** § Repo invariants first, then `chief-of-staff` (the hygiene 
 
 Scope <TEAM> (`docs/agents/project.md`). One-shot children the Chief of Staff starts run the hygiene pass and the ranking's reads (`reference.md` § Hygiene child, § Ranking child); the Chief of Staff runs § Backlog pick itself (`chief-of-staff` § Tick, `start-todo`). Todo is the user's: nothing here moves a ticket to Todo.
 
-Tracker operations: `~/.collective-wisdom/docs/agents/trackers/README.md`. GitHub: `~/.collective-wisdom/scripts/gh.sh pr list` and `gh.sh api` (GET). Only the Chief of Staff calls T3.
+Tracker operations: `~/.collective-wisdom/docs/agents/trackers/README.md`. Only the Chief of Staff calls T3.
 
 ## Hygiene pass
 
@@ -70,7 +70,7 @@ Post nothing, unless the user said `backlog`: then post the whole list `cos_rank
 
 ## Ranking child
 
-On a § Backlog pick "Dry ranking", on `backlog`, or when the ranking child fails or finishes: `reference.md` § Ranking child. The Chief of Staff never runs § Backlog ranking itself.
+On a § Backlog pick "Dry ranking", on `backlog`, or when the ranking child fails or finishes: `reference.md` § Ranking child.
 
 ## Backlog pick
 
@@ -78,7 +78,7 @@ Run by `chief-of-staff/readiness.md` § Todo start (`start-todo`) when a spec sl
 
 1. Take the next `ready` ticket in `pm.ranked`; skip `held` and `needs:`.
 2. `get-ticket` it with relations, fields `id, state, labels, relations, description`; re-check held (§ Backlog ranking step 4; the open-PR list at most once per turn). Skip it if it left Backlog, has `agent-skip` or an open blocker, or is held. Remove it from `pm.ranked` either way.
-3. Run `chief-of-staff/readiness.md` § Readiness check and start on it, reusing the step 2 read, with one extra `comment`: `Picked from the Backlog ranking by the project manager: <reason>.` Backlog goes straight to In Progress, never through Todo. A ticket that fails the readiness check doesn't take the slot; take the next `ready`.
+3. Run `chief-of-staff/readiness.md` § Readiness check and start on it, reusing the step 2 read, with one extra `comment`: `Picked from the Backlog ranking by the project manager: <reason>.` Backlog goes straight to In Progress. A ticket that fails the readiness check doesn't take the slot; take the next `ready`.
 4. **Dry ranking.** No `ready` ticket left in `pm.ranked`: `python3 ~/.collective-wisdom/scripts/cos_rank.py dry --next` (add `--out-of-date` when step 2 found a ranked ticket out of date this turn); do what its `next:` line says.
 
 At most one ranking per turn. During a No Hands run, a dry Backlog with no ticket of the run in flight ends the run (`chief-of-staff/no-hands.md` § What drains or stops a run, normal end). Never start a `needs:` ticket; report it once, when first ranked, and add it to `pm.needsReported`.

@@ -1,6 +1,6 @@
 # Jira adapter
 
-**UNTESTED.** Nobody with Jira access has run this adapter. Tool names come from Atlassian's published page (`https://support.atlassian.com/atlassian-rovo-mcp-server/docs/supported-tools/`, checked 2026-11-03), not a live session; if your server lists different names (the v1 server used others), adjust. Do not advertise Jira as supported until the checklist in `jira-reference.md` § Assumptions to check is done.
+**UNTESTED.** Nobody with Jira access has run this adapter. Tool names come from Atlassian's published page (`https://support.atlassian.com/atlassian-rovo-mcp-server/docs/supported-tools/`, checked 2026-11-03), not a live session; if your server lists different names, adjust. Do not advertise Jira as supported until the checklist in `jira-reference.md` § Assumptions to check is done.
 
 How each operation in [README.md](README.md) runs on Jira, through the Atlassian Rovo MCP (v2). `<TEAM>` is the Jira project named by `Jira project key` in `project.md`.
 
@@ -28,7 +28,7 @@ The status map holds your workflow's exact status names; `project_config.value("
 - **Ticket ID.** The Jira key, for example `ABC-12`; the `Issue identifier prefix` row is the project key. A key with an underscore does not match `prefix()`; out of scope.
 - **Set-state rule.** `listJiraIssueTransitions`, pick the transition whose target status equals the mapped name, apply it with `transitionJiraIssue`. If none matches, stop and report the transitions you saw. Never pick the nearest one.
 - **Priority.** Urgent is Highest; High, Medium and Low match. Lowest is unused.
-- **Labels.** `agent`, `agent-skip`, area and type are Jira labels, not issue types (issue types carry hierarchy and vary by project).
+- **Labels.** `agent`, `agent-skip`, area and type are Jira labels, not issue types.
 - **Parent.** The Epic or parent field, set with `editJiraIssue`.
 - **Blocked-by.** The `Blocks` link type: the blocker is the outward issue, the blocked ticket the inward issue. Check the direction in the first run.
 - **Duplicates.** Canceled plus a comment.
@@ -45,16 +45,16 @@ The status map holds your workflow's exact status names; `project_config.value("
 
 - state: `status = "<mapped name>"`; Backlog is the Backlog status name
 - label: `labels = "<name>"`
-- title text: `summary ~ "<words>"`, escaping each `"` and `\` in the words with a backslash (separate terms; exact phrase: `summary ~ "\"<words>\""`). Text search reads `AND`, `OR`, `NOT`, `+`, `-` and a leading `(` as operators, and Atlassian lists `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special; a stray one changes the matches or fails the query. No full escape rule for `"` exists (checked 2026-11-03). On a query error retry once with the words stripped of operators and special characters; still failing: report the error, do not guess at a match.
+- title text: `summary ~ "<words>"`, escaping each `"` and `\` in the words with a backslash (separate terms; exact phrase: `summary ~ "\"<words>\""`). Text search reads `AND`, `OR`, `NOT`, `+`, `-` and a leading `(` as operators, and Atlassian lists `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special; a stray one changes the matches or fails the query. On a query error retry once with the words stripped of operators and special characters; still failing: report the error, do not guess at a match.
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`
 
-All open states in one JQL: `status in ("<Backlog>", "<Todo>", ...)`. Example: `project = ABC AND status = "To Do" ORDER BY created ASC`.
+All open states in one JQL: `status in ("<Backlog>", "<Todo>", ...)`.
 
 ### `get-ticket`
 
-`getJiraIssue` with the key and a field list; for relations include `issuelinks` and `parent`. Leave out `description` unless the README allows it.
+`getJiraIssue` with the key and a field list; for relations include `issuelinks` and `parent`.
 
 ### `read-comments`
 

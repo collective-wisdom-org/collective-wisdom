@@ -15,8 +15,8 @@ Read **ship-loop** § Repo invariants and `docs/agents/project.md` (tracker scop
 
 ## Steps
 
-1. **Check the code first.** Find how the feature works today (grep or read the files) and name the files and functions in a short **Today** section; skip it when the thing doesn't exist yet.
-2. **Check external facts** the ticket names (a subreddit, an API, a library, a site's page layout) before they go in. Say in the report what you couldn't check.
+1. **Check the code first.** Find how the feature works today and name the files and functions in a short **Today** section; skip it when the thing doesn't exist yet.
+2. **Check external facts** the ticket names (a subreddit, an API, a library, a site's page layout) before they go in.
 3. **Look for an existing ticket:** `list-tickets`, scope <TEAM>, title words. If one covers it, offer to edit that one instead.
 4. **Write it** in the shape below, **place it** under an epic (§ Placement), add links (§ Links) and labels (§ Labels).
 5. **Save** with `create-ticket` (or the edit operations); new tickets go to Backlog. **Report back** (§ Report).
@@ -43,7 +43,7 @@ Small tickets stay small: a bug fix can be the one line, **Today** and **Accepta
 
 ## Don't invent requirements
 
-For a terse request, fill only the gaps needed to make the ticket actionable, each small, and list every assumed detail in the report so the user can strike it. Add no features, settings or edge cases the user didn't ask for.
+For a terse request, fill only the gaps needed to make the ticket actionable, each small, and list every assumed detail in the report. Add no features, settings or edge cases the user didn't ask for.
 
 ## Placement
 
@@ -60,11 +60,11 @@ For a terse request, fill only the gaps needed to make the ticket actionable, ea
 
 - One type (`Feature`, `Improvement` or `Bug`) and one or two areas from `docs/agents/project.md` § Areas and labels. Never add `agent` or `agent-skip` (the Chief of Staff and the user own them).
 - Priority only when the user gives one or the request makes it plain (a bug that breaks sign-in); otherwise empty, for the project manager hygiene child.
-- Status: Backlog for new tickets. Never move a ticket to Todo; that is the user's call. A ship-loop child still changes only its own ticket.
+- Status: Backlog for new tickets. Never move a ticket to Todo; that is the user's call.
 
 ## Editing
 
-Patch the description (read it, change only what needs it, write it back). When the scope shifts, update the title; when an edit changes what the ticket depends on, update its links.
+Patch the description (read, change only what needs it, write back). When the scope shifts, update the title; when an edit changes what the ticket depends on, update its links.
 
 ## Product rules
 

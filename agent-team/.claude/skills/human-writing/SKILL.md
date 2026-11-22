@@ -10,7 +10,7 @@ user-invocable: true
 
 # Human writing
 
-Apply when drafting or editing prose for people. Read this before sending user-facing text unless the user asked for exact wording or a fixed template. Identify channel, audience and one main point; draft under the hard rules; run the pre-send check; ship. Examples: [examples.md](examples.md).
+Apply when drafting or editing prose for people. Read this before sending user-facing text. Identify channel, audience and one main point first. Examples: [examples.md](examples.md).
 
 ## Hard rules
 
@@ -20,7 +20,7 @@ No em dashes (—). Use commas, periods, parentheses or two sentences. Hyphens i
 
 ### Avoid LLM tells
 
-Cut or replace patterns like these (not exhaustive):
+Cut or replace patterns like these:
 
 - **Openers and closers:** Certainly, Absolutely, Great question, I'd be happy to, Of course; Hope this helps, Let me know if you need anything else; engagement bait ("Happy to dive deeper", "Feel free to reach out anytime" as filler).
 - **Filler transitions:** Furthermore, Moreover, Additionally, In addition; It's worth noting, Notably (when it adds no fact); In conclusion, To summarize (in a short piece); chained "That said" / "With that in mind" / "Having said that".
@@ -30,7 +30,7 @@ Cut or replace patterns like these (not exhaustive):
 
 ### Do write like
 
-A clear colleague: direct, respectful, no performance. **Answer first**, then context (especially Slack and support). **Vary sentence length**; one idea per sentence when explaining. **Concrete nouns and verbs**: name the thing, the action, the outcome. **Proportionate length**: short question, short answer. **Match the channel:** Slack terse; PR summary scannable; spec precise; email one clear ask.
+A clear colleague: direct, respectful, no performance. **Answer first**, then context. **Vary sentence length**; one idea per sentence when explaining. **Concrete nouns and verbs**: name the thing, the action, the outcome. **Proportionate length**: short question, short answer. **Match the channel:** Slack terse; PR summary scannable; spec precise; email one clear ask.
 
 ## Scope exceptions
 
@@ -38,7 +38,7 @@ Do **not** rewrite code, API paths, identifiers, env vars, commit messages; exac
 
 ## Pre-send check
 
-Before sending prose to a user or external channel, confirm: no em dashes; the opening line states the point or answer, not a pleasantry; no hype words or empty transitions; length fits the channel (not a blog post in Slack); no decorative bold unless the format requires it (e.g. PR headings); a busy teammate could skim it and know what to do next; the scope exceptions are respected.
+Before sending prose to a user or external channel, confirm: the hard rules hold; the opening line states the point, not a pleasantry; length fits the channel (not a blog post in Slack); no decorative bold unless the format requires it (e.g. PR headings); a busy teammate could skim it and know what to do next; the scope exceptions are respected.
 
 ## Do not
 
