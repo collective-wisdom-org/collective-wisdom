@@ -56,6 +56,14 @@ Operations (each {"op": NAME, ...}):
     pm        set
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
               observation ticket helper) or hold. The only op that writes "observed".
+              Kind, by the report line that shows it: lost-notice (`found by the sweep`, `... idle check`,
+              `... merged check`); handoff-unavailable (`Handoff block unavailable for <PREFIX>-N: <short title>`);
+              wait-check-unreadable (`<PREFIX>-N: <short title>, wait check unreadable; not blocked`); stall
+              (`<PREFIX>-N: <short title>, restarted: stalled after <step>`); rotation-failed (`Reset refused: <error>`);
+              helper-no-report (`Ticket helper ended without a report`); script-unavailable (`Idle check didn't run`,
+              `User check script unavailable; used thread read`, or a sweep or check that exited 2); other:<slug>
+              (anything else you can point to, such as a step that cost a second run; slug is 1 to 40 lowercase
+              letters, digits and hyphens).
     prune
     no-hands  set (a fresh No Hands run record, or drain, or endedAt with endReason). Only no_hands.py uses it; no other op writes "noHands".
 

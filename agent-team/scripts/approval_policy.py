@@ -26,7 +26,7 @@ paths reads no state and no setting. Pass the files a spec's `Builds` name (or a
 It prints one line per file, in the order given, `<file> <where>`, where <where> is `approval` (on_approval_path), `hands` (on_hands_path), `both` or `none`
 (control characters in a file name print as `?`), then a last line:
     paths: clear      no file is on either path
-    paths: approval   at least one file is on the approval path: never auto-approved, whatever the setting or a No Hands run
+    paths: approval   at least one file is on the approval path: never auto-approved, whatever the setting, unless a No Hands run is active for the ticket (the hands path replaces the approval path then: read the per-file `hands`/`both` lines)
     paths: hands      no file is on the approval path, at least one is on the hands path: asks only while a No Hands run is active for the ticket
 Exit 0: `paths: clear`. Exit 1: `paths: approval` or `paths: hands`. Exit 2: no file given (last line: `approval: cannot read arguments; usage: ... paths <file>...`).
 
