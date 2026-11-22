@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 show only the red blocked x on dashboard cards (WISE-484) (#486)
+
+Merged 2026-11-22 2:34 am UTC.
+
+The dashboard shows a red x on a ticket card only when the ticket has an open blocker. The green check on unblocked tickets is gone.
+
 ## 2026-11-22 instant styled hover popups on the dashboard (WISE-485) (#487)
 
 Merged 2026-11-22 2:29 am UTC.
