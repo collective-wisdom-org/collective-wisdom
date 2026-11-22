@@ -985,6 +985,7 @@ if (typeof document !== 'undefined') {
       tab.tabIndex = on ? 0 : -1
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !on
       if (on && focus) tab.focus()
+      else if (on) tab.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
     }
     if (!save) return
     try {
