@@ -1000,8 +1000,8 @@ test('promptLink turns a dashboard thread link into a T3 prompt link and refuses
 test('each Backlog card has a Start shipping control after the switch and before the meta line, a link to the Chief of Staff thread or a copy button; no other tab has one', () => {
   const link = '<t3-thread://v2/e/t>'
   const cases = [
-    ['WISE-419', 'mark 419 todo'],
-    ['CW-7', 'mark 7 todo'],
+    ['WISE-419', 'start shipping 419'],
+    ['CW-7', 'start shipping 7'],
     ['helper:x', null],
   ]
   for (const [id, cmd] of cases) {
@@ -1047,7 +1047,7 @@ test('pressMessage: one line per reason for each control, none when sent or a re
 })
 
 test('pressAction names the control from the command', () => {
-  for (const [command, want] of [['approve 402', 'Approve'], ['mark 419 todo', 'Start shipping']]) assert.equal(pressAction(command), want, command)
+  for (const [command, want] of [['approve 402', 'Approve'], ['start shipping 419', 'Start shipping']]) assert.equal(pressAction(command), want, command)
 })
 
 test('no markup the page builds carries a native title attribute', () => {

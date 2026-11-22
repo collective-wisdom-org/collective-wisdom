@@ -361,9 +361,9 @@ const PRESS_MESSAGES = {
   busy: (action) => `${action} not sent: another one-click send was still running. Press Send in the Chief of Staff thread.`,
 }
 
-/** The name of the control that sent `command` (the `data-return` value): `Start shipping` for `mark N todo`, else `Approve`. */
+/** The name of the control that sent `command` (the `data-return` value): `Start shipping` for `start shipping N`, else `Approve`. */
 export function pressAction(command) {
-  return String(command).startsWith('mark ') ? 'Start shipping' : 'Approve'
+  return String(command).startsWith('start shipping ') ? 'Start shipping' : 'Approve'
 }
 
 /** The line for the error area after Approve or Start shipping asked the server to press Return: empty when it was sent, or when a second click on the same command came inside the wait (`repeat`), else the reason in words, starting with `action`. `answer` is the server's JSON, or null when the request failed. */
@@ -373,10 +373,10 @@ export function pressMessage(answer, repeat = false, action = 'Approve') {
   return line ? line(action) : `${action} not sent: the dashboard could not press Return. Press Send in the Chief of Staff thread.`
 }
 
-/** `mark 419 todo` for a Backlog ticket; null for an id with no trailing number. */
+/** `start shipping 419` for a Backlog ticket; null for an id with no trailing number. */
 export function todoCommand(r) {
   const n = /-(\d+)$/.exec(String(r?.id))?.[1]
-  return n ? `mark ${n} todo` : null
+  return n ? `start shipping ${n}` : null
 }
 
 /** The Start shipping control: a link that opens the Chief of Staff thread with the command typed in, or, with no usable thread link, a button that copies it; empty with no ticket number. */
