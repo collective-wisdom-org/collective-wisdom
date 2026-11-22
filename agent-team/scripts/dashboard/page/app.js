@@ -270,7 +270,7 @@ const COPY_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" s
 /** The thread glyph: a speech bubble, drawn before the copy glyph on a ticket card so the button reads as the thread's link. */
 const THREAD_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 3.5A1.5 1.5 0 0 1 4 2h8a1.5 1.5 0 0 1 1.5 1.5v6A1.5 1.5 0 0 1 12 11H7l-3 2.5V11A1.5 1.5 0 0 1 2.5 9.5z"/></svg>'
 
-const copyButton = (l, { thread = false } = {}) => (l ? `<button type="button" class="copy-icon${thread ? ' with-thread' : ''}" data-copy="${esc(l)}" aria-label="Copy thread link" title="Copy thread link">${thread ? THREAD_ICON : ''}${COPY_ICON}</button>` : '')
+const copyButton = (l, { thread = false } = {}) => (l ? `<button type="button" class="copy-icon${thread ? ' with-thread' : ''}" data-copy="${esc(l)}" aria-label="Copy thread link" data-tip="Copy thread link">${thread ? THREAD_ICON : ''}${COPY_ICON}</button>` : '')
 const viewOf = (id, open, info) => (open.has(id) ? 'agents' : info.has(id) ? 'details' : '')
 
 /**
@@ -286,20 +286,20 @@ function panelSwitch(scope, id, { gantt, view = '', details = false, hideAgents 
   if (details !== false) segs.push({ v: 'details', label: 'Details', body: details === null ? null : `<div class="info-body" ${attr}>${details}</div>`, off: 'No ticket yet' })
   const shown = segs.find((s) => s.v === view && s.body !== null)?.v
   const key = (s) => esc(`${scope}-${id}-${s.v}`)
-  const buttons = segs.map((s) => `<button type="button" class="seg" ${attr} data-view="${s.v}" id="seg-${key(s)}" aria-expanded="${s.v === shown}"${s.body === null ? ` disabled title="${s.off}"` : ` aria-controls="pan-${key(s)}"`}>${s.label}</button>`)
+  const buttons = segs.map((s) => `<button type="button" class="seg" ${attr} data-view="${s.v}" id="seg-${key(s)}" aria-expanded="${s.v === shown}"${s.body === null ? ` aria-disabled="true" data-tip="${s.off}"` : ` aria-controls="pan-${key(s)}"`}>${s.label}</button>`)
   const panels = segs.filter((s) => s.body !== null).map((s) => `<div class="panel" id="pan-${key(s)}" role="region" aria-labelledby="seg-${key(s)}"${s.v === shown ? '' : ' hidden'}>${s.body}</div>`)
   if (!segs.length) return { control: '', panels: '' }
   return { control: `<div class="switch" role="group" aria-label="${esc(id)} panels">${buttons.join('')}</div>`, panels: panels.join('') }
 }
 const prSpan = (url) => (isHttp(url) ? `<span class="pr">${link(url, 'PR')}</span>` : '')
 const specSpan = (url) => (isHttp(url) ? `<span class="spec">${link(url, 'Spec')}</span>` : '')
-/** The ticket owner's GitHub avatar; the login is its hover title and accessible name. The initial sits under the image, so a slow or failed image still shows it. Empty without an owner. */
+/** The ticket owner's GitHub avatar; the login is its hover tooltip and accessible name. The initial sits under the image, so a slow or failed image still shows it. Empty without an owner. */
 export const ownerBadge = (login) =>
   typeof login === 'string' && login
-    ? `<span class="owner" role="img" aria-label="${esc(login)}" title="${esc(login)}"><span class="avatar" aria-hidden="true"><span class="initial">${esc(login[0].toUpperCase())}</span><img src="https://avatars.githubusercontent.com/${esc(encodeURIComponent(login))}?s=40" alt="" loading="lazy" referrerpolicy="no-referrer" width="20" height="20"></span></span>`
+    ? `<span class="owner" role="img" aria-label="${esc(login)}" data-tip="${esc(login)}"><span class="avatar" aria-hidden="true"><span class="initial">${esc(login[0].toUpperCase())}</span><img src="https://avatars.githubusercontent.com/${esc(encodeURIComponent(login))}?s=40" alt="" loading="lazy" referrerpolicy="no-referrer" width="20" height="20"></span></span>`
     : ''
 const SVG = (body) => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
-const mark = (kind, name, svg) => `<span class="mark ${kind}" role="img" title="${esc(name)}" aria-label="${esc(name)}">${svg}</span>`
+const mark = (kind, name, svg) => `<span class="mark ${kind}" role="img" data-tip="${esc(name)}" aria-label="${esc(name)}">${svg}</span>`
 /** The marks column of a ticket card: the owner avatar, then the epic icon, then the blocked icon (a red x with the blockers in its tooltip, drawn only when there is an open blocker). The epic and blocked slots stay empty without an epic or a blocker so the column keeps the same height on every card with relations. A row with neither `epic` nor `blockedBy` gets the bare avatar. */
 export const marksColumn = (r) => {
   if (!r.epic && !Array.isArray(r.blockedBy)) return ownerBadge(r.owner)
@@ -347,7 +347,7 @@ function approveControls(r, chiefLink) {
       const href = promptLink(chiefLink, text)
       const press = kind === 'approve' && href
       const title = `Opens the Chief of Staff thread with "${text}" typed in${press ? ' and presses Send for you and checks it arrived. If it can\'t, press Send.' : `. ${kind === 'changes' ? 'Add what to change, then press Send.' : 'Press Send to approve.'}`}`
-      return href ? `<a class="approve" href="${esc(href)}" title="${esc(title)}"${press ? ` data-return="${esc(text)}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
+      return href ? `<a class="approve" href="${esc(href)}" data-tip="${esc(title)}"${press ? ` data-return="${esc(text)}"` : ''}>${label}</a>` : `<button type="button" class="approve" data-copy="${esc(text)}">${label}</button>`
     })
     .join('')
 }
@@ -385,7 +385,7 @@ function todoControl(r, chiefLink) {
   if (text === null) return ''
   const href = promptLink(chiefLink, text)
   const title = `Opens the Chief of Staff thread with "${text}" typed in and presses Send for you and checks it arrived. If it can't, press Send.`
-  return href ? `<a class="todo" href="${esc(href)}" title="${esc(title)}" data-return="${esc(text)}">Start shipping</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Start shipping</button>`
+  return href ? `<a class="todo" href="${esc(href)}" data-tip="${esc(title)}" data-return="${esc(text)}">Start shipping</a>` : `<button type="button" class="todo" data-copy="${esc(text)}">Start shipping</button>`
 }
 
 /**
@@ -728,7 +728,7 @@ export function renderGantt(sessions, now, ci) {
         const { left, width } = place(a, b)
         const tip = esc(`CI wait\n${open ? `${clock(a)}, running` : `${clock(a)} to ${clock(b)}`} · ${duration(b - a)}`)
         drawn.add('ci')
-        return `<span class="bar cat-ci" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${tip}"></span>`
+        return `<span class="bar cat-ci" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" data-tip="${tip}"></span>`
       })
       .join('')
   const bars = (row, spans) => {
@@ -741,12 +741,12 @@ export function renderGantt(sessions, now, ci) {
         const meta = [range, running ? '' : duration(b - a), row.r.model].filter((p) => p !== null && p !== undefined && p !== '')
         const title = esc(`${row.r.name}\n${[CATEGORY_LABEL.get(cat), ...meta].join(' · ')}`)
         drawn.add(cat)
-        return `<span class="bar cat-${cat}${running ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" title="${title}"></span>`
+        return `<span class="bar cat-${cat}${running ? ' running' : ''}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%" data-tip="${title}"></span>`
       })
       .join('')
   }
   const length = (spans) => union(spans).reduce((n, [a, b]) => n + (b - a), 0)
-  const line = (row, spans, cost, depth, ci = '') => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" title="${esc(rowTitle(row))}">
+  const line = (row, spans, cost, depth, ci = '') => `<div class="grow${depth > 0 ? ' sub' : ''}${row.s.stale ? ' stale' : ''}" data-tip="${esc(rowTitle(row))}">
   <span class="name" style="padding-left:${depth * 1.2}em">${esc(row.r.name)}${row.s.stale ? ' <span class="pill">stale</span>' : ''}</span>
   <span class="track">${ci}${bars(row, spans)}</span>
   <span class="num dur">${duration(length(spans))}</span>
@@ -808,7 +808,7 @@ export function versionWatch() {
 }
 
 if (typeof document !== 'undefined') {
-  // Updates a chart in place so the element under the pointer survives a tick and its native tooltip can show.
+  // Updates a chart in place so the element under the pointer survives a tick and its popup keeps showing.
   const patchChart = (body, html) => {
     if (body.innerHTML === '') {
       body.innerHTML = html
@@ -857,6 +857,70 @@ if (typeof document !== 'undefined') {
   let backlogPage = 0
   const shownInfo = new Map()
   const shownMergedInfo = new Map()
+  // One popup for every [data-tip] element: shown the moment the pointer or focus lands on one, built with textContent.
+  const tip = document.getElementById('tip')
+  let tipAnchor = null
+  let pointer = null
+  const tipTarget = (t) => (t instanceof Element ? t.closest('[data-tip]') : null)
+  // Below the anchor with a 6px gap, centred, kept 8px inside the viewport; above it when it would run past the bottom.
+  const placeTip = () => {
+    tip.style.left = '0'
+    tip.style.top = '0'
+    const a = tipAnchor.getBoundingClientRect()
+    const { offsetWidth: w, offsetHeight: h } = tip
+    const vw = document.documentElement.clientWidth
+    const vh = document.documentElement.clientHeight
+    const x = Math.max(8, Math.min(a.left + a.width / 2 - w / 2, vw - w - 8))
+    const below = a.bottom + 6
+    const y = below + h > vh - 8 ? Math.max(8, a.top - 6 - h) : below
+    tip.style.left = `${x}px`
+    tip.style.top = `${y}px`
+  }
+  // Safe to repeat: a chart patch rewrites the anchor's class and attributes, so every call puts them back.
+  const showTip = (el) => {
+    if (tipAnchor && tipAnchor !== el) hideTip()
+    tipAnchor = el
+    tip.textContent = el.dataset.tip
+    tip.hidden = false
+    el.classList.add('tipped')
+    if (el.dataset.tip !== el.getAttribute('aria-label')) el.setAttribute('aria-describedby', 'tip')
+    placeTip()
+  }
+  const hideTip = () => {
+    if (!tipAnchor) return
+    tipAnchor.classList.remove('tipped')
+    tipAnchor.removeAttribute('aria-describedby')
+    tipAnchor = null
+    tip.hidden = true
+  }
+  // After a redraw or a text change: keep the popup on its anchor, or on the one now under the pointer, or hide.
+  const refreshTip = () => {
+    if (!tipAnchor) return
+    const el = tipAnchor.isConnected ? tipAnchor : pointer && tipTarget(document.elementFromPoint(pointer.x, pointer.y))
+    if (el) showTip(el)
+    else hideTip()
+  }
+  document.addEventListener('pointermove', (ev) => {
+    pointer = { x: ev.clientX, y: ev.clientY }
+  })
+  document.addEventListener('pointerover', (ev) => {
+    const el = tipTarget(ev.target)
+    if (el) showTip(el)
+  })
+  document.addEventListener('pointerout', (ev) => {
+    if (tipAnchor && !(ev.relatedTarget instanceof Node && tipAnchor.contains(ev.relatedTarget))) hideTip()
+  })
+  document.addEventListener('focusin', (ev) => {
+    const el = tipTarget(ev.target)
+    if (el) showTip(el)
+  })
+  document.addEventListener('focusout', (ev) => {
+    if (tipTarget(ev.target) === tipAnchor) hideTip()
+  })
+  document.addEventListener('scroll', hideTip, true)
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') hideTip()
+  })
   const draw = () => {
     if (!last) return
     const now = Date.now()
@@ -881,6 +945,7 @@ if (typeof document !== 'undefined') {
       if (text && span.textContent !== text) span.textContent = text
     }
     fill('.info-body[data-merged]', new Map(last.merged.map((e) => [e.id, e])), shownMergedInfo)
+    refreshTip()
   }
   // The merged list is redrawn only when its html changed (compared with every chart and Details closed, so opening one is not a change), so a poll keeps the page and any selection.
   let mergedPage = 0
@@ -1040,7 +1105,7 @@ if (typeof document !== 'undefined') {
       return
     }
     const seg = target?.closest('button.seg')
-    if (seg && !seg.disabled) {
+    if (seg && seg.getAttribute('aria-disabled') !== 'true') {
       setPanel(seg, seg.getAttribute('aria-expanded') !== 'true')
       draw()
       return
@@ -1069,19 +1134,21 @@ if (typeof document !== 'undefined') {
     if (!btn) return
     const icon = btn.classList.contains('copy-icon')
     const label = btn.textContent
-    // An icon button keeps its glyph: the state colors it and the label and title carry the words.
+    // An icon button keeps its glyph: the state colors it and the label and tooltip carry the words.
     const show = (state, text) => {
       if (icon) {
         btn.dataset.state = state
         btn.setAttribute('aria-label', text)
-        btn.title = text
+        btn.dataset.tip = text
       } else btn.textContent = text
+      refreshTip()
       setTimeout(() => {
         if (icon) {
           delete btn.dataset.state
           btn.setAttribute('aria-label', 'Copy thread link')
-          btn.title = 'Copy thread link'
+          btn.dataset.tip = 'Copy thread link'
         } else btn.textContent = label
+        refreshTip()
       }, 1500)
     }
     navigator.clipboard.writeText(btn.dataset.copy).then(
