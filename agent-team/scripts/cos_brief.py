@@ -286,6 +286,9 @@ def migration_numbers(paths):
     return sorted(nums)
 
 
+FILES_CAP = 100  # most files `gh pr view/list --json files` returns
+
+
 def migrations_line(n, nums):
     if not nums:
         return "migrations: none"
@@ -300,6 +303,8 @@ def migrations_line(n, nums):
     for o in others:
         if o.get("number") == n:
             continue
+        if len(o.get("files", [])) >= FILES_CAP:  # gh returns at most 100 files, so a clash past them would go unseen
+            clashes.append(f"#{o['number']} has {FILES_CAP}+ files, not checked")
         theirs = set(migration_numbers([f["path"] for f in o.get("files", [])]))
         for num in nums:
             if num in theirs:
@@ -384,7 +389,7 @@ def cmd_pr(args):
         *(["conflict: yes"] if pr.get("mergeable") == "CONFLICTING" else []),
         *([flag] if flag else []),
         cost_line(pr.get("headRefName")),
-        f"files: {len(paths)} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",
+        f"files: {len(paths)}{'+' if len(paths) >= FILES_CAP else ''} (" + ", ".join(f"{a} {c}" for a, c in by_count) + ")",
         *flags_for(paths),
         migrations_line(n, migration_numbers(paths)),
     ]
