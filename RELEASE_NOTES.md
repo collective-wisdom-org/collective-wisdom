@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 x button to dismiss the red dashboard banner (WISE-491) (#494)
+
+Merged 2026-11-22 9:00 pm UTC.
+
+The red banner on the dashboard now has an x in its top right corner. Clicking it hides the banner until its message changes.
+
 ## 2026-11-22 Start shipping sends "start shipping N" (WISE-489) (#490)
 
 Merged 2026-11-22 8:11 pm UTC.
