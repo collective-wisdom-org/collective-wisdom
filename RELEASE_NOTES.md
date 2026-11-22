@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 Start shipping sends "start shipping N" (WISE-489) (#490)
+
+Merged 2026-11-22 8:11 pm UTC.
+
+The dashboard's Start shipping button now sends `start shipping N` to the Chief of Staff instead of `mark N todo`. You can type `start shipping N` yourself too; `mark N todo` still works when typed.
+
 ## 2026-11-22 show only the red blocked x on dashboard cards (WISE-484) (#486)
 
 Merged 2026-11-22 2:34 am UTC.
