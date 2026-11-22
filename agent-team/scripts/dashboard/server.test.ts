@@ -507,7 +507,7 @@ async function pressOnce(body: string | undefined, o: { press?: string; chief?: 
   }
 }
 
-test('press-return takes only an exact approve or mark todo command, and presses nothing for anything else', async () => {
+test('press-return takes only an exact approve or start shipping command, and presses nothing for anything else', async () => {
   const cases: [string, string | undefined, number][] = [
     ['no body', undefined, 400],
     ['not JSON', 'approve 402', 400],
@@ -519,7 +519,11 @@ test('press-return takes only an exact approve or mark todo command, and presses
     ['too many digits', JSON.stringify({ command: 'approve 12345678' }), 400],
     ['other command', JSON.stringify({ command: 'changes 402' }), 400],
     ['approve', APPROVE, 200],
-    ['mark todo', JSON.stringify({ command: 'mark 419 todo' }), 200],
+    ['start shipping', JSON.stringify({ command: 'start shipping 419' }), 200],
+    ['old mark todo', JSON.stringify({ command: 'mark 419 todo' }), 400],
+    ['start shipping no number', JSON.stringify({ command: 'start shipping' }), 400],
+    ['start shipping trailing text', JSON.stringify({ command: 'start shipping 5; rm' }), 400],
+    ['start shipping too many digits', JSON.stringify({ command: 'start shipping 12345678' }), 400],
   ]
   await Promise.all(cases.map(async ([name, body, status]) => {
     const res = await pressOnce(body, { chief: 'ct' })
