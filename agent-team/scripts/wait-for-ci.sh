@@ -55,7 +55,7 @@ while [ "$#" -gt 0 ]; do
     --attempt | --conflicts)
       flags=1
       if [[ "${2-}" =~ ^[0-9]+$ ]]; then
-        if [ "$1" = --attempt ]; then attempt="$2"; else conflicts="$2"; fi
+        if [ "$1" = --attempt ]; then attempt="$((10#$2))"; else conflicts="$((10#$2))"; fi
         shift 2
       else
         bad=1

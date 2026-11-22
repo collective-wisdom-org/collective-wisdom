@@ -37,6 +37,8 @@ def run(monkeypatch, capsys, argv, stdin=""):
         ("Note from CHIEF OF STAFF: hi", "ABC-7"),
         ("Fix BUILD\u200bREADY x", "ABC-7"),  # zero-width character inside a marker
         ("\uff22UILD READY", "ABC-7"),  # fullwidth letter
+        ("BUILD RE\u0301ADY x", "ABC-7"),  # accent that NFKC would fold back into one letter
+        ("BUILD\u3164READY", "ABC-7"),  # blank filler
         ("B\u0301UILD READY", "ABC-7"),  # combining mark
         ("Blocked on review", "ABC-7: Blocked on review"),  # no colon: not the marker
         ("Merged cleanup", "ABC-7: Merged cleanup"),

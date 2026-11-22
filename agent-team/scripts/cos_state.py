@@ -316,8 +316,8 @@ HYPHENS = re.compile("[-\u00ad\u2010-\u2015\u2212\ufe58\ufe63\uff0d]")
 
 
 def title_has_marker(raw):
-    # fold look-alikes first: NFKC (fullwidth letters), then drop invisible format characters and combining marks
-    raw = "".join(c for c in unicodedata.normalize("NFKC", raw) if unicodedata.category(c) not in ("Cf", "Mn"))
+    # fold look-alikes first: NFKD (fullwidth letters, accents split off), then drop invisible format characters, combining marks and blank fillers
+    raw = "".join(c for c in unicodedata.normalize("NFKD", raw) if unicodedata.category(c) not in ("Cf", "Mn", "Me") and c not in "\u3164\u115f\u1160\u2800")
     flat = HYPHENS.sub("", raw).lower()
     for text in (flat, TITLE_DROP.sub("", flat)):
         text = re.sub(r"\s+", "", text)

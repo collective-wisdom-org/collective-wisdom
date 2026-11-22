@@ -477,6 +477,9 @@ def cmd_pr(args):
         text = ci_text[0] if mode == "ci" else reviews_text(comments, moved_suffix(oid, comments, login) if login else None)
         out += [f"reviews: {text}", f"size: {'small' if len(paths) <= SMALL_FILES else 'large'}"]
     if getattr(args, "nxt", False):
+        # PR title, file paths, check names and review text are untrusted: under --next control characters and line separators become spaces,
+        # so nothing in them can start a line and pass for the script's own `next:` line
+        out = [re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+", " ", str(ln)) for ln in out]
         out.append(f"next: {NEXT_PR['conflict' if pr.get('mergeable') == 'CONFLICTING' else 'block']}")
     print("\n".join(out))
 
