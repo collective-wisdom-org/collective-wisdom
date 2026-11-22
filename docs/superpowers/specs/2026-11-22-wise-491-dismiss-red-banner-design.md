@@ -1,7 +1,8 @@
 # WISE-491: Add an x button to clear the red banner on the dashboard
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#491](https://github.com/collective-wisdom-org/collective-wisdom/issues/491)
+**Shipped:** in PR #494, as specified
 
 ## Goal
 
