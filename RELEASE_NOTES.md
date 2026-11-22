@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 dashboard thread links and the one-click send (WISE-495) (#498)
+
+Merged 2026-11-22 11:16 pm UTC.
+
+The dashboard's Approve, Changes and Start shipping links open the right thread, including threads whose ids hold `:`, `%` or `.`, and the one-click send now waits for the Chief of Staff thread to be open. If it can't tell, it sends nothing and you press Send yourself.
+
 ## 2026-11-22 keep dashboard tab counts on one line (WISE-492) (#493)
 
 Merged 2026-11-22 9:01 pm UTC.
