@@ -2,7 +2,7 @@
 
 **Status:** Shipped
 **Ticket:** [#492](https://github.com/collective-wisdom-org/collective-wisdom/issues/492)
-**Shipped:** in PR #493, as specified
+**Shipped:** in PR #493, with differences: [as-built](../as-built/2026-11-22-wise-492-tab-counts-one-line.md)
 
 ## Goal
 
