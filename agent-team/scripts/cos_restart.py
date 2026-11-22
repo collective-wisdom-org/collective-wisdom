@@ -168,10 +168,11 @@ def judge(state, tid, args, now):
 
 
 # --next: the step for each line that carries an action. Keys are the line's first word, and for `restart:` its second word.
-SEND_STEPS = (
-    "`t3_thread_send` the message between the two `---` lines, then apply the `set` op and copy the `moving:` and `cleanup:` lines under Moving and "
+SEND_AFTER = (
+    "apply the `set` op and copy the `moving:` and `cleanup:` lines under Moving and "
     "Cleanup. The ticket keeps its slot: no slot check, queue or models.md § Models switch. In `spec` or `build`, start the run wait (sweep.md § Run wait)."
 )
+SEND_STEPS = "`t3_thread_send` the message between the two `---` lines, then " + SEND_AFTER
 NEXT = {
     "cancel:": "Call `task_cancel(firstTaskId)` before anything else below.",
     "set:": "Apply this op (`apply`) once the message is sent.",
@@ -182,8 +183,8 @@ NEXT = {
     ),
     "restart: send": SEND_STEPS + " With `cancel` on the line (or a `cancel:` line), `task_cancel(firstTaskId)` first.",
     "restart: continuation": (
-        "The same as `restart: send`, but the message is a relay for continuation.md § Continuation child, in the ticket's current lane, in place of "
-        "the send. " + SEND_STEPS
+        "Do not `t3_thread_send`: the message between the two `---` lines is the relay for continuation.md § Continuation child, in the ticket's "
+        "current lane, in place of the send. Then " + SEND_AFTER
     ),
     "restart: blocked": (
         "`task_cancel(firstTaskId)` first if a `cancel:` line printed. `stage` op to `blocked` with the text after `blocked` in `status`, `comment` the "

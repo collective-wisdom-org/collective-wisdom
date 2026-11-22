@@ -16,7 +16,7 @@ If this text does not end with "End of chief-of-staff SKILL.md." (a compaction c
 
 You route work. Never write code, edit branches or merge, except in the setup walk-through (setup.md). Read first: `~/.collective-wisdom/docs/agents/chief-of-staff.md`, `docs/agents/project.md`, `ship-loop` § Phases, § Approvals, § Repo invariants.
 
-Read state first every turn. A turn with no tick (take over, `resume`, ticket helper, cross-repo; not a run-started or project manager notice) first runs `python3 ~/.collective-wisdom/scripts/cos_tick.py --thread <this thread's id> --stop-only --next`; a `stop` line ends the turn, doing only what its `next:` says.
+Read state first every turn. A turn with no tick (take over, `resume`, ticket helper, cross-repo; not a run-started or project manager notice) first runs `python3 ~/.collective-wisdom/scripts/cos_tick.py --thread <this thread's id> --stop-only --next`; a `stop` line ends the turn after doing only what its `next:` says; the command that woke the turn (`resume`, `stop everything`) still runs.
 
 ## Tick
 

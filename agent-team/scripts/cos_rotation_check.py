@@ -2,7 +2,7 @@
 """Does the Chief of Staff session need a reset? One line: "ok ...", "rotate: <reason>; mode <mode>" or "finish: take over unfinished ...".
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover] [--pass take-over|resume] [--next]   # the model's call, every working turn
+    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover] [--pass take-over|resume] [--next] [--reset-steps reset|reset-scheduled|compact]   # the model's call, every working turn
     ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit        # print the current skill commit only
     ~/.collective-wisdom/scripts/cos_rotation_check.py --hook                # the Stop hook's call (hook JSON on stdin)
 
@@ -52,6 +52,7 @@ NEXT below: one text for the line's kind (`rotate:`, `finish:`, each `ok` form; 
 (`; take-over context=<K>k`, `; take-over context pending (turn N)`, `; take-over context=<K>k (turn N)`). With a figure of 220k or more the
 take-over context text adds the Cleanup line for a reset that did not shrink the context. No `next:` follows `rotation-check: cannot read <what>`
 (exit 2: reading the item count and deciding on a reset is a judgement) or the `; takeoverContext not saved` suffix (no rule says what to do).
+--reset-steps <mode> prints the reset steps (gantt_plugin.py first, then the reset for the mode) and exits 0: the exit-2 item-count fallback uses it.
 --pass take-over|resume (with --next; --record-takeover implies take-over) ends the `next:` text with the one-line report that closes the take-over
 (`Take-over done. ...`) or resume (`Resumed. ...`) pass, PASS_REPORT below, so the last call of the pass carries it.
 COS_STATE_FILE, COS_PROJECTS_DIR, COS_CURSOR_PROJECTS_DIR and COS_T3_DB override the state file, the Claude Code transcripts
@@ -424,7 +425,7 @@ GANTT = (
 )
 SEND_RESET = "`CHIEF OF STAFF RESET <id>. Run /chief-of-staff take over.`"
 RESET_STEPS = (  # the reset, in this thread, in this order; {send} and {reason} are filled from the line's mode and reason
-    "The reset (what a failed check does: rotation.md § Thread rotation), in this thread, in this order. "
+    "The reset, in this thread, in this order. "
     "0. Write `.agent-team/chief-notes.md` (session.md § Working set) with what the next session needs that state does not hold: a plan the user "
     "gave, a test in progress, a promise made in a reply. With nothing to carry, leave it. "
     "1. `top` op: `reset` = `{{\"id\": <8 random hex chars>, \"startedAt\": now, \"reason\": \"{reason}\"{extra}}}`. Save state. "
@@ -502,7 +503,11 @@ def main(argv=None):
     ap.add_argument("--skill-commit", action="store_true")
     ap.add_argument("--pass", dest="report", choices=("take-over", "resume"))
     ap.add_argument("--next", dest="nxt", action="store_true")
+    ap.add_argument("--reset-steps", choices=tuple(SENDS), help="print the reset steps for a mode and exit (the exit-2 item-count fallback)")
     args = ap.parse_args(argv)
+    if args.reset_steps:
+        print(GANTT + " Then " + reset_text(f"rotate: item count; mode {args.reset_steps}"))
+        return 0
     path = Path(os.environ.get("COS_STATE_FILE") or ROOT / ".agent-team" / "state.json")
     if args.hook:
         return run_hook(path)
@@ -523,9 +528,10 @@ def main(argv=None):
     if tk and not save_top(path, takeoverContext=tk):
         line += "; takeoverContext not saved"
     print(line)
-    text = next_text(line, args.report or ("take-over" if args.record_takeover else None))
-    if args.nxt and text:
-        print(f"next: {text}")
+    if args.nxt:
+        text = next_text(line, args.report or ("take-over" if args.record_takeover else None))
+        if text:
+            print(f"next: {text}")
     return 0
 
 

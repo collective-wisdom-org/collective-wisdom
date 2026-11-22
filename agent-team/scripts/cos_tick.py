@@ -365,7 +365,7 @@ NEXT = {
         "Reply only `State names <id> as Chief of Staff; this thread is not it. Check .agent-team/state.json.`, and only when the user "
         "wrote. A notice or an agent message gets no reply. End the turn."
     ),
-    "stop paused": lambda a: "`paused` is set: answer commands only, and end the turn.",
+    "stop paused": lambda a: "`paused` is set: answer commands only (the command that woke this turn, such as `resume` or `stop everything`, still runs), then end the turn.",
     "follow": lambda a: "Do what the named section says.",
     "chief-provider": lambda a: (
         "`t3_thread_configure` with no arguments, then a `top` op saving this thread's provider as `chiefProvider`: "

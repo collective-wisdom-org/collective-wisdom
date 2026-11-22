@@ -10,7 +10,7 @@ from test_cos_rotation_check import CLAUDE, GANTT, NEW, NOW, OLD, QUEUED, ago, c
 CASES = [
     ({}, 40_000, OLD, "main", "ok context=40k", ["Nothing."], []),
     ({}, None, OLD, "main", "ok (size unknown on Cursor)", ["Nothing."], []),
-    ({}, 231_000, OLD, "main", "rotate: size 231k >= 220k; mode reset", ["gantt_plugin.py", "agent-gantt plugin: <text>", "rotation.md § Thread rotation"], []),
+    ({}, 231_000, OLD, "main", "rotate: size 231k >= 220k; mode reset", ["gantt_plugin.py", "agent-gantt plugin: <text>", "0. Write `.agent-team/chief-notes.md`"], []),
     ({}, 40_000, NEW, "main", "rotate: skill changed aaaaaaa..bbbbbbb; mode reset", ["gantt_plugin.py"], []),
     ({"paused": True}, 231_000, OLD, "main", "ok (held: paused)", ["Never reset in the middle of a command"], ["gantt_plugin.py"]),
     ({"reset": {"id": "0a1b2c3d", "startedAt": ago(1)}}, 231_000, OLD, "main", "ok (held: reset)", ["Never reset in the middle of a command"], []),
@@ -104,3 +104,12 @@ def test_a_pass_adds_its_one_line_report(line, report, has):
     text = crc.next_text(line, report)
     assert text and all(x in text for x in has)
     assert "Take-over done" not in (crc.next_text(line) or "") and "Resumed." not in (crc.next_text(line) or "")
+
+
+def test_reset_steps_flag_prints_the_reset_for_each_mode(capsys):
+    """The exit-2 item-count fallback runs `--reset-steps <mode>`: gantt first, then the mode's reset, exit 0."""
+    from cos_rotation_check import main
+    for mode, send in (("reset", "freshContext: true"), ("reset-scheduled", "schedule_task"), ("compact", "/compact")):
+        assert main(["--reset-steps", mode]) == 0
+        out = capsys.readouterr().out
+        assert "gantt_plugin.py" in out and "0. Write" in out and send in out

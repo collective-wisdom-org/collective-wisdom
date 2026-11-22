@@ -12,7 +12,7 @@ python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --next
 
 Do what its `next:` line says: on `rotate:`, the reset for the line's mode. Triggers, quiet-turn rule, modes, lines, exit codes: the script's docstring. A Stop hook runs it too and sends the turn back on `rotate:`, `finish:` or a `late-child: <PREFIX>-N <completed|failed|interrupted|cancelled|question> <time> UTC; ...` line. Read each listed child per SKILL.md § Child path; after a `rotate:` in the same reason, rotate as that line says (the take over reads the children). The plain call never prints `late-child:`.
 
-Exit 2 (`rotation-check: cannot read <what>`): read `itemCount` (`t3_thread_read` on your own thread, `limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`); at 240 or more, reset as `rotate:` says, but not within 60 minutes of `lastResetAt` (a reset keeps the items), and only where the mode is not `none` (Claude Code and Cursor: `reset`), with one Cleanup line: `Context size unreadable; used item count`. Item count is used only here.
+Exit 2 (`rotation-check: cannot read <what>`): read `itemCount` (`t3_thread_read` on your own thread, `limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`); at 240 or more, reset: run `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --reset-steps <mode>` (`reset` on Claude Code and Cursor) and do what it prints, but not within 60 minutes of `lastResetAt` (a reset keeps the items), and only where the mode is not `none` (Claude Code and Cursor: `reset`), with one Cleanup line: `Context size unreadable; used item count`. Item count is used only here.
 
 Take over, after a reset (the `take over` command):
 
