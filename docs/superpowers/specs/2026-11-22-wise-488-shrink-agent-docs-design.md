@@ -1,7 +1,7 @@
 # WISE-488: Shrink the agent skills, subagent files and role docs again, and move fixed-step logic into scripts
 
 **Ticket:** [WISE-488](https://github.com/collective-wisdom-org/collective-wisdom/issues/488)
-**Status:** Draft
+**Status:** Approved
 
 ## Goal
 
