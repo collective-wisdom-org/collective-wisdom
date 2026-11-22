@@ -240,6 +240,9 @@ function click(el) {
 function isComposer(el) {
   return el !== null && str(attr(el, 'AXRole')) === 'AXTextArea' && str(attr(el, 'AXDescription')).startsWith('Message ')
 }
+function isChief(el) {
+  return str(attr(el, 'AXDescription')).indexOf('Chief of Staff') >= 0
+}
 function frontId() {
   const f = $.NSWorkspace.sharedWorkspace.frontmostApplication
   return f ? str(f.bundleIdentifier) : ''
@@ -247,12 +250,21 @@ function frontId() {
 function isFront(app) {
   return ObjC.unwrap(attr(app, 'AXFrontmost')) === true
 }
-function run() {
+function hasSheet(app) {
+  const win = attr(app, 'AXFocusedWindow')
+  const kids = win ? attr(win, 'AXChildren') : null
+  if (kids) for (let i = 0; i < kids.count; i++) if (str(attr(kids.objectAtIndex(i), 'AXRole')) === 'AXSheet') return true
+  return false
+}
+function attempt() {
   if (!$.AXIsProcessTrusted()) return 'permission'
   if (frontId() !== 'com.t3tools.t3code') return 'not-frontmost'
   const app = $.AXUIElementCreateApplication($.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier)
+  if (hasSheet(app)) return 'not-open'
   const focused = () => attr(app, 'AXFocusedUIElement')
-  if (!isComposer(focused())) {
+  if (isComposer(focused())) {
+    if (!isChief(focused())) return 'not-open'
+  } else {
     const win = attr(app, 'AXFocusedWindow')
     let target = null
     const stack = win ? [[win, false]] : []
@@ -265,6 +277,7 @@ function run() {
       if (kids) for (let i = kids.count - 1; i >= 0; i--) stack.push([kids.objectAtIndex(i), inWeb || web])
     }
     if (target === null) return 'no-focus'
+    if (!isChief(target)) return 'not-open'
     if (!click(target)) return 'no-focus'
     let ok = false
     for (let i = 0; i < 10 && !ok; i++) {
@@ -274,15 +287,25 @@ function run() {
     if (!ok) return 'no-focus'
   }
   if (!isFront(app)) return 'not-frontmost'
+  if (hasSheet(app)) return 'not-open'
   Application('System Events').keyCode(36)
   return 'sent'
+}
+function run() {
+  const start = Date.now()
+  let last = attempt()
+  while ((last === 'not-frontmost' || last === 'not-open') && Date.now() <= start + 5000) {
+    delay(0.2)
+    last = attempt()
+  }
+  return last
 }`
 
-/** Presses Return in T3 Code through a fixed JXA script (`osascript -l JavaScript`, no user text, no shell). The script checks Accessibility trust and that T3 Code is in front, clicks the message box (the mouse goes there and straight back) and re-reads the focused element, and presses Return only if the message box has focus. Resolves with the script's output (`sent`, `permission`, `not-frontmost` or `no-focus`); rejects on an osascript error or the 3 second timeout. */
+/** Presses Return in T3 Code through a fixed JXA script (`osascript -l JavaScript`, no user text, no shell). The script checks Accessibility trust and that T3 Code is in front, that no dialog sheet is open on its window and that the message box belongs to the Chief of Staff thread (T3 labels it `Message <thread title>`), clicks the message box (the mouse goes there and straight back) and re-reads the focused element, and presses Return only if the message box has focus. It tries again for up to 5 seconds while T3 is not in front or the thread is not open. Resolves with the script's output (`sent`, `permission`, `not-frontmost`, `no-focus` or `not-open`); rejects on an osascript error or the 8 second timeout. */
 export function pressReturnMac(): Promise<string> {
   if (process.platform !== 'darwin') return Promise.resolve('unsupported')
   return new Promise((resolve, reject) => {
-    execFile('osascript', ['-l', 'JavaScript', '-e', PRESS_SCRIPT], { timeout: 3000 }, (err, stdout) => (err ? reject(err) : resolve(stdout)))
+    execFile('osascript', ['-l', 'JavaScript', '-e', PRESS_SCRIPT], { timeout: 8000 }, (err, stdout) => (err ? reject(err) : resolve(stdout)))
   })
 }
 
@@ -291,7 +314,7 @@ export function pressResult(result: unknown): { sent: boolean; reason?: string }
   if (typeof result === 'string') {
     const out = result.trim()
     if (out === 'sent') return { sent: true }
-    return { sent: false, reason: out === 'not-frontmost' || out === 'unsupported' || out === 'no-focus' || out === 'permission' ? out : 'error' }
+    return { sent: false, reason: out === 'not-frontmost' || out === 'unsupported' || out === 'no-focus' || out === 'not-open' || out === 'permission' ? out : 'error' }
   }
   const e = result as { message?: unknown; stderr?: unknown } | null
   // -1743: not allowed to control System Events; 1002, -1719, -25211: no Accessibility.
@@ -576,7 +599,6 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
         return
       }
       lastPress = Date.now()
-      await new Promise((r) => setTimeout(r, 1200))
       const answer = pressResult(await pressReturn().catch((e: unknown) => e ?? new Error('failed')))
       json(answer.sent ? await confirm(command, arrived) : answer)
     } finally {
