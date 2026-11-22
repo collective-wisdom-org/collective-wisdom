@@ -1,7 +1,8 @@
 # WISE-492: Keep the dashboard tab counts on one line
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#492](https://github.com/collective-wisdom-org/collective-wisdom/issues/492)
+**Shipped:** in PR #493, as specified
 
 ## Goal
 
