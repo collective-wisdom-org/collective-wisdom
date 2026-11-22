@@ -1,7 +1,8 @@
 # WISE-484: Show only the red blocked x on dashboard cards, not the green check
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#484](https://github.com/collective-wisdom-org/collective-wisdom/issues/484)
+**Shipped:** in PR #486, as specified
 
 ## Goal
 
