@@ -1,6 +1,6 @@
 # As-built: shrink the agent docs again, move fixed steps into scripts
 
-**Shipped:** in PR #TBD
+**Shipped:** in PR #496
 **Ticket:** WISE-488
 **Spec:** [2026-11-22-wise-488-shrink-agent-docs-design.md](../specs/2026-11-22-wise-488-shrink-agent-docs-design.md)
 
