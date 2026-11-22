@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, restartWatch, startServer, systemScheme } from './server.ts'
+import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, pressReturnMac, restartWatch, startServer, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -592,6 +592,10 @@ test('press-return answers sent only when the check finds the user\'s message, a
       assert.ok(Date.parse(after) >= before - 1 && /Z$/.test(after), `${name}: after is when the request arrived`)
     }
   }))
+})
+
+test('pressReturnMac presses nothing without a valid issue prefix', { skip: process.platform !== 'darwin' }, async () => {
+  for (const prefix of [null, '', 'WI SE', 'WISE;', 'A'.repeat(17)]) assert.equal(await pressReturnMac(prefix), 'not-open', String(prefix))
 })
 
 test('pressResult maps the osascript output and errors', () => {

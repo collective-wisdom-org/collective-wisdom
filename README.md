@@ -204,7 +204,7 @@ In a repo that has `docs/agents/project.md` or `.agent-team/state.json`, the mod
   With a Chief of Staff thread, they open that thread with `approve 402` or `changes 402: ` typed in the input; `Changes` waits for you to add what to change and press Send, and `Approve` presses Send for you: the dashboard server presses Return in T3 Code, so T3 sends the message as yours.
   That needs a one-time macOS permission: turn on T3 Code (or the app that started the dashboard) in System Settings > Privacy & Security > Accessibility, and allow it to control System Events under Automation when macOS asks.
   Until then, or when T3 Code is not the app in front when the press fires, the draft stays in the thread, the page's error line says `Approve not sent` (or `Start shipping not sent`) and why, and you press Send.
-  The built-in browser asks "Open this t3code link?" first, so the dashboard waits up to 5 seconds for the Chief of Staff thread to be open with no dialog in front, and says `not sent` if it never is.
+  The built-in browser asks "Open this t3code link?" first, so the dashboard waits up to 5 seconds for the Chief of Staff thread to be open with no dialog in front, and says `not sent` if it never is. It presses only when the thread's message box is `<PREFIX> - Chief of Staff` for this repo's prefix, not another repo's.
   Before pressing Return the server clicks the T3 message box (the cursor moves there and straight back) and checks that the cursor landed; if it can't, nothing is pressed, the error line says so, and you press Send.
   With no Chief of Staff thread, they copy the command and show `Copied`.
   The page never sends a message itself: `Approve` and `Start shipping` press Return in T3 Code, so T3 sends the message as yours.
