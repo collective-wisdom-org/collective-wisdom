@@ -1,7 +1,8 @@
 # WISE-485: Replace dashboard title tooltips with instant styled hover popups
 
-**Status:** Draft
+**Status:** Shipped
 **Ticket:** [#485](https://github.com/collective-wisdom-org/collective-wisdom/issues/485)
+**Shipped:** in PR #487, as specified
 
 ## Goal
 
