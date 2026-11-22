@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 keep dashboard tab counts on one line (WISE-492) (#493)
+
+Merged 2026-11-22 9:01 pm UTC.
+
+The dashboard's tab counts no longer wrap under the tab names in a narrow window; the tab bar scrolls sideways instead.
+
 ## 2026-11-22 x button to dismiss the red dashboard banner (WISE-491) (#494)
 
 Merged 2026-11-22 9:00 pm UTC.
