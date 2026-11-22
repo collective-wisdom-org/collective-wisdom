@@ -51,7 +51,7 @@ NEXT = (
     ("review-gate: pass ", "go on to MERGE READY (ship-loop § Phases, 4) unless `docs-check: run` was printed: use the printed code and security URLs, set `Head:` to the printed head."),
     ("review-gate: note ", "post the line before this one with ~/.collective-wisdom/scripts/gh.sh pr comment as the builder, then run review_gate.py again: it prints pass."),
     ("review-gate: rerun ", "run the named review on the current head and post its result first (open-pr § Review scope), then run review_gate.py again."),
-    ("review-gate: ci", "follow open-pr § CI review mode."),
+    ("review-gate: ci", "follow open-pr/reference.md § CI review mode."),
     ("review-gate: cannot read arguments", "fix the call: review_gate.py <PR number> [--lines] [--next]."),
     ("review-gate: cannot ", "run it once more; if it exits 2 again, stop with BLOCKED: quoting its line."),
 )

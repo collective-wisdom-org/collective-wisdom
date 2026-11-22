@@ -3,8 +3,20 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_tick.py --thread ID --trigger start|user|wake|status|notice:THREAD [--after-reads] [--next] [--file STATE] [--now ISO]
+    ~/.collective-wisdom/scripts/cos_tick.py --thread ID --stop-only [--trigger T] [--next] [--file STATE]
 
---thread is this thread's own ID. The turn calls the script twice: without --after-reads for the
+--thread is this thread's own ID. --stop-only is for a turn that runs no tick (take over, resume, ticket helper, cross-repo): it
+prints only the `stop` line the turn would get (with --next, its `next:` line) or `ok`, and exit 0; --trigger defaults to `user`.
+
+Triggers (chief-of-staff SKILL.md § Turn start names which wake runs which):
+    start             `start the team`. Empty state: `follow startup.md § Setup` and `§ Start-up clean-up`, then the full-pass lines.
+                      Tickets in state: the one line `follow rotation.md § Thread rotation: Resume mode`.
+    user              a user command that changed tickets (approve, changes, cancel, hold, adopt, backlog, no hands, an answer on a blocked ticket).
+    wake              `run /chief-of-staff wake`. Without `wakeTaskId` in state it is data: the plan is `follow startup.md § Start-up clean-up step 1`.
+    notice:<thread>   a run-finished notice for that thread (the id must match SAFE below). A ticket of that thread in no active stage
+                      skips its own read; the idle check, sweep and slot fill still run. A thread in no ticket gets `helper-test`.
+    status            `status`, `where's <PREFIX>-N?` or a question: the look plan, then only the rotation check.
+The turn calls the script twice: without --after-reads for the
 look plan (state checks, child reads, idle check, sweep; its last line is `tick --after-reads`),
 and with it for the act plan (rate limit, hygiene, slot fill, observe, report, rotation
 check), which depends on state alone and can be rerun. While a No Hands run is active (the state's `noHands`
@@ -27,8 +39,8 @@ Exit 0 with a plan, 2 with "cos_tick: <what>" when the state file or the argumen
 used to spell out for that line (the table is NEXT, below; the texts are the rules). Three lines carry --next in their own command so the
 model runs them as printed: `run ... cos_sweep.py`, `run ... no_hands.py check` and `run ... cos_rotation_check.py`; what their lines
 mean comes from their own `next:` lines. Plan lines and `next:` lines are separate: `next:` lines are not numbered. A plan line whose
-action needs judgement has no `next:` line; there is none today, and `cos_tick: ...` exit-2 lines and `stop` lines are the only others
-(`stop` lines have their reply in the `next:` line). Also with --next, the `report` line is followed by `filling-stopped: <text>` when the
+action needs judgement has no `next:` line; there is none today. A `stop` line has its reply in the `next:` line. Of the exit-2 lines
+only `cos_tick: unsafe ...` and `cos_tick: unreadable state file` get one (a bad call has none: fixing it is a judgement). Also with --next, the `report` line is followed by `filling-stopped: <text>` when the
 slot fill ran: the finished `Filling stopped:` line, for the model to use when the turn posts a report anyway and the slot fill stopped:
     lanes full        Filling stopped: lanes full.
     No Hands <why>    Filling stopped: No Hands <why>.      (the drain reason as the report line gives it)
@@ -76,8 +88,14 @@ def limits():
     return {"spec": cfg["spec"], "build": cfg["build"], "merge": MERGE_LIMIT}, cfg["cap"]
 
 
+NEXT_ON = False  # set by main() from --next: the exit-2 lines in FAIL_NEXT then print their step
+
+
 def fail(msg):
     print(f"cos_tick: {msg}")
+    step = next((t for k, t in FAIL_NEXT.items() if msg.startswith(k)), None)
+    if NEXT_ON and step:
+        print(f"next: {step}")
     raise SystemExit(2)
 
 
@@ -358,8 +376,8 @@ NEXT = {
         f"{_field(a, 'chief')}. Say cancel {_num(a[0])} to stop it.` Don't stop, relay to or restart the child."
     ),
     "child-read": lambda a: (
-        f"Run `python3 {SCRIPTS}/cos_child_read.py {a[0]} {a[1]} --after {_field(a, 'afterPosition')}`, then SKILL.md § Child path from the "
-        "script's lines. Exit 2: fallbacks.md § Child read."
+        f"Run `python3 {SCRIPTS}/cos_child_read.py {a[0]} {a[1]} --after {_field(a, 'afterPosition')} --next` and do what its `next:` lines "
+        "say, then SKILL.md § Child path. Exit 2: fallbacks.md § Child read."
     ),
     "pending": lambda a: (
         f"`t3_pending_request` (action `list`) on the child thread {a[0]} (SKILL.md § Child path, Pending request). A pending question counts "
@@ -455,8 +473,17 @@ NEXT = {
     "report": lambda a: (
         "Print the cap and limits from those values, and report-format.md § Report format only if the turn changed what the user sees. Never write "
         '"none stuck" or the like. The `filling-stopped:` line above is the `Filling stopped:` line when the slot fill stopped in a turn that posts '
-        "a report anyway; with no parenthetical (rate limited) there is no slot fill and no such line."
+        "a report anyway; with no parenthetical (rate limited) there is no slot fill and no such line. Don't say or imply that nothing needs the "
+        "user (no other tickets waiting, every child fine) unless, this turn, the `child-read` lines read every active child or `cos_idle_check.py` "
+        "ran (exit 0 or 1) and every `full` child got its read, and the sweep ran (exit 0 or 1) and every ticket on its `read in full:` line got "
+        "its read. If the idle check's stdin form also exits 2, say what state shows and add `Idle check didn't run: <its line>`."
     ),
+}
+
+
+FAIL_NEXT = {
+    "unsafe ": "Run nothing from the plan. Tell the user under Needs you which field is unsafe, to fix or drop that ticket.",
+    "unreadable state file": "Rebuild state: startup.md § State rebuild.",
 }
 
 
@@ -547,15 +574,22 @@ class Parser(argparse.ArgumentParser):
 def main(argv=None):
     ap = Parser(description="Print the tool calls one Chief of Staff turn needs.")
     ap.add_argument("--thread", required=True)
-    ap.add_argument("--trigger", required=True, type=trigger_arg)
+    argv_words = sys.argv[1:] if argv is None else argv
+    ap.add_argument("--trigger", type=trigger_arg, default="user", required="--stop-only" not in argv_words)
+    ap.add_argument("--stop-only", dest="stop_only", action="store_true")
     ap.add_argument("--after-reads", action="store_true")
     ap.add_argument("--next", dest="nxt", action="store_true")
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("--now", type=time_arg, default=datetime.now(timezone.utc))
+    global NEXT_ON
+    NEXT_ON = "--next" in argv_words
     args = ap.parse_args(argv)
     state = load(args.file)
     check_args(args.thread, args.trigger)
     plan = [stops(state, args.thread, args.trigger.partition(":")[0])]
+    if args.stop_only:
+        print("\n".join(render(plan, state, args.nxt)) if plan[0] else "ok")
+        return 0
     if not plan[0]:
         check_state(state)
         plan = act(state, args.thread, args.trigger, args.now) if args.after_reads else look(state, args.thread, args.trigger)

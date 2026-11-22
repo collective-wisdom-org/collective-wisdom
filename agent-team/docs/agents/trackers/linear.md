@@ -4,9 +4,10 @@ How each operation in [README.md](README.md) runs on Linear, through the Linear 
 
 ## Rules
 
-- `list_issues` and `get_issue` always pass `fields`, with only what the step uses. Ask for `description` only where the README allows it.
-- `save_issue` returns the whole issue. Call it once per ticket per turn with every change in that call; never to confirm a change or to touch the description.
-- Notes and reasons go in `save_comment`, never a description edit.
+[README.md](README.md) § Efficiency rules apply. On Linear:
+
+- `list_issues` and `get_issue` always pass `fields`.
+- `save_issue` returns the whole issue: one call per ticket per turn with every change, never to confirm one.
 - Change labels with `addLabels` and `removeLabels`; `labels` replaces the whole set.
 - `list_issues` takes one `state` per call. Open tickets are three calls: `backlog`, `unstarted` (Todo), `started` (In Progress and In Review).
 - Results are paged: while `hasNextPage` is true, pass the returned `cursor`.
@@ -22,7 +23,7 @@ How each operation in [README.md](README.md) runs on Linear, through the Linear 
 
 ### `get-ticket`
 
-`get_issue` with the identifier and `fields`. For relations pass `includeRelations: true` and `relations` in `fields`. Ask for `description` only where the README allows it.
+`get_issue` with the identifier and `fields`; for relations see Rules. `description` only where the README allows it.
 
 ### `read-comments`
 

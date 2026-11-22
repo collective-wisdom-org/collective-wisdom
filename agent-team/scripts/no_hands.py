@@ -5,7 +5,7 @@ Usage:
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] [--db PATH] start --thread <chiefThreadId>
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] [--db PATH] check [--next]
     ~/.collective-wisdom/scripts/no_hands.py [--file STATE] drain <reason>
-    ~/.collective-wisdom/scripts/no_hands.py [--file STATE] end <reason>
+    ~/.collective-wisdom/scripts/no_hands.py [--file STATE] end [--next] <reason>
 
 A run needs the committed setting (project_config.no_hands_setting: the `No Hands` rows of project.md on origin/<merge target
 branch>) and the user's own message `no hands` (the whole message) in the Chief of Staff thread. The run record is the `noHands`
@@ -49,6 +49,9 @@ drain   Sets the drain reason (the first one stays). Last line: no-hands: drain 
         may carry (cos_tick.SAFE: letters, digits and . _ : % @ -), since the reason is printed into the tick's report line.
 end     Sets endedAt and endReason and prints the run summary: why, how long, each ticket with its state and cost, the total.
         On a run that has ended (by `check` or an earlier `end`) it writes nothing and reposts the summary with the recorded reason, exit 0.
+        With --next (without it the output is the summary above, nothing else) it prints after the summary a `next:` line and the
+        message to post (END_NEXT, below): the first two lines filled from the summary; the Merged, Open and Waiting lines are the Chief
+        of Staff's, from state and one `list-tickets` call.
 
 Exit codes: 0 ok, 1 refused, or drain with no active run, or end with neither an active run nor one that ended (`end` on an ended run exits 0
 and prints the summary again, so the Chief of Staff calls it once per run), 2 bad arguments or the state file or message store failed.
@@ -356,6 +359,32 @@ NEXT = {
 }
 
 
+END_NEXT = (  # `end --next`: how to post the summary; the template lines follow the `next:` line, two spaces in
+    "post the summary below as its own message. Merged titles: one `list-tickets` call (label `agent`, state Done, updated since the run's "
+    "`startedAt`, fields `id, title`); open and waiting tickets from state (report-format.md § Report format). Drop an empty line; write the "
+    "last line only when you set `paused`. An ended run stays ended (kill-switch.md § Resume)."
+)
+END_BODY = (
+    "No Hands ended: {reason}.",
+    "Ran {ran}, {n} tickets started, {cost}.",
+    "Merged: <PREFIX>-210: Example feature (#181, $14); …",
+    "Open: <PREFIX>-212: Background jobs (building, cancelled by the stop); …",
+    "Waiting on you:",
+    "- <PREFIX>-213: Search page, merge: touches <hands-path file | migration | flag: …>. \"approve 213\" or \"changes 213: …\"",
+    "- <PREFIX>-214: Billing page, blocked: <the BLOCKED: line>",
+    "Say \"resume\" to go on without No Hands, or \"no hands\" for a new run.",
+)
+
+
+def end_next(summary):
+    """The `next:` line and the message template after an `end` summary (its four lines: ended, ran, tickets, cost)."""
+    ended, ran, _, cost = summary.splitlines()
+    m = re.fullmatch(r"ran: (.+), (\d+) tickets started", ran)
+    spent = cost.removeprefix("cost: ")
+    body = [x.format(reason=ended.removeprefix("no-hands: ended "), ran=m[1], n=m[2], cost=spent) for x in END_BODY]
+    return [f"next: {END_NEXT}", *("  " + x for x in body)]
+
+
 def stop_why(line):
     """`cost-cap`, `cost unknown`, `setting off`, `start message not verified` or `stopped-by-user`: the line without its figures and ticket."""
     return line.removeprefix("no-hands: stop ").split(" $")[0].split(" (")[0]
@@ -393,8 +422,10 @@ def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("start").add_argument("--thread", required=True)
     sub.add_parser("check").add_argument("--next", action="store_true")
-    for name in ("drain", "end"):
-        sub.add_parser(name).add_argument("reason", nargs="+")
+    sub.add_parser("drain").add_argument("reason", nargs="+")
+    end = sub.add_parser("end")
+    end.add_argument("--next", action="store_true")
+    end.add_argument("reason", nargs="+")
     a = ap.parse_args(argv)
     state_file, db = state_file or a.file or root_state_file(), db or a.db
     try:
@@ -415,6 +446,8 @@ def main(argv, setting=project_config.no_hands_setting, state_file=None, db=None
                 print("no-hands: refused (a word of the reason has characters a plan line cannot carry; use letters, digits and . _ : % @ -)")
                 return 2
             code, line = cmd_drain(reason, state_file) if a.cmd == "drain" else cmd_end(reason, setting, state_file, cost)
+            if a.cmd == "end" and a.next and code == 0:
+                line = "\n".join([line, *end_next(line)])
     except Cannot as e:
         code, line = 2, f"no-hands: cannot {e}"
     print(line)

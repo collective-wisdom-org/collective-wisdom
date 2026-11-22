@@ -75,3 +75,32 @@ def test_main_prints_next_after_the_line_and_nothing_else_changes(monkeypatch, c
     monkeypatch.setattr(crc, "read_context", lambda sid=None, cursor=False: (_ for _ in ()).throw(crc.Unreadable("context")))
     assert crc.main(["--next"]) == 2
     assert capsys.readouterr().out.splitlines() == ["rotation-check: cannot read context"]
+
+
+# The reset steps in the `rotate:` text, by mode (rotation.md § Thread rotation points here)
+RESETS = [
+    ("rotate: size 231k >= 220k; mode reset", ["`t3_thread_send` to your own thread ID with `freshContext: true`", '"reason": "size 231k >= 220k"}', "`Resetting my context (size 231k >= 220k).`"], ["compact", "schedule_task"]),
+    ("rotate: skill changed aaaaaaa..bbbbbbb; mode reset-scheduled; reset never confirmed", ["one-shot `schedule_task`", "`freshSession`", '"reason": "skill changed aaaaaaa..bbbbbbb"}'], ["t3_thread_send"]),
+    ("rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode compact", ['"mode": "compact"', "`/compact`", "CHIEF OF STAFF RESET <id>. Run /chief-of-staff take over."], ["freshContext: true`"]),
+]
+
+
+@pytest.mark.parametrize("line, has, lacks", RESETS)
+def test_the_rotate_text_holds_the_reset_steps_for_its_mode(line, has, lacks):
+    text = crc.next_text(line)
+    assert all(x in text for x in has) and not any(x in text for x in lacks)
+    assert all(x in text for x in ["0. Write `.agent-team/chief-notes.md`", "`Reset refused: <error>.", "`rotation-failed` sighting"])
+
+
+@pytest.mark.parametrize(
+    "line, report, has",
+    [
+        ("ok context=40k; take-over context=40k", "take-over", ["`Take-over done. <N> tickets in flight.`", "`Take-over context 40k.`", "`Notes: <first line of chief-notes.md>.`", "`Filling stopped: <reason>.`"]),
+        ("ok context=40k", "resume", ["`Resumed. <N> tickets in flight.`", "still under an older thread", "failure line from startup.md § Dashboard"]),
+        ("ok context=40k; takeoverContext not saved", "take-over", ["`Take-over done. <N> tickets in flight.`"]),
+    ],
+)
+def test_a_pass_adds_its_one_line_report(line, report, has):
+    text = crc.next_text(line, report)
+    assert text and all(x in text for x in has)
+    assert "Take-over done" not in (crc.next_text(line) or "") and "Resumed." not in (crc.next_text(line) or "")

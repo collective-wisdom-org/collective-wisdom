@@ -2,9 +2,9 @@
 """The project manager's hygiene rules, as one line per ticket to act on.
 
 Usage:
-    ~/.collective-wisdom/scripts/pm_hygiene.py fill  [--file STATE] < list-tickets JSON
-    ~/.collective-wisdom/scripts/pm_hygiene.py drift [--file STATE] --since <pm.lastCheckAt> < {"prs": [...], "tickets": {...}}
-    ~/.collective-wisdom/scripts/pm_hygiene.py stale [--file STATE] < list-tickets JSON
+    ~/.collective-wisdom/scripts/pm_hygiene.py fill  [--file STATE] [--next] < list-tickets JSON
+    ~/.collective-wisdom/scripts/pm_hygiene.py drift [--file STATE] [--next] --since <pm.lastCheckAt> < {"prs": [...], "tickets": {...}}
+    ~/.collective-wisdom/scripts/pm_hygiene.py stale [--file STATE] [--next] < list-tickets JSON
     ~/.collective-wisdom/scripts/pm_hygiene.py report < the hygiene child's final message
 
 --file defaults to .agent-team/state.json under the repo root. Reads `tickets`, `merged` and `pm` from it and JSON from
@@ -28,7 +28,8 @@ open. The child then reads those tickets (state, labels) and runs it again with 
 ..., "labels": [...]}}, in the adapter's shape as for fill; GitHub also stateReason); it prints
     move ABC-N Done (PR #X merged)         merged after --since, ticket not Done, Canceled or Duplicate
     move ABC-N In Review (PR #X open)      opened after --since, still open, ticket in Backlog, Todo or In Progress
-A ticket labelled `agent` is skipped unless it is in `merged` in state, and then only the move to Done applies.
+A ticket labelled `agent` is skipped unless it is in `merged` in state, and then only the move to Done applies. A comment, a push or an old
+merge moves nothing, and a state the user set after the PR merged or opened stays.
 
 stale: stdin is the In Progress and In Review lists (id, title, state, updatedAt; one JSON list per call, or both
 concatenated). For each ticket whose updatedAt is over 3 days old, it reads the ticket's PRs
@@ -37,6 +38,9 @@ concatenated). For each ticket whose updatedAt is over 3 days old, it reads the 
 ^[A-Za-z0-9._/-]+$). The newest of the three times is the last activity; when that is over 3 days old and its date
 differs from pm.flaggedStale[ABC-N], it prints
     stale ABC-N In Progress since 2026-11-01
+
+--next (fill, drift, stale; without it the output is exactly the lines above): after the last line of each kind (`fill`, `get`, `move`,
+`stale`), print `next: <instruction>` from the table NEXT below. A `pm_hygiene:` line has no `next:`.
 
 report: stdin is the hygiene child's final message (project-manager reference.md § Hygiene child step 3). It reads no state and writes nothing.
 It keeps a line only when it starts `ABC-N ` or `ABC-N: <short title>, ` and what follows is one of the report shapes: `filled:`,
@@ -325,12 +329,42 @@ def report(text):
     return kept + ([f"Project manager hygiene: {dropped} lines not in a known shape, dropped"] if dropped else [])
 
 
+# --next: the step for each kind of line, keyed by its first word (`fill` is the second word of `ABC-N fill: ...`). One `next:` line per kind present, after the last line.
+NEXT = {
+    "fill": (
+        "Fill only the fields each `fill` line names. Priority: High, Medium or Low, never Urgent. Area: the one or two labels from "
+        "project.md § Areas and labels that fit. Type: Bug, Feature or Improvement. `get-ticket` only when the title doesn't settle it; "
+        "still unclear: leave the field empty. `add-label`, never rewrite the label set. Record each fill in `pm.filled`. "
+        "Report line: `<PREFIX>-N: <short title>, filled: priority Low, <area>, Bug` (title from the change check's `list-tickets` result)."
+    ),
+    "get": (
+        "`get-ticket` (fields `id, title, state, labels`) each `get` line's ticket, then run drift again with stdin "
+        '{"prs": <the same PRs>, "tickets": {"<PREFIX>-N": <that result as the adapter returns it>}}.'
+    ),
+    "move": (
+        "Make each `move` line's move with `set-state`. Report line: `<PREFIX>-N: <short title>, moved to Done (PR #X merged)` or "
+        "`<PREFIX>-N: <short title>, moved to In Review (PR #X open)` (title from the change check's `list-tickets` result)."
+    ),
+    "stale": (
+        "Save each line's date in `pm.flaggedStale[<PREFIX>-N]`. Don't change its state. Report line: "
+        "`<PREFIX>-N: <short title>, stale: <In Progress or In Review>, nothing since <date>` (title from the `list-tickets` result)."
+    ),
+}
+
+
+def with_next(lines):
+    words = [w for l in lines for w in l.split()[:2] if w.rstrip(":") in NEXT and not w.startswith("pm_hygiene")]
+    kinds = list(dict.fromkeys(w.rstrip(":") for w in words))
+    return lines + [f"next: {NEXT[k]}" for k in kinds]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("fill", "drift", "stale"):
         p = sub.add_parser(name)
         p.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
+        p.add_argument("--next", dest="nxt", action="store_true")
     sub.choices["drift"].add_argument("--since", required=True)
     sub.add_parser("report")
     a = ap.parse_args(argv)
@@ -364,7 +398,7 @@ def main(argv=None):
             return 2
         raise
     if lines:
-        print("\n".join(lines))
+        print("\n".join(with_next(lines) if a.nxt else lines))
     return 0
 
 

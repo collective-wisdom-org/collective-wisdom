@@ -19,7 +19,7 @@ Read **ship-loop** § Repo invariants first.
 
 ## Execution
 
-Follow **subagent-driven-development** when plan tasks are independent, else **executing-plans**. Under **planner-delegates** the parent plans and the `implementer` subagent (`subagent_type: "implementer"`; fallback `ship-loop` § Models) edits files and runs verification. Do plan tasks in order, by their file paths and acceptance criteria. **verification-before-completion** before calling a task done: run the plan's command and show its output.
+Follow **subagent-driven-development** when plan tasks are independent, else **executing-plans**. Under **planner-delegates** the parent plans and the `implementer` subagent (`subagent_type: "implementer"`; fallback `ship-loop` § Models) edits files and runs verification. Do tasks in order, by file paths and acceptance criteria. **verification-before-completion** before calling a task done: run the plan's command and show its output.
 
 ## Testing (prefer plan Task 0)
 
@@ -37,10 +37,7 @@ Commit and push as tasks finish. Push only this ticket's own branch (the one the
 
 ## Compaction pass
 
-After the last task passes, run `python3 ~/.collective-wisdom/scripts/compact_check.py` and keep its totals for **open-pr** (after a compacter run, from a re-run once its edits are committed).
-
-- `compact: skip`: go on. Exit 2: run it once more; a second exit 2 is `BLOCKED:` (`ship-loop` § Blocked).
-- `compact: run`: start the compacter (`Agent`, `subagent_type: "compacter"`; fallback `ship-loop` § Models) with the base `origin/<target>` and the script's output. Then check `git status` lists only files from that output, run the `project.md` test command, and revert any hunk that drops or changes a rule. Commit `docs: compact agent text for <PREFIX>-N` and push.
+After the last task passes, run `python3 ~/.collective-wisdom/scripts/compact_check.py --next` and do what its `next:` line says. Keep its totals for **open-pr**.
 
 ## When all tasks pass
 

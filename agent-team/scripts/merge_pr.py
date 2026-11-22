@@ -23,7 +23,7 @@ Checks (the merge target branch is the `Merge target branch` row of project.md, 
   - closeout docs are in the PR (a Shipped spec and its as-built or "as specified" line, the release note unless `Publish release notes` is `off`, and a `## Proof` section with a `Not proven` line)
   - the root checkout is on a clean <target> with an upstream and no local commits
 
-When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. With `off` it does neither. A failed publish prints
+When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API (the one write besides the merge to a branch other than the ticket's own; no agent, skill or other script writes it). With `off` it does neither. A failed publish prints
 `merge-pr: warn <reason>` before the last line and changes neither the exit code nor the last line.
 
 Exit 0: merged, or already merged (cleanup is repeated). Last line:

@@ -4,25 +4,22 @@ Read when a relay is about to go to a ticket whose `parentThreadId` is known and
 
 ## Continuation child
 
-send-or-queue.md § Send or queue may start a new child under this thread instead of sending (at once or from the queue), in two cases.
+send-or-queue.md § Send or queue may start a new child under this thread instead of sending (also from the queue), in two cases.
 
 *Approval or `changes N`.* The relay starts `CHIEF OF STAFF: the user approved`, `CHIEF OF STAFF: auto-approved` or `CHIEF OF STAFF: the user asked for changes` (also when queued), the ticket is in `awaiting-build`, `awaiting-review` or `awaiting-merge` (its child is idle), **and** the relay has no `Approval in thread:` line or that line names this thread: start a new child. A queued spec approval whose line names another thread goes to the old child.
 
 *Any other relay* (a restart, an answer to a blocked child, `resume`, a rate-limit continue, even when queued): the old child may hold unpushed work, so check first.
 
 1. `t3_thread_read` the old child once (`limit: 1`, `maxCharsPerItem: 1`, `runLimit: 1`) for `recentRuns[0].status` and `worktreePath`, and `t3_pending_request` `list` on it. A `running` run, a pending request (an answer to one always is), a failed read or call, or no `worktreePath`: send to the old child.
-2. `python3 ~/.collective-wisdom/scripts/cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'` from the root checkout. Exit 0 (`safe`): start a continuation child with this relay as the task's last block. Exit 1 or 2: send to the old child and add the Cleanup line `<PREFIX>-N: <short title>, kept its old child: <the script's line>`.
+2. `python3 ~/.collective-wisdom/scripts/cos_worktree_check.py <PREFIX>-N -- '<worktreePath>'` from the root checkout. Exit 0 (`safe`): start a continuation child with this relay as the task's last block. Exit 1 or 2: send to the old child, with the Cleanup line `<PREFIX>-N: <short title>, kept its old child: <the script's line>`.
 
 Both cases:
 
-- Run `python3 ~/.collective-wisdom/scripts/cos_handoff.py <PREFIX>-N` first. Exit 1 (`reject: <field> <value>`): mark the ticket `blocked`, quote the value to the user, start nothing. Exit 2 with `cos_handoff: cannot read PR #N`: start the child with the template's `Spec: … PR: …` line as written and add one Cleanup line, `Handoff block unavailable for <PREFIX>-N: <short title>`. Exit 2 with any other line: start nothing, mark `blocked`, quote the line. Otherwise the block replaces that line in the template as printed.
-- The merge head check and the queued spec approval re-read (send-or-queue.md § Send or queue) run first, as for any send. Then `delegate_task` as in readiness.md § Readiness check and start, `target` from `cos_models.py` for the lane's role (`spec` for the spec lane, `build` for build and merge; models.md § Models), with the template below and the relay as its last block. Skip the models.md § Models switch: the new child starts on the lane's model.
-- Save the new `firstTaskId` and `childThreadId`, set `parentThreadId` to this thread's ID and `lastPosition` to 0, and set the lane's active stage and `status` as for any send, plus the keys of a `set:` line `cos_route.py` printed. The old child stays idle, is never sent to again, and keeps its worktree and branch.
+- Run `python3 ~/.collective-wisdom/scripts/cos_handoff.py <PREFIX>-N --next` first and do what its `next:` line says (its block replaces the template's `Spec: … PR: …` line).
+- The merge head check and the queued spec approval re-read (send-or-queue.md § Send or queue) run first, as for any send. Then `delegate_task` as in readiness.md § Readiness check and start, `target` from `cos_models.py` for the lane's role (`spec` for the spec lane, `build` for build and merge; models.md § Models), the template below with the relay as its last block. Skip the models.md § Models switch: the new child starts on the lane's model.
+- Save the new `firstTaskId` and `childThreadId`, `parentThreadId` = this thread's ID, `lastPosition` 0, and the lane's active stage and `status` as for any send, plus the keys of a `set:` line `cos_route.py` printed. The old child stays idle, is never sent to again, and keeps its worktree and branch.
 - Report under Moving: `<PREFIX>-N: <short title>, moved to a new child (old one under an older thread)`.
-
-A merge-lane relay that goes to the old child gets the "I may not hear" line and starts the merge wait (sweep.md § Merge wait). A spec or build relay starts the run wait (sweep.md § Run wait): for a new child once its stage op is saved, for an old one as the `fallback:` line says.
-
-These always go to the old child: a running child, one with a pending request, one whose worktree check fails. Its notices go to the older parent thread, so the sweep's parent check (sweep.md § Sweep) full-reads it.
+- The run wait (sweep.md § Run wait, spec and build lane) starts for a new child once its stage op is saved. A relay that stays with the old child follows the `fallback:` line of `cos_route.py`; its notices go to the older parent thread, so the sweep's parent check (sweep.md § Sweep) full-reads it.
 
 ```
 TEAM MODE. CONTINUE. Run /ship-loop for <PREFIX>-<N>: <title>. <ticket URL>.
@@ -45,4 +42,4 @@ message in this thread, including the approval check in ship-loop § Approvals.
 CHIEF OF STAFF: <the relay, all of its lines>
 ```
 
-The task's Chief of Staff thread is this thread, never the relay's approval-thread line. The relay's approval thread is this thread or absent, so the child's check of the user's message is direct (spec approvals only). A spec approval from a later Chief of Staff thread is not accepted by this child (ship-loop § Approvals); the next relay goes to a continuation child that thread starts. A merge approval needs no thread check: its proof is the relay sent after `~/.collective-wisdom/scripts/cos_approve_pr.py` verified `approve N` or passed with `--auto`.
+The task's Chief of Staff thread is this thread, never the relay's approval-thread line; that line is this thread or absent, so the child's check of the user's message is direct (spec approvals only). A spec approval from a later Chief of Staff thread is not accepted by this child (ship-loop § Approvals); the next relay goes to a continuation child that thread starts. A merge approval needs no thread check: its proof is the relay sent after `~/.collective-wisdom/scripts/cos_approve_pr.py` verified `approve N` or passed with `--auto`.

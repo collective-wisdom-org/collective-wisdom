@@ -6,6 +6,7 @@
 # Exit 3: the PR conflicts with the merge target branch, so CI cannot start. Resolve the conflict, push and run it again.
 # The last line is `wait-for-ci: PR #N at <sha>: pass|fail|no CI declared`, `wait-for-ci: PR #N at <sha>: conflict with <target>`,
 # `wait-for-ci: no checks on PR #N at <sha> (mergeable <m>, mergeStateStatus <s>)` or `wait-for-ci: cannot read|watch ...`.
+# It polls up to 5 minutes for checks to show up, then watches them; the caller's two runs (--attempt 1 and 2, about 10 minutes of polling) are the only time limit.
 # --next prints `next: <instruction>` after that line, from the next_text table below. The caller passes the counts, since the script
 # keeps no state: --attempt <n> is which run of this wait it is (1 for the first, 2 for the retry after exit 2; default 1) and
 # --conflicts <n> is how many `conflict with` lines the task has already seen (default 0). Without --next the output is unchanged.
@@ -24,7 +25,7 @@ next_text() {
       if [ "$((conflicts + 1))" -ge 3 ]; then
         echo "this is the third conflict line in this run: stop with BLOCKED: quoting this line."
       else
-        echo "the PR conflicts with the merge target branch, so CI cannot start: merge origin/$target, resolve what has one clear answer, run the Test command, push, and run wait-for-ci.sh again with --conflicts $((conflicts + 1)); BLOCKED: <question> for anything unclear. Before the first MERGE READY that is open-pr § Primary loop step 1; in an open-pr § Conflict resolution run, that section's step 1."
+        echo "the PR conflicts with the merge target branch, so CI cannot start: merge origin/$target, resolve what has one clear answer, run the Test command, push, and run wait-for-ci.sh again with --conflicts $((conflicts + 1)); BLOCKED: <question> for anything unclear. Before the first MERGE READY that is open-pr § Primary loop step 1; in an open-pr/reference.md § Conflict resolution run, that section's step 1."
       fi ;;
     *)
       if [ "$attempt" -ge 2 ]; then

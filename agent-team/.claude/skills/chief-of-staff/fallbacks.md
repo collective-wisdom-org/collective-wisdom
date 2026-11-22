@@ -4,7 +4,7 @@ Read this when a `cos_child_read.py`, `cos_idle_check.py` or wait-check call exi
 
 ## Child read
 
-Exit 2 (`cos_child_read: …`): `t3_thread_read` with `afterPosition: <p>`, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`; SKILL.md § Child path from that read; one Cleanup line, `Child read script unavailable; used thread read`.
+Exit 2 (`cos_child_read: …`): `t3_thread_read` with `afterPosition: <p>`, `limit: 5`, `runLimit: 1`, `maxCharsPerItem: 2000`; take the newest finished assistant message's marker (`BUILD READY`, an old `SPEC READY` counting as it, `MERGE READY`, `BLOCKED:`, `MERGED #N`) and act on it as the `marker` rows of `NEXT` in `~/.collective-wisdom/scripts/cos_child_read.py` say, then SKILL.md § Child path; one Cleanup line, `Child read script unavailable; used thread read`.
 
 ## Idle check
 
@@ -12,4 +12,4 @@ Exit 2 (`cos_idle_check: …`): `t3_thread_read` per ticket in `spec`, `build` o
 
 ## Wait check
 
-The stuck check's `cos_idle_check.py --wait <PREFIX>-N --store <childThreadId>` exited 2: `t3_thread_read` with `view: activity`, `afterPosition: max(0, itemCount - 10)`, `limit: 10`, `runLimit: 1`, `maxCharsPerItem: 1500`, on stdin (quoted heredoc) to `… cos_idle_check.py --wait <PREFIX>-N`. Exit 2 again: read once more; if still 2, pass `2twice` as `cos_restart.py`'s `--wait`.
+The stuck check's `cos_idle_check.py --wait <PREFIX>-N --store <childThreadId>` exited 2: `t3_thread_read` with `view: activity`, `afterPosition: max(0, itemCount - 10)`, `limit: 10`, `runLimit: 1`, `maxCharsPerItem: 1500`, on stdin (quoted heredoc) to `… cos_idle_check.py --wait <PREFIX>-N`. Exit 2 again: read once more; still 2: pass `2twice` as `cos_restart.py`'s `--wait`.

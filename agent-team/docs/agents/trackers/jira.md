@@ -6,7 +6,7 @@ How each operation in [README.md](README.md) runs on Jira, through the Atlassian
 
 ## Tools
 
-Each operation below names its tool. Atlassian v2 lists only its "Primary" tools by default and reaches the rest through `discover` and `executeRead` / `executeWrite`. `listJiraIssueTransitions`, `listJiraIssueLinkTypes`, `createJiraIssueLink`, `listJiraIssueComments` and `getJiraIssueTypeMetaWithFields` are not Primary; if they are not listed, call them that way.
+Each operation names its tool. Atlassian v2 lists only its "Primary" tools by default; the rest go through `discover` and `executeRead` / `executeWrite`. Not Primary: `listJiraIssueTransitions`, `listJiraIssueLinkTypes`, `createJiraIssueLink`, `listJiraIssueComments`, `getJiraIssueTypeMetaWithFields`.
 
 ## `project.md` rows
 
@@ -25,9 +25,9 @@ The status map holds your workflow's exact status names; `project_config.value("
 
 ## Conventions
 
-- **Ticket ID.** The Jira key, for example `ABC-12`. The `Issue identifier prefix` row is the project key. A key with an underscore does not match `prefix()`; out of scope.
+- **Ticket ID.** The Jira key, for example `ABC-12`; the `Issue identifier prefix` row is the project key. A key with an underscore does not match `prefix()`; out of scope.
 - **Set-state rule.** `listJiraIssueTransitions`, pick the transition whose target status equals the mapped name, apply it with `transitionJiraIssue`. If none matches, stop and report the transitions you saw. Never pick the nearest one.
-- **Priority.** Urgent is Highest, High is High, Medium is Medium, Low is Low. Lowest is unused.
+- **Priority.** Urgent is Highest; High, Medium and Low match. Lowest is unused.
 - **Labels.** `agent`, `agent-skip`, area and type are Jira labels, not issue types (issue types carry hierarchy and vary by project).
 - **Parent.** The Epic or parent field, set with `editJiraIssue`.
 - **Blocked-by.** The `Blocks` link type: the blocker is the outward issue, the blocked ticket the inward issue. Check the direction in the first run.
@@ -35,7 +35,7 @@ The status map holds your workflow's exact status names; `project_config.value("
 - **JQL.** Always start with `project = <Jira project key>`. Quote values with spaces.
 - **Write scope.** The Rovo MCP acts with the authorising user's rights across the whole site. Write (create, edit, transition, comment, link) only to keys starting `<Jira project key>-`, with only the tools named here. Authorise with an account limited to that project where possible.
 - **Own account.** Count an `Approval withdrawn` comment only when its author is the agent's own Jira account.
-- **Efficiency.** Ask `searchJiraIssuesUsingJql` and `getJiraIssue` for only the fields the step uses. One `editJiraIssue` per ticket per turn, with every field change together.
+- **Efficiency.** [README.md](README.md) § Efficiency rules; `editJiraIssue` carries every field change.
 
 ## Operations
 
@@ -45,16 +45,16 @@ The status map holds your workflow's exact status names; `project_config.value("
 
 - state: `status = "<mapped name>"`; Backlog is the Backlog status name
 - label: `labels = "<name>"`
-- title text: `summary ~ "<words>"`, escaping each `"` and `\` in the words with a backslash. This matches the words as separate terms; for an exact phrase wrap them in escaped inner quotes: `summary ~ "\"<words>\""`. Text search reads `AND`, `OR`, `NOT`, `+`, `-` and a leading `(` as operators, and Atlassian lists `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special; a stray one can change the matches or fail the query (a leading `(` is documented to fail). Atlassian gives no full escape rule for `"` (checked 2026-11-03). On a query error, retry once with the words stripped of operators and special characters; if it still fails, report the error and do not guess at a match.
+- title text: `summary ~ "<words>"`, escaping each `"` and `\` in the words with a backslash (separate terms; exact phrase: `summary ~ "\"<words>\""`). Text search reads `AND`, `OR`, `NOT`, `+`, `-` and a leading `(` as operators, and Atlassian lists `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :` as special; a stray one changes the matches or fails the query. No full escape rule for `"` exists (checked 2026-11-03). On a query error retry once with the words stripped of operators and special characters; still failing: report the error, do not guess at a match.
 - priority: `priority = High`
 - parent: `parent = KEY`
 - changed since: `updated >= "yyyy-MM-dd HH:mm"`
 
-One JQL covers all open states: `status in ("<Backlog>", "<Todo>", ...)`, so the duplicate check against open tickets is one call. Example: `project = ABC AND status = "To Do" ORDER BY created ASC`.
+All open states in one JQL: `status in ("<Backlog>", "<Todo>", ...)`. Example: `project = ABC AND status = "To Do" ORDER BY created ASC`.
 
 ### `get-ticket`
 
-`getJiraIssue` with the key and a field list. For relations include `issuelinks` and `parent`. Leave out `description` unless the README allows it.
+`getJiraIssue` with the key and a field list; for relations include `issuelinks` and `parent`. Leave out `description` unless the README allows it.
 
 ### `read-comments`
 
@@ -74,7 +74,7 @@ One JQL covers all open states: `status in ("<Backlog>", "<Todo>", ...)`, so the
 
 ### `add-label`
 
-`getJiraIssue` for `labels`, then `editJiraIssue` with the update form that adds one label. If the tool only takes a full `labels` list, send the current list plus the new name.
+`getJiraIssue` for `labels`, then `editJiraIssue` with the update form that adds one label (a tool that takes only a full `labels` list: the current list plus the new name).
 
 ### `remove-label`
 

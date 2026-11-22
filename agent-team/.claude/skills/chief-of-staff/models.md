@@ -1,14 +1,14 @@
 # Models
 
-Read this when you start a child or helper; on a `configure` or `chief-provider` plan line; or when `cos_models.py` exits 1. Why a role has its model, and the Cursor, Codex and Antigravity notes: models-notes.md.
+Read this when you start a child or helper; on a `configure` or `chief-provider` plan line; or when `cos_models.py` exits 1. Why a role has its model: the `cos_models.py` docstring. Cursor, Codex and Antigravity notes: models-notes.md.
 
 ## Models
 
 Each role runs on the model `cos_models.py` gives for this thread's harness. These are defaults; changing them is a ticket and a PR (`cos_models.py`).
 
-Your children (spec, build, merge, continuation), helpers (ticket helper, ranking child, hygiene child) and the subagents those threads start all run on this thread's own harness, the provider startup.md step 3 reads, with that harness's values from `cos_models.py`. No template names a provider or model. A role `cos_models.py` exits 1 for (no routing for the role or provider): start no thread for it and report `BLOCKED: no <role> routing for <provider>` under Needs you. Never fall back to another harness's values. A child that ends up on another harness is flagged in the plan (SKILL.md § Tick, `harness-mismatch`).
+Your children (spec, build, merge, continuation), helpers (ticket helper, ranking child, hygiene child) and the subagents those threads start all run on this thread's own harness, the provider startup.md step 3 reads, with that harness's values from `cos_models.py`. No template names a provider or model. A role `cos_models.py` exits 1 for (no routing): start no thread for it and report `BLOCKED: no <role> routing for <provider>` under Needs you. Never fall back to another harness's values. A child that ends up on another harness is flagged in the plan (SKILL.md § Tick, `harness-mismatch`).
 
-`python3 ~/.collective-wisdom/scripts/cos_models.py <provider> <role>` prints the literal `target` for `delegate_task`, the `modelSelection` a switch passes, or the `pinned:` agent file line for a subagent. Roles: `chief` (this thread; its model is the user's pick, startup.md step 3 checks it against `chief`), `ticket-helper`, `pm` (Project manager children), `spec` (Child, spec stage), `build` (Child, build and merge stages), `implementer`, `documenter`, `compacter`, `code-review`, `security-review`.
+`python3 ~/.collective-wisdom/scripts/cos_models.py <provider> <role>` prints the literal `target` for `delegate_task`, the `modelSelection` a switch passes, or the `pinned:` agent file line for a subagent (roles and lines: its docstring). `chief` is this thread (its model is the user's pick; startup.md step 3 checks it), `pm` the Project manager children, `spec` the child's spec stage, `build` its build and merge stages.
 
 How a child changes model:
 

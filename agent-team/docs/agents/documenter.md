@@ -8,10 +8,9 @@ PR number, head SHA, range `origin/<target>...HEAD` (`<target>`: the merge targe
 
 ## How to search
 
-1. Read `git diff <range>`.
-2. Name what it changes: file paths, routes, env vars, tables and columns, make targets, scripts, skills.
-3. `git grep` each name in the living docs (`project.md` § Docs check). Read each hit; say whether it is now wrong. Open a file only on a hit, except the spec and as-built, always opened.
-4. Look for what is missing: a new route not in the architecture doc's route table, a new env var not in the env example file, a new make target not in the README (skip any the repo lacks).
+1. Read `git diff <range>`; name what it changes: file paths, routes, env vars, tables and columns, make targets, scripts, skills.
+2. `git grep` each name in the living docs (`project.md` § Docs check). Read each hit and say whether it is now wrong. Open a file only on a hit, except the spec and as-built, always opened.
+3. Look for what is missing: a new route not in the architecture doc's route table, a new env var not in the env example file, a new make target not in the README (skip any the repo lacks).
 
 ## Checklist
 

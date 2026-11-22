@@ -2,7 +2,7 @@
 """Does the Chief of Staff session need a reset? One line: "ok ...", "rotate: <reason>; mode <mode>" or "finish: take over unfinished ...".
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover] [--next]   # the model's call, every working turn
+    ~/.collective-wisdom/scripts/cos_rotation_check.py [--record-takeover] [--pass take-over|resume] [--next]   # the model's call, every working turn
     ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit        # print the current skill commit only
     ~/.collective-wisdom/scripts/cos_rotation_check.py --hook                # the Stop hook's call (hook JSON on stdin)
 
@@ -18,6 +18,11 @@ provider missing from it, or a missing chiefProvider, is none). On none the chec
 `reset` marker in state younger than 10 minutes ("ok (held: reset)"); an older marker does not hold and a trigger
 then ends "; reset never confirmed". The line is "rotate: size 231k >= 220k; mode reset",
 "rotate: skill changed aaaaaaa..bbbbbbb; mode reset" or "rotate: agent-gantt plugin 0.1.12 -> 0.1.13; mode reset".
+Triggers: a context of SIZE_CAP (220k) or more, which ignores the quiet-turn rule; a skill change (the current skill commit differs from
+state's skillCommit) or a newer agent-gantt plugin than ganttPluginVersion, each only on the merge target branch and in a quiet turn. A turn is
+quiet when no ticket is in a `*-queued` stage, lastRelayAt is absent or QUIET_RELAY_MIN (10) or more minutes old, and lastResetAt is absent or
+QUIET_RESET_MIN (60) or more minutes old. A null or not-full-sha skillCommit saves the sha and never resets. Codex has no RESET_MODES entry:
+mode none, so no rotate:, no size trigger and no skill-change reset. RESET_MODES goes with the "Context reset" row of docs/compatibility.md.
 The plugin trigger reads only mods/agent-gantt/.claude-plugin/plugin.json of the clone (never runs claude) and fires when its version
 is newer than ganttPluginVersion in state (gantt_plugin.py's compare; an equal or older clone does not fire). It works like the skill change (merge target branch, quiet turn; otherwise
 "ok (plugin change waits: <why>)"); a skill change on the same turn wins the line. It is off when ganttPluginVersion is null or
@@ -32,6 +37,7 @@ Cursor writes a run's usage only when the run ends, so the take-over turn has no
 chiefThreadId) it saves takeoverContext {"threadId", "tokens": null, "turn": N}, N the newest run, and the line ends
 "; take-over context pending (turn N)". A later plain check (not --hook, which stays read-only) reads run N; once it has usage it
 saves {"threadId", "tokens"} (no turn) and the line ends "; take-over context=<K>k (turn N)". Until then nothing changes.
+install.sh registers --hook as the Stop hook in ~/.claude/settings.json (Claude Code) and ~/.cursor/hooks.json (Cursor).
 --hook is silent in a repo with no docs/agents/project.md, when ~/.collective-wisdom/scripts/cos_rotation_check.py exists and is another file, and unless the session is the Chief of Staff's.
 It reads Claude Code's Stop payload (session_id equals chiefSessionId, stop_hook_active false) and blocks the stop with
 {"decision": "block", "reason": ...} on any line that does not start with "ok" ("rotate:", "finish:") or exit 2. It reads Cursor's stop payload (conversation_id equals
@@ -42,10 +48,12 @@ read each per chief-of-staff SKILL.md § Child path" for each active child that 
 Silent on that line while `paused`, `reset` or `takeover` is set. Plain mode never prints it.
 It never writes and any error exits 0 silently.
 --next (plain mode and --record-takeover only; without it the output is the one line): print `next: <instruction>` after the line, from the table
-NEXT below: one text for the line's kind (`rotate:`, `finish:`, each `ok` form) and one for each suffix the line can end in
+NEXT below: one text for the line's kind (`rotate:`, `finish:`, each `ok` form; the `rotate:` text holds the reset steps for the line's mode, RESET_STEPS) and one for each suffix the line can end in
 (`; take-over context=<K>k`, `; take-over context pending (turn N)`, `; take-over context=<K>k (turn N)`). With a figure of 220k or more the
 take-over context text adds the Cleanup line for a reset that did not shrink the context. No `next:` follows `rotation-check: cannot read <what>`
 (exit 2: reading the item count and deciding on a reset is a judgement) or the `; takeoverContext not saved` suffix (no rule says what to do).
+--pass take-over|resume (with --next; --record-takeover implies take-over) ends the `next:` text with the one-line report that closes the take-over
+(`Take-over done. ...`) or resume (`Resumed. ...`) pass, PASS_REPORT below, so the last call of the pass carries it.
 COS_STATE_FILE, COS_PROJECTS_DIR, COS_CURSOR_PROJECTS_DIR and COS_T3_DB override the state file, the Claude Code transcripts
 directory, the Cursor projects directory (~/.cursor/projects) and the T3 store.
 """
@@ -414,8 +422,35 @@ GANTT = (
     "Before any reset run `python3 ~/.collective-wisdom/scripts/gantt_plugin.py`: on `gantt-plugin: todo <text>` add the Cleanup line "
     "`agent-gantt plugin: <text>`; the reset goes on whatever it prints."
 )
+SEND_RESET = "`CHIEF OF STAFF RESET <id>. Run /chief-of-staff take over.`"
+RESET_STEPS = (  # the reset, in this thread, in this order; {send} and {reason} are filled from the line's mode and reason
+    "The reset (what a failed check does: rotation.md § Thread rotation), in this thread, in this order. "
+    "0. Write `.agent-team/chief-notes.md` (session.md § Working set) with what the next session needs that state does not hold: a plan the user "
+    "gave, a test in progress, a promise made in a reply. With nothing to carry, leave it. "
+    "1. `top` op: `reset` = `{{\"id\": <8 random hex chars>, \"startedAt\": now, \"reason\": \"{reason}\"{extra}}}`. Save state. "
+    "2. {send} "
+    "3. End the turn with `Resetting my context ({reason}).` Nothing runs after the send. "
+    "If the send or schedule call errors: `top` op `reset` to `null`, one `rotation-failed` sighting with the error, one Cleanup line `Reset refused: "
+    "<error>. Carrying on; the next rotation check tries again.`, and finish the turn normally."
+)
+SENDS = {
+    "reset": f"Send this thread one message, {SEND_RESET}: `t3_thread_send` to your own thread ID with `freshContext: true`. Only `freshContext: true` "
+    "resets: a send without it, or a typed `take over`, leaves the context and `chiefSessionId` as they were.",
+    "reset-scheduled": f"Send this thread one message, {SEND_RESET}, as a one-shot `schedule_task` on your own thread with `freshSession`.",
+    "compact": f"Two queued self-sends to your own thread without `freshContext`: `/compact`, then {SEND_RESET}.",
+}
+
+
+def reset_text(line):
+    """The reset steps for a `rotate:` line, filled with its mode and reason."""
+    m = re.fullmatch(r"rotate: (?P<reason>.*?); mode (?P<mode>[\w-]+)(?:; reset never confirmed)?", line)
+    mode = m["mode"] if m and m["mode"] in SENDS else "reset"
+    reason = m["reason"] if m else "<the rotate reason>"
+    return RESET_STEPS.format(send=SENDS[mode], reason=reason, extra=', \"mode\": \"compact\"' if mode == "compact" else "")
+
+
 KINDS = [  # (pattern on the line, instruction)
-    (r"rotate: ", GANTT + " Then run the reset for the line's mode: rotation.md § Thread rotation (modes `reset`, `reset-scheduled` and `compact`)."),
+    (r"rotate: ", GANTT + " Then {reset}"),
     (r"finish: ", "A take over or resume pass was interrupted. Finish it first (rotation.md § Thread rotation: Finish take over), then handle the message that woke this turn."),
     (r"ok \(held: ", "Nothing: the check holds while `paused` is set or a reset is in flight. Never reset in the middle of a command."),
     (r"ok; (skillCommit is not a full sha; )?set skillCommit ", "Save that sha as `skillCommit` in a `top` op. Don't reset."),
@@ -426,13 +461,28 @@ KINDS = [  # (pattern on the line, instruction)
 SUFFIX = re.compile(r"; take-over context(?: pending \(turn (?P<pending>\d+)\)|=(?P<k>\d+)k(?: \(turn (?P<turn>\d+)\))?)$")
 
 
-def next_text(line):
+ADDITIONS = (
+    " Add `Notes: <first line of chief-notes.md>.` if the file exists; `<M> still under an older thread: <PREFIX>-125: Retry button; "
+    "<PREFIX>-127: Search page.` if the sweep's parent check printed any `full` or `idle` line; `<M> in flight but not in my state: <PREFIX>-125: "
+    "Retry button; <PREFIX>-126: Search page.` if any untracked ticket is left after sweep.md § Sweep's `get-ticket` drop; `Filling stopped: "
+    "<reason>.` (report-format.md § Report format) if a lane is free and nothing started; and the failure line from startup.md § Dashboard. "
+    "Report only what the pass's step 3 found."
+)
+PASS_REPORT = {
+    "take-over": " Post one line: `Take-over done. <N> tickets in flight.` plus the take-over context sentence above (`Take-over context <K>k.`)." + ADDITIONS,
+    "resume": " Post one line: `Resumed. <N> tickets in flight.`" + ADDITIONS,
+}
+
+
+def next_text(line, report=None):
     """The `next:` instruction for one check line, or None for `; takeoverContext not saved` and `rotation-check: cannot read ...`."""
+    if line.endswith("; takeoverContext not saved") and report in PASS_REPORT:
+        return PASS_REPORT[report].strip()  # the pass still ends with its report line
     if line.endswith("; takeoverContext not saved") or line.startswith("rotation-check:"):
         return None
     suffix = SUFFIX.search(line)
     base = line[: suffix.start()] if suffix else line
-    text = next(t for pat, t in KINDS if re.match(pat, base))
+    text = next(t for pat, t in KINDS if re.match(pat, base)).replace("{reset}", reset_text(base) if base.startswith("rotate: ") else "")
     if suffix and suffix["pending"]:
         text += (
             " Take-over context is pending: post `Take-over context pending.`, and add `Take-over context <K>k.` to the report of the next working "
@@ -442,7 +492,7 @@ def next_text(line):
         text += f" Take-over context is {suffix['k']}k: it goes in the take-over line (`Take-over context {suffix['k']}k.`)."
         if int(suffix["k"]) * 1000 >= SIZE_CAP:
             text += " That is still 220k or more, so the reset did not shrink the context (the send lacked a fresh context): add the Cleanup line `Reset did not shrink the context`."
-    return text
+    return text + PASS_REPORT[report] if report in PASS_REPORT else text
 
 
 def main(argv=None):
@@ -450,6 +500,7 @@ def main(argv=None):
     ap.add_argument("--hook", action="store_true")
     ap.add_argument("--record-takeover", action="store_true")
     ap.add_argument("--skill-commit", action="store_true")
+    ap.add_argument("--pass", dest="report", choices=("take-over", "resume"))
     ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     path = Path(os.environ.get("COS_STATE_FILE") or ROOT / ".agent-team" / "state.json")
@@ -472,8 +523,9 @@ def main(argv=None):
     if tk and not save_top(path, takeoverContext=tk):
         line += "; takeoverContext not saved"
     print(line)
-    if args.nxt and next_text(line):
-        print(f"next: {next_text(line)}")
+    text = next_text(line, args.report or ("take-over" if args.record_takeover else None))
+    if args.nxt and text:
+        print(f"next: {text}")
     return 0
 
 

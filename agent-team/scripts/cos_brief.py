@@ -2,8 +2,8 @@
 """Approval inputs for the Chief of Staff, read from GitHub in one call each.
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_brief.py spec <path> <sha> [--branch B]
-    ~/.collective-wisdom/scripts/cos_brief.py pr <N> [--head SHA] [--lines]
+    ~/.collective-wisdom/scripts/cos_brief.py spec <path> <sha> [--branch B] [--next]
+    ~/.collective-wisdom/scripts/cos_brief.py pr <N> [--head SHA] [--lines] [--next]
 
 spec prints the spec's title, a blob link, its Goals, Non-goals and Calls I made
 sections (each capped at 40 lines) and the headings of its Design sections. The
@@ -21,6 +21,10 @@ With --lines, two more lines end the output (nothing else changes), so the merge
                                           ci mode: `CI green at <short sha>, CI review <F fixed, A answered and resolved, U unresolved>`
                                           (`CI not green at <short sha>` when a check is not green).
     size: small|large                      small is 5 files or fewer in the `files:` count, large is 6 or more. The risk level itself is the caller's call.
+--next (without it the output is exactly the lines above) ends the output with `next: <instruction>` lines from the tables NEXT_SPEC and NEXT_PR below,
+the step approvals.md § Approval requests used to hold. spec: one line (also after `cos_brief: spec not found at <sha>`, exit 2, which has the send-back).
+pr: with `conflict: yes` one line (no approval request; the head check and its relay), else one line for building the merge block (and the Risks wording
+for a conflict resolution and the `flag:` and `migrations:` lines). Whether `head:` matches and both PASS links are the child's stays the caller's gate.
 The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
 the ticket in the branch name (<head><prefix>-N-...), or `cost: unknown` when the branch
 doesn't match, the script exits 2 or it takes over 30 seconds. Cost never makes pr exit 2.
@@ -150,10 +154,35 @@ def section_text(lines):
     return "\n".join(out)
 
 
+NEXT_SPEC = {
+    "ok": "Build the spec block of approvals.md § Approval requests from this output. Open a design section "
+          "(`~/.collective-wisdom/scripts/gh.sh api repos/<owner>/<repo>/contents/<path>?ref=<sha>`, GET) only if a call or goal needs it. "
+          "The spec wins over the report; say so in the block.",
+    "not found": "Send the child back: `t3_thread_send` it `CHIEF OF STAFF: the spec at <sha> is not on GitHub. Push it and report BUILD READY again.`, "
+                 "set the stage back to `spec`, start the run wait (sweep.md § Run wait). Don't ask the user yet.",
+}
+NEXT_PR = {
+    "conflict": "`conflict: yes`: ask no approval. Run `python3 ~/.collective-wisdom/scripts/cos_head_check.py <PREFIX>-N --no-approval`, "
+                "send its relay through send-or-queue.md § Send or queue (`conflict stand` as `conflict-stand`, merge lane; `conflict withdraw` as "
+                "`conflict-withdraw`, build lane), comment no `Approval withdrawn`, and stop.",
+    "block": "Build the merge block of approvals.md § Approval requests from the child's report and these lines: `reviews:` as printed, `size:` for the "
+             "risk level. A `Conflict resolved:` line in the report or `flag: conflict resolution not reviewed` makes Risks say whether the resolution "
+             "was reviewed or the earlier head's reviews stand. Name each `migrations:` clash and `flag:` line under Risks (flags are hints).",
+}
+
+
+def spec_not_found(sha, nxt):
+    print(f"cos_brief: spec not found at {sha}")
+    if nxt:
+        print(f"next: {NEXT_SPEC['not found']}")
+    sys.exit(2)
+
+
 def cmd_spec(args):
     path, sha = args.path, args.sha
+    nxt = getattr(args, "nxt", False)
     if not (PATH_RE.match(path) and ".." not in path and SHA_RE.match(sha)):
-        die(f"spec not found at {sha}")
+        spec_not_found(sha, nxt)
     branch = args.branch
     if branch is not None and not REF_RE.match(branch):
         die(f"bad branch {branch!r}")
@@ -163,7 +192,7 @@ def cmd_spec(args):
             raise ReadError("not a file")
         text = base64.b64decode(data["content"]).decode("utf-8")
     except (ReadError, ValueError, KeyError):
-        die(f"spec not found at {sha}")
+        spec_not_found(sha, nxt)
     title, sections, design = parse_spec(text)
     out = [
         f"spec {path} @ {sha[:7]}",
@@ -175,6 +204,8 @@ def cmd_spec(args):
         body = section_text(sections[name]) if name in sections else ""
         out.append(body if body else "(missing)")
     out.append("design: " + ("; ".join(design) if design else "(none)"))
+    if nxt:
+        out.append(f"next: {NEXT_SPEC['ok']}")
     print("\n".join(out))
 
 
@@ -443,6 +474,8 @@ def cmd_pr(args):
     if getattr(args, "lines", False):
         text = ci_text[0] if mode == "ci" else reviews_text(comments, moved_suffix(oid, comments, login) if login else None)
         out += [f"reviews: {text}", f"size: {'small' if len(paths) <= SMALL_FILES else 'large'}"]
+    if getattr(args, "nxt", False):
+        out.append(f"next: {NEXT_PR['conflict' if pr.get('mergeable') == 'CONFLICTING' else 'block']}")
     print("\n".join(out))
 
 
@@ -455,11 +488,13 @@ def main():
     sp.add_argument("path")
     sp.add_argument("sha")
     sp.add_argument("--branch")
+    sp.add_argument("--next", dest="nxt", action="store_true")
     sp.set_defaults(fn=cmd_spec)
     pp = sub.add_parser("pr")
     pp.add_argument("number", type=int)
     pp.add_argument("--head")
     pp.add_argument("--lines", action="store_true")
+    pp.add_argument("--next", dest="nxt", action="store_true")
     pp.set_defaults(fn=cmd_pr)
     args = ap.parse_args()
     args.fn(args)

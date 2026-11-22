@@ -2,8 +2,8 @@
 """Check the Backlog ranking child's list and save it as pm.ranked, or say whether a dry pick needs a new ranking.
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] < child_message
-    ~/.collective-wisdom/scripts/cos_rank.py dry [--file PATH] [--out-of-date]
+    ~/.collective-wisdom/scripts/cos_rank.py [--file PATH] --started <ISO Z> [--backlog-count N] [--post] [--next] < child_message
+    ~/.collective-wisdom/scripts/cos_rank.py dry [--file PATH] [--out-of-date] [--next]
     ~/.collective-wisdom/scripts/cos_rank.py count < list-tickets JSON, or {"tickets": [...], "children": {...}}
 
 --started is the time the ranking began (YYYY-MM-DDTHH:MM:SSZ); it becomes pm.rankedAt.
@@ -22,6 +22,8 @@ the Backlog ranking post. On a failed check it writes nothing, prints
 "cos_rank: <reason>" and exits 2. That includes an empty list when --backlog-count is 1 or
 more, and a --backlog-count that is not a whole number of 0 to 9999. An empty list without
 --backlog-count writes nothing and exits 3, which means "count the Backlog and run again".
+With --next (without it the output is exactly the lines above) a `next: <instruction>` line follows the saved list, the exit 3 line and each
+"cos_rank: <reason>" line the child's message can cause (not a bad --started or --backlog-count), from the table MAIN_NEXT below.
 
 dry is the project-manager skill's Dry ranking test. It reads pm.rankedAt, pm.rankedReady, pm.ranked and merged
 from state, writes nothing, and prints one line: "dry: rank (<reason>)" or "dry: check backlog since <pm.rankedAt>".
@@ -31,6 +33,7 @@ up); --out-of-date (the pick found a ranked ticket moved, labelled agent-skip, b
 `~/.collective-wisdom/scripts/gh.sh pr list --state closed --limit 1 --search "closed:>=<pm.rankedAt>" --json number`
 that returns a PR (a failed read counts as none). Otherwise the agent makes one Backlog list-tickets since that time:
 a ticket back means rank, none means the Backlog is dry. Exit 2 and "cos_rank: <reason>" when state cannot be read.
+With --next (without it the output is the one line above) a `next: <instruction>` line follows it, from the table DRY_NEXT below.
 
 count is the Backlog count an empty list needs (project-manager reference.md § Ranking child step 3), in two passes on stdin like
 pm_hygiene.py drift. It reads and writes no state. stdin is the Backlog `list-tickets` result (fields id, labels, parent; the tracker adapter's
@@ -125,11 +128,27 @@ def closed_prs_since(ranked_at):
     return isinstance(found, list) and bool(found)
 
 
+# dry --next: the step for each dry line, keyed by its first two words.
+DRY_NEXT = {
+    "dry: rank": "Run the ranking child now (project-manager reference.md § Ranking child), then continue the pick from the new `pm.ranked`.",
+    "dry: check": (
+        "Make one `list-tickets` (scope <TEAM>, state Backlog, updated since that time, limit 1, fields `id`). A ticket back means rank: "
+        "run the ranking child as for `dry: rank`. None means the Backlog is dry and the pick stops."
+    ),
+}
+
+
 def dry(argv):
     ap = argparse.ArgumentParser(prog="cos_rank.py dry")
     ap.add_argument("--file", type=Path, default=cos_state.DEFAULT_FILE)
     ap.add_argument("--out-of-date", action="store_true")
+    ap.add_argument("--next", dest="nxt", action="store_true")
     a = ap.parse_args(argv)
+    line = dry_line(a)
+    return f"{line}\nnext: {DRY_NEXT[' '.join(line.split()[:2])]}" if a.nxt else line
+
+
+def dry_line(a):
     state = cos_state.load(a.file)
     pm = state.get("pm") if isinstance(state.get("pm"), dict) else {}
     at = pm.get("rankedAt")
@@ -194,6 +213,32 @@ def count(text):
     return todo or ["backlog-count: 0"]
 
 
+# --next on the main form: the step after each result, keyed "saved", "empty" (exit 3) and "rejected" (a "cos_rank:" line the child's message caused, exit 2).
+MAIN_NEXT = {
+    "saved": (
+        "Add each `needs:` ticket in the lines above to `pm.needsReported`, and give a `needs: flagged` one the Cleanup line "
+        '`<PREFIX>-N: <short title>, not acted on: ticket text asks to "<quote>"`, once.'
+    ),
+    "empty": (
+        "Make one `list-tickets` (scope <TEAM>, state Backlog, limit 250, fields `id, labels, parent`) with the adapter's author filter and "
+        "pipe it to `cos_rank.py count`. Make each `children <PREFIX>-N` read it prints (`list-children`, limit 1, one at a time, on every "
+        'tracker) and run `count` again with `{"tickets": <that list>, "children": {"<PREFIX>-N": <result>}}` until it prints '
+        "`backlog-count: <n>`. Then run this command again on the same message with `--backlog-count <n>`: 0 saves the empty list, 1 or more "
+        "exits 2. A ticket held back by an open blocker still counts, so a Backlog where every ticket is blocked is rejected until a blocker clears."
+    ),
+    "rejected": (
+        "Add the Cleanup line `Backlog ranking rejected: <the line above>`. The old `pm.ranked` stays and `pm.rankedAt` is untouched. "
+        "This counts as the turn's one ranking, so the slot fill stops for this turn. `task_cancel` the child if it may still run."
+    ),
+}
+
+
+def say(text, kind, nxt):
+    print(text)
+    if nxt:
+        print(f"next: {MAIN_NEXT[kind]}")
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["dry"]:
@@ -211,6 +256,7 @@ def main(argv=None):
     ap.add_argument("--started", required=True)
     ap.add_argument("--backlog-count")
     ap.add_argument("--post", action="store_true")
+    ap.add_argument("--next", dest="nxt", action="store_true")
     a = ap.parse_args(argv)
 
     started = cos_state.parse(a.started) if STARTED.match(a.started) else None
@@ -223,15 +269,15 @@ def main(argv=None):
     try:
         ranked = validate(sys.stdin.read(), cos_state.load(a.file).get("tickets", {}))
     except ValueError as e:
-        print(f"cos_rank: {e}")
+        say(f"cos_rank: {e}", "rejected", a.nxt)
         return 2
     if not ranked:
         if a.backlog_count is None:
-            print("cos_rank: empty ranking, count the Backlog and run again with --backlog-count N")
+            say("cos_rank: empty ranking, count the Backlog and run again with --backlog-count N", "empty", a.nxt)
             return 3
         n = int(a.backlog_count)
         if n:
-            print(f"cos_rank: empty ranking but the Backlog has at least {n} rankable {'ticket' if n == 1 else 'tickets'}")
+            say(f"cos_rank: empty ranking but the Backlog has at least {n} rankable {'ticket' if n == 1 else 'tickets'}", "rejected", a.nxt)
             return 2
     op = {"op": "pm", "set": {
         "ranked": ranked, "rankedAt": a.started,
@@ -242,7 +288,7 @@ def main(argv=None):
     if code:
         print("cos_rank: could not save state")
         return 2
-    print(post(ranked) if a.post else "\n".join(f"{e['id']} {e['readiness']}" for e in ranked))
+    say(post(ranked) if a.post else "\n".join(f"{e['id']} {e['readiness']}" for e in ranked), "saved", a.nxt)
     return 0
 
 

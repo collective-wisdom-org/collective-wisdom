@@ -28,9 +28,9 @@ Read **ship-loop** § Repo invariants first, then the required reading list in t
    git worktree add .worktrees/<short-name> -b <head><prefix>-N-short-title origin/<target>
    ```
 
-3. **brainstorming** (design gate): settle goal, scope and non-goals; write the spec without asking the user anything, listing every unspecified choice under `## Calls I made`.
+3. **brainstorming** (design gate): settle goal, scope and non-goals; write the spec per `ship-loop` § Phases, 1 (no questions to the user, unspecified choices under `## Calls I made`).
 4. **superpowers-project-memory**: spec path, plan path, templates. Skip its index rows: `~/.collective-wisdom/scripts/docs_index.py` generates the index.
-5. Commit and push the spec, then stop at `BUILD READY` (`ship-loop` § Phases). The spec is approved per `ship-loop` § Approvals.
+5. Commit and push the spec, then stop at `BUILD READY` (`ship-loop` § Phases, 1). Approval: `ship-loop` § Approvals.
 6. After the spec approval, **writing-plans**: a plan from the approved spec (path per **superpowers-project-memory**); don't wait for plan approval, go on to **build-from-plan**. A ticket that changes only markdown files (docs, skills, role docs) skips the plan and builds from the spec; one that changes a script, a test, `install.sh` or config writes one. Size each task's tests to `AGENTS.md` § Testing: one table-driven test per rule, none for styling or small UI interactions.
 
 ## Scope

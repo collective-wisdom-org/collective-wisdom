@@ -1,15 +1,14 @@
 # Readiness check and start
 
-Read this on a `start <ID>` line from `cos_todo.py`, a `start-todo` plan line, when `project-manager` § Backlog pick starts a ticket, or for adopt.md.
+Read on a `start <ID>` line from `cos_todo.py`, a `start-todo` plan line, a `project-manager` § Backlog pick start, or for adopt.md.
 
 ## Readiness check and start
 
-`get-ticket` it. Too vague to spec without guessing what the user wants: `comment` your questions, `add-label` `agent-skip`, list it under Needs you, don't start it. Otherwise:
+`get-ticket` it. Too vague to spec without guessing: `comment` your questions, `add-label` `agent-skip`, list it under Needs you, don't start it. Otherwise:
 
 1. `set-state` In Progress and `add-label` `agent`, in one write.
 2. `delegate_task` with `isolation: "worktree"`, `mode: "async"`, `role: "implementation"`, `title: "<PREFIX>-N <short title>"`, `target` from `cos_models.py` for the `spec` role (models.md § Models), and the template below.
-3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), `title`, stage `spec` and its `status` line.
-4. Once the `start` op is saved, start the run wait (sweep.md § Run wait).
+3. Save `firstTaskId`, `childThreadId`, `parentThreadId` (this thread's ID), `title`, stage `spec` and its `status` line; then start the run wait (sweep.md § Run wait).
 
 ### Child task template
 
@@ -50,15 +49,15 @@ While a No Hands run is active (the last `no_hands.py check` this turn said `on`
 
 ## Todo start
 
-Todo is the user's queue (plus tickets § Unblocked after a merge moves there), always taken first. One `list-tickets` call per turn (scope <TEAM>, state Todo, fields `id, title, labels, priority, createdAt`) goes on stdin to `python3 ~/.collective-wisdom/scripts/cos_todo.py`. Make a `get-ticket` read (fields `id, state, labels, relations`, once per ticket per turn) for each `get <ID>` line, then run the script again with `--relations` (input shape: its docstring). Each blocker needs its state: GitHub's `blocked_by` read gives bare numbers, so read it as `--jq '[.[]|{number,state}]'`; Linear and Jira give states in get-ticket. Run § Readiness check and start on each `start <ID>` line until one starts; a ticket that fails the check doesn't take the slot, so try the next. `todo: none`: `project-manager` § Backlog pick.
+Todo is the user's queue (plus tickets § Unblocked after a merge moves there), always taken first. One `list-tickets` call per turn (scope <TEAM>, state Todo, fields `id, title, labels, priority, createdAt`) goes on stdin to `python3 ~/.collective-wisdom/scripts/cos_todo.py`. Make one `get-ticket` read (fields `id, state, labels, relations`) per `get <ID>` line and ticket per turn, then run it again with `--relations` (input: its docstring). Each blocker needs its state: on GitHub read `blocked_by` with `--jq '[.[]|{number,state}]'`; Linear and Jira give it in get-ticket. Run § Readiness check and start on each `start <ID>` line until one starts; a ticket that fails the check doesn't take the slot. `todo: none`: `project-manager` § Backlog pick.
 
 ## Unblocked after a merge
 
-After each `merged` op, before the slot fill, move the Backlog tickets the merge left with no open blocker to Todo. It runs while paused: a Todo move only queues a ticket.
+After each `merged` op, before the slot fill, move the Backlog tickets the merge left with no open blocker to Todo, also while paused (a Todo move only queues).
 
-1. `get-ticket` the merged ticket for what it blocks (the adapter's blocking read: GitHub `.../issues/M/dependencies/blocking --jq '[.[].number]'`, or its `Blocked by:` search when the probe failed; Linear and Jira: their relations). It blocks nothing: stop, no output.
-2. `get-ticket` each blocked ticket (fields `id, state, labels, relations`, blocker states as § Todo start reads them, and the author check on GitHub; a ticket whose author the adapter calls untrusted goes in as `{"untrusted": true}`). Give `{"merged": "<PREFIX>-M", "tickets": {"<PREFIX>-N": <get-ticket JSON>}}` on stdin to `python3 ~/.collective-wisdom/scripts/cos_unblocked.py` (reads only): `todo <ID>` or `stay <ID> <why>` per ticket.
-3. For each `todo <ID>`, `set-state` Todo and report it under Moving, Spec lane, as `<PREFIX>-N: <short title>, moved to Todo: last blocker <PREFIX>-M merged`. `stay` lines aren't reported.
-4. A failed read in step 1 or 2, or exit 2: one Cleanup line, `<PREFIX>-M: <short title>, could not read the tickets it blocked; none moved to Todo`, and nothing moves. A failed `set-state`: one Cleanup line for that ticket. Neither stops the merge closeout, the turn or the slot fill.
+1. `get-ticket` the merged ticket for what it blocks (the adapter's relations read, its blocking side). Nothing: stop, no output.
+2. `get-ticket` each blocked ticket (as § Todo start, with blocker states and, on GitHub, the author check; an untrusted author goes in as `{"untrusted": true}`). Give `{"merged": "<PREFIX>-M", "tickets": {"<PREFIX>-N": <get-ticket JSON>}}` on stdin to `python3 ~/.collective-wisdom/scripts/cos_unblocked.py` (reads only): `todo <ID>` or `stay <ID> <why>` per ticket.
+3. For each `todo <ID>`, `set-state` Todo and report it under Moving, Spec lane: `<PREFIX>-N: <short title>, moved to Todo: last blocker <PREFIX>-M merged`. `stay` lines aren't reported.
+4. A failed read in step 1 or 2, or exit 2: one Cleanup line, `<PREFIX>-M: <short title>, could not read the tickets it blocked; none moved to Todo`, and nothing moves. A failed `set-state`: one Cleanup line for that ticket. Neither stops the closeout, the turn or the slot fill.
 
-The slot fill (§ Todo start) sees the moved tickets and alone starts them, so one can start the same turn.
+Only the slot fill (§ Todo start) starts the moved tickets, so one can start the same turn.
