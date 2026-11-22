@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-22 read PR files from the paginated API in merge_pr.py (WISE-497) (#499)
+
+Merged 2026-11-22 11:26 pm UTC.
+
+A PR with more than 100 files no longer fails the merge closeout check because its spec was past the first 100 files. The Chief of Staff brief now marks a file count that hit GitHub's 100-file read limit as `100+`.
+
 ## 2026-11-22 dashboard thread links and the one-click send (WISE-495) (#498)
 
 Merged 2026-11-22 11:16 pm UTC.
