@@ -2,7 +2,7 @@
 """Squash-merge an approved PR, delete its branch (if it still points at the PR head and the PR is not from a fork) and fast-forward the root checkout (on the merge target branch).
 
 Usage:
-    ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA>
+    ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA> [--next]
 
 Run it from the root checkout (`cd <root checkout> && python3 ~/.collective-wisdom/scripts/merge_pr.py ...`): it finds the repo from the current directory. The approved head is at least 7 hex characters. Every check
 below must pass first; if one fails nothing changes. The merge goes through the REST API with sha=<head>,
@@ -23,7 +23,7 @@ Checks (the merge target branch is the `Merge target branch` row of project.md, 
   - closeout docs are in the PR (a Shipped spec and its as-built or "as specified" line, the release note unless `Publish release notes` is `off`, and a `## Proof` section with a `Not proven` line)
   - the root checkout is on a clean <target> with an upstream and no local commits
 
-When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API. With `off` it does neither. A failed publish prints
+When project.md's `Publish release notes` row is not `off`, the gate asks for a release note and, after the fast-forward, the script publishes the full release notes as RELEASE_NOTES.md on the release-notes branch through the API (the one write besides the merge to a branch other than the ticket's own; no agent, skill or other script writes it). With `off` it does neither. A failed publish prints
 `merge-pr: warn <reason>` before the last line and changes neither the exit code nor the last line.
 
 Exit 0: merged, or already merged (cleanup is repeated). Last line:
@@ -31,6 +31,9 @@ Exit 0: merged, or already merged (cleanup is repeated). Last line:
   merge-pr: #N already merged as <SHA>; nothing to do; head <SHA> matches|differs from approved <SHA>
 Exit 1: a gate failed, nothing changed. Last line: merge-pr: stop #N: <reason>
 Exit 2: bad arguments, a gh or git call failed. Last line: merge-pr: cannot <what>
+--next (anywhere after the PR number; without it the output is exactly the lines above): after the last line of an exit 0 (`merged` or
+`already merged`) print `next: <instruction>`, the After merge steps of merge-pr/SKILL.md (MERGED_NEXT below). Exit 1 and 2 print none: fixing the
+cause, or stopping with `BLOCKED: <the script's last line>`, is a judgement, and a warn line is not the last line.
 """
 
 import hashlib
@@ -539,7 +542,17 @@ def publish(pr, sha, run):
         print(f"merge-pr: warn {' '.join(str(reason).split())}")
 
 
+MERGED_NEXT = (
+    "`set-state` the linked ticket to Done. Report the merged head SHA, whether it differs from the SHA in `MERGE READY` (or the relay) and why, and "
+    "any `merge-pr: warn` line. Name this PR's worktree (`.worktrees/<name>/`, or the T3 Code thread) so the Chief of Staff or the user can archive "
+    "it; don't offer or run cleanup. Never touch what `docs/agents/project.md` § Repo invariants protects on the root checkout (data directories). "
+    "Make `MERGED #{pr}` the last line of the report."
+)
+
+
 def main(argv, run=run):
+    nxt = "--next" in argv
+    argv = [a for a in argv if a != "--next"]
     if len(argv) != 2 or not re.fullmatch(r"[0-9]+", argv[0]) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", argv[1]):
         print("merge-pr: cannot read arguments; usage: ~/.collective-wisdom/scripts/merge_pr.py <PR number> <approved head SHA, 7+ hex>")
         return 2
@@ -582,6 +595,8 @@ def main(argv, run=run):
     if f.get("notesOn", True):
         publish(pr, sha, run)
     print(tail)
+    if nxt:
+        print(f"next: {MERGED_NEXT.format(pr=pr)}")
     return 0
 
 

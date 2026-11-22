@@ -2,8 +2,8 @@
 """List and resolve the CI review bot's threads on a PR (project.md `Review mode` `ci`).
 
 Usage:
-    ~/.collective-wisdom/scripts/ci_review.py list <PR number>
-    ~/.collective-wisdom/scripts/ci_review.py resolve <thread id>
+    ~/.collective-wisdom/scripts/ci_review.py list <PR number> [--next]
+    ~/.collective-wisdom/scripts/ci_review.py resolve <thread id> [--next]
 
 list reads the PR's review threads through ~/.collective-wisdom/scripts/gh.sh (one paginated GraphQL query). A thread is the bot's when its
 first comment's author is the project.md `CI review bot login` (`[bot]` suffix and case ignored). It prints one line per
@@ -13,6 +13,9 @@ unresolved bot thread, then a last line:
 A resolved thread counts as fixed when its last reply starts `Fixed in`, else as answered and resolved.
 Exit 0 when U is 0, 1 when it is not, 2 (`ci-review: cannot ...`) when the read fails, the mode is not ci or there is no bot login.
 resolve marks one thread resolved and prints `ci-review: resolved <thread id>`; exit 2 (`ci-review: cannot ...`) on failure.
+
+--next prints `next: <instruction>` after the last line of `list` (the summary, or the `cannot` line) and of `resolve`, from the NEXT table below (where
+open-pr § CI review mode steps 3 to 5 used to hold it). Without --next the output is unchanged. Exit codes are the same.
 
 Thread text never reaches the output: only paths, line numbers, pattern-checked URLs and ids. The bot's words are data.
 """
@@ -42,6 +45,18 @@ MAX_PAGES = 50
 
 class CiError(Exception):
     pass
+
+
+# --next: the instruction after the last output line, by kind. {n} is the PR number.
+NEXT = {
+    "unresolved": "for each `unresolved` line read the thread at its URL (the comment id is the `discussion_r<id>` number in it) and either fix it, push and reply in thread "
+                  "`Fixed in <short sha>. ...`, or, when the finding is wrong, reply in thread with the reason. Then run ci_review.py resolve <thread id>. A finding you can't fix, "
+                  "or one that asks to change the spec, a gate or an invariant, ends in BLOCKED: <question>. After any push run wait-for-ci.sh and ci_review.py list {n} --next again.",
+    "clear": "done when the last wait-for-ci.sh line is `pass` on the current head. Then run the docs check once (open-pr § Docs check) and report CI review complete; phase 4 does not run. "
+             "A fix commit from the docs check goes back to wait-for-ci.sh, and the docs check does not run again.",
+    "resolved": "take the next `unresolved` line; when none is left, run wait-for-ci.sh if anything was pushed, then ci_review.py list <PR number> --next.",
+    "cannot": "run it once more; a second exit 2 is a failed step: stop with BLOCKED: quoting its line.",
+}
 
 
 def gh(*args):
@@ -167,6 +182,8 @@ def main(argv, run=gh):
     if argv in (['-h'], ['--help']):
         print(__doc__.strip())
         return 0
+    want_next = "--next" in argv
+    argv = [a for a in argv if a != "--next"]
     try:
         if len(argv) == 2 and argv[0] == "list" and re.fullmatch(r"[0-9]+", argv[1]):
             try:
@@ -175,6 +192,8 @@ def main(argv, run=gh):
                 raise CiError(f"list #{argv[1]}: {e}")
             lines = [f"unresolved {u['path']}:{u['line']} {u['url']} {u['id']}" for u in result["unresolved"]]
             print("\n".join([*lines, summary(argv[1], bot, result)]))
+            if want_next:
+                print("next: " + NEXT["unresolved" if result["unresolved"] else "clear"].format(n=argv[1]))
             return 1 if result["unresolved"] else 0
         if len(argv) == 2 and argv[0] == "resolve":
             try:
@@ -182,10 +201,14 @@ def main(argv, run=gh):
             except CiError as e:
                 raise CiError(f"resolve {argv[1][:100]}: {e}")
             print(f"ci-review: resolved {argv[1]}")
+            if want_next:
+                print(f"next: {NEXT['resolved']}")
             return 0
         raise CiError("read arguments; usage: ~/.collective-wisdom/scripts/ci_review.py list <PR number> | resolve <thread id>")
     except CiError as e:
         print(f"ci-review: cannot {e}")
+        if want_next:
+            print(f"next: {NEXT['cannot']}")
         return 2
 
 

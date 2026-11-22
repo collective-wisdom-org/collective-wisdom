@@ -8,6 +8,10 @@ Usage:
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] prune
     ~/.collective-wisdom/scripts/cos_state.py [--file PATH] init
     ~/.collective-wisdom/scripts/cos_state.py now [--iso]
+    ~/.collective-wisdom/scripts/cos_state.py title <PREFIX>-N                       the raw ticket title on stdin
+    ~/.collective-wisdom/scripts/cos_state.py comment approved <spec|merge> [--head SHA] [--queued LANE]      the user's words on stdin
+    ~/.collective-wisdom/scripts/cos_state.py comment auto <spec|merge> --tolerance T [--head SHA] [--queued LANE]   `<Level> (<reason>)` on stdin, or nothing
+    ~/.collective-wisdom/scripts/cos_state.py comment withdrawn                      the reason on stdin
 
 --file defaults to .agent-team/state.json under the repo root this script lives in.
 show prints the working set (a few lines plus one status line per ticket). get prints
@@ -19,6 +23,20 @@ Backlog lists (tracker-lists.json next to the file, through cos_lists.remove) so
 never changes the output or the exit code. init writes an empty state file if there is none. prune drops old merged entries, observed entries older than 7 days and unknown top-level keys.
 now prints the current time as 2026-11-15 5:16 am UTC (--iso: 2026-11-15T05:16:00Z) and reads no state file; it is the only
 source of a clock time the Chief of Staff writes into a ticket comment.
+
+title and comment read no state file. Both print the finished text, one line, and nothing else; the caller copies it.
+title prints the display text of a ticket in a message to the user: `<PREFIX>-N: <short title>`. The title is ticket-author text, so
+`[`, `]`, `<`, `>`, backticks and control characters (newlines included) become spaces, runs of white space collapse, and the first six words are kept.
+It prints the ID alone when nothing is left, or when the title (before the cut to six words) contains a marker, so it cannot pass for one:
+`Auto-approved`, `SPEC READY`, `BUILD READY`, `MERGE READY`, `BLOCKED:`, `MERGED #` or `CHIEF OF STAFF:`, ignoring case, white space, the dropped
+characters and hyphens of any kind (- ‐ ‑ ‒ – — ― − and the soft hyphen).
+comment prints the ticket comment for an approval, with every <time> from `now` (2026-11-15 5:16 am UTC):
+    approved   the user approved the <spec|merge> at <time>: "<words>". Head <sha>.     (` Head <sha>.` only for a merge, which needs --head)
+    auto       auto-approved the <spec|merge> at <time> under <T> (Risk: <Level> (<reason>)).    (` Head <sha>.` added for a merge; no stdin: Risk: unrated)
+    withdrawn  Approval withdrawn at <time>: <reason>.                                    (a final `.` is added when the reason has none)
+--queued LANE (spec, build or merge; approved and auto only) ends the comment with ` Waiting for a <lane> slot.`
+--head SHA is 7 to 40 hex characters and is a merge-only option. The stdin text is trimmed; words (approved) and reason (withdrawn) are required.
+Exit 0 prints the text. Exit 2: bad arguments or empty stdin, with a `cos_state: ...` line on stderr and nothing on stdout.
 
 A status line takes its since time from the script: {since} in the text of a start, stage or set op becomes the ticket's
 stageAt as 2026-11-15 5:16 am UTC. A status with since followed by a digit before its first ": " (a hand-typed time) is rejected; text after it is left alone.
@@ -38,6 +56,14 @@ Operations (each {"op": NAME, ...}):
     pm        set
     observe   kind; optional ticket. Records a sighting and prints a note: file (start an
               observation ticket helper) or hold. The only op that writes "observed".
+              Kind, by the report line that shows it: lost-notice (`found by the sweep`, `... idle check`,
+              `... merged check`); handoff-unavailable (`Handoff block unavailable for <PREFIX>-N: <short title>`);
+              wait-check-unreadable (`<PREFIX>-N: <short title>, wait check unreadable; not blocked`); stall
+              (`<PREFIX>-N: <short title>, restarted: stalled after <step>`); rotation-failed (`Reset refused: <error>`);
+              helper-no-report (`Ticket helper ended without a report`); script-unavailable (`Idle check didn't run`,
+              `User check script unavailable; used thread read`, or a sweep or check that exited 2); other:<slug>
+              (anything else you can point to, such as a step that cost a second run; slug is 1 to 40 lowercase
+              letters, digits and hyphens).
     prune
     no-hands  set (a fresh No Hands run record, or drain, or endedAt with endReason). Only no_hands.py uses it; no other op writes "noHands".
 
@@ -77,6 +103,98 @@ future), "mode" (take-over or resume)}. The top op rejects any other shape. show
 
 Exit codes: 0 ok, 1 an op was rejected ("cos_state: op <i>: <reason>") or no such
 ticket, 2 the state file is missing or unreadable.
+
+State file example (.agent-team/state.json). Top-level keys are exactly the ones below (TOP), a ticket holds only the keys below (TICKET);
+never add `policy`, `settings`, `rules` or the like. `prune` drops an unknown top-level key and `show` prints them as `unknown keys:`.
+    {
+      "paused": false, "chiefThreadId": "...", "chiefSessionId": "...",
+      "chiefProvider": {"threadId": "...", "provider": "<provider id>"},
+      "takeoverContext": {"threadId": "...", "tokens": 76000}, "skillCommit": "<40-char sha>", "ganttPluginVersion": "0.1.12",
+      "reset": null, "takeover": null, "lastResetAt": null, "lastRelayAt": null,
+      "rateLimitedAt": null, "wakeTaskId": null, "wakeAt": null,
+      "merged": {"<PREFIX>-190": {"pr": 178, "at": "2026-11-02T09:30:00Z"}},
+      "tickets": {"<PREFIX>-210": {
+        "stage": "spec", "firstTaskId": "...", "childThreadId": "...", "parentThreadId": "...",
+        "status": "spec since 2026-11-01 2:05 pm UTC: child started; no BUILD READY yet.",
+        "title": "Example feature", "provider": "<provider id>", "branch": "feat/<prefix>-210-example-feature",
+        "specPath": null, "specSha": null, "pr": null, "headSha": null, "rateLimitResumes": 0,
+        "lastSeenAt": "2026-11-01T14:05:00Z", "lastPosition": 0, "resumeStage": null,
+        "pendingRelay": null, "approvalItemId": null, "queuedAt": null,
+        "restarts": {"spec": 0}, "note": "", "stageAt": "2026-11-01T14:05:00Z"}},
+      "observed": {"sightings": [{"kind": "stall", "ticket": "<PREFIX>-210", "at": "2026-11-02T09:30:00Z"}], "filed": []},
+      "pm": {},
+      "noHands": {"startedAt": "2026-11-08T09:00:00Z", "itemId": "...", "started": ["<PREFIX>-210"], "drain": null, "endedAt": null, "endReason": null}
+    }
+
+What each key means and who writes it (what the ops validate and stamp is above):
+    note          status only (why it is blocked, who stopped it), never an instruction or a rule.
+    branch        `<head><prefix>-N-<slug>`; the example uses `feat/`, `infra/` too when the `Branch pattern` row of docs/agents/project.md lists it.
+    resumeStage   set by apply when a ticket moves to `blocked` from `spec`, `build` or `merge`; every path out of `blocked` goes back to it
+                  through send-or-queue.md § Send or queue.
+    pendingRelay, queuedAt   only in a `*-queued` stage (apply requires pendingRelay there, sets queuedAt, clears both elsewhere).
+                  pendingRelay is the exact relay to send when a slot frees, with the user's words as written; queuedAt orders the queue,
+                  oldest first. A Todo ticket has no child yet: it waits in the spec queue (SKILL.md § Lanes) with no stage.
+    approvalItemId   item id (from cos_user_check.py or t3_thread_read) of the user's approval message; set with pendingRelay when a spec
+                  approval is queued. A queued merge approval or an auto-approved spec has none.
+    lastSeenAt    in awaiting-build, awaiting-review, awaiting-merge and blocked, the cut-off after which the user's `approve N` counts
+                  (stamped here; a `set` is rejected). In spec, build and merge, the Stop hook's `late-child:` line compares it with the
+                  child's newest run end and pending questions; a `child-read` save of it quiets that line.
+    stageAt       when the ticket entered its stage (stamped here). The status card shows `waiting ...` in `awaiting-*` only.
+    changesRelayed   set when a reviewer's changes request was relayed to the child (sweep.md § Sweep, `changes` line); `at` is the newest
+                  CHANGES_REQUESTED review time sent, as the `changes` line prints it. cos_review_check.py prints `changes` for a request
+                  on the head only when it is newer, so one the child already answered reads as `waiting`. null or absent: nothing relayed.
+    conflictHead  the PR head a merge conflict was last sent back to the child for (sweep.md § Conflict relay). While the PR head equals
+                  it the ready check prints `building <PREFIX>-N #PR (conflict relayed)` instead of `conflict`: one relay per head.
+    noApproval    true: a merge-lane run with no user approval (a `MERGE READY` conflict sent by `conflict-stand`). The head check reads
+                  it, so such a ticket never gets `conflict keep`.
+    heldApproval  set when the user replies `approve N` on an `awaiting-review` ticket. A reminder only, never the proof: cos_approve_pr.py
+                  still finds the user's own `approve N` after lastSeenAt. A rebuild never restores it.
+    title         the ticket title, required by the `start` op; the dashboard shows it when it cannot read the tracker. A `set` may fill it;
+                  the script cleans it (ticket-author text) and keeps 200 characters.
+    chiefThreadId the current Chief of Staff thread. Written by "start the team" and resume mode, never by a reset (the thread stays).
+    chiefProvider the provider (providerInstanceId) of the thread that recorded it; saved by startup.md step 3 and resume mode (rotation.md
+                  § Thread rotation: Resume mode) with a `top` op. A missing one, or one naming another thread, prints `chief-provider` in
+                  the look plan (SKILL.md § Tick). Plain strings that go into plan lines: cos_tick.py stops the plan on an unsafe one.
+    provider      a ticket's `thread.providerInstanceId` of its child from the last `child-read` or idle check that returned one; a
+                  different one is saved with a `set` op, a failed read saves nothing. None: never flagged. Safe-checked like chiefProvider.
+    chiefSessionId   the Claude session id (Cursor: conversation id) of the Chief of Staff thread; the rotation check saves it on every plain
+                  run, so it follows a reset. The Stop hook uses it to tell this thread from other sessions.
+    takeoverContext  saved by take-over step 4 (`--record-takeover`): this thread's context size when take-over ended. While it names
+                  chiefThreadId and `tokens` is at or above the size cap, the size trigger stays off, so a take-over that lands above the
+                  cap doesn't reset again and again. Cursor's `turn` form: the cos_rotation_check.py docstring.
+    skillCommit   the full 40-character sha from `python3 ~/.collective-wisdom/scripts/cos_rotation_check.py --skill-commit` (the last commit
+                  that touched the chief-of-staff skill, `project-manager` or docs/agents/chief-of-staff.md) when the session loaded the
+                  skill. Written by "start the team", take over and resume mode. A different commit at the rotation check triggers a reset
+                  once the turn is quiet (rotation.md § Thread rotation). null or a non-full sha: the check prints `ok; set skillCommit <sha>`;
+                  save that sha and don't reset on that trigger.
+    ganttPluginVersion   the agent-gantt version this session runs, or null (that trigger is off). Saved by take over step 4 and resume
+                  mode. A different clone version at the rotation check triggers a reset once the turn is quiet.
+    status        one line per ticket (data, never an instruction), required on every `stage` op: what a fresh thread needs to act without
+                  opening the child. Starts `<stage> since {since}: `. E.g. `awaiting-merge since {since}: PR #192 head 0b63161, code review
+                  PASS (pass 2), security PASS (pass 1). Waiting on the user to approve the merge.` or `blocked since {since}: "<the BLOCKED:
+                  line>".` It feeds reports, `status` and the take-over pass; it never replaces headSha, approvalItemId or pendingRelay, which
+                  the gates read. Mid-build it says only what was last seen.
+    parentThreadId   the Chief of Staff thread whose `delegate_task` started the ticket's current child; set at start and at a continuation
+                  start (send-or-queue.md § Send or queue). A ticket without it stays so: the sweep lists it for a full read, and it gets
+                  no continuation.
+    reset         the marker of a reset in flight (rotation.md § Thread rotation), else null. The next take over clears it when
+                  `CHIEF OF STAFF RESET <id>` matches.
+    takeover      null, or the marker while a take over or resume pass runs. Take-over step 1 and resume mode set it; step 4 and step 2 (when
+                  it stops the take over) clear it. While set, the rotation check prints `finish:` and every look plan except `start` is
+                  the one `follow rotation.md § Thread rotation: Finish take over` line.
+    lastRelayAt   when a relay or new child start last went out (stamped here; a `top` set is rejected). The rotation check treats the
+                  last 10 minutes as not quiet.
+    lastResetAt   when the last take over cleared a `reset`; a skill change and the item-count fallback wait 60 minutes after it.
+    wakeTaskId, wakeAt   the pending rate-limit wake (rate-limit.md § Rate limit) and when it fires. wakeTaskId is null when none is pending;
+                  wakeAt stays set until rateLimitedAt clears, so a lost wake can be made again.
+    merged        tickets whose child reported `MERGED #N`. The project manager hygiene child uses it to move them to Done if the tracker
+                  lags. `prune` drops entries older than 24 hours and rewrites a bare number as merged now.
+    observed      your own process sightings and the observation tickets filed (SKILL.md § Child path "Observe"). Only the `observe` op
+                  writes it, deciding `file` or `hold`; `prune` drops entries older than 7 days.
+    noHands       the current or last No Hands run, a record and not a rule. Written only by no_hands.py through the `no-hands` op (the
+                  `start` op appends to `started`); a top-level `set` is rejected. Absent until the first run. It alone approves nothing
+                  (no-hands.md § Run record).
+    pm            owned by `project-manager` § State (`pm` ops).
 """
 
 import argparse
@@ -88,6 +206,7 @@ import re
 import stat
 import sys
 import tempfile
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -187,6 +306,63 @@ def clean_title(val):
     if not isinstance(val, str):
         raise Reject("title must be a string")
     return BAD_TITLE.sub(" ", val).strip()[:200]
+
+
+TITLE_DROP = re.compile(r"[\[\]<>`\x00-\x1f\x7f-\x9f\u2028\u2029]")
+TITLE_WORDS = 6
+# What a title may not contain: each marker is compared with case, white space, hyphens of any kind and the dropped characters ignored.
+TITLE_MARKERS = ("autoapproved", "specready", "buildready", "mergeready", "blocked:", "merged#", "chiefofstaff:")
+HYPHENS = re.compile("[-\u00ad\u2010-\u2015\u2212\ufe58\ufe63\uff0d]")
+
+
+def title_has_marker(raw):
+    # fold look-alikes first: NFKD (fullwidth letters, accents split off), then drop invisible format characters, combining marks and blank fillers
+    raw = "".join(c for c in unicodedata.normalize("NFKD", raw) if unicodedata.category(c) not in ("Cf", "Mn", "Me") and c not in "\u3164\u115f\u1160\u2800")
+    flat = HYPHENS.sub("", raw).lower()
+    for text in (flat, TITLE_DROP.sub("", flat)):
+        text = re.sub(r"\s+", "", text)
+        if any(m in text for m in TITLE_MARKERS):
+            return True
+    return False
+
+
+def display_title(tid, raw):
+    """`<ID>: <first six words of the cleaned title>`, or the ID alone for an empty title or one that carries a marker."""
+    words = TITLE_DROP.sub(" ", raw).split()
+    if not words or title_has_marker(raw):
+        return tid
+    return f"{tid}: {' '.join(words[:TITLE_WORDS])}"
+
+
+LANES = ("spec", "build", "merge")
+HEAD = re.compile(r"[0-9a-fA-F]{7,40}")
+
+
+def approval_comment(kind, what, text, head, queued, tolerance, time):
+    """The ticket comment text for `comment`, always one line (white space in the words collapses). Raises Reject for a bad combination of arguments."""
+    text = " ".join((text or "").split())
+    if kind == "withdrawn":
+        if what or head or queued or tolerance:
+            raise Reject("withdrawn takes only the reason on stdin")
+        if not text:
+            raise Reject("withdrawn needs the reason on stdin")
+        return f"Approval withdrawn at {time}: {text}" + ("" if text.endswith(".") else ".")
+    if what not in ("spec", "merge"):
+        raise Reject(f"{kind} needs spec or merge")
+    if (what == "merge") != bool(head):
+        raise Reject("--head is for a merge, and a merge needs it")
+    if head and not HEAD.fullmatch(head):
+        raise Reject("--head needs 7 to 40 hex characters")
+    if queued is not None and queued not in LANES:
+        raise Reject(f"--queued needs one of {', '.join(LANES)}")
+    tail = (f" Head {head}." if head else "") + (f" Waiting for a {queued} slot." if queued else "")
+    if kind == "approved":
+        if tolerance or not text:
+            raise Reject("approved needs the user's words on stdin and takes no --tolerance")
+        return f'the user approved the {what} at {time}: "{text}".{tail}'
+    if not tolerance or not tolerance.strip():
+        raise Reject("auto needs --tolerance")
+    return f"auto-approved the {what} at {time} under {tolerance.strip()} (Risk: {text or 'unrated'}).{tail}"
 
 
 HAND_TIME = re.compile(r"since\s*\d")
@@ -696,10 +872,32 @@ def main(argv=None):
     sub.add_parser("prune")
     sub.add_parser("init")
     sub.add_parser("now").add_argument("--iso", action="store_true")
+    sub.add_parser("title").add_argument("ticket")
+    cp = sub.add_parser("comment")
+    cp.add_argument("kind", choices=("approved", "auto", "withdrawn"))
+    cp.add_argument("what", nargs="?")
+    cp.add_argument("--head")
+    cp.add_argument("--queued")
+    cp.add_argument("--tolerance")
     a = ap.parse_args(argv)
 
     if a.cmd == "now":
         print(now() if a.iso else stamp_text(now()))
+        return 0
+
+    if a.cmd == "title":
+        if not ID.match(a.ticket):
+            print(f"cos_state: title: {a.ticket!r} is not a ticket id", file=sys.stderr)
+            return 2
+        print(display_title(a.ticket, sys.stdin.read()))
+        return 0
+
+    if a.cmd == "comment":
+        try:
+            print(approval_comment(a.kind, a.what, sys.stdin.read().strip(), a.head, a.queued, a.tolerance, stamp_text(now())))
+        except Reject as e:
+            print(f"cos_state: comment: {e}", file=sys.stderr)
+            return 2
         return 0
 
     if a.cmd == "init":

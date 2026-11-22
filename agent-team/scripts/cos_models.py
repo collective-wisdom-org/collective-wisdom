@@ -19,7 +19,7 @@ build prints both: target at a continuation start, modelSelection for the switch
 Exit 0 when the role is routed. Exit 1 and "cos_models: no <role> routing for <provider>" when it is not.
 Exit 2 and a usage line on a wrong number of arguments or an unknown role.
 
-Why, per role (models.md has the full text):
+Why, per role:
     chief: bookkeeping; the approval gates do not rest on which model relays.
     ticket-helper: runs write-ticket; a wrong Today section costs an Opus spec run.
     pm: reads the tracker and ranks or tidies it; the same tier as the Chief of Staff thread.

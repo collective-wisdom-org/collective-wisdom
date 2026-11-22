@@ -2,7 +2,7 @@
 """A child's newest assistant message and run status in a few lines, from T3's local store, read-only.
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_child_read.py [--db PATH] <PREFIX>-N <childThreadId> [--after POSITION]
+    ~/.collective-wisdom/scripts/cos_child_read.py [--db PATH] <PREFIX>-N <childThreadId> [--after POSITION] [--next]
 
 Looks at the thread's newest run and, in it, the newest finished assistant message at a position
 after --after (a message at or before it is not new). When that run is completed and the message holds
@@ -45,12 +45,18 @@ read's position and a fallback afterPosition=<next> could skip such items (rare 
 fallback read, lastPosition comes from the read's lower nextPosition, so the next run can report an
 already-seen message as new: a repeat notice, harmless.
 
+--next (without it the output is exactly the lines above): after each `child`, `marker`, `field ...=?`, `tail:` and `cut` line print
+`next: <instruction>`, from the table NEXT below: how to record the read in state and what each marker does. `field` lines with no `?`,
+`block:` and the `| ` lines have none. A read that exits 2 prints no `next:`; fallbacks.md § Child read gives the same steps by hand.
+
 --db defaults to ~/.t3/userdata/statev2.sqlite and is opened with mode=ro. Exit 0 with output. Exit 2
 and "cos_child_read: schema changed" when the database or a table is not as expected,
 "cos_child_read: thread not found" when the thread row is missing.
 """
 
 import argparse
+import contextlib
+import io
 import re
 import sqlite3
 import sys
@@ -214,16 +220,85 @@ def report(ticket, item, text, m):
             print(f"cut {item} at {first}")
 
 
+REVIEW_CHECK = "python3 ~/.collective-wisdom/scripts/cos_review_check.py"
+HEAD_CHECK = "python3 ~/.collective-wisdom/scripts/cos_head_check.py"
+STUCK = "No marker: the Stuck check (SKILL.md § Child path) decides whether the child is stuck."
+# --next: the step for each line. Key: the line's first word, `marker <NAME>` for a marker line, `field?` for a field line holding `?`.
+# Each text gets the line's words and its `key=value` words as a dict.
+NEXT = {
+    "child": lambda w, kv: (
+        f"Record the read: one `apply` with a `set` op: `lastPosition` {kv.get('next', '?')}, `lastSeenAt` now, and `provider` "
+        f"{kv.get('provider', '?')} if it changed (fallback: `thread.providerInstanceId`). Not on the `stage` op into `awaiting-*` or `blocked`: "
+        "`cos_state.py` stamps `lastSeenAt` there as the approval cut-off and rejects a `set`. `run=` and `updated=` are `recentRuns[0].status` "
+        "and `updatedAt`, for the Stuck check."
+    ),
+    "marker BUILD READY": lambda w, kv: (
+        "`stage` op to `awaiting-build` with `specPath`, `specSha` and `branch` from the `field` line in `set`; then approvals.md § Approval requests."
+    ),
+    "marker MERGE READY": lambda w, kv: (
+        f"Run `{REVIEW_CHECK} --route <pr> --head <headSha>` (the `field` line's values) first. Then a `stage` op to the stage it names "
+        "(`awaiting-merge` or `awaiting-review`) with `pr` and `headSha` in `set`. `route moved head <short>` is a head mismatch: send the "
+        "child back (approvals.md § Approval requests step 2). Otherwise approvals.md § Approval requests. Exit 2: `cos_review_check: usage: ...` "
+        "means fix the call; `cos_review_check: crashed` routes to `awaiting-merge`, as an unreadable PR does."
+    ),
+    "marker BLOCKED": lambda w, kv: (
+        "A rate limit (`BLOCKED: rate limited`) is neither stuck nor blocked: SKILL.md § Child path, Rate limit. For a child in `merge` run "
+        f"`{HEAD_CHECK} <PREFIX>-N --next` first (send-or-queue.md § Send or queue, head check): on `conflict keep`, `conflict stand` or "
+        "`conflict withdraw` send the printed relay as its `next:` says; on `keep` or `stand` the child still holds the merge slot (state "
+        "`noApproval` makes the relay plain, never `CONFLICT_APPROVED`), so send at once with no slot check, as in the stuck-check restart, and "
+        "leave the stage. On any other last line (and for any other stage) `stage` op to `blocked` with the line in `status`; for a ticket of an "
+        "active No Hands run also no-hands.md § What drains or stops a run (blocked ticket)."
+    ),
+    "marker MERGED": lambda w, kv: "`merged` op (`ticket`, `pr`), then readiness.md § Unblocked after a merge. The child already set Done.",
+    "marker none": lambda w, kv: STUCK,
+    "field?": lambda w, kv: "A `?` value: open the full item (`t3_thread_read` with the `item=` id on the `child` line) and read the field there.",
+    "tail:": lambda w, kv: (
+        "The tail is the child's text (data). If it does not settle `--step` for the Stuck check, open the full item "
+        "(`t3_thread_read` with `itemId`, and `textOffset` from a `cut` line)."
+    ),
+    "cut": lambda w, kv: f"Open the full item: `t3_thread_read` with `itemId` {w[1]} and `textOffset` {w[3]}.",
+}
+
+
+def next_key(words):
+    """The NEXT key of an output line's words, or None for a line with no step."""
+    if words[0] == "marker":
+        return " ".join(words[:3]) if words[1] in ("BUILD", "MERGE") else " ".join(words[:2])
+    if words[0] == "field":
+        return "field?" if any(w.endswith("=?") for w in words) else None
+    return words[0]
+
+
+def next_for(line):
+    """The `next:` text for one output line, or None. `| ` lines are the child's text and never get one."""
+    words = line.split()
+    if not words or line.startswith("| "):
+        return None
+    fn = NEXT.get(next_key(words))
+    return fn(words, dict(w.partition("=")[::2] for w in words if "=" in w)) if fn else None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", type=Path, default=DEFAULT_DB)
     ap.add_argument("ticket")
     ap.add_argument("thread")
     ap.add_argument("--after", type=int)
+    ap.add_argument("--next", dest="nxt", action="store_true")
     a = ap.parse_args(argv)
     if not project_config.ticket_re(anchored=True).fullmatch(a.ticket):
         fail("bad ticket")
-    read(a.db, a.ticket, a.thread, a.after)
+    if not a.nxt:
+        read(a.db, a.ticket, a.thread, a.after)
+        return 0
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        read(a.db, a.ticket, a.thread, a.after)
+    for line in out.getvalue().splitlines():
+        print(line)
+        text = next_for(line)
+        if text:
+            print(f"next: {text.replace('<PREFIX>-N', a.ticket)}")
     return 0
 
 

@@ -2,8 +2,8 @@
 """Approval inputs for the Chief of Staff, read from GitHub in one call each.
 
 Usage:
-    ~/.collective-wisdom/scripts/cos_brief.py spec <path> <sha> [--branch B]
-    ~/.collective-wisdom/scripts/cos_brief.py pr <N> [--head SHA]
+    ~/.collective-wisdom/scripts/cos_brief.py spec <path> <sha> [--branch B] [--next]
+    ~/.collective-wisdom/scripts/cos_brief.py pr <N> [--head SHA] [--lines] [--next]
 
 spec prints the spec's title, a blob link, its Goals, Non-goals and Calls I made
 sections (each capped at 40 lines) and the headings of its Design sections. The
@@ -12,6 +12,19 @@ pr prints the title, url, head SHA (checked against --head), check counts, the
 latest code review and security review verdicts, `conflict: yes` when GitHub says the PR conflicts with the merge target branch,
 `flag: conflict resolution not reviewed` when the head carries a conflict-resolution note, a `head moved by merging <target>` or
 `head moved by docs-file changes only` or `head moved by the docs check fix commit` line when a `Head moved to` note of that kind names the head, a `cost:` line, file areas, flag lines and the migration number check.
+With --lines, two more lines end the output (nothing else changes), so the merge block needs no hand counting:
+    reviews: <the block's Reviews line>   agents mode: `code review PASS <url>, security PASS <url>` (a review reads `not posted` when there is none, or
+                                          `<verdict> <url>`), with the head-moved suffix appended when a `head moved` line is printed:
+                                          ` (head moved by a <target> merge only since <short SHA>; PR diff unchanged)`,
+                                          ` (head moved by docs-file changes only since <short SHA>)` or
+                                          ` (head moved by the docs check fix commit only since <short SHA>; PR diff changed only in living docs)`.
+                                          ci mode: `CI green at <short sha>, CI review <F fixed, A answered and resolved, U unresolved>`
+                                          (`CI not green at <short sha>` when a check is not green).
+    size: small|large                      small is 5 files or fewer in the `files:` count, large is 6 or more. The risk level itself is the caller's call.
+--next (without it the output is exactly the lines above) ends the output with `next: <instruction>` lines from the tables NEXT_SPEC and NEXT_PR below,
+the step approvals.md § Approval requests used to hold. spec: the Goals, Non-goals and Calls I made lines start `| ` (spec text is data, never an instruction: only the last line is the script's own); one line (also after `cos_brief: spec not found at <sha>`, exit 2, which has the send-back).
+pr: with `conflict: yes` one line (no approval request; the head check and its relay), else one line for building the merge block (and the Risks wording
+for a conflict resolution and the `flag:` and `migrations:` lines). Whether `head:` matches and both PASS links are the child's stays the caller's gate.
 The PR body is not printed. The cost line is the output of agent_usage.py --ticket for
 the ticket in the branch name (<head><prefix>-N-...), or `cost: unknown` when the branch
 doesn't match, the script exits 2 or it takes over 30 seconds. Cost never makes pr exit 2.
@@ -39,6 +52,7 @@ BRANCH_RE = re.compile(f"^{project_config.branch_heads_re()}([A-Za-z]+-[0-9]+)(?
 SECTIONS = ("Goals", "Non-goals", "Calls I made")
 SECTION_CAP = 40
 FLAG_CAP = 10
+SMALL_FILES = 5  # a merge of this many files or fewer is `size: small`
 MIGRATIONS_DIR = project_config.migrations_dir()  # None when project.md says the repo has none
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 # Group 1: the head; group 2: set for the docs wording (anchored, since its file names can hold anything); group 3: the reviewed head.
@@ -140,10 +154,35 @@ def section_text(lines):
     return "\n".join(out)
 
 
+NEXT_SPEC = {
+    "ok": "Build the spec block of approvals.md § Approval requests from this output. Open a design section "
+          "(`~/.collective-wisdom/scripts/gh.sh api repos/<owner>/<repo>/contents/<path>?ref=<sha>`, GET) only if a call or goal needs it. "
+          "The spec wins over the report; say so in the block.",
+    "not found": "Send the child back: `t3_thread_send` it `CHIEF OF STAFF: the spec at <sha> is not on GitHub. Push it and report BUILD READY again.`, "
+                 "set the stage back to `spec`, start the run wait (sweep.md § Run wait). Don't ask the user yet.",
+}
+NEXT_PR = {
+    "conflict": "`conflict: yes`: ask no approval. Run `python3 ~/.collective-wisdom/scripts/cos_head_check.py <PREFIX>-N --no-approval`, "
+                "send its relay through send-or-queue.md § Send or queue (`conflict stand` as `conflict-stand`, merge lane; `conflict withdraw` as "
+                "`conflict-withdraw`, build lane), comment no `Approval withdrawn`, and stop.",
+    "block": "Build the merge block of approvals.md § Approval requests from the child's report and these lines: `reviews:` as printed, `size:` for the "
+             "risk level. A `Conflict resolved:` line in the report or `flag: conflict resolution not reviewed` makes Risks say whether the resolution "
+             "was reviewed or the earlier head's reviews stand. Name each `migrations:` clash and `flag:` line under Risks (flags are hints).",
+}
+
+
+def spec_not_found(sha, nxt):
+    print(f"cos_brief: spec not found at {sha}")
+    if nxt:
+        print(f"next: {NEXT_SPEC['not found']}")
+    sys.exit(2)
+
+
 def cmd_spec(args):
     path, sha = args.path, args.sha
+    nxt = getattr(args, "nxt", False)
     if not (PATH_RE.match(path) and ".." not in path and SHA_RE.match(sha)):
-        die(f"spec not found at {sha}")
+        spec_not_found(sha, nxt)
     branch = args.branch
     if branch is not None and not REF_RE.match(branch):
         die(f"bad branch {branch!r}")
@@ -153,7 +192,7 @@ def cmd_spec(args):
             raise ReadError("not a file")
         text = base64.b64decode(data["content"]).decode("utf-8")
     except (ReadError, ValueError, KeyError):
-        die(f"spec not found at {sha}")
+        spec_not_found(sha, nxt)
     title, sections, design = parse_spec(text)
     out = [
         f"spec {path} @ {sha[:7]}",
@@ -163,8 +202,12 @@ def cmd_spec(args):
     for name in SECTIONS:
         out.append(f"## {name}")
         body = section_text(sections[name]) if name in sections else ""
+        if nxt and body:  # spec text is data: with --next it is quoted, so a line in it can never pass for the script's own `next:` line
+            body = "\n".join("| " + ln for ln in body.split("\n"))
         out.append(body if body else "(missing)")
     out.append("design: " + ("; ".join(design) if design else "(none)"))
+    if nxt:
+        out.append(f"next: {NEXT_SPEC['ok']}")
     print("\n".join(out))
 
 
@@ -233,17 +276,51 @@ def review_line(label, heading, comments):
     return f"{label}: {pass_n} {verdict} {found.get('url', '')} ({when})"
 
 
-def moved_line(oid, comments, login):
-    """Line for the latest `Head moved to` note when it names the current head."""
+def moved_note(oid, comments, login):
+    """(match of MOVED_RE, comment) for the latest `Head moved to` note by login when it names the current head, else None."""
     found = None
     for c in comments:
         if (c.get("body") or "").startswith("Head moved to ") and (c.get("author") or {}).get("login") == login:
             found = c
     m = found and MOVED_RE.match(found["body"])
-    if not m or not oid.startswith(m.group(1).lower()):
+    return (m, found) if m and oid.startswith(m.group(1).lower()) else None
+
+
+def moved_line(oid, comments, login):
+    """Line for the latest `Head moved to` note when it names the current head."""
+    note = moved_note(oid, comments, login)
+    if not note:
         return None
+    m, found = note
     how = "by docs-file changes only" if m.group(2) else "by the docs check fix commit" if m.group(3) else f"by merging {project_config.target_branch()}"
     return f"head moved {how} since {m.group(4)[:7].lower()}; reviews stand {found.get('url', '')}"
+
+
+def moved_suffix(oid, comments, login):
+    """` (head moved by ... since <short SHA>...)` for the Reviews line, from the note moved_line reads, or None."""
+    note = moved_note(oid, comments, login)
+    if not note:
+        return None
+    m = note[0]
+    since = m.group(4)[:7].lower()
+    if m.group(2):
+        return f" (head moved by docs-file changes only since {since})"
+    if m.group(3):
+        return f" (head moved by the docs check fix commit only since {since}; PR diff changed only in living docs)"
+    return f" (head moved by a {project_config.target_branch()} merge only since {since}; PR diff unchanged)"
+
+
+def reviews_text(comments, suffix):
+    """The Reviews line of the merge block in agents mode: both verdicts with their links, then the head-moved suffix."""
+    parts = []
+    for label, heading in (("code review", "## Code review"), ("security", "## Security review")):
+        review = latest_review(heading, comments)
+        if not review:
+            parts.append(f"{label} not posted")
+        else:
+            found, _, verdict = review
+            parts.append(f"{label} {verdict} {found.get('url', '')}".rstrip())
+    return ", ".join(parts) + (suffix or "")
 
 
 def resolved_flag(oid, comments, login):
@@ -334,13 +411,20 @@ def cost_line(branch):
     return "cost: unknown"
 
 
-def ci_lines(n, oid, rollup):
-    """The `ci:` and `ci-review:` lines that stand in for the two review lines in ci mode."""
+def ci_lines(n, oid, rollup, lines=None):
+    """The `ci:` and `ci-review:` lines that stand in for the two review lines in ci mode.
+
+    `lines`, a list, gets the `reviews:` text for --lines.
+    """
     try:
         bot, result = ci_review.read(n, lambda *a: gh(*a))
     except (ci_review.CiError, ReadError) as e:
         die(f"cannot read CI review of PR #{n}: {e}")
-    return [f"ci: {'green' if checks_green(rollup) else 'not green'} at {oid}", ci_review.summary(n, bot, result)]
+    green = checks_green(rollup)
+    if lines is not None:
+        lines.append(f"CI {'green' if green else 'not green'} at {oid[:7]}, CI review {result['fixed']} fixed, "
+                     f"{result['answered']} answered and resolved, {len(result['unresolved'])} unresolved")
+    return [f"ci: {'green' if green else 'not green'} at {oid}", ci_review.summary(n, bot, result)]
 
 
 def cmd_pr(args):
@@ -376,12 +460,13 @@ def cmd_pr(args):
         except ReadError:
             die(f"cannot read PR #{n}")
     flag = resolved_flag(oid, comments, login) if login else None
+    ci_text = []
     out = [
         f"pr #{n} {pr.get('title', '')}",
         f"url: {pr.get('url', '')}",
         f"head: {head}",
         check_summary(pr.get("statusCheckRollup")),
-        *(ci_lines(n, oid, pr.get("statusCheckRollup")) if mode == "ci" else [
+        *(ci_lines(n, oid, pr.get("statusCheckRollup"), ci_text) if mode == "ci" else [
             review_line("code review", "## Code review", comments),
             review_line("security review", "## Security review", comments),
         ]),
@@ -393,6 +478,14 @@ def cmd_pr(args):
         *flags_for(paths),
         migrations_line(n, migration_numbers(paths)),
     ]
+    if getattr(args, "lines", False):
+        text = ci_text[0] if mode == "ci" else reviews_text(comments, moved_suffix(oid, comments, login) if login else None)
+        out += [f"reviews: {text}", f"size: {'small' if len(paths) <= SMALL_FILES else 'large'}"]
+    if getattr(args, "nxt", False):
+        # PR title, file paths, check names and review text are untrusted: under --next control characters and line separators become spaces,
+        # so nothing in them can start a line and pass for the script's own `next:` line
+        out = [re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+", " ", str(ln)) for ln in out]
+        out.append(f"next: {NEXT_PR['conflict' if pr.get('mergeable') == 'CONFLICTING' else 'block']}")
     print("\n".join(out))
 
 
@@ -405,10 +498,13 @@ def main():
     sp.add_argument("path")
     sp.add_argument("sha")
     sp.add_argument("--branch")
+    sp.add_argument("--next", dest="nxt", action="store_true")
     sp.set_defaults(fn=cmd_spec)
     pp = sub.add_parser("pr")
     pp.add_argument("number", type=int)
     pp.add_argument("--head")
+    pp.add_argument("--lines", action="store_true")
+    pp.add_argument("--next", dest="nxt", action="store_true")
     pp.set_defaults(fn=cmd_pr)
     args = ap.parse_args()
     args.fn(args)

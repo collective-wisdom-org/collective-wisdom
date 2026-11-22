@@ -3,11 +3,54 @@
     setup_repo.py status [--root DIR]    line 1 `missing`, `set` or `placeholders: <rows>`, line 2 the facts as JSON; writes nothing
     setup_repo.py user --login L [--subscription N|none] [--repo-key K] [--dry-run]
                                          add or replace this repo's row in ~/.config/collective-wisdom/user.md; --dry-run prints the text instead
-    setup_repo.py write --dir WT --answers JSON|@file [--root DIR]
+    setup_repo.py write --dir WT --answers JSON|@file [--root DIR] [--next]
                                          render or update WT/docs/agents/project.md and add `.agent-team/` to WT/.gitignore
+
+write --next prints, after the paths, the steps that follow the diff as `next:` lines with WT, the merge target and WT's parent directory filled in
+(WRITE_NEXT below): show the diff, the pin offer when `pinned`, then commit, push, open the PR and clean up, each only after the user's yes.
+The PR body is the Chief of Staff's to write, so it is not printed.
 
 Exit 0 on success, 1 when `write` refuses (WT is not a linked worktree of the repo, or sits on the merge target), 2 on bad input.
 `write` touches no file outside WT. user.md never holds tokens.
+
+status line 2 facts: host, repo (`owner/repo`; null when the origin remote is not a recognised GitHub URL), repo_key, target (the merge
+target branch), gh_logins, mapped_login (this repo's row in user.md), user_md_exists, user_md (`ok`, `no-file`, `no-row` or `error`),
+user_md_error (a malformed user.md only), pinned (docs/agents/installed-from.txt on origin/<target>), has_workflows, test_guess,
+prefix_guess, product_guess (the repo name cut to A-Za-z0-9._-). Line 1 `placeholders: <rows>` lists the required rows still unset
+(Tracker, Tracker scope, Linear team name, Issue identifier prefix, Repo, Test), then `Branch pattern` when the row is set but does not parse.
+
+user creates user.md from the template when it is missing; the subscription figure applies only then.
+
+--answers keys: product, tracker (`github`, `linear` or `jira`), tracker_scope (the Linear team name or Jira project key; `owner/repo` for
+github), prefix ([A-Z][A-Z0-9]*), repo (`owner/repo`), host, target, test, approver, login, ci (`none` when the repo has no CI, else left
+out) and rules (a list of plain one-sentence strings, one per repo rule; `skip` means none). Always pass login. A value holds no backtick, `|` or newline and is at most 300 characters; product,
+tracker_scope and test take no `<` or `>` either.
+
+Question guesses (the Chief of Staff asks, one at a time, a bare reply takes the guess): GitHub login, the first of gh_logins (one login or a
+mapped_login is taken unasked; none: the user runs `gh auth login`); subscription dollars, `none`; tracker `github` (Linear: one follow-up,
+the team name; Jira: one follow-up, the project key, and write adds the Jira rows as `TODO(<login>)`; github: the scope is `owner/repo`);
+prefix, prefix_guess; test command, test_guess (none: the user types one); repo rules, `skip`.
+
+Written on a first setup with no question: Repo and merge target from repo, host and target; Tracker scope `owner/repo` for github; Approval
+risk tolerance `strict`; Review mode `agents`; Require teammate approval, Publish release notes and Review after conflict resolution `off`;
+Approver and every `TODO(<owner>)` the login; Product name product_guess; Required CI checks `none (no CI yet)` when has_workflows is false,
+else `TODO(<login>)`; template prose bullets with no answer (areas, product rules, security overlays, environments) `none yet`. `Owner login`
+and the subscription live in user.md, not project.md.
+
+The reply to the user.md question (startup.md § User settings check; the Chief of Staff checks the user's own message with cos_user_check.py latest
+on the whole message): `yes` runs `status` again and writes through `user` only while user_md is still `no-file` or `no-row` (otherwise it
+writes nothing and reports what status reads now); `user` takes the values last shown, then `status` runs again and the report names the new
+mapped_login. A figure applies to `no-file` only and is passed only as `none` or a plain number (a leading `$` and commas are stripped, it must
+be digits with an optional decimal part, it is single-quoted); anything else is asked again. Another login (one of gh_logins) or figure: run `user --dry-run` with
+those values, show it and ask again (a dry run that exits 2: show its line and ask again); nothing is written until a plain `yes`. Anything
+else, `no` included, writes nothing, reports `Skipped user.md.` and is not asked again until the next start, take over or resume.
+
+write on a project.md that has unset rows (status `placeholders`): an answer applies only to an unset row, adds no `Publish release notes`
+row, and `Branch pattern` (no question) is swapped for the template's row when it does not parse.
+write on a set project.md changes only the rows for the keys given. A new `tracker` fixes what hangs on it: github takes the scope from
+repo; linear needs tracker_scope (the team name) and adds the Linear rows; jira adds the Jira rows; leaving linear or jira drops its rows.
+`rules` replaces the `Repo rules: ` bullet, else the `none yet` bullet, else the template placeholder bullet, else adds a bullet; a bullet
+written by hand stays. An old `Owner login` row stays.
 """
 
 import argparse
@@ -590,6 +633,21 @@ def _check_worktree(root, wt, a):
         raise Fail(1, f"{wt} is on {branch}, which is the merge target or a default branch; use a setup branch")
 
 
+BRANCH = "agent-team-setup"
+PIN_NEXT = (  # printed only when `pinned`: the repo still holds copies of the team files
+    'pin offer: run `python3 ~/.collective-wisdom/scripts/remove_app_copies.py --dry-run` with "{wt}" as the current directory, show its list, '
+    "offer the real run; exit 1 (hand-edited copies): show the list, offer `--force` or skip; pass its `.claude/settings.json` TODO on as is "
+    'and drop its "commit this removal as a PR" line (this PR is that); name the removed copies in the PR body'
+)
+WRITE_NEXT = (  # --next: the steps after `write`, one `next:` line each; PIN_NEXT goes after the first
+    'show the user `git -C "{wt}" diff` and `git -C "{wt}" status --short`; then run each step below only after the user\'s yes (a no stops: setup.md § The PR walk-through)',
+    f'commit: git -C "{{wt}}" add -A && git -C "{{wt}}" commit -m "docs: set up the agent team"',
+    f'push (the branch is {BRANCH}, never {{target}}): git -C "{{wt}}" push -u origin {BRANCH}',
+    f'open the PR, the body written to <body-file> first: ~/.collective-wisdom/scripts/gh.sh pr create --base {{target}} --head {BRANCH} --title "docs: set up the agent team" --body-file "<body-file>"',
+    f'clean up: git worktree remove "{{wt}}", then git branch -D {BRANCH}, then rmdir "{{tmp}}"',
+)
+
+
 def cmd_write(args):
     try:
         a = json.loads(Path(args.answers[1:]).read_text() if args.answers.startswith("@") else args.answers)
@@ -623,6 +681,15 @@ def cmd_write(args):
         else:
             _write(path, text, 0o644)
             print(path)
+    if args.next:
+        try:
+            target = project_config.value("Merge target branch", project_config._parse(_read(md))) or "main"
+        except OSError:
+            target = "main"
+        pinned = _git(["cat-file", "-e", f"refs/remotes/origin/{target}:docs/agents/installed-from.txt"], Path(args.root) if args.root else app_root.root()) is not None
+        steps = [WRITE_NEXT[0], *([PIN_NEXT] if pinned else []), *WRITE_NEXT[1:]]
+        for line in steps:
+            print("next: " + line.format(wt=wt, target=target, tmp=wt.parent))
     return 0
 
 
@@ -640,6 +707,7 @@ def main(argv):
     w.add_argument("--dir", required=True)
     w.add_argument("--answers", required=True)
     w.add_argument("--root")
+    w.add_argument("--next", action="store_true")
     args = p.parse_args(argv)
     try:
         return {"status": cmd_status, "user": cmd_user, "write": cmd_write}[args.cmd](args)

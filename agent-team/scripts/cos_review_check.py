@@ -3,7 +3,7 @@
 
 Usage:
     ~/.collective-wisdom/scripts/cos_review_check.py [--file STATE] [--prs FILE]
-    ~/.collective-wisdom/scripts/cos_review_check.py --route PR --head SHA [--prs FILE]
+    ~/.collective-wisdom/scripts/cos_review_check.py --route PR --head SHA [--prs FILE] [--next]
 
 Read only: writes nothing. Reads GitHub through `~/.collective-wisdom/scripts/gh.sh pr view <N> --json
 state,author,headRefOid,reviews,reviewDecision,reviewRequests`, the signed-in login (`gh api user`) and
@@ -22,6 +22,8 @@ on-head request, the ticket is `waiting needs <those logins>` instead, so one re
     route awaiting-review needs <names>    (review_stop() blocks, or GitHub's decision is CHANGES_REQUESTED)
     route moved head <short>               (the PR head is not --head)
     route awaiting-merge (unreadable: <what>)   (merge_pr.py still gates at merge)
+--next (with --route only; without it the output is the line above) prints `next: <instruction>` after it, from the table NEXT_ROUTE below: the
+stage op, and for `awaiting-review` how its approval block differs from an `awaiting-merge` one.
 
 With no --route it checks every ticket in awaiting-review. One line each,
 in state order; the first rule that fits wins:
@@ -199,6 +201,28 @@ def route(n, head, prs, run=run_gh):
         return "route awaiting-merge (unreadable: bad PR data)"
 
 
+# --next: the step after each route line (the first word after `route`), where SKILL.md § Child path and approvals.md § Approval requests used to say it.
+NEXT_ROUTE = {
+    "awaiting-merge": "`stage` op to `awaiting-merge` with `pr` and `headSha` in `set`, then approvals.md § Approval requests.",
+    "awaiting-review": (
+        "`stage` op to `awaiting-review` with `pr` and `headSha` in `set`. Post the merge block of approvals.md § Approval requests, except: "
+        "`Waiting on: <names> (GitHub review)` under `Reviews:`; the reply line is "
+        "`Reply \"approve N\" now and I'll merge once <names> approve this head, or \"changes N: …\".`; the status line is "
+        "`awaiting-review since {since}: PR #N head <short>, reviews PASS (CI green and CI review clean in ci mode). Waiting on <names>. Risk: <Level> (<reason>).`; "
+        "the auto-approval check waits for `awaiting-merge` (sweep.md § Sweep, `approved` line); the block is not posted again when the teammate "
+        "approves the same head (the sweep's reminder is)."
+    ),
+    "moved": "The head differs from the child's report: send the child back (approvals.md § Approval requests, `MERGE READY` step 2).",
+}
+
+
+def next_route(line):
+    """The `next:` text for a `route ...` line (names filled in for `awaiting-review needs <names>`)."""
+    words = line.split()
+    text = NEXT_ROUTE[words[1]]
+    return text.replace("<names>", line.split(" needs ", 1)[1]) if words[1] == "awaiting-review" else text
+
+
 def load_state(path):
     try:
         state = json.loads(Path(path).read_text())
@@ -263,13 +287,19 @@ def main(argv=None):
     ap.add_argument("--prs", type=Path)
     ap.add_argument("--route")
     ap.add_argument("--head")
+    ap.add_argument("--next", dest="nxt", action="store_true")
     args = ap.parse_args(argv)
     prs = load_prs(args.prs) if args.prs else None
     if args.route is not None or args.head is not None:
         if not (args.route and re.fullmatch(r"[0-9]+", args.route) and args.head and re.fullmatch(r"[0-9a-fA-F]{7,40}", args.head)):
             fail("usage: --route <PR number> --head <sha, 7+ hex>")
-        print(route(int(args.route), args.head.lower(), prs))
+        line = route(int(args.route), args.head.lower(), prs)
+        print(line)
+        if args.nxt:
+            print(f"next: {next_route(line)}")
         return 0
+    if args.nxt:
+        fail("usage: --next goes with --route")
     lines, flagged = check(load_state(args.file), prs)
     print("\n".join(lines))
     return 1 if flagged else 0

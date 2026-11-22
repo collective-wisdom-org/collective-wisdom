@@ -9,6 +9,12 @@ backtick or `|`.
     store_secret.py store <name>                  print the `security` line the user pastes into their own Terminal
     store_secret.py record <name> --note <text>   add the name to the registry once the keychain holds it
     store_secret.py list                          print `<name>` and `<note>` separated by a tab, one line per registry row
+
+save reads the value from the file (1 to 1900 bytes after trailing newlines are cut; `security -i` splits a longer line) and hands it to the keychain
+as hex on stdin, so the value is in no command line, output or history; a new value under an existing name updates the entry. The script never
+deletes the file: the tool that wrote it owns it. save and record print `saved <name>` or `recorded <name>` and exit 0. Exit 1 (stderr
+`<name> is not in the keychain; run the store line first`): record found no keychain item, and wrote nothing. Exit 2 (stderr `store_secret: <what>`):
+bad arguments, a bad name, note or value file, or a keychain that is locked or missing. No command prints a value.
 """
 
 import os

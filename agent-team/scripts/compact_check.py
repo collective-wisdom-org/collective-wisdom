@@ -2,7 +2,7 @@
 """Say whether the compaction pass should run, and print the sizes it reports.
 
 Usage:
-    ~/.collective-wisdom/scripts/compact_check.py [--base <ref>]
+    ~/.collective-wisdom/scripts/compact_check.py [--base <ref>] [--next]
 
 Counts the markdown files agents load, under agent-team/: skills (not the vendored agent-security and
 owasp-security), agents/*.md, docs/agents/**/*.md and templates/AGENTS.md. The change set is the counted files
@@ -13,6 +13,9 @@ Output: one `<path> <before> <after> <+/-delta>` line per file, a `total` line, 
   compact: run (+<net> characters)       the net change is above 0
   compact: skip (<reason>)               no agent files changed, net <delta> characters, or not collective-wisdom
 Exit 0 for run and skip. Exit 2 when git fails or the arguments are bad: compact: cannot read <what>
+
+--next prints `next: <instruction>` after the last line, from the NEXT table below (where build-from-plan § Compaction pass used to hold it).
+Without --next the output is unchanged.
 """
 
 import subprocess
@@ -25,6 +28,21 @@ import project_config  # noqa: E402
 
 ROOT = root()
 VENDORED = ("agent-security", "owasp-security")
+
+
+# --next: the instruction after the last line, by its prefix.
+NEXT = (
+    ("compact: run", "start the compacter (`Agent`, `subagent_type: \"compacter\"`; fallback ship-loop § Models) with the base `origin/<target>` and this output. "
+                     "Then check `git status` lists only files from this output, run the project.md test command, and revert any hunk that drops or changes a rule. "
+                     "Commit `docs: compact agent text for <PREFIX>-N`, push, re-run compact_check.py and keep its totals for open-pr."),
+    ("compact: skip", "go on, and keep the `total` line for open-pr."),
+    ("compact: cannot read arguments", "fix the call: compact_check.py [--base <ref>] [--next]."),
+    ("compact: cannot", "run it once more; if it exits 2 again, stop with BLOCKED: quoting its line."),
+)
+
+
+def next_for(line):
+    return next((text for prefix, text in NEXT if line.startswith(prefix)), None)
 
 
 class CmdError(Exception):
@@ -70,17 +88,25 @@ def sizes(base):
     return rows
 
 
+def say(line, want_next):
+    print(line)
+    if want_next:
+        print(f"next: {next_for(line)}")
+
+
 def main(argv):
+    want_next = "--next" in argv
+    argv = [a for a in argv if a != "--next"]
     if argv and (argv[0] != "--base" or len(argv) != 2 or argv[1].startswith("-")):
-        print("compact: cannot read arguments; usage: ~/.collective-wisdom/scripts/compact_check.py [--base <ref>]")
+        say("compact: cannot read arguments; usage: ~/.collective-wisdom/scripts/compact_check.py [--base <ref>]", want_next)
         return 2
     if not (ROOT / "install.sh").exists():
-        print("compact: skip (not collective-wisdom)")
+        say("compact: skip (not collective-wisdom)", want_next)
         return 0
     try:
         rows = sizes(argv[1] if argv else project_config.target_ref())
     except CmdError as e:
-        print(f"compact: cannot read the change set: {e}")
+        say(f"compact: cannot read the change set: {e}", want_next)
         return 2
     for path, before, after in rows:
         print(f"{path} {before} {after} {after - before:+d}")
@@ -88,11 +114,11 @@ def main(argv):
     print(f"total {before} {after} {after - before:+d}")
     net = after - before
     if not rows:
-        print("compact: skip (no agent files changed)")
+        say("compact: skip (no agent files changed)", want_next)
     elif net <= 0:
-        print(f"compact: skip (net {net} characters)")
+        say(f"compact: skip (net {net} characters)", want_next)
     else:
-        print(f"compact: run (+{net} characters)")
+        say(f"compact: run (+{net} characters)", want_next)
     return 0
 
 
