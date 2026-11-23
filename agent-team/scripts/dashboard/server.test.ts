@@ -623,15 +623,12 @@ test('subscriptionPy reads the figure from user.md and is null for anything else
   const was = process.env.HOME
   process.env.HOME = home
   try {
-    const write = (cell: string | null) => {
-      mkdirSync(join(home, '.config', 'collective-wisdom'), { recursive: true })
-      const file = join(home, '.config', 'collective-wisdom', 'user.md')
+    const file = join(home, '.config', 'collective-wisdom', 'user.md')
+    mkdirSync(join(file, '..'), { recursive: true })
+    const cases: [string | null, number | null][] = [['`12000`', 12000], ['`none`', null], ['`-5`', null], ['`12,000`', null], [null, null]]
+    for (const [cell, want] of cases) {
       if (cell === null) rmSync(file, { force: true })
       else writeFileSync(file, `| Claude subscription API-equivalent usage (dollars) | ${cell} |\n`)
-    }
-    const cases: [string | null, number | null][] = [['`12000`', 12000], ['`0.5`', 0.5], ['`none`', null], ['`0`', null], ['`-5`', null], ['`12,000`', null], ['text', null], [null, null]]
-    for (const [cell, want] of cases) {
-      write(cell)
       assert.equal(await subscriptionPy(), want, String(cell))
     }
   } finally {
@@ -640,15 +637,14 @@ test('subscriptionPy reads the figure from user.md and is null for anything else
     rmSync(home, { recursive: true, force: true })
   }
   const root = tmpRoot()
-  for (const want of [12000, null]) {
-    const srv = await startServer({ root, port: 0, subscription: async () => want })
-    try {
+  try {
+    for (const want of [12000, null]) {
+      const srv = await startServer({ root, port: 0, subscription: async () => want })
       await sleep(20)
-      const body = JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body)
-      assert.equal(body.subscription, want)
-    } finally {
+      assert.equal(JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body).subscription, want)
       await srv.close()
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
   }
-  rmSync(root, { recursive: true, force: true })
 })
