@@ -1,11 +1,12 @@
 import type { Session } from './api.ts'
 import type { Detail } from './details.ts'
+import type { Spend } from './spend.ts'
 import { headsPattern, idForNumber, loginOf, prefixesPattern } from './titles.ts'
 import type { TitleConfig } from './titles.ts'
 
 export type MergedConfig = TitleConfig & { issueUrls: boolean; issueUrl?: (id: string) => string | undefined; heads?: string[] }
 /** `number` is the PR number, kept for the server's detail reads and left out of the api. */
-export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; owner?: string; number?: number; specUrl?: string; detail?: Detail; spend?: { cost: number | null; tokens: number }; gantt?: Session[]; ci?: [number, number | null][] }
+export type MergedEntry = { id: string; title: string; prUrl: string; issueUrl?: string; mergedAt: number; owner?: string; number?: number; specUrl?: string; detail?: Detail; spend?: Spend; gantt?: Session[]; ci?: [number, number | null][] }
 type Run = (args: string[]) => Promise<string>
 
 const REFRESH_MS = 60_000

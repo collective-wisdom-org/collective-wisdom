@@ -7,7 +7,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, pressReturnMac, restartWatch, startServer, systemScheme } from './server.ts'
+import { checkSentPy, codeFiles, codeVersion, mergedPageOf, pageVersion, pressResult, pressReturnMac, restartWatch, startServer, subscriptionPy, systemScheme } from './server.ts'
 
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'dash-'))
@@ -208,7 +208,7 @@ test('records spend in the background and writes nothing through a link', async 
         assert.ok(!existsSync(join(outside, 'gantt-history.json')), c.name)
       } else {
         const ledger = JSON.parse(readFileSync(join(agent, 'spend.json'), 'utf8'))
-        assert.deepEqual(ledger.sessions.a, { ticket: 'CW-1', cost: 0.5, tokens: 40, updatedAt: goodSnap.updatedAt })
+        assert.deepEqual(ledger.sessions.a, { ticket: 'CW-1', cost: 0.5, claude: 0.5, tokens: 40, updatedAt: goodSnap.updatedAt })
         assert.deepEqual(readdirSync(agent).sort(), ['gantt', 'gantt-history.json', 'spend.json', 'state.json'], c.name)
         const history = JSON.parse(readFileSync(join(agent, 'gantt-history.json'), 'utf8'))
         assert.equal(history.sessions.a.ticket, 'CW-1')
@@ -616,4 +616,39 @@ test('pressResult maps the osascript output and errors', () => {
     [Object.assign(new Error('timed out'), { killed: true }), { sent: false, reason: 'error' }],
   ]
   for (const [input, want] of cases) assert.deepEqual(pressResult(input), want, String(input))
+})
+
+test('subscriptionPy reads the figure from user.md and is null for anything else; /api carries it', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'cw-home-'))
+  const was = process.env.HOME
+  process.env.HOME = home
+  try {
+    const write = (cell: string | null) => {
+      mkdirSync(join(home, '.config', 'collective-wisdom'), { recursive: true })
+      const file = join(home, '.config', 'collective-wisdom', 'user.md')
+      if (cell === null) rmSync(file, { force: true })
+      else writeFileSync(file, `| Claude subscription API-equivalent usage (dollars) | ${cell} |\n`)
+    }
+    const cases: [string | null, number | null][] = [['`12000`', 12000], ['`0.5`', 0.5], ['`none`', null], ['`0`', null], ['`-5`', null], ['`12,000`', null], ['text', null], [null, null]]
+    for (const [cell, want] of cases) {
+      write(cell)
+      assert.equal(await subscriptionPy(), want, String(cell))
+    }
+  } finally {
+    if (was === undefined) delete process.env.HOME
+    else process.env.HOME = was
+    rmSync(home, { recursive: true, force: true })
+  }
+  const root = tmpRoot()
+  for (const want of [12000, null]) {
+    const srv = await startServer({ root, port: 0, subscription: async () => want })
+    try {
+      await sleep(20)
+      const body = JSON.parse((await call(srv.port, 'GET', '/api', `127.0.0.1:${srv.port}`)).body)
+      assert.equal(body.subscription, want)
+    } finally {
+      await srv.close()
+    }
+  }
+  rmSync(root, { recursive: true, force: true })
 })
