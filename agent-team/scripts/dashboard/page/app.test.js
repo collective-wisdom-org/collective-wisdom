@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, ownerBadge, marksColumn, foreign, tabFromStorage, bannerShown, drawCharts, versionWatch } from './app.js'
+import { esc, localTimes, groupLabel, stageSentence, riskText, dayWords, actionFor, approveCommand, pressAction, pressMessage, todoCommand, promptLink, ganttSummary, clock, summaryLine, renderMarkdown, renderStatus, renderBacklog, bandKey, pageOf, renderGantt, barCategory, ciOwner, renderBadges, tabCounts, subagentCount, renderMerged, renderChief, subscriptionShare, ownerBadge, marksColumn, foreign, tabFromStorage, bannerShown, drawCharts, versionWatch } from './app.js'
 
 const row = (o = {}) => ({ id: 'CW-1', title: 't', risk: 'low', next: 'n', stage: 'build', ...o })
 const group = (rows) => [{ name: 'Building', count: rows.length, rows }]
@@ -156,7 +156,7 @@ test('dayWords says today, yesterday or the date', () => {
 
 test('a card footer summarises the time and cost from the gantt; nothing without one', () => {
   const sessions = [sess({ rows: [task({ cost: 1, segments: [[T, T + 2 * MIN]] }), sub({ cost: 0.5, segments: [[T + MIN, T + 3 * MIN]] })] })]
-  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { ms: 3 * MIN, cost: 1.5 })
+  assert.deepEqual(ganttSummary(sessions, T + 10 * MIN), { ms: 3 * MIN, cost: 1.5, claude: 1.5 })
   assert.equal(ganttSummary([], T), null)
   const foot = (gantt) => renderStatus(group([row({ gantt })])).match(/<span class="summary"[^>]*>([^<]*)</)?.[1]
   assert.equal(foot(sessions), '3m 00s \u00b7 $1.50')
@@ -490,6 +490,40 @@ test('merged list pages by ten, clamps the page, disables the pager ends and esc
   assert.match(renderMerged([], 5).html, /Nothing merged yet/)
   const bad = renderMerged([{ id: '<b>', title: '<script>x</script>', prUrl: 'javascript:1', issueUrl: 'javascript:2', mergedAt: 0 }], 0).html
   assert.ok(!bad.includes('<script') && !bad.includes('<b>') && !bad.includes('href='))
+})
+
+test('subscriptionShare is the share of the subscription in the agent_usage.py format, empty without a positive cost and usage', () => {
+  const cases = [
+    [73.86, 12000, ' (0.62% of the subscription)'],
+    [0.01, 12000, ' (<0.01% of the subscription)'],
+    [10, 12000, ' (0.08% of the subscription)'],
+    [73.86, null, ''], [73.86, undefined, ''], [73.86, 0, ''], [73.86, -5, ''], [73.86, NaN, ''], [73.86, Infinity, ''], [73.86, '12000', ''],
+    [0, 12000, ''], [null, 12000, ''], [undefined, 12000, ''], [NaN, 12000, ''],
+  ]
+  for (const [cost, usage, want] of cases) assert.equal(subscriptionShare(cost, usage), want, `${cost} of ${usage}`)
+})
+
+test('the merged card and the open card footer show the share, the footer counting Claude Code rows only', () => {
+  const e = { id: 'CW-1', title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 0 }
+  const merged = (spend, usage) => renderMerged([{ ...e, spend }], 0, 10, new Set(), new Set(), null, usage).html.match(/\$[^<]*? tokens/)?.[0]
+  assert.equal(merged({ cost: 73.86, claude: 73.86, tokens: 5 }, 12000), '$73.86 (0.62% of the subscription) \u00b7 5 tokens')
+  assert.equal(merged({ cost: 15, claude: 10, tokens: 5 }, 12000), '$15.00 (0.08% of the subscription) \u00b7 5 tokens')
+  for (const [spend, usage] of [[{ cost: 5, claude: 5, tokens: 5 }, null], [{ cost: 5, claude: 0, tokens: 5 }, 12000], [{ cost: 5, claude: null, tokens: 5 }, 12000]]) assert.equal(merged(spend, usage), '$5.00 \u00b7 5 tokens')
+
+  const claude = sess({ rows: [task({ cost: 10, segments: [[T, T + MIN]] })] })
+  const cursor = sess({ sessionId: 'c', rows: [task({ cost: 5, harness: 'Cursor', segments: [[T, T + MIN]] })] })
+  const unpriced = sess({ sessionId: 'u', rows: [task({ cost: null, segments: [[T, T + MIN]] })] })
+  const cases = [
+    ['claude only', [claude], 12000, '1m 00s \u00b7 $10.00 (0.08% of the subscription)'],
+    ['mixed: the share leaves Cursor out, the dollars keep it', [claude, cursor], 12000, '1m 00s \u00b7 $15.00 (0.08% of the subscription)'],
+    ['all Cursor', [cursor], 12000, '1m 00s \u00b7 $5.00'],
+    ['no usage', [claude], null, '1m 00s \u00b7 $10.00'],
+    ['an unpriced Claude Code row shows no dollars and no share', [claude, unpriced], 12000, '1m 00s'],
+  ]
+  for (const [name, gantt, usage, want] of cases) {
+    assert.equal(summaryLine(gantt, T + 10 * MIN, usage), want, name)
+    assert.match(renderStatus(group([row({ gantt })]), new Set(), new Set(), new Set(), '', null, usage), new RegExp(`<span class="summary"[^>]*>${want.replace(/[$()<.]/g, '\\$&')}<`), name)
+  }
 })
 
 test('merged row shows spend only when the entry has it', () => {

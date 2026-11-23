@@ -33,6 +33,15 @@ export const localTimes = (text, now = Date.now()) =>
 const tokens = (n) => (n >= 999_950 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1e3).toFixed(1)}k` : String(n))
 const dollars = (c) => (c === null || c === undefined ? '–' : `$${c.toFixed(2)}`)
 
+const positive = (n) => typeof n === 'number' && Number.isFinite(n) && n > 0
+
+/** ` (0.62% of the subscription)`: `cost` as a share of `usage` (the Claude subscription in API-equivalent dollars), the format of `agent_usage.py --ticket`. Two decimals, `<0.01` below half a hundredth; empty unless both are positive numbers. */
+export const subscriptionShare = (cost, usage) => {
+  if (!positive(cost) || !positive(usage)) return ''
+  const pct = (cost / usage) * 100
+  return ` (${pct < 0.005 ? '<0.01' : pct.toFixed(2)}% of the subscription)`
+}
+
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** The level word of a risk text, `{ text: 'Low', level: 'low' }`, shown as a pill badge in the level's colour. Text with no readable level comes back as it is with an empty level; an empty risk comes back as null. */
@@ -316,11 +325,11 @@ export const foreign = (owner, viewer) => typeof owner === 'string' && typeof vi
 const rowHead = (idHtml, title, extra = '', ownerHtml = '') => `<div class="head"><span class="id">${idHtml}</span>${extra}${title ? `<span class="title">${esc(title)}</span>` : ''}${ownerHtml}</div>`
 const metaLine = (parts) => parts.filter(Boolean).join(' \u00b7 ')
 
-/** `41m 05s · $2.10` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. */
-export const summaryLine = (gantt, now) => {
+/** `41m 05s · $2.10 (0.02% of the subscription)` from the Gantt data; parts that are missing are left out, and nothing without a Gantt. The share counts the Claude Code rows and shows only with `usage` set and the dollars shown. */
+export const summaryLine = (gantt, now, usage = null) => {
   const g = ganttSummary(gantt, now)
   if (!g) return ''
-  return metaLine([duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) : ''])
+  return metaLine([duration(g.ms), typeof g.cost === 'number' ? dollars(g.cost) + subscriptionShare(g.claude, usage) : ''])
 }
 
 /** `approve 402` (or `changes 402: ` with `kind` `changes`) for a ticket waiting on the user to approve a merge or a build; null for any other stage or an id with no number. */
@@ -398,13 +407,13 @@ function todoControl(r, chiefLink) {
  * Bottom row: the Agents and Details control, the Start shipping control (`markTodo`, the Backlog tab only), then one meta line: risk badge, `Spec`, `PR`, time and cost, and (in the Waiting to spec or Other group) the stage in words. A Todo row has no risk or stage.
  * A running ticket helper (`helper: true`, in the Writing tickets group on the Backlog tab) is a placeholder: `Ticket helper` for the id, the request for the title, the copy button and the chart, no issue link and a disabled Details.
  */
-function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false, viewer = null }) {
+function ticket(r, { flat, attn, group, open, info, chiefLink, markTodo = false, viewer = null, usage = null }) {
   const blocked = r.stage === 'blocked'
   const risk = riskText(r.risk)
   const action = actionFor(r)
   const compact = flat && !blocked
   const phrase = r.stage && (group === 'Waiting to spec' || group === 'Other') ? stageSentence(r.stage) : ''
-  const summary = summaryLine(r.gantt, Date.now())
+  const summary = summaryLine(r.gantt, Date.now(), usage)
   const meta = metaLine([
     risk && (risk.level ? `<span class="badge risk risk-${risk.level}">${esc(risk.text)}</span>` : `<span class="risk-none">${esc(risk.text)}</span>`),
     r.helper ? '' : specSpan(r.specUrl),
@@ -428,7 +437,7 @@ export function pageOf(length, page, size) {
 const BACKLOG_PAGE = 10
 
 /** `open` holds the ids of tickets whose `Agents` panel is open, `info` those whose `Details` is open (Agents wins when an id is in both). `chiefLink` is the Chief of Staff thread link the Approve controls open; `viewer` is the dashboard user's GitHub login (cards of another owner drop an empty Agents control). The Backlog and Writing tickets groups are not drawn here; `renderBacklog` draws them on the Backlog tab. */
-export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), chiefLink = '', viewer = null) {
+export function renderStatus(groups, open = new Set(), collapsed = new Set(), info = new Set(), chiefLink = '', viewer = null, usage = null) {
   if (!groups || groups.length === 0) return '<p class="quiet">No state yet</p>'
   const html = BANDS.map((band) => {
     const mine = groups.filter((g) => band.has(g.name))
@@ -436,7 +445,7 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
     const flat = band.flat === true
     const sections = mine
       .map((g) => {
-        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info, chiefLink, viewer })).join('\n')
+        const rows = g.rows.map((r) => ticket(r, { flat, attn: band.slug === 'needs', group: g.name, open, info, chiefLink, viewer, usage })).join('\n')
         // A Todo list read from the tracker over an hour ago says how old it is; its rows carry `stale` and grey themselves.
         const age = g.stale === true && Number.isFinite(g.readAt) ? `<p class="read-age">Read from the tracker ${esc(ageWords(g.readAt, Date.now()))} ago</p>` : ''
         return `<details class="group${GROUP_CLASS.get(g.name) ?? ''}" data-group="${esc(g.name)}"${collapsed.has(g.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(g.name))} <span class="pill">${esc(g.count)}</span></h3></summary>${age}<ul class="cards">${rows}</ul></details>`
@@ -450,15 +459,15 @@ export function renderStatus(groups, open = new Set(), collapsed = new Set(), in
 }
 
 /** The Backlog tab: the `Writing tickets` group first (running ticket helpers, a collapsible section with its own count, not paged, no Start shipping), then the `Backlog` group drawn 10 rows at a time with a pager, its read-age note when the saved list is old, and the Full backlog link; with no Backlog group, `Nothing in the Backlog` follows the helpers. `backlogPage` is the 0-based page; `open`, `info` and `chiefLink` are as in `renderStatus`; each Backlog card gets a Start shipping control. */
-export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '', viewer = null) {
+export function renderBacklog(groups, collapsed = new Set(), backlogPage = 0, open = new Set(), info = new Set(), chiefLink = '', viewer = null, usage = null) {
   const w = list(groups).find((x) => x.name === WRITING)
   const writing = w
-    ? `<details class="group" data-group="${esc(w.name)}"${collapsed.has(w.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(w.name))} <span class="pill">${esc(w.count)}</span></h3></summary><ul class="cards">${list(w.rows).map((r) => ticket(r, { flat: false, attn: false, group: w.name, open, info, chiefLink, viewer })).join('\n')}</ul></details>`
+    ? `<details class="group" data-group="${esc(w.name)}"${collapsed.has(w.name) ? '' : ' open'}><summary><h3>${esc(groupLabel(w.name))} <span class="pill">${esc(w.count)}</span></h3></summary><ul class="cards">${list(w.rows).map((r) => ticket(r, { flat: false, attn: false, group: w.name, open, info, chiefLink, viewer, usage })).join('\n')}</ul></details>`
     : ''
   const g = list(groups).find((x) => x.name === BACKLOG)
   if (!g) return writing + '<p class="quiet">Nothing in the Backlog</p>'
   const { at, pages } = pageOf(g.rows.length, backlogPage, BACKLOG_PAGE)
-  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info, chiefLink, markTodo: true, viewer })).join('\n')
+  const rows = g.rows.slice(at * BACKLOG_PAGE, (at + 1) * BACKLOG_PAGE).map((r) => ticket(r, { flat: true, attn: false, group: g.name, open, info, chiefLink, markTodo: true, viewer, usage })).join('\n')
   const pager =
     pages > 1
       ? `<nav class="pager"><button type="button" data-backlog-page="${at - 1}"${at === 0 ? ' disabled' : ''}>Previous</button> <span>Page ${at + 1} of ${pages}</span> <button type="button" data-backlog-page="${at + 1}"${at === pages - 1 ? ' disabled' : ''}>Next</button></nav>`
@@ -499,7 +508,7 @@ const stamp = (ms) => {
 }
 
 /** One page of the merged list as compact cards plus a pager. `page` is 0-based and comes back clamped; `open` holds the ids of merged Agents panels to keep open, `info` those of Details panels (whose body is filled here only when open, else by the shell). */
-export function renderMerged(list, page, size = 10, open = new Set(), info = new Set(), viewer = null) {
+export function renderMerged(list, page, size = 10, open = new Set(), info = new Set(), viewer = null, usage = null) {
   if (!list || list.length === 0) return { html: '<p class="quiet">Nothing merged yet</p>', page: 0 }
   const { at, pages } = pageOf(list.length, page, size)
   const rows = list
@@ -508,7 +517,7 @@ export function renderMerged(list, page, size = 10, open = new Set(), info = new
       const day = dayWords(e.mergedAt, Date.now())
       const meta = metaLine([
         day && esc(`merged ${day} ${clock(e.mergedAt)}`),
-        typeof e.spend?.cost === 'number' && esc(dollars(e.spend.cost)),
+        typeof e.spend?.cost === 'number' && esc(dollars(e.spend.cost) + subscriptionShare(e.spend.claude, usage)),
         e.spend && esc(`${tokens(e.spend.tokens)} tokens`),
         specSpan(e.specUrl),
         prSpan(e.prUrl),
@@ -694,11 +703,12 @@ export const ciOwner = (items, spans) =>
 
 const activeSpans = (items) => union(items.flatMap((i) => [...i.spans, ...i.kids.flatMap((k) => k.spans)]))
 
-/** What a card's footer says about its sessions: the active time and the cost (null when any row is unpriced); null when nothing is drawn. */
+/** What a card's footer says about its sessions: the active time, the cost (null when any row is unpriced) and `claude`, the cost of the sessions that are not all on Cursor (null when any of their rows is unpriced); null when nothing is drawn. */
 export function ganttSummary(sessions, now) {
   const items = ganttTasks(sessions, now)
   if (items.length === 0) return null
-  return { ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items) }
+  const cursor = (s) => s.rows.length > 0 && s.rows.every((r) => r.harness === 'Cursor')
+  return { ms: activeSpans(items).reduce((n, [a, b]) => n + (b - a), 0), cost: ganttCost(items), claude: ganttCost(items.filter((i) => !cursor(i.s))) }
 }
 
 export function renderGantt(sessions, now, ci) {
@@ -948,7 +958,7 @@ if (typeof document !== 'undefined') {
     fill('.info-body[data-ticket]', rows, shownInfo)
     // The footer summary counts time and cost up to now, and the card is not rebuilt when only those numbers move, so refresh its text here.
     for (const span of document.querySelectorAll('.summary[data-ticket]')) {
-      const text = summaryLine(rows.get(span.dataset.ticket)?.gantt, now)
+      const text = summaryLine(rows.get(span.dataset.ticket)?.gantt, now, last.subscription)
       if (text && span.textContent !== text) span.textContent = text
     }
     fill('.info-body[data-merged]', new Map(last.merged.map((e) => [e.id, e])), shownMergedInfo)
@@ -959,13 +969,13 @@ if (typeof document !== 'undefined') {
   let shownMerged = null
   const drawMerged = () => {
     if (!last) return
-    const r = renderMerged(last.merged, mergedPage, 10, new Set(), new Set(), last.viewer)
+    const r = renderMerged(last.merged, mergedPage, 10, new Set(), new Set(), last.viewer, last.subscription)
     mergedPage = r.page
     if (r.html !== shownMerged) {
       shownMerged = r.html
       const opened = (view) => new Set([...document.querySelectorAll(`.seg[data-merged][data-view="${view}"][aria-expanded="true"]`)].map((d) => d.dataset.merged))
       shownMergedInfo.clear()
-      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('agents'), opened('details'), last.viewer).html
+      document.getElementById('merged').innerHTML = renderMerged(last.merged, mergedPage, 10, opened('agents'), opened('details'), last.viewer, last.subscription).html
       draw()
     }
   }
@@ -1024,8 +1034,8 @@ if (typeof document !== 'undefined') {
     const info = opened('details')
     shownInfo.clear()
     const collapsed = readCollapsed()
-    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info, last.chief?.threadLink, last.viewer)
-    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info, last.chief?.threadLink, last.viewer)
+    document.getElementById('status').innerHTML = renderStatus(last.status, open, collapsed, info, last.chief?.threadLink, last.viewer, last.subscription)
+    document.getElementById('backlog').innerHTML = renderBacklog(last.status, collapsed, backlogPage, open, info, last.chief?.threadLink, last.viewer, last.subscription)
     document.getElementById('cta').innerHTML = renderBadges(last.status)
   }
   // The Ship loop, Backlog and Done tab pills show a ticket count and the Chief of Staff pill its session's subagent count; the button's aria-label carries it too. Written only when changed.

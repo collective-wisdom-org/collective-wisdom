@@ -7,6 +7,7 @@ The `Claude subscription API-equivalent usage` row holds one dollar figure. The 
 
     user_config.py account   print `<host> <login>` for the current repo, nothing when it has no login
     user_config.py path      print the file's path
+    user_config.py subscription <provider>   print the provider's subscription dollars, nothing when unset or unreadable
 """
 
 import math
@@ -125,8 +126,15 @@ def main(argv):
             return 2
         if who:
             print(f"{key.split('/')[0]} {who}")
+    elif len(argv) == 2 and argv[0] == "subscription":
+        try:
+            usage = subscription_usage(argv[1])
+        except UserConfigError:
+            usage = None
+        if usage is not None:
+            print(usage)
     else:
-        print("usage: user_config.py account|path", file=sys.stderr)
+        print("usage: user_config.py account|path|subscription <provider>", file=sys.stderr)
         return 2
     return 0
 

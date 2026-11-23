@@ -87,6 +87,21 @@ def test_subscription_usage(user_md, cell, want):
     assert uc.subscription_usage("Codex") is None
 
 
+@pytest.mark.parametrize("cell, want", [("`12000`", "12000.0"), ("`0.5`", "0.5"), ("`none`", ""), ("`0`", ""), ("`-5`", ""), ("`12,000`", ""), ("text", ""), (None, "")])
+def test_subscription_command(user_md, capsys, cell, want):
+    user_md("me", cell)
+    assert uc.main(["subscription", "Claude"]) == 0
+    assert capsys.readouterr().out.strip() == want
+
+
+def test_subscription_command_with_an_unreadable_file_prints_nothing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    uc.path().parent.mkdir(parents=True)
+    uc.path().write_bytes(b"\xff\xfe")
+    assert uc.main(["subscription", "Claude"]) == 0
+    assert capsys.readouterr().out == ""
+
+
 def lane_row(key, value):
     return f"| {key} | {value} |\n"
 

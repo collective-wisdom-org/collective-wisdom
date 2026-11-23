@@ -341,6 +341,21 @@ export function checkSentPy(thread: string, command: string, after: string, db?:
   })
 }
 
+/** The Claude subscription dollars from `user_config.py subscription Claude`, the one parser of user.md. A positive finite number, else `null`: empty output, a non-zero exit, a timeout or a spawn error. */
+export function subscriptionPy(): Promise<number | null> {
+  return new Promise((done) => {
+    try {
+      execFile('python3', ['-I', join(import.meta.dirname, '..', 'user_config.py'), 'subscription', 'Claude'], { timeout: 2000 }, (err, out) => {
+        const text = String(out).trim()
+        const n = err === null && text !== '' ? Number(text) : NaN
+        done(Number.isFinite(n) && n > 0 ? n : null)
+      })
+    } catch {
+      done(null)
+    }
+  })
+}
+
 /** The body of a press request: at most 256 bytes, else `null`. Also `null` if the body has not ended after 2 seconds, so a stalled body cannot hold the press lock. Past 256 bytes it stops buffering and answers at once. */
 function readBody(req: IncomingMessage): Promise<string | null> {
   return new Promise((done) => {
@@ -373,7 +388,7 @@ export function pressCommand(body: string | null): string | null {
   }
 }
 
-export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: (prefix: string | null) => Promise<string>; checkSent?: (thread: string, command: string, after: string) => Promise<boolean | 'unchecked'>; viewerGh?: (args: string[]) => Promise<string> }): Promise<{ port: number; close(): Promise<void> }> {
+export async function startServer(opts: { root: string; port: number; scheme?: () => Promise<'dark' | 'light' | null>; pressReturn?: (prefix: string | null) => Promise<string>; checkSent?: (thread: string, command: string, after: string) => Promise<boolean | 'unchecked'>; viewerGh?: (args: string[]) => Promise<string>; subscription?: () => Promise<number | null> }): Promise<{ port: number; close(): Promise<void> }> {
   const { root } = opts
   const entry = import.meta.filename
   const running = codeVersion(codeFiles(entry))
@@ -450,6 +465,20 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     } catch {}
     return snapshots
   }
+
+  // The Claude subscription dollars: read at start, then again at most once a minute when /api is built, so a user.md edit shows without a restart. The last good read stays while one is running.
+  const readSubscription = opts.subscription ?? subscriptionPy
+  let subscription: number | null = null
+  let subscriptionAt = 0
+  let subscriptionBusy = false
+  const refreshSubscription = () => {
+    const now = Date.now()
+    if (subscriptionBusy || now - subscriptionAt < 60_000) return
+    subscriptionBusy = true
+    subscriptionAt = now
+    readSubscription().then((n) => { subscription = n }, () => { subscription = null }).finally(() => { subscriptionBusy = false })
+  }
+  refreshSubscription()
 
   // The spend ledger and the gantt history: loaded at start, updated every 30 seconds whether or not the page polls, each rewritten only when it changed.
   let ledger = parseLedger(readRegular(join(agentDir, 'spend.json'), [agentDir]) ?? '')
@@ -561,7 +590,8 @@ export async function startServer(opts: { root: string; port: number; scheme?: (
     backlog.want(titleCfg, trackerLists.changed())
     trackerError = fromFile ? trackerLists.error() : backlog.error()
     void refreshWorktrees()
-    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), openOwners: openPrs.owners(), issueOwners: trackerTitles.owners(), viewer: viewer.get(), updated: updated.get(), spend: spendByTicket(ledger), history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get(), relations: fromFile ? {} : backlog.relations() })
+    refreshSubscription()
+    return buildApi({ state: lastState, snapshots, repo, links, titles: trackerTitles.get(), environmentId: typeof envId === 'string' ? envId : null, now: Date.now(), worktrees, prefix, retired, heads, merged: mergedAll, openPrs: openPrs.get(), openOwners: openPrs.owners(), issueOwners: trackerTitles.owners(), viewer: viewer.get(), updated: updated.get(), spend: spendByTicket(ledger), subscription, history: ganttIds, details: details.get(), ci: ci.get(), teamHistory: teamHistory(history), backlog: fromFile ? trackerLists.get() : backlog.get(), relations: fromFile ? {} : backlog.relations() })
   }
 
   const token = randomBytes(32).toString('hex')

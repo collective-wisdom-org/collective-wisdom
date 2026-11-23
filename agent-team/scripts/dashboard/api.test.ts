@@ -272,11 +272,16 @@ test('a Cursor snapshot with open spans stays open however long since its last e
   }
 })
 
+test('the api copies the subscription figure only when it is a positive finite number', () => {
+  const cases: [number | null | undefined, number | null][] = [[12000, 12000], [0.5, 0.5], [undefined, null], [null, null], [0, null], [-5, null], [NaN, null], [Infinity, null]]
+  for (const [given, want] of cases) assert.equal(build({ subscription: given }).subscription, want, String(given))
+})
+
 test('merged entries get their ticket spend; a session off the board still matches for the ledger', () => {
   const entry = (id: string) => ({ id, title: 't', prUrl: 'https://x.test/pull/1', mergedAt: 1 })
-  const spend = { 'CW-1': { cost: null, tokens: 5 }, 'CW-2': { cost: 1.5, tokens: 9 } }
+  const spend = { 'CW-1': { cost: null, claude: null, tokens: 5 }, 'CW-2': { cost: 1.5, claude: 1, tokens: 9 } }
   const merged = build({ merged: [entry('CW-1'), entry('CW-2'), entry('CW-3'), entry('toString')], spend }).merged as any[]
-  assert.deepEqual(merged.map((e) => e.spend ?? null), [{ cost: null, tokens: 5 }, { cost: 1.5, tokens: 9 }, null, null])
+  assert.deepEqual(merged.map((e) => e.spend ?? null), [{ cost: null, claude: null, tokens: 5 }, { cost: 1.5, claude: 1, tokens: 9 }, null, null])
   assert.ok(!('spend' in merged[2]) && !('spend' in merged[3]))
   assert.ok(!('spend' in (build({ merged: [entry('CW-1')] }).merged[0])))
 
