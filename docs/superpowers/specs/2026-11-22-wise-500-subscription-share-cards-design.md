@@ -1,7 +1,8 @@
 # WISE-500: Show the share of the Claude subscription on dashboard cards
 
-**Status:** Spec
+**Status:** Shipped
 **Ticket:** [#500](https://github.com/collective-wisdom-org/collective-wisdom/issues/500)
+**Shipped:** in PR #502, as specified
 
 ## Goal
 
