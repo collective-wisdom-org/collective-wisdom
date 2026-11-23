@@ -1,8 +1,9 @@
 import type { Session } from './api.ts'
 
-export type SpendEntry = { ticket: string; cost: number | null; tokens: number; updatedAt: number }
+/** `claude` is the Claude Code part of `cost`: all of it, or 0 for a Cursor session; null when the cost is. */
+export type SpendEntry = { ticket: string; cost: number | null; claude: number | null; tokens: number; updatedAt: number }
 export type Ledger = { sessions: Record<string, SpendEntry> }
-export type Spend = { cost: number | null; tokens: number }
+export type Spend = { cost: number | null; claude: number | null; tokens: number }
 
 const MAX_SESSIONS = 2000
 const TICKET = /^[A-Za-z][A-Za-z0-9]*-\d+$/
@@ -26,7 +27,10 @@ export function parseLedger(text: string): Ledger {
     const { ticket, cost, tokens, updatedAt } = e as Record<string, unknown>
     if (typeof ticket !== 'string' || !TICKET.test(ticket) || !nonNeg(tokens) || !nonNeg(updatedAt)) continue
     if (cost !== null && !nonNeg(cost)) continue
-    out.push([id, { ticket, cost: cost as number | null, tokens, updatedAt }])
+    // An entry from before the split has no `claude`: it was all Claude Code.
+    const claude = Object.hasOwn(e, 'claude') ? (e as Record<string, unknown>).claude : cost
+    if (claude !== null && !nonNeg(claude)) continue
+    out.push([id, { ticket, cost: cost as number | null, claude: claude as number | null, tokens, updatedAt }])
   }
   return build(out)
 }
@@ -39,7 +43,8 @@ export function recordSpend(ledger: Ledger, matched: { ticket: string; session: 
     // Main's work is the session row in older snapshots (its task rows repeat it), else the task rows.
     const mainKind = s.rows.some((r) => r.kind === 'session') ? 'session' : 'task'
     const tokens = s.rows.reduce((n, r) => (r.kind === mainKind || r.kind === 'agent' ? n + r.tokens : n), 0)
-    map.set(s.sessionId, { ticket, cost: s.total, tokens, updatedAt: s.updatedAt })
+    const cursor = s.rows.length > 0 && s.rows.every((r) => r.harness === 'Cursor')
+    map.set(s.sessionId, { ticket, cost: s.total, claude: s.total === null ? null : cursor ? 0 : s.total, tokens, updatedAt: s.updatedAt })
   }
   return build([...map].sort((a, b) => b[1].updatedAt - a[1].updatedAt).slice(0, MAX_SESSIONS))
 }
@@ -48,9 +53,10 @@ export function recordSpend(ledger: Ledger, matched: { ticket: string; session: 
 export function spendByTicket(ledger: Ledger): Record<string, Spend> {
   const out = new Map<string, Spend>()
   for (const e of Object.values(ledger.sessions)) {
-    const t = out.get(e.ticket) ?? { cost: null, tokens: 0 }
+    const t = out.get(e.ticket) ?? { cost: null, claude: null, tokens: 0 }
     t.tokens += e.tokens
     if (e.cost !== null) t.cost = (t.cost ?? 0) + e.cost
+    if (e.claude !== null) t.claude = (t.claude ?? 0) + e.claude
     out.set(e.ticket, t)
   }
   return Object.fromEntries(out)
