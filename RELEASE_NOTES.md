@@ -1,5 +1,11 @@
 # Release notes
 
+## 2026-11-23 show the subscription share on dashboard cards (WISE-500) (#502)
+
+Merged 2026-11-23 3:49 am UTC.
+
+The dashboard's ticket cards now show what share of your Claude subscription a ticket used, next to its cost, when `Claude subscription API-equivalent usage` is set in your user.md. Nothing changes when it is unset.
+
 ## 2026-11-22 shrink agent docs by a third, move fixed steps into scripts (WISE-488) (#496)
 
 Merged 2026-11-22 11:42 pm UTC.
